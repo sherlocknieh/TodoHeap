@@ -1,0 +1,34 @@
+name: Deploy Vue to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend-vue/**' # 只有 frontend-vue 目录变动时才触发
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install and Build
+        run: |
+          cd frontend-vue
+          npm install
+          npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: frontend-vue/dist # 部署构建后的目录
+          branch: gh-pages # 部署到 gh-pages 分支
