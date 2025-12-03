@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TodoHeap Debug</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
+        button { padding: 10px 20px; cursor: pointer; }
+        #result { margin-top: 20px; white-space: pre-wrap; background: #f0f0f0; padding: 10px; border-radius: 5px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>TodoHeap Debug Console</h1>
+    
+    <h2>Decompose Goal</h2>
+    <p>Enter a goal to decompose:</p>
+    <textarea id="goalInput" placeholder="e.g., Plan a trip to Japan"></textarea>
+    <br>
+    <button onclick="decompose()">Decompose</button>
+
+    <h3>Result:</h3>
+    <div id="result"></div>
+    
+    <br>
+    <button id="saveBtn" onclick="saveTasks()" style="display:none;">Save to Database</button>
+    <div id="saveResult"></div>
+
+    <script>
+        let currentResult = null;
+
+        async function decompose() {
+            const goal = document.getElementById('goalInput').value;
+            const resultDiv = document.getElementById('result');
+            const saveBtn = document.getElementById('saveBtn');
+            const saveResultDiv = document.getElementById('saveResult');
+            
+            resultDiv.textContent = 'Loading...';
+            resultDiv.className = '';
+            saveBtn.style.display = 'none';
+            saveResultDiv.textContent = '';
+            currentResult = null;
+
+            try {
+                const response = await fetch('/decompose', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ goal: goal })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                currentResult = data;
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                saveBtn.style.display = 'inline-block';
+            } catch (e) {
+                resultDiv.textContent = 'Error: ' + e.message;
+                resultDiv.className = 'error';
+            }
+        }
+
+        async function saveTasks() {
+            if (!currentResult) return;
+            
+            const goal = document.getElementById('goalInput').value;
+            const saveResultDiv = document.getElementById('saveResult');
+            saveResultDiv.textContent = 'Saving...';
+
+            try {
+                // Assuming currentResult has a 'tasks' property or is the list of tasks itself.
+                // Based on decompose.py, it returns `result` which is json.loads(raw).
+                // Let's assume the structure matches what /tasks/save expects or we wrap it.
+                // /tasks/save expects { goal: string, tasks: [...] }
+                
+                // If decompose returns { tasks: [...] } or just [...] we need to handle it.
+                // Let's assume for now decompose returns the object that contains tasks or is the tasks list.
+                // If decompose returns just the list of tasks, we wrap it.
+                
+                let tasksToSave = currentResult;
+                if (Array.isArray(currentResult)) {
+                    tasksToSave = currentResult;
+                } else if (currentResult.tasks) {
+                    tasksToSave = currentResult.tasks;
+                }
+
+                const payload = {
+                    goal: goal,
+                    tasks: tasksToSave
+                };
+
+                const response = await fetch('/tasks/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                saveResultDiv.textContent = 'Saved! ID: ' + JSON.stringify(data);
+            } catch (e) {
+                saveResultDiv.textContent = 'Error saving: ' + e.message;
+                saveResultDiv.className = 'error';
+            }
+        }
+    </script>
+</body>
+</html>
