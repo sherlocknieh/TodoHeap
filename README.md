@@ -35,7 +35,7 @@
     npm run build
     ```
 
-- 提交后可访问: http://sherlocknieh.github.io/todoheap
+- 提交后可访问: https://sherlocknieh.github.io/TodoHeap/
 
 ## 前端(Next.js版):
 
