@@ -19,6 +19,8 @@ async def debug_page():
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 if api_key is None:
+    print("Error: DEEPSEEK_API_KEY environment variable is not set.")
+    print("Set it in your .env file before running the application.")
     exit(1)
 bdt = BreakdownTask(
     base_url="https://api.deepseek.com/v1", model="deepseek-chat", api_key=api_key
