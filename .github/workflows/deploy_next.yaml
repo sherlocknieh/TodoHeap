@@ -36,6 +36,7 @@ jobs:
         run: |
           cd frontend-nextjs
           npm install
+          npm run build:css
           npm run build
           npm run export
       # 部署到 GitHub Pages
