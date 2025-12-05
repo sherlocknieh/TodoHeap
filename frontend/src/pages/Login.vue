@@ -1,145 +1,101 @@
 <template>
   <div class="auth-page">
-    <div class="auth-container">
-      <div class="auth-card">
-        <!-- 品牌区域 -->
-        <div class="brand-section">
-          <div class="logo">📝</div>
-          <h1>TodoHeap</h1>
-          <p class="tagline">简洁高效的待办清单</p>
-        </div>
-
-        <!-- 标签切换 -->
-        <div class="mode-tabs">
-          <button
-            :class="['tab', { active: !isSignUp }]"
-            @click="isSignUp = false"
-          >
-            登录
-          </button>
-          <button
-            :class="['tab', { active: isSignUp }]"
-            @click="isSignUp = true"
-          >
-            注册
-          </button>
-        </div>
-
-        <!-- 表单 -->
-        <form @submit.prevent="handleAuth" class="auth-form">
-          <!-- 邮箱输入 -->
-          <div class="form-group">
-            <label for="email">邮箱地址</label>
-            <div class="input-wrapper">
-              <span class="input-icon">✉️</span>
-              <input
-                id="email"
-                v-model="email"
-                type="email"
-                placeholder="请输入邮箱"
-                required
-                :disabled="loading"
-              />
-            </div>
-          </div>
-
-          <!-- 密码输入 -->
-          <div class="form-group">
-            <label for="password">密码</label>
-            <div class="input-wrapper">
-              <span class="input-icon">🔒</span>
-              <input
-                id="password"
-                v-model="password"
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="请输入密码"
-                required
-                :disabled="loading"
-              />
-              <button
-                type="button"
-                class="toggle-password"
-                @click.prevent="showPassword = !showPassword"
-              >
-                {{ showPassword ? '隐藏' : '显示' }}
-              </button>
-            </div>
-            <p v-if="isSignUp" class="password-hint">
-              密码至少需要 6 个字符
-            </p>
-          </div>
-
-          <!-- 确认密码 (仅注册) -->
-          <div v-if="isSignUp" class="form-group">
-            <label for="confirmPassword">确认密码</label>
-            <div class="input-wrapper">
-              <span class="input-icon">🔒</span>
-              <input
-                id="confirmPassword"
-                v-model="confirmPassword"
-                type="password"
-                placeholder="请再次输入密码"
-                required
-                :disabled="loading"
-              />
-            </div>
-          </div>
-
-          <!-- 错误提示 -->
-          <div v-if="errorMsg" class="error-box">
-            <span class="error-icon">⚠️</span>
-            <span>{{ errorMsg }}</span>
-          </div>
-
-          <!-- 成功提示 -->
-          <div v-if="successMsg" class="success-box">
-            <span class="success-icon">✅</span>
-            <span>{{ successMsg }}</span>
-          </div>
-
-          <!-- 提交按钮 -->
-          <button
-            type="submit"
-            class="submit-btn"
-            :disabled="loading"
-          >
-            <span v-if="loading" class="spinner"></span>
-            {{ loading ? '处理中...' : (isSignUp ? '创建账号' : '登录') }}
-          </button>
-        </form>
-
-        <!-- 底部链接 -->
-        <div class="auth-footer">
-          <p v-if="!isSignUp">
-            还没有账号?
-            <button
-              type="button"
-              class="link-btn"
-              @click="isSignUp = true"
-            >
-              立即注册
-            </button>
-          </p>
-          <p v-else>
-            已有账号?
-            <button
-              type="button"
-              class="link-btn"
-              @click="isSignUp = false"
-            >
-              立即登录
-            </button>
-          </p>
-        </div>
+    <div class="auth-card">
+      <!-- 品牌区域 -->
+      <div class="brand-section">
+        <div class="logo">📝</div>
+        <h1>TodoHeap</h1>
+        <p class="tagline">简洁高效的待办清单</p>
       </div>
 
-      <!-- 右侧装饰 (大屏显示) -->
-      <div class="decoration">
-        <div class="decoration-item item-1">📋</div>
-        <div class="decoration-item item-2">✓</div>
-        <div class="decoration-item item-3">⏰</div>
-        <div class="decoration-item item-4">🎯</div>
+      <!-- 标签切换 -->
+      <div class="mode-tabs">
+        <button :class="['tab', { active: !isSignUp }]" @click="isSignUp = false">
+          登录
+        </button>
+        <button :class="['tab', { active: isSignUp }]" @click="isSignUp = true">
+          注册
+        </button>
       </div>
+
+      <!-- 表单 -->
+      <form @submit.prevent="handleAuth" class="auth-form">
+        <!-- 邮箱输入 -->
+        <div class="form-group">
+          <label for="email">邮箱地址</label>
+          <div class="input-wrapper">
+            <span class="input-icon">✉️</span>
+            <input id="email" v-model="email" type="email" placeholder="请输入邮箱" required :disabled="loading" />
+          </div>
+        </div>
+
+        <!-- 密码输入 -->
+        <div class="form-group">
+          <label for="password">密码</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="请输入密码"
+              required :disabled="loading" />
+            <button type="button" class="toggle-password" @click.prevent="showPassword = !showPassword">
+              {{ showPassword ? '隐藏' : '显示' }}
+            </button>
+          </div>
+          <p v-if="isSignUp" class="password-hint">
+            密码至少需要 6 个字符
+          </p>
+        </div>
+
+        <!-- 确认密码 (仅注册) -->
+        <div v-if="isSignUp" class="form-group">
+          <label for="confirmPassword">确认密码</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input id="confirmPassword" v-model="confirmPassword" type="password" placeholder="请再次输入密码" required
+              :disabled="loading" />
+          </div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div v-if="errorMsg" class="error-box">
+          <span class="error-icon">⚠️</span>
+          <span>{{ errorMsg }}</span>
+        </div>
+
+        <!-- 成功提示 -->
+        <div v-if="successMsg" class="success-box">
+          <span class="success-icon">✅</span>
+          <span>{{ successMsg }}</span>
+        </div>
+
+        <!-- 提交按钮 -->
+        <button type="submit" class="submit-btn" :disabled="loading">
+          <span v-if="loading" class="spinner"></span>
+          {{ loading ? '处理中...' : (isSignUp ? '创建账号' : '登录') }}
+        </button>
+      </form>
+
+      <!-- 底部链接 -->
+      <div class="auth-footer">
+        <p v-if="!isSignUp">
+          还没有账号?
+          <button type="button" class="link-btn" @click="isSignUp = true">
+            立即注册
+          </button>
+        </p>
+        <p v-else>
+          已有账号?
+          <button type="button" class="link-btn" @click="isSignUp = false">
+            立即登录
+          </button>
+        </p>
+      </div>
+    </div>
+    <!-- 装饰元素 -->
+    <div class="decoration">
+      <div class="decoration-item item-1">🗒️</div>
+      <div class="decoration-item item-2">✅</div>
+      <div class="decoration-item item-3">🕒</div>
+      <div class="decoration-item item-4">📅</div>
     </div>
   </div>
 </template>
@@ -147,7 +103,9 @@
 <script setup>
 import { ref } from 'vue'
 import { supabase } from '../supabase'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -214,8 +172,11 @@ const handleAuth = async () => {
       if (error) {
         errorMsg.value = error.message
       } else {
-        successMsg.value = '登录成功！正在加载...'
-        // 登录成功，app.vue 会自动监听状态变化并切换视图
+        successMsg.value = '登录成功！正在跳转...'
+        // 登录成功后，路由守卫会自动重定向到 /app
+        setTimeout(() => {
+          router.push('/app')
+        }, 1000)
       }
     }
   } catch (error) {
@@ -230,6 +191,8 @@ const handleAuth = async () => {
 <style scoped>
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 .auth-page {
@@ -239,13 +202,7 @@ const handleAuth = async () => {
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
-}
-
-.auth-container {
-  display: flex;
-  gap: 40px;
-  align-items: center;
-  width: 100%;
+  position: relative;
 }
 
 .auth-card {
@@ -254,6 +211,8 @@ const handleAuth = async () => {
   padding: 40px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 100%;
+  max-width: 500px;
+  z-index: 10;
 }
 
 /* 品牌区域 */
@@ -264,6 +223,7 @@ const handleAuth = async () => {
 
 .logo {
   font-size: 48px;
+  display: block;
   margin-bottom: 10px;
 }
 
@@ -275,46 +235,43 @@ const handleAuth = async () => {
 }
 
 .tagline {
-  color: #999;
   font-size: 14px;
+  color: #999;
   margin: 0;
 }
 
-/* 标签切换 */
+/* 标签页切换 */
 .mode-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 10px;
   margin-bottom: 30px;
-  background: #f5f5f5;
-  padding: 4px;
-  border-radius: 8px;
+  border-bottom: 2px solid #e0e0e0;
 }
 
 .tab {
-  padding: 10px 16px;
+  flex: 1;
+  padding: 12px 20px;
+  background: none;
   border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  border-bottom: 3px solid transparent;
   color: #999;
-  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.3s ease;
+  margin-bottom: -2px;
+}
+
+.tab:hover {
+  color: #667eea;
 }
 
 .tab.active {
-  background: white;
   color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  border-bottom-color: #667eea;
 }
 
-/* 表单 */
-.auth-form {
-  display: flex;
-  flex-direction: column;
-}
-
+/* 表单组 */
 .form-group {
   margin-bottom: 20px;
 }
@@ -322,11 +279,12 @@ const handleAuth = async () => {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
   color: #333;
+  font-size: 14px;
+  font-weight: 600;
 }
 
+/* 输入框包装器 */
 .input-wrapper {
   position: relative;
   display: flex;
@@ -339,6 +297,7 @@ const handleAuth = async () => {
   font-size: 18px;
   pointer-events: none;
   color: #667eea;
+  z-index: 1;
 }
 
 .form-group input {
@@ -372,6 +331,7 @@ const handleAuth = async () => {
   cursor: pointer;
   padding: 4px 8px;
   transition: color 0.3s ease;
+  z-index: 2;
 }
 
 .toggle-password:hover {
@@ -418,6 +378,7 @@ const handleAuth = async () => {
 
 /* 提交按钮 */
 .submit-btn {
+  width: 100%;
   padding: 12px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -474,6 +435,7 @@ const handleAuth = async () => {
   font-weight: 600;
   cursor: pointer;
   padding: 0;
+  margin: 0 4px;
   transition: color 0.3s ease;
 }
 
@@ -485,9 +447,10 @@ const handleAuth = async () => {
 /* 装饰元素 */
 .decoration {
   display: none;
-  position: relative;
+  position: absolute;
   width: 200px;
   height: 300px;
+  pointer-events: none;
 }
 
 .decoration-item {
@@ -522,8 +485,7 @@ const handleAuth = async () => {
 }
 
 @keyframes float {
-  0%,
-  100% {
+  0%, 100% {
     transform: translateY(0px);
   }
   50% {
@@ -535,10 +497,6 @@ const handleAuth = async () => {
 @media (min-width: 768px) {
   .decoration {
     display: block;
-  }
-
-  .auth-container {
-    gap: 60px;
   }
 }
 
@@ -563,8 +521,22 @@ const handleAuth = async () => {
     margin-bottom: 25px;
   }
 
+  .tab {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
   .submit-btn {
-    margin-bottom: 15px;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .brand-section {
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
   }
 }
 </style>
