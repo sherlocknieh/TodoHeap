@@ -28,14 +28,14 @@
     ```bash
     npm run dev
     ```
-- 访问: http://localhost:3000
+- 访问: http://localhost:5173/vue/
 
 - 构建
     ```bash
     npm run build
     ```
 
-- 提交后可访问: https://sherlocknieh.github.io/TodoHeap/
+- 提交后可访问: https://sherlocknieh.github.io/TodoHeap/vue/
 
 ## 前端(Next.js版):
 
@@ -52,4 +52,4 @@
 - 访问: http://localhost:3000
 
 
-- 提交后访问: https://todo-heap-fawn.vercel.app/
+- 提交后可访问: https://sherlocknieh.github.io/TodoHeap/next/

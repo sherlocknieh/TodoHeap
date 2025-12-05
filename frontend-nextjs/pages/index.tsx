@@ -3,6 +3,7 @@ import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { Auth, ThemeSupa } from '@supabase/auth-ui-react'
 import TodoList from '@/components/TodoList'
 
+// 登录页面 / 主页面
 export default function Home() {
   const session = useSession()
   const supabase = useSupabaseClient()
