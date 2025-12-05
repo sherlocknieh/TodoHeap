@@ -2,8 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'export',
-  basePath: '/next',
-  assetPrefix: '/next/',
+  basePath: '/TodoHeap/next',
+  assetPrefix: '/TodoHeap/next/',
   images: {
     unoptimized: true,
   },
