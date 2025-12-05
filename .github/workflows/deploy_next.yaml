@@ -37,6 +37,9 @@ jobs:
           cd frontend-nextjs
           npm install
           npm run build
+      # 在 out/ 根目录创建 .nojekyll
+      - name: Add .nojekyll
+        run: touch frontend-nextjs/out/.nojekyll
       # 部署到 GitHub Pages
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4

@@ -1,6 +1,6 @@
 'use client'
 
-import { createBrowserClient } from '@supabase/auth-helpers-react'
+import { createClient } from '@supabase/supabase-js'
 import type { ReactNode } from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
@@ -17,7 +17,7 @@ const SupabaseContext = createContext<SupabaseContextValue | null>(null)
 function SupabaseProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(
     () =>
-      createBrowserClient<Database>(
+      createClient<Database>(
         process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
       ),
