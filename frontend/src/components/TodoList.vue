@@ -27,7 +27,7 @@ const addTodo = async () => {
   if (task.length) {
     const { data, error } = await supabase
       .from('todos')
-      .insert({ task, user_id: props.session.user.id })
+      .insert({ title: task, user_id: props.session.user.id })
       .select()
       .single()
 
@@ -74,8 +74,7 @@ const toggleDone = async (todo) => {
     <div class="input-group">
       <input 
         v-model="newTaskText" 
-        @keyup.enter="addTodo" 
-        placeholder="make coffee" 
+        @keyup.enter="addTodo"
       />
       <button @click="addTodo">Add</button>
     </div>
@@ -86,7 +85,7 @@ const toggleDone = async (todo) => {
 
     <ul class="todo-list">
       <li v-for="todo in todos" :key="todo.id" :class="{ done: todo.is_complete }">
-        <span @click="toggleDone(todo)">{{ todo.task }}</span>
+        <span @click="toggleDone(todo)">{{ todo.title }}</span>
         <button class="delete-btn" @click="deleteTodo(todo.id)">x</button>
       </li>
     </ul>
