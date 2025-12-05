@@ -96,7 +96,6 @@ const toggleDone = async (todo) => {
 <style scoped>
 .todo-app {
   font-family: Arial, sans-serif;
-  max-width: 400px;
   margin: 0 auto;
   text-align: left;
 }

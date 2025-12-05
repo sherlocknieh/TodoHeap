@@ -12,6 +12,7 @@
     ```
 - 运行
     ```bash
+    cd backend
     uv run main.py
     ```
 - 访问: http://localhost:8000/
@@ -26,16 +27,11 @@
     ```
 - 运行
     ```bash
+    cd frontend-vue
     npm run dev
     ```
-- 访问: http://localhost:5173/vue/
-
-- 构建
-    ```bash
-    npm run build
-    ```
-
-- 提交后可访问: https://sherlocknieh.github.io/TodoHeap/vue/
+- 本地调试: http://localhost:5173/TodoHeap/vue/
+- 在线访问: https://sherlocknieh.github.io/TodoHeap/vue/
 
 ## 前端(Next.js版):
 
@@ -47,9 +43,8 @@
     ```
 - 运行
     ```bash
+    cd frontend-nextjs
     npm run dev
     ```
-- 访问: http://localhost:3000
-
-
-- 提交后可访问: https://sherlocknieh.github.io/TodoHeap/next/
+- 本地调试: http://localhost:3000/TodoHeap/next/
+- 在线访问: https://sherlocknieh.github.io/TodoHeap/next/
