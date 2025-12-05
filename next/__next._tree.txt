@@ -1,0 +1,2 @@
+:HL["/TodoHeap/next/_next/static/chunks/0d723631efe3add8.css","style"]
+0:{"buildId":"ub5YJUuN71Xqzz1JWjXfU","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
