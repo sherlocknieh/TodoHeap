@@ -36,7 +36,6 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          # 目标目录
           folder: frontend-vue/dist
-          # 目标分支
           branch: gh-pages
+          target-folder: vue
