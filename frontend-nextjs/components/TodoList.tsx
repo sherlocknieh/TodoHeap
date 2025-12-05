@@ -1,11 +1,16 @@
 import { Database } from '@/lib/schema'
-import { Session, useSupabaseClient } from '@supabase/auth-helpers-react'
+import { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 
 type Todos = Database['public']['Tables']['todos']['Row']
 
-export default function TodoList({ session }: { session: Session }) {
-  const supabase = useSupabaseClient<Database>()
+export default function TodoList({
+  session,
+  supabase,
+}: {
+  session: Session
+  supabase: SupabaseClient<any>
+}) {
   const [todos, setTodos] = useState<Todos[]>([])
   const [newTaskText, setNewTaskText] = useState('')
   const [errorText, setErrorText] = useState('')
@@ -81,7 +86,7 @@ export default function TodoList({ session }: { session: Session }) {
       <div className="bg-white shadow overflow-hidden rounded-md">
         <ul>
           {todos.map((todo) => (
-            <Todo key={todo.id} todo={todo} onDelete={() => deleteTodo(todo.id)} />
+            <Todo key={todo.id} todo={todo} onDelete={() => deleteTodo(todo.id)} supabase={supabase} />
           ))}
         </ul>
       </div>
@@ -89,8 +94,15 @@ export default function TodoList({ session }: { session: Session }) {
   )
 }
 
-const Todo = ({ todo, onDelete }: { todo: Todos; onDelete: () => void }) => {
-  const supabase = useSupabaseClient<Database>()
+const Todo = ({
+  todo,
+  onDelete,
+  supabase,
+}: {
+  todo: Todos
+  onDelete: () => void
+  supabase: SupabaseClient<any>
+}) => {
   const [isCompleted, setIsCompleted] = useState(todo.is_complete)
 
   const toggle = async () => {

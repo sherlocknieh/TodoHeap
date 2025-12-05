@@ -17,23 +17,23 @@
     ```
 - 访问: http://localhost:8000/
 
-## 前端(Vue版):
+## 前端:
 
 - 安装 Node.js
 - 安装项目依赖
     ```bash
-    cd frontend-vue
+    cd frontend
     npm install
     ```
 - 运行
     ```bash
-    cd frontend-vue
+    cd frontend
     npm run dev
     ```
-- 本地调试: http://localhost:5173/TodoHeap/vue/
-- 在线访问: https://sherlocknieh.github.io/TodoHeap/vue/
+- 本地调试: http://localhost:5173/TodoHeap/
+- 在线访问: https://sherlocknieh.github.io/TodoHeap/
 
-## 前端(Next.js版):
+## 前端 - Next.js版:
 
 - 安装 Node.js
 - 安装项目依赖

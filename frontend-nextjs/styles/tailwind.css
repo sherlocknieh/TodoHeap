@@ -1,30 +1,33 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Write your own custom component styles here */
-.btn-black {
-  @apply border border-black bg-black text-white font-bold py-2 px-4 rounded text-center;
-}
-.btn-black:hover {
-  @apply transition duration-150 bg-white text-black;
-}
-.btn-black-outline {
-  @apply border border-black text-black py-2 px-4 rounded font-bold text-center;
-}
-.btn-black-outline:hover {
-  @apply transition duration-150 bg-black text-white;
-}
+@source "./app/**/*.{js,ts,jsx,tsx}" "./pages/**/*.{js,ts,jsx,tsx}" "./components/**/*.{js,ts,jsx,tsx}" "./styles/**/*.css";
 
-html,
-body,
-#__next {
-  height: 100vh;
-  min-height: 100vh;
+@layer components {
+  .btn-black {
+    @apply border border-black bg-black text-white font-bold py-2 px-4 rounded text-center;
+  }
+  .btn-black:hover {
+    @apply transition duration-150 bg-white text-black;
+  }
+  .btn-black-outline {
+    @apply border border-black text-black py-2 px-4 rounded font-bold text-center;
+  }
+  .btn-black-outline:hover {
+    @apply transition duration-150 bg-black text-white;
+  }
 }
 
-h1 {
-  font-size: 4rem;
-  font-weight: bold;
-  display: block;
+@layer base {
+  html,
+  body,
+  #__next {
+    height: 100vh;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 4rem;
+    font-weight: bold;
+    display: block;
+  }
 }

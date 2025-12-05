@@ -5,29 +5,33 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:css\" \"next dev\"",
     "dev:css": "tailwindcss -w -i ./styles/tailwind.css -o styles/app.css",
-    "build": "next build",
-    "export": "next export",
+    "build": "npm run build:css && next build",
+    "export": "echo 'next export is removed; use next build with output=export'",
     "build:css": "tailwindcss -m -i ./styles/tailwind.css -o styles/app.css",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
-    "@next/font": "13.1.6",
-    "@supabase/auth-helpers-react": "^0.3.1",
-    "@supabase/auth-ui-react": "^0.2.8",
-    "@supabase/supabase-js": "^2.8.0",
-    "@types/node": "18.14.0",
-    "@types/react": "18.0.28",
-    "@types/react-dom": "18.0.11",
-    "eslint": "8.34.0",
-    "eslint-config-next": "13.1.6",
-    "next": "13.1.6",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "typescript": "4.9.5"
+    "@supabase/auth-helpers-react": "^0.15.0",
+    "@supabase/auth-ui-react": "^0.4.7",
+    "@supabase/supabase-js": "^2.86.2",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.0.7",
+    "next": "16.0.7",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "typescript": "5.9.3"
   },
   "devDependencies": {
-    "concurrently": "^7.6.0",
-    "tailwindcss": "^3.2.7"
+    "@tailwindcss/cli": "^4.1.17",
+    "concurrently": "^9.2.1",
+    "tailwindcss": "^4.1.17"
+  },
+  "overrides": {
+    "react": "19.2.1",
+    "react-dom": "19.2.1"
   }
 }

@@ -3,11 +3,11 @@
 - 安装Node.js
 - 安装项目依赖
     ```bash
-    cd frontend-vue
+    cd frontend
     npm install
     ```
 - 运行
     ```bash
-    cd frontend-vue
+    cd frontend
     npm run dev
     ```
