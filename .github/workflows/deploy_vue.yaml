@@ -7,11 +7,6 @@ on:
     paths:
       - 'frontend/**'
 
-# 并发控制: 确保 gh-pages 部署不会冲突
-concurrency:
-  group: gh-pages-deploy
-  cancel-in-progress: false
-
 # 权限设置: 允许写入
 permissions:
   contents: write
@@ -43,3 +38,4 @@ jobs:
         with:
           folder: frontend/dist
           branch: gh-pages
+          clean: false
