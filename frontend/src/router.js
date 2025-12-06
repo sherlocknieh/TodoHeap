@@ -39,6 +39,7 @@ const routes = [
       {
         path: 'list',
         name: 'ListView',
+        component: () => import('./pages/Todo.vue'),
         meta: { 
           requiresAuth: true,
           title: 'TodoHeap - 列表视图'
@@ -47,6 +48,7 @@ const routes = [
       {
         path: 'tree',
         name: 'TreeView',
+        component: () => import('./pages/Todo.vue'),
         meta: { 
           requiresAuth: true,
           title: 'TodoHeap - 树视图'
@@ -55,6 +57,7 @@ const routes = [
       {
         path: 'heap',
         name: 'HeapView',
+        component: () => import('./pages/Todo.vue'),
         meta: { 
           requiresAuth: true,
           title: 'TodoHeap - 堆视图'

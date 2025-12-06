@@ -8,9 +8,13 @@ export const useTodoStore = defineStore('todos', () => {
   const todos = ref([])
   const loading = ref(false)
   const error = ref(null)
+  const isFetched = ref(false)  // 记录是否已经成功获取过一次数据
 
   // 获取待办事项列表
   const fetchTodos = async () => {
+    // 如果已经在加载中，不重复请求
+    if (loading.value) return { success: true }
+    
     loading.value = true
     error.value = null
     try {
@@ -23,6 +27,7 @@ export const useTodoStore = defineStore('todos', () => {
 
       if (fetchError) throw fetchError
       todos.value = data || []
+      isFetched.value = true
       return { success: true }
     } catch (err) {
       error.value = err.message
@@ -184,6 +189,7 @@ export const useTodoStore = defineStore('todos', () => {
     todos,
     loading,
     error,
+    isFetched,
     // 计算属性
     treeNodes,
     columns,

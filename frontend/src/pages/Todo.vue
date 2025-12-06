@@ -45,6 +45,22 @@ onMounted(async () => {
 	}
 })
 
+// 监听路由变化，确保数据总是最新的
+watch(
+	() => route.name,
+	async (newRouteName) => {
+		console.log('Route changed to:', newRouteName)
+		if (authStore.isAuthenticated && newRouteName?.includes('View')) {
+			console.log('Checking todos - isFetched:', todoStore.isFetched, 'loading:', todoStore.loading)
+			// 确保数据已经获取过
+			if (!todoStore.isFetched && !todoStore.loading) {
+				console.log('Fetching todos...')
+				await todoStore.fetchTodos()
+			}
+		}
+	}
+)
+
 const handleSignOut = async () => {
 	const result = await authStore.signOut()
 	if (result.success) {
@@ -92,10 +108,16 @@ const switchView = (view) => {
 				<TodoList />
 			</div>
 			<div v-else-if="activeView === 'tree'">
-				<TodoTree :todos="todoStore.treeNodes" title="Todo Mind Map" />
+				<div v-if="todoStore.loading" class="loading-state">
+					<p>⏳ 加载中...</p>
+				</div>
+				<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" />
 			</div>
 			<div v-else>
-				<TodoHeap :todos="todoStore.todos" />
+				<div v-if="todoStore.loading" class="loading-state">
+					<p>⏳ 加载中...</p>
+				</div>
+				<TodoHeap v-else :todos="todoStore.todos" />
 			</div>
 		</div>
 	</div>
@@ -236,6 +258,22 @@ const switchView = (view) => {
 	border-radius: 12px;
 	padding: 16px;
 	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+	min-height: 300px;
+	display: flex;
+	flex-direction: column;
+}
+
+.loading-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 400px;
+	color: #9ca3af;
+	font-size: 16px;
+}
+
+.loading-state p {
+	margin: 0;
 }
 
 @media (max-width: 768px) {
