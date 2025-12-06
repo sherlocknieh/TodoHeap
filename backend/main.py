@@ -5,16 +5,22 @@ import os
 
 
 # 导入环境变量
-load_dotenv()
+try:
+    print("正在从系统环境变量中加载配置...")
+    load_dotenv()
 
+    SUPABASE_URL = os.getenv("PUBLIC_SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+    EMAIL = os.getenv("USER_EMAIL")
+    PASSWORD = os.getenv("USER_PASSWORD")
+except Exception as e:
+    print(f"❌ 加载环境变量失败: {e}")
+    print("请创建 .env 文件并按照 .env.example 填写环境变量")
+    exit(1)
 
 # 初始化 Supabase 客户端
-SUPABASE_URL = os.getenv("PUBLIC_SUPABASE_URL")
-SUPABASE_KEY = os.getenv("PUBLIC_SUPABASE_PUBLISHABLE_KEY")
 supabase_client = supabase.create_client(SUPABASE_URL, SUPABASE_KEY)
 
-EMAIL = os.getenv("USER_EMAIL")
-PASSWORD = os.getenv("USER_PASSWORD")
 
 # 用户登录测试
 try:
