@@ -6,12 +6,14 @@
 
 ## 开发指南
 
-### 前端 (Vue)
+### 前端
 
 - 安装 Node.js
     ```powershell
     winget install OpenJS.NodeJS
-    # 配置 npm 源为国内镜像
+    ```
+- 配置国内镜像源
+    ```bash
     npm config set registry https://registry.npmmirror.com
     ```
 - 安装项目依赖
@@ -25,7 +27,7 @@
 - 本地调试: http://localhost:5174/
 - 在线访问: https://sherlocknieh.github.io/TodoHeap/
 
-### 后端 (Supabase)
+### 后端
 
 - 注册 [Supabase](https://supabase.com/) 并登录;
 - 把注册邮箱发给我, 我把该账户添加为项目成员;
@@ -33,9 +35,9 @@
 
 用 Python 进行本地调试:
 
-- 安装uv
+- 安装 Python 和 uv
     ```powershell
-    winget install uv
+    winget install python3 uv
     ```
 - 安装依赖
     ```bash
@@ -52,14 +54,15 @@
 2. 在个人仓库上进行开发 (管理员直接克隆本仓库开发);
 3. 开发任何新功能前都创建一个新分支:
     ```bash
-    git checkout -b feature/your-feature-name
+    git checkout -b feature-name
     ```
 4. 在分支上开发完成后推送到个人仓库;
 5. 创建 Pull Request 并等待合并;
 6. 代码被合并后即可删除分支:
     ```bash
-    # 本地删除分支
-    git branch -d feature/your-feature-name
-    # 远程删除分支
-    git push origin --delete feature/your-feature-name
+    # 删除本地分支
+    git branch -d feature-name
+
+    # 删除远程分支
+    git push origin --delete feature-name
     ```

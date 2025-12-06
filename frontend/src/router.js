@@ -1,17 +1,12 @@
-// 路由管理
-
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
-import Login from './pages/Login.vue'
-import Home from './pages/Home.vue'
-import Todo from './pages/Todo.vue'
 
 const routes = [
   // 首页
   {
     path: '/',
     name: 'Landing',
-    component: Home,
+    component: () => import('./pages/Home.vue'),
     meta: { 
       requiresAuth: false,
       title: 'TodoHeap - 简洁高效的待办清单'
@@ -21,7 +16,7 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login,
+    component: () => import('./pages/Login.vue'),
     meta: { 
       requiresAuth: false,
       title: 'TodoHeap - 登录/注册'
@@ -31,11 +26,41 @@ const routes = [
   {
     path: '/app',
     name: 'App',
-    component: Todo,
+    component: () => import('./pages/Todo.vue'),
     meta: { 
       requiresAuth: true,
-      title: 'TodoHeap - 我的待办'
-    }
+      title: 'TodoHeap - 我的清单'
+    },
+    children: [
+      {
+        path: '',
+        redirect: '/app/list'
+      },
+      {
+        path: 'list',
+        name: 'ListView',
+        meta: { 
+          requiresAuth: true,
+          title: 'TodoHeap - 列表视图'
+        }
+      },
+      {
+        path: 'tree',
+        name: 'TreeView',
+        meta: { 
+          requiresAuth: true,
+          title: 'TodoHeap - 树视图'
+        }
+      },
+      {
+        path: 'heap',
+        name: 'HeapView',
+        meta: { 
+          requiresAuth: true,
+          title: 'TodoHeap - 堆视图'
+        }
+      }
+    ]
   },
   // 设置页面（需要认证）
   {
@@ -75,16 +100,20 @@ router.beforeEach(async (to, from, next) => {
 
   const isAuthenticated = authStore.isAuthenticated
 
+  // 需要认证但未登录，重定向到登录页
   if (to.meta.requiresAuth && !isAuthenticated) {
-    // 需要认证但未登录，重定向到登录页
     next('/login')
-  } else if (to.path === '/login' && isAuthenticated) {
-    // 已登录但访问登录页，重定向到应用页
-    next('/app')
-  } else {
-    // 其他情况，正常访问
-    next()
+    return
   }
+
+  // 已登录用户访问登录页，重定向到应用页
+  if (to.path === '/login' && isAuthenticated) {
+    next('/app')
+    return
+  }
+
+  // 其他情况，正常访问
+  next()
 })
 
 // 路由导航后：设置页面标题

@@ -1,7 +1,7 @@
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useTodoStore } from '../stores/todos'
 import TodoList from './work/TodoList.vue'
@@ -9,10 +9,28 @@ import TodoTree from './work/TodoTree.vue'
 import TodoHeap from './work/TodoHeap.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
 
-const activeView = ref('list')
+// 根据路由名称同步当前视图
+const activeView = computed({
+	get: () => {
+		const routeName = route.name
+		if (routeName === 'TreeView') return 'tree'
+		if (routeName === 'HeapView') return 'heap'
+		return 'list' // 默认是 ListView
+	},
+	set: (view) => {
+		const viewNames = {
+			'list': 'ListView',
+			'tree': 'TreeView',
+			'heap': 'HeapView'
+		}
+		router.push({ name: viewNames[view] })
+	}
+})
+
 const showUserMenu = ref(false)
 
 onMounted(async () => {
@@ -38,6 +56,10 @@ const openSettings = () => {
 	router.push('/settings')
 	showUserMenu.value = false
 }
+
+const switchView = (view) => {
+	activeView.value = view
+}
 </script>
 
 <template>
@@ -60,9 +82,9 @@ const openSettings = () => {
 		</div>
 
 		<div class="view-tabs">
-			<button :class="['tab', { active: activeView === 'list' }]" @click="activeView = 'list'">列表视图</button>
-			<button :class="['tab', { active: activeView === 'tree' }]" @click="activeView = 'tree'">树视图</button>
-			<button :class="['tab', { active: activeView === 'heap' }]" @click="activeView = 'heap'">堆视图</button>
+			<button :class="['tab', { active: activeView === 'list' }]" @click="switchView('list')">列表视图</button>
+			<button :class="['tab', { active: activeView === 'tree' }]" @click="switchView('tree')">树视图</button>
+			<button :class="['tab', { active: activeView === 'heap' }]" @click="switchView('heap')">堆视图</button>
 		</div>
 
 		<div class="view-area">
