@@ -7,7 +7,8 @@ const routes = [
   {
     path: '/',
     name: 'Landing',
-    component: { template: '<div><!-- 推广页由 App.vue 主组件处理 --></div>' },
+    // 用 render 函数避免在运行时编译模板（Edge 会警告 runtime compilation 不支持）
+    component: { render: () => null },
     meta: { 
       requiresAuth: false,
       title: 'TodoHeap - 简洁高效的待办清单'
