@@ -6,9 +6,9 @@
 
     - 安装依赖
         ```bash
-        cd backend; uv sync
+        uv sync
         ```
     - 运行
         ```bash
-        cd backend; uv run main.py
+        uv run main.py
         ```
