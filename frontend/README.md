@@ -1,4 +1,4 @@
-# TodoHeap 前端 - Vue 版本
+# TodoHeap 前端
 
 - 安装 Node.js
     ```powershell

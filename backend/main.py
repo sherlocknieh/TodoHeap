@@ -1,44 +1,50 @@
+
 from dotenv import load_dotenv
-
-load_dotenv()
-
+import supabase
 import os
 
-from breakdown_task import BreakdownTask
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
 
-app = FastAPI()
+# 导入环境变量
+load_dotenv()
 
 
-@app.get("/")
-async def debug_page():
-    return FileResponse(os.path.join("static", "debug.html"))
+# 初始化 Supabase 客户端
+SUPABASE_URL = os.getenv("PUBLIC_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+supabase_client = supabase.create_client(SUPABASE_URL, SUPABASE_KEY)
+
+EMAIL = os.getenv("USER_EMAIL")
+PASSWORD = os.getenv("USER_PASSWORD")
+
+# 用户登录测试
+try:
+    auth_response = supabase_client.auth.sign_in_with_password({
+        "email": EMAIL,
+        "password": PASSWORD
+    })
+    print("✅ 登录成功")
+    print(f"响应: {auth_response}")
+except Exception as e:
+    print(f"❌ 登录失败: {e}")
 
 
-api_key = os.environ.get("DEEPSEEK_API_KEY")
-if api_key is None:
-    print("Error: DEEPSEEK_API_KEY environment variable is not set.")
-    print("Set it in your .env file before running the application.")
-    exit(1)
-bdt = BreakdownTask(
-    base_url="https://api.deepseek.com/v1", model="deepseek-chat", api_key=api_key
-)
+
+# 数据库访问测试
+try:
+    # 查询 todos 表（测试数据库连接）
+    response = supabase_client.table('todos').select('*').limit(1).execute()
+    print("✅ Supabase 连接成功")
+    print(f"响应: {response}")
+except Exception as e:
+    print(f"❌ Supabase 连接失败: {e}")
 
 
-class RequestGoal(BaseModel):
-    goal: str
 
-
-@app.post("/decompose")
-async def decompose(request: RequestGoal):
-    response = bdt.prompt(request.goal)
-
-    return response
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="debug")
+# 边缘函数调用测试
+try:
+    response = supabase_client.functions.invoke("hello-world",
+    invoke_options={"body": {"name": "Functions"}})
+    print("✅ 边缘函数调用成功")
+    print(f"响应: {response}")
+except Exception as e:
+    print(f"❌ 边缘函数调用失败: {e}")

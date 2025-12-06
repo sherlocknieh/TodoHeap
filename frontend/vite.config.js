@@ -7,7 +7,5 @@ export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? '/TodoHeap/' : '/',
   server: {
     open: true,
-    port: 5174,
-    strictPort: true,
   },
 })

@@ -3,19 +3,26 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
 
 const props = defineProps(['session'])
+const emit = defineEmits(['change'])
 
 const todos = ref([])
 const newTaskText = ref('')
 const errorText = ref('')
+const isAdding = ref(false)
 
 const fetchTodos = async () => {
   const { data, error } = await supabase
     .from('todos')
     .select('*')
+    .neq('status', 'deleted')
+    .order('priority', { ascending: false })
     .order('id', { ascending: true })
 
   if (error) console.log('error', error)
-  else todos.value = data
+  else {
+    todos.value = data
+    emit('change', todos.value)
+  }
 }
 
 onMounted(() => {
@@ -24,10 +31,14 @@ onMounted(() => {
 
 const addTodo = async () => {
   const task = newTaskText.value.trim()
-  if (task.length) {
+  if (!task || isAdding.value) return
+
+  isAdding.value = true
+
+  try {
     const { data, error } = await supabase
       .from('todos')
-      .insert({ title: task, user_id: props.session.user.id })
+      .insert({ title: task, user_id: props.session.user.id, status: 'todo', priority: 0 })
       .select()
       .single()
 
@@ -36,14 +47,23 @@ const addTodo = async () => {
     } else {
       todos.value.push(data)
       newTaskText.value = ''
+      emit('change', todos.value)
     }
+  } finally {
+    isAdding.value = false
   }
 }
 
 const deleteTodo = async (id) => {
   try {
-    await supabase.from('todos').delete().eq('id', id).throwOnError()
-    todos.value = todos.value.filter((x) => x.id != id)
+    await supabase
+      .from('todos')
+      .update({ status: 'deleted', deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .throwOnError()
+
+    todos.value = todos.value.filter((x) => x.id !== id)
+    emit('change', todos.value)
   } catch (error) {
     console.log('error', error)
   }
@@ -51,16 +71,18 @@ const deleteTodo = async (id) => {
 
 const toggleDone = async (todo) => {
   try {
+    const nextStatus = todo.status === 'done' ? 'todo' : 'done'
     const { data, error } = await supabase
       .from('todos')
-      .update({ is_complete: !todo.is_complete })
+      .update({ status: nextStatus })
       .eq('id', todo.id)
       .select()
       .single()
-      
+
     if (error) throw error
-    
-    todo.is_complete = data.is_complete
+
+    todo.status = data.status
+    emit('change', todos.value)
   } catch (error) {
     console.log('error', error)
   }
@@ -76,7 +98,7 @@ const toggleDone = async (todo) => {
         v-model="newTaskText" 
         @keyup.enter="addTodo"
       />
-      <button @click="addTodo">Add</button>
+      <button @click="addTodo" :disabled="isAdding">Add</button>
     </div>
 
     <div v-if="errorText" class="error-alert">
@@ -84,11 +106,17 @@ const toggleDone = async (todo) => {
     </div>
 
     <ul class="todo-list">
-      <li v-for="todo in todos" :key="todo.id" :class="{ done: todo.is_complete }">
-        <span @click="toggleDone(todo)">{{ todo.title }}</span>
-        <button class="delete-btn" @click="deleteTodo(todo.id)">x</button>
+      <li v-for="todo in todos" :key="todo.id" :class="{ done: todo.status === 'done' }">
+        <div class="todo-main" @click="toggleDone(todo)">
+          <span class="todo-title">{{ todo.title }}</span>
+          <span class="status-pill" :data-status="todo.status">
+            {{ todo.status === 'done' ? '完成' : todo.status === 'doing' ? '进行中' : '待办' }}
+          </span>
+        </div>
+        <button class="delete-btn" @click.stop="deleteTodo(todo.id)">x</button>
       </li>
     </ul>
+
   </div>
 </template>
 
@@ -166,6 +194,39 @@ li.done span {
   color: #888;
 }
 
+.todo-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.todo-title {
+  flex: 1;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.status-pill[data-status='todo'] {
+  background: #3b82f6;
+}
+
+.status-pill[data-status='doing'] {
+  background: #f59e0b;
+}
+
+.status-pill[data-status='done'] {
+  background: #10b981;
+}
+
 .delete-btn {
   background-color: #ff4444;
   padding: 4px 8px;
@@ -175,4 +236,5 @@ li.done span {
 .delete-btn:hover {
   background-color: #cc0000;
 }
+
 </style>

@@ -7,8 +7,7 @@ const routes = [
   {
     path: '/',
     name: 'Landing',
-    // 用 render 函数避免在运行时编译模板（Edge 会警告 runtime compilation 不支持）
-    component: { render: () => null },
+    component: Home,
     meta: { 
       requiresAuth: false,
       title: 'TodoHeap - 简洁高效的待办清单'
