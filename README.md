@@ -16,13 +16,11 @@
     ```
 - 安装项目依赖
     ```bash
-    cd frontend
-    npm install
+    cd frontend; npm install
     ```
 - 运行
     ```bash
-    cd frontend
-    npm run dev
+    cd frontend; npm run dev
     ```
 - 本地调试: http://localhost:5174/
 - 在线访问: https://sherlocknieh.github.io/TodoHeap/
@@ -33,6 +31,20 @@
 - 把注册邮箱发给我, 我把该账户添加为项目成员;
 - 访问 [Supabase Dashboard](https://supabase.com/dashboard/) 即可开始管理数据库;
 
+用 Python 进行本地调试:
+
+- 安装uv
+    ```powershell
+    winget install uv
+    ```
+- 安装依赖
+    ```bash
+    cd backend; uv sync
+    ```
+- 运行
+    ```bash
+    cd backend; uv run main.py
+    ```
 
 ### 代码提交
 

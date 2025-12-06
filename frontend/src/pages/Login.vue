@@ -102,23 +102,25 @@
 
 <script setup>
 import { ref } from 'vue'
-import { supabase } from '../supabase'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
+
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const errorMsg = ref('')
 const successMsg = ref('')
 const isSignUp = ref(false)
-const loading = ref(false)
 const showPassword = ref(false)
 
 const handleAuth = async () => {
   // 清空提示信息
   errorMsg.value = ''
   successMsg.value = ''
+  authStore.clearError()
 
   // 基础验证
   if (!email.value || !password.value) {
@@ -136,54 +138,48 @@ const handleAuth = async () => {
     return
   }
 
-  loading.value = true
-
   try {
     if (isSignUp.value) {
       // 注册
-      const { data, error } = await supabase.auth.signUp({
-        email: email.value,
-        password: password.value,
-        options: {
-          emailRedirectTo: window.location.origin
-        }
-      })
+      const result = await authStore.signUp(email.value, password.value)
 
-      if (error) {
-        errorMsg.value = error.message
+      if (result.success) {
+        if (result.needsVerification) {
+          successMsg.value = result.message || '注册成功！请检查邮箱进行验证。'
+          // 清空表单
+          email.value = ''
+          password.value = ''
+          confirmPassword.value = ''
+          // 2秒后自动切换到登录
+          setTimeout(() => {
+            isSignUp.value = false
+            successMsg.value = ''
+          }, 3000)
+        } else {
+          successMsg.value = '注册成功！正在跳转...'
+          setTimeout(() => {
+            router.push('/app')
+          }, 1000)
+        }
       } else {
-        successMsg.value = '注册成功！请检查邮箱进行验证。'
-        // 清空表单
-        email.value = ''
-        password.value = ''
-        confirmPassword.value = ''
-        // 2秒后自动切换到登录
-        setTimeout(() => {
-          isSignUp.value = false
-        }, 2000)
+        errorMsg.value = result.error || '注册失败，请重试'
       }
     } else {
       // 登录
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.value,
-        password: password.value
-      })
+      const result = await authStore.signIn(email.value, password.value)
 
-      if (error) {
-        errorMsg.value = error.message
-      } else {
+      if (result.success) {
         successMsg.value = '登录成功！正在跳转...'
-        // 登录成功后，路由守卫会自动重定向到 /app
         setTimeout(() => {
           router.push('/app')
         }, 1000)
+      } else {
+        errorMsg.value = result.error || '登录失败，请检查邮箱和密码'
       }
     }
   } catch (error) {
     errorMsg.value = '发生了一个错误，请重试'
     console.error(error)
-  } finally {
-    loading.value = false
   }
 }
 </script>

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
+    "pinia": "^3.0.4",
     "vue": "^3.3.4",
     "vue-router": "^4.6.3"
   },

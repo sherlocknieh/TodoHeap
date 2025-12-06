@@ -1,32 +1,22 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { supabase } from '../supabase'
+import { ref, onMounted, computed } from 'vue'
+import { useTodoStore } from '../../stores/todos'
+import { useAuthStore } from '../../stores/auth'
 
-const props = defineProps(['session'])
-const emit = defineEmits(['change'])
+const todoStore = useTodoStore()
+const authStore = useAuthStore()
 
-const todos = ref([])
 const newTaskText = ref('')
-const errorText = ref('')
 const isAdding = ref(false)
 
-const fetchTodos = async () => {
-  const { data, error } = await supabase
-    .from('todos')
-    .select('*')
-    .neq('status', 'deleted')
-    .order('priority', { ascending: false })
-    .order('id', { ascending: true })
+// 从 store 获取数据
+const todos = computed(() => todoStore.todos)
+const errorText = computed(() => todoStore.error)
 
-  if (error) console.log('error', error)
-  else {
-    todos.value = data
-    emit('change', todos.value)
+onMounted(async () => {
+  if (authStore.isAuthenticated && todos.value.length === 0) {
+    await todoStore.fetchTodos()
   }
-}
-
-onMounted(() => {
-  fetchTodos()
 })
 
 const addTodo = async () => {
@@ -36,18 +26,9 @@ const addTodo = async () => {
   isAdding.value = true
 
   try {
-    const { data, error } = await supabase
-      .from('todos')
-      .insert({ title: task, user_id: props.session.user.id, status: 'todo', priority: 0 })
-      .select()
-      .single()
-
-    if (error) {
-      errorText.value = error.message
-    } else {
-      todos.value.push(data)
+    const result = await todoStore.addTodo(task)
+    if (result.success) {
       newTaskText.value = ''
-      emit('change', todos.value)
     }
   } finally {
     isAdding.value = false
@@ -55,37 +36,11 @@ const addTodo = async () => {
 }
 
 const deleteTodo = async (id) => {
-  try {
-    await supabase
-      .from('todos')
-      .update({ status: 'deleted', deleted_at: new Date().toISOString() })
-      .eq('id', id)
-      .throwOnError()
-
-    todos.value = todos.value.filter((x) => x.id !== id)
-    emit('change', todos.value)
-  } catch (error) {
-    console.log('error', error)
-  }
+  await todoStore.deleteTodo(id)
 }
 
 const toggleDone = async (todo) => {
-  try {
-    const nextStatus = todo.status === 'done' ? 'todo' : 'done'
-    const { data, error } = await supabase
-      .from('todos')
-      .update({ status: nextStatus })
-      .eq('id', todo.id)
-      .select()
-      .single()
-
-    if (error) throw error
-
-    todo.status = data.status
-    emit('change', todos.value)
-  } catch (error) {
-    console.log('error', error)
-  }
+  await todoStore.toggleDone(todo.id)
 }
 </script>
 

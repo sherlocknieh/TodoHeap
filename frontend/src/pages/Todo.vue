@@ -1,69 +1,42 @@
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '../supabase'
-import TodoList from '../components/TodoList.vue'
-import TodoTree from '../components/TodoTree.vue'
-import TodoHeap from '../components/TodoHeap.vue'
+import { useAuthStore } from '../stores/auth'
+import { useTodoStore } from '../stores/todos'
+import TodoList from './work/TodoList.vue'
+import TodoTree from './work/TodoTree.vue'
+import TodoHeap from './work/TodoHeap.vue'
 
-const session = ref()
-const todos = ref([])
-const activeView = ref('list')
 const router = useRouter()
+const authStore = useAuthStore()
+const todoStore = useTodoStore()
 
-onMounted(() => {
-	supabase.auth.getSession().then(({ data }) => {
-		session.value = data.session
-	})
+const activeView = ref('list')
+const showUserMenu = ref(false)
 
-	supabase.auth.onAuthStateChange((_, _session) => {
-		session.value = _session
-	})
+onMounted(async () => {
+	// 初始化认证
+	if (authStore.session === null && !authStore.loading) {
+		await authStore.initialize()
+	}
+	
+	// 如果已登录，获取待办事项
+	if (authStore.isAuthenticated) {
+		await todoStore.fetchTodos()
+	}
 })
 
 const handleSignOut = async () => {
-	await supabase.auth.signOut()
-	router.push('/login')
-}
-
-const handleTodoChange = (items) => {
-	todos.value = items || []
-}
-
-const treeNodes = computed(() => buildTree(todos.value))
-
-function buildTree(list) {
-	const nodes = (list || [])
-		.filter((item) => item.status !== 'deleted')
-		.map((item) => ({
-			id: item.id,
-			title: item.title,
-			status: item.status || 'todo',
-			priority: item.priority ?? 0,
-			parent_id: item.parent_id,
-			children: []
-		}))
-
-	const map = new Map()
-	nodes.forEach((n) => map.set(n.id, n))
-
-	const roots = []
-	nodes.forEach((n) => {
-		if (n.parent_id && map.has(n.parent_id)) {
-			map.get(n.parent_id).children.push(n)
-		} else {
-			roots.push(n)
-		}
-	})
-
-	const sortFn = (a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.id - b.id
-	const sortTree = (arr) => {
-		arr.sort(sortFn)
-		arr.forEach((child) => sortTree(child.children))
+	const result = await authStore.signOut()
+	if (result.success) {
+		router.push('/login')
 	}
-	sortTree(roots)
-	return roots
+}
+
+const openSettings = () => {
+	router.push('/settings')
+	showUserMenu.value = false
 }
 </script>
 
@@ -74,7 +47,16 @@ function buildTree(list) {
 				<div class="app-title">📝 TodoHeap</div>
 				<p class="app-sub">登录后主页 · 三视图切换</p>
 			</div>
-			<button class="sign-out-btn" @click="handleSignOut">退出登录</button>
+			<div class="header-actions">
+				<button class="user-menu-btn" @click="showUserMenu = !showUserMenu">
+					👤 {{ authStore.user?.email?.split('@')[0] || '用户' }}
+				</button>
+				<div v-if="showUserMenu" class="user-menu">
+					<button class="menu-item" @click="openSettings">⚙️ 设置</button>
+					<div class="divider"></div>
+					<button class="menu-item logout" @click="handleSignOut">🚪 退出登录</button>
+				</div>
+			</div>
 		</div>
 
 		<div class="view-tabs">
@@ -85,13 +67,13 @@ function buildTree(list) {
 
 		<div class="view-area">
 			<div v-if="activeView === 'list'">
-				<TodoList :session="session" @change="handleTodoChange" />
+				<TodoList />
 			</div>
 			<div v-else-if="activeView === 'tree'">
-				<TodoTree :todos="treeNodes" title="Todo Mind Map" />
+				<TodoTree :todos="todoStore.treeNodes" title="Todo Mind Map" />
 			</div>
 			<div v-else>
-				<TodoHeap :todos="todos" />
+				<TodoHeap :todos="todoStore.todos" />
 			</div>
 		</div>
 	</div>
@@ -129,7 +111,11 @@ function buildTree(list) {
 	font-size: 13px;
 }
 
-.sign-out-btn {
+.header-actions {
+	position: relative;
+}
+
+.user-menu-btn {
 	padding: 10px 16px;
 	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 	color: white;
@@ -138,6 +124,56 @@ function buildTree(list) {
 	cursor: pointer;
 	font-weight: 600;
 	transition: all 0.2s ease;
+	font-size: 14px;
+}
+
+.user-menu-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 18px rgba(102, 126, 234, 0.45);
+}
+
+.user-menu {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	margin-top: 8px;
+	background: white;
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	overflow: hidden;
+	z-index: 100;
+	min-width: 150px;
+}
+
+.menu-item {
+	width: 100%;
+	padding: 12px 16px;
+	border: none;
+	background: none;
+	text-align: left;
+	cursor: pointer;
+	color: #374151;
+	font-size: 14px;
+	transition: background 0.2s;
+}
+
+.menu-item:hover {
+	background: #f3f4f6;
+}
+
+.menu-item.logout {
+	color: #ef4444;
+}
+
+.divider {
+	height: 1px;
+	background: #e5e7eb;
+	margin: 0;
+}
+
+.sign-out-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 18px rgba(102, 126, 234, 0.45);
 }
 
 .sign-out-btn:hover {

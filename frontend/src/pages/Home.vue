@@ -1,26 +1,22 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import { supabase } from '../supabase'
-import TodoList from '../components/TodoList.vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
-const session = ref()
 const router = useRouter()
+const authStore = useAuthStore()
 
-onMounted(() => {
-  supabase.auth.getSession().then(({ data }) => {
-    session.value = data.session
-  })
-
-  supabase.auth.onAuthStateChange((_, _session) => {
-    session.value = _session
-  })
+onMounted(async () => {
+  // 如果 store 未初始化，先初始化
+  if (authStore.session === null && !authStore.loading) {
+    await authStore.initialize()
+  }
+  
+  // 如果已登录，自动跳转到应用页
+  if (authStore.isAuthenticated) {
+    router.push('/app')
+  }
 })
-
-const handleSignOut = async () => {
-  await supabase.auth.signOut()
-  router.push('/login')
-}
 
 const openLogin = () => {
   router.push('/login')
@@ -28,19 +24,8 @@ const openLogin = () => {
 </script>
 
 <template>
-  <!-- 已登录：显示 Todo 应用 -->
-  <div v-if="session" class="app-shell">
-    <div class="app-header">
-      <h1>📝 TodoHeap</h1>
-      <button class="sign-out-btn" @click="handleSignOut">退出登录</button>
-    </div>
-    <div class="todo-container">
-      <TodoList :session="session" />
-    </div>
-  </div>
-
-  <!-- 未登录：显示推广页 -->
-  <div v-else class="landing-page">
+  <!-- 推广页 - 仅在未登录时显示 -->
+  <div class="landing-page">
     <!-- 导航栏 -->
     <nav class="navbar">
       <div class="logo-section">
@@ -267,56 +252,6 @@ const openLogin = () => {
   color: rgba(255, 255, 255, 0.8);
   border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
-
-/* ========== Todo 应用样式 ========== */
-
-.app-shell {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 20px;
-}
-
-.app-header {
-  max-width: 900px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 24px;
-  color: #667eea;
-}
-
-.todo-container {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.sign-out-btn {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.sign-out-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
 /* 响应式设计 */
 @media (max-width: 1024px) {
   .hero {
@@ -365,16 +300,6 @@ const openLogin = () => {
 
   .features-grid {
     grid-template-columns: 1fr;
-  }
-
-  .app-header {
-    flex-direction: column;
-    gap: 15px;
-    text-align: center;
-  }
-
-  .app-shell {
-    padding: 15px;
   }
 }
 </style>
