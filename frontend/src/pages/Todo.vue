@@ -259,6 +259,15 @@ const switchView = (view) => {
 	padding: 16px;
 	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
 	min-height: 300px;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.view-area > div {
+	width: 100%;
+	height: 100%;
 	display: flex;
 	flex-direction: column;
 }

@@ -1,336 +1,225 @@
 <script setup>
-import { computed, watch } from 'vue'
+import { onMounted, ref, computed, watch, nextTick } from 'vue'
+import MindMap from 'simple-mind-map'
 
 const props = defineProps({
 	todos: { type: Array, default: () => [] },
 	title: { type: String, default: 'Todo 思维导图' }
 })
 
-// 监听 props 变化，用于调试
-watch(
-	() => props.todos,
-	(newTodos) => {
-		console.log('TreeView received todos:', newTodos)
-	},
-	{ immediate: true }
-)
+const mindMapContainer = ref(null)
+let mindMapInstance = null
+let savedViewState = null  // 保存视图状态
 
-// 直接使用传入的树形数据（来自 store 的 treeNodes）
-const treeData = computed(() => {
+// 布局模式列表
+const layoutModes = [
+	{ value: 'mindMap', label: '思维导图', icon: '🧠' },
+	{ value: 'logicalStructure', label: '逻辑结构图', icon: '📊' },
+	{ value: 'catalogOrganization', label: '目录组织图', icon: '📁' },
+	{ value: 'organizationStructure', label: '组织结构图', icon: '👥' },
+	{ value: 'timeline', label: '时间轴', icon: '⏱️' },
+	{ value: 'fishbone', label: '鱼骨图', icon: '🐟' }
+]
+
+const layoutMode = ref('mindMap')
+
+// 将 todos 转换为 simple-mind-map 格式
+const mindMapData = computed(() => {
 	const todosArray = props.todos || []
-	console.log('TreeView received todos:', todosArray.length)
-	
-	// 如果接收到的是已经转换后的树形数据（有 children），直接使用
-	if (todosArray.length > 0 && todosArray[0].children) {
-		console.log('Using pre-built tree nodes')
+	if (todosArray.length === 0) {
 		return {
-			id: 'root',
-			title: props.title,
-			depth: 0,
-			children: todosArray
+			data: { text: props.title },
+			children: []
 		}
 	}
-	
-	// 如果是平面数据，需要自己构建树结构
-	console.log('Building tree from flat data')
+
+	// 构建树结构
 	const buildNode = (todo) => ({
-		id: todo.id,
-		title: todo.title || '未命名任务',
-		status: todo.status || 'todo',
-		priority: todo.priority ?? 0,
-		parent_id: todo.parent_id,
+		data: {
+			text: todo.title || '未命名任务',
+			status: todo.status || 'todo'
+		},
 		children: []
 	})
-	
+
 	const nodes = todosArray.map(buildNode)
 	const map = new Map()
-	nodes.forEach(n => map.set(n.id, n))
-	
+	todosArray.forEach((todo, idx) => map.set(todo.id, nodes[idx]))
+
 	const roots = []
-	nodes.forEach(n => {
-		if (n.parent_id && map.has(n.parent_id)) {
-			map.get(n.parent_id).children.push(n)
+	todosArray.forEach((todo, idx) => {
+		const node = nodes[idx]
+		if (todo.parent_id && map.has(todo.parent_id)) {
+			map.get(todo.parent_id).children.push(node)
 		} else {
-			roots.push(n)
+			roots.push(node)
 		}
 	})
-	
-	// 排序
-	const sortFn = (a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.id - b.id
-	const sortTree = (arr) => {
-		arr.sort(sortFn)
-		arr.forEach(child => sortTree(child.children))
-	}
-	sortTree(roots)
-	
+
 	return {
-		id: 'root',
-		title: props.title,
-		depth: 0,
+		data: { text: props.title },
 		children: roots
 	}
 })
 
-// 计算节点位置和所有连接线
-const treeLayout = computed(() => {
-	const positions = new Map()
-	const connections = []
-	const nodeWidth = 140
-	const nodeHeight = 60
-	const levelWidth = 280
-	const verticalGap = 90
-	
-	let nodeIndex = 0  // 全局节点计数器
-	
-	const traverse = (node, level, parent, parentPosition) => {
-		const x = 100 + level * levelWidth
-		const y = 150 + nodeIndex * verticalGap
-		
-		positions.set(node.id, { 
-			x, 
-			y, 
-			node,
-			level,
-			width: nodeWidth,
-			height: nodeHeight
-		})
-		
-		nodeIndex++  // 每处理一个节点，计数器增加
-		
-		// 添加连接线
-		if (parent && parentPosition) {
-			const x1 = parentPosition.x + parentPosition.width
-			const y1 = parentPosition.y + parentPosition.height / 2
-			const x2 = x
-			const y2 = y + nodeHeight / 2
-			
-			// 使用贝塞尔曲线的控制点
-			const controlX = x1 + (x2 - x1) * 0.3
-			
-			connections.push({
-				x1, y1, x2, y2, controlX,
-				parentId: parent.id,
-				childId: node.id,
-				parentStatus: parent.status
-			})
-		}
-		
-		// 递归处理子节点
-		if (node.children && node.children.length > 0) {
-			node.children.forEach((child) => {
-				traverse(child, level + 1, node, positions.get(node.id))
-			})
-		}
+// 初始化 mindmap 实例
+const initMindMap = async () => {
+	if (!mindMapContainer.value) {
+		console.warn('Container not ready')
+		return
 	}
-	
-	// 从一级节点开始遍历
-	if (treeData.value.children && treeData.value.children.length > 0) {
-		treeData.value.children.forEach((child) => {
-			traverse(child, 1, null, null)
-		})
-	}
-	
-	const maxLevel = Math.max(...Array.from(positions.values()).map(p => p.level), 0)
-	const totalNodes = positions.size
-	const svgWidth = Math.max(1200, (maxLevel + 1) * levelWidth + 200)
-	const svgHeight = Math.max(500, totalNodes * verticalGap + 300)
-	
-	return {
-		positions,
-		connections,
-		svgWidth,
-		svgHeight,
-		nodeWidth,
-		nodeHeight
-	}
-})
 
-// 添加中心节点位置
-const rootPosition = computed(() => ({
-	x: 30,
-	y: 150 + (treeLayout.value.positions.size > 0 ? 
-		(Array.from(treeLayout.value.positions.values()).reduce((sum, p) => sum + p.y, 0) / treeLayout.value.positions.size - 150) / 2 : 0),
-	width: 100,
-	height: 60
-}))
-
-// 将 Map 转换为数组，方便在 v-for 中使用
-const positionsArray = computed(() => {
-	return Array.from(treeLayout.value.positions.entries()).map(([nodeId, pos]) => ({
-		nodeId,
-		...pos
-	}))
-})
-
-// 从中心到一级节点的连接线
-const centerConnections = computed(() => {
-	const connections = []
-	if (treeData.value.children && treeData.value.children.length > 0) {
-		treeData.value.children.forEach(child => {
-			const childPos = treeLayout.value.positions.get(child.id)
-			if (childPos) {
-				const x1 = rootPosition.value.x + rootPosition.value.width
-				const y1 = rootPosition.value.y + rootPosition.value.height / 2
-				const x2 = childPos.x
-				const y2 = childPos.y + childPos.height / 2
-				const controlX = x1 + (x2 - x1) * 0.3
-				
-				connections.push({
-					x1, y1, x2, y2, controlX,
-					status: child.status
-				})
+	// 如果已存在实例，先保存视图状态再销毁
+	if (mindMapInstance) {
+		try {
+			// 保存当前的缩放和平移位置
+			savedViewState = {
+				scale: mindMapInstance.view?.scaleVal || 1,
+				x: mindMapInstance.view?.translateX || 0,
+				y: mindMapInstance.view?.translateY || 0
 			}
-		})
+			console.log('Saved view state:', savedViewState)
+			mindMapInstance.destroy?.()
+		} catch (e) {
+			console.error('Error destroying previous instance:', e)
+		}
+		mindMapInstance = null
 	}
-	return connections
+
+	// 等待 DOM 重排完成
+	await nextTick()
+
+	try {
+		const rect = mindMapContainer.value.getBoundingClientRect()
+		console.log('Before init - Container rect:', { width: rect.width, height: rect.height })
+
+		// 如果没有高度，这是一个问题
+		if (rect.height <= 0) {
+			console.error('Container height is 0 or negative! This will prevent rendering.')
+		}
+
+		mindMapInstance = new MindMap({
+			el: mindMapContainer.value,
+			data: mindMapData.value,
+			layout: layoutMode.value,
+			theme: 'default',
+			readonly: false,
+			alwaysShowExpandBtn: false,
+			expandBtnSize: 20,
+			hoverRectColor: 'rgb(94, 200, 248)',
+			hoverRectPadding: 2,
+			fit: false,
+			fitPadding: 0,
+			isDisableDrag: false,
+			disableMouseWheelZoom: false,
+			enableCtrlKeyNodeSelection: true,
+			// 添加高度相关配置
+			nodeTextEditZindex: 1000
+		})
+
+		// 初始化后立即调用 fit
+		await nextTick()
+		setTimeout(() => {
+			console.log('Initial fit call')
+			if (mindMapInstance?.view?.fit) {
+				mindMapInstance.view.fit()
+			}
+		}, 100)
+
+		// 渲染完成后调用 fit 并恢复视图状态
+		mindMapInstance.on('node_tree_render_end', () => {
+			console.log('MindMap rendered')
+			setTimeout(() => {
+				// 如果有保存的视图状态，恢复它
+				if (savedViewState && mindMapInstance?.view) {
+					console.log('Restoring view state:', savedViewState)
+					mindMapInstance.view.setScale(savedViewState.scale)
+					mindMapInstance.view.translateX = savedViewState.x
+					mindMapInstance.view.translateY = savedViewState.y
+					// 手动触发视图更新
+					if (mindMapInstance.view?.refresh) {
+						mindMapInstance.view.refresh()
+					}
+				} else if (mindMapInstance?.view?.fit) {
+					// 第一次渲染，使用 fit 自动调整
+					mindMapInstance.view.fit()
+				}
+			}, 50)
+		})
+
+		// ResizeObserver 来处理容器大小变化
+		if (typeof ResizeObserver !== 'undefined' && mindMapContainer.value) {
+			const resizeObserver = new ResizeObserver(() => {
+				console.log('Container resized, calling fit()')
+				// 延迟调用，确保 DOM 已更新
+				setTimeout(() => {
+					if (mindMapInstance?.view?.fit) {
+						mindMapInstance.view.fit()
+					}
+				}, 50)
+			})
+			resizeObserver.observe(mindMapContainer.value)
+		}
+	} catch (error) {
+		console.error('Failed to initialize MindMap:', error)
+	}
+}
+
+// 监听 todos 和 layoutMode 变化
+watch(
+	() => [props.todos, layoutMode.value],
+	async () => {
+		console.log('Todos or layout changed, reinitializing')
+		await nextTick()
+		await new Promise(resolve => setTimeout(resolve, 100))
+		initMindMap()
+	},
+	{ deep: true }
+)
+
+// 组件挂载时初始化
+onMounted(async () => {
+	console.log('TodoTree mounted')
+	await nextTick()
+	// 再等一下确保布局完成
+	await new Promise(resolve => setTimeout(resolve, 200))
+	
+	// 明确检查并输出容器信息
+	if (mindMapContainer.value) {
+		const rect = mindMapContainer.value.getBoundingClientRect()
+		console.log('Mount check - Container rect:', { width: rect.width, height: rect.height })
+	}
+	
+	initMindMap()
 })
-
-const statusColor = {
-	todo: '#3b82f6',
-	doing: '#f59e0b',
-	done: '#10b981'
-}
-
-const statusLabel = {
-	todo: '待办',
-	doing: '进行中',
-	done: '已完成'
-}
-
-const getNodeColor = (status) => statusColor[status] || '#6b7280'
-
 </script>
 
 <template>
 	<div class="tree-container">
 		<div class="tree-header">
 			<h2>{{ props.title }}</h2>
-			<p>{{ treeData.children.length }} 个根任务 · 思维导图布局</p>
+			<p>{{ (props.todos || []).length }} 个任务 · 多布局支持</p>
+			
+			<div class="layout-switch">
+				<button
+					v-for="mode in layoutModes"
+					:key="mode.value"
+					:class="['layout-btn', { active: layoutMode === mode.value }]"
+					:title="mode.label"
+					@click="layoutMode = mode.value"
+				>
+					<span class="layout-icon">{{ mode.icon }}</span>
+					<span class="layout-label">{{ mode.label }}</span>
+				</button>
+			</div>
 		</div>
-		
-		<div v-if="treeData.children.length === 0" class="empty-state">
+
+		<div v-if="(props.todos || []).length === 0" class="empty-state">
 			<div class="empty-icon">🌳</div>
 			<p>暂无任务</p>
 		</div>
-		
-		<div v-else class="svg-wrapper">
-			<svg 
-				class="tree-svg" 
-				:viewBox="`0 0 ${treeLayout.svgWidth} ${treeLayout.svgHeight}`"
-				:style="{ minHeight: `${Math.min(treeLayout.svgHeight, 800)}px` }"
-			>
-				<defs>
-					<marker 
-						id="arrowhead" 
-						markerWidth="10" 
-						markerHeight="10" 
-						refX="9" 
-						refY="3" 
-						orient="auto"
-					>
-						<polygon points="0 0, 10 3, 0 6" fill="#cbd5e1" />
-					</marker>
-				</defs>
 
-				<!-- 中心节点到一级节点的连接线 -->
-				<g class="center-connections">
-					<path
-						v-for="(conn, idx) in centerConnections"
-						:key="`center-conn-${idx}`"
-						:d="`M ${conn.x1} ${conn.y1} Q ${conn.controlX} ${(conn.y1 + conn.y2) / 2} ${conn.x2} ${conn.y2}`"
-						stroke="#e2e8f0"
-						stroke-width="2"
-						fill="none"
-						stroke-linecap="round"
-					/>
-				</g>
-
-				<!-- 节点间的连接线 -->
-				<g class="node-connections">
-					<path
-						v-for="(conn, idx) in treeLayout.connections"
-						:key="`conn-${idx}`"
-						:d="`M ${conn.x1} ${conn.y1} Q ${conn.controlX} ${(conn.y1 + conn.y2) / 2} ${conn.x2} ${conn.y2}`"
-						:stroke="getNodeColor(conn.parentStatus)"
-						stroke-width="1.5"
-						fill="none"
-						opacity="0.6"
-						stroke-linecap="round"
-					/>
-				</g>
-
-				<!-- 中心节点 -->
-				<g class="center-node">
-					<rect 
-						:x="rootPosition.x" 
-						:y="rootPosition.y" 
-						:width="rootPosition.width" 
-						:height="rootPosition.height"
-						rx="8"
-						fill="#667eea"
-						stroke="#5a67d8"
-						stroke-width="2"
-					/>
-					<text 
-						:x="rootPosition.x + rootPosition.width / 2" 
-						:y="rootPosition.y + rootPosition.height / 2 + 2"
-						text-anchor="middle"
-						dominant-baseline="middle"
-						fill="white"
-						font-weight="700"
-						font-size="13"
-					>
-						{{ treeData.title.substring(0, 10) }}
-					</text>
-				</g>
-
-				<!-- 所有任务节点 -->
-				<g class="task-nodes">
-					<g 
-						v-for="pos in positionsArray"
-						:key="`node-${pos.nodeId}`"
-						class="node-group"
-					>
-						<!-- 节点背景 -->
-						<rect 
-							:x="pos.x" 
-							:y="pos.y" 
-							:width="pos.width" 
-							:height="pos.height"
-							rx="6"
-							:fill="getNodeColor(pos.node.status)"
-							:stroke="getNodeColor(pos.node.status)"
-							stroke-width="2"
-							opacity="0.9"
-							class="node-rect"
-						/>
-						
-						<!-- 节点文本 -->
-						<text 
-							:x="pos.x + pos.width / 2" 
-							:y="pos.y + pos.height / 2 - 6"
-							text-anchor="middle"
-							fill="white"
-							font-weight="600"
-							font-size="12"
-							class="node-title"
-						>
-							{{ pos.node.title.substring(0, 12) }}
-						</text>
-						<text 
-							:x="pos.x + pos.width / 2" 
-							:y="pos.y + pos.height / 2 + 12"
-							text-anchor="middle"
-							fill="white"
-							font-size="10"
-							opacity="0.9"
-						>
-							{{ statusLabel[pos.node.status] }}
-						</text>
-					</g>
-				</g>
-			</svg>
-		</div>
+		<div v-else class="mindmap-wrapper" ref="mindMapContainer" style="flex: 1; min-height: 0;"></div>
 	</div>
 </template>
 
@@ -339,28 +228,78 @@ const getNodeColor = (status) => statusColor[status] || '#6b7280'
 	padding: 24px;
 	background: #f9fafb;
 	border-radius: 12px;
+	width: 100%;
 	height: 100%;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
+	gap: 16px;
 }
 
 .tree-header {
-	margin-bottom: 20px;
 	flex-shrink: 0;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
 }
 
 .tree-header h2 {
 	font-size: 24px;
 	font-weight: 700;
 	color: #111827;
-	margin: 0 0 8px 0;
+	margin: 0;
+	flex-shrink: 0;
 }
 
 .tree-header p {
 	color: #6b7280;
 	margin: 0;
 	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.layout-switch {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.layout-btn {
+	padding: 6px 10px;
+	border-radius: 6px;
+	border: 1px solid #e5e7eb;
+	background: #fff;
+	cursor: pointer;
+	font-weight: 500;
+	font-size: 12px;
+	color: #4b5563;
+	transition: all 0.15s ease;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: auto;
+}
+
+.layout-icon {
+	font-size: 14px;
+}
+
+.layout-label {
+	white-space: nowrap;
+}
+
+.layout-btn.active {
+	background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+	color: #fff;
+	border-color: transparent;
+	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.layout-btn:hover {
+	transform: translateY(-1px);
 }
 
 .empty-state {
@@ -373,89 +312,103 @@ const getNodeColor = (status) => statusColor[status] || '#6b7280'
 	color: #9ca3af;
 }
 
-.empty-icon {
-	font-size: 48px;
-	margin-bottom: 12px;
-}
-
-.svg-wrapper {
+.mindmap-wrapper {
+	/* 关键：flex 容器中占据剩余空间 */
 	flex: 1;
+	min-height: 0;
+	width: 100%;
+	max-height: 100%;
+	
+	/* 布局 */
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	overflow: hidden;
+
+	/* 视觉效果 */
 	background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
 	border: 1px solid #e5e7eb;
 	border-radius: 10px;
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-	overflow: auto;
-	padding: 20px;
 }
 
-.tree-svg {
-	width: 100%;
-	height: auto;
-	display: block;
+/* 确保 simple-mind-map 库的内部容器正确显示 */
+:deep(.sm-mind-map-container) {
+	width: 100% !important;
+	height: 100% !important;
+	flex: 1 !important;
+	background: transparent !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	overflow: auto !important;
+	display: flex !important;
+	flex-direction: column !important;
 }
 
-/* 连接线和节点的样式 */
-.center-connections path {
-	transition: all 0.3s ease;
+:deep(.smm-inner-box) {
+	width: 100% !important;
+	height: 100% !important;
+	position: relative !important;
+	display: flex !important;
+	flex-direction: column !important;
+	flex: 1 !important;
+	min-height: 0 !important;
 }
 
-.node-connections path {
-	transition: all 0.3s ease;
+:deep(svg) {
+	width: 100% !important;
+	height: 100% !important;
+	display: block !important;
+	flex: 1 !important;
+	min-height: 100% !important;
+	min-width: 100% !important;
 }
 
-/* 中心节点 */
-.center-node rect {
-	transition: all 0.2s ease;
-	cursor: pointer;
-	filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.2));
+:deep(.smm-svg),
+:deep(.sm-mind-map-svg),
+:deep(.smm-container) {
+	width: 100% !important;
+	height: 100% !important;
+	display: block !important;
 }
 
-.center-node rect:hover {
-	filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.4));
-	stroke-width: 3;
+:deep(.smm-node) {
+	cursor: pointer !important;
 }
 
-.center-node text {
-	pointer-events: none;
+:deep(.smm-node-text) {
+	font-size: 13px;
+	font-weight: 500;
 }
 
-/* 任务节点 */
-.node-group {
-	transition: all 0.2s ease;
-}
-
-.node-rect {
-	transition: all 0.2s ease;
-	cursor: pointer;
-	filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.node-group:hover .node-rect {
-	filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
-	stroke-width: 3;
-}
-
-.node-title {
-	pointer-events: none;
-	transition: all 0.2s ease;
-}
-
-.node-group:hover .node-title {
-	font-weight: 700;
+:deep(.smm-node-content-wrapper) {
+	border-radius: 8px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 响应式调整 */
 @media (max-width: 768px) {
 	.tree-container {
-		padding: 16px;
+		padding: 12px;
+		gap: 12px;
 	}
-	
+
+	.tree-header {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.layout-switch {
+		margin-left: 0;
+		width: 100%;
+	}
+
+	.layout-label {
+		display: none;
+	}
+
 	.tree-header h2 {
 		font-size: 20px;
-	}
-	
-	.svg-wrapper {
-		padding: 12px;
 	}
 }
 </style>
