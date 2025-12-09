@@ -46,29 +46,50 @@ const toggleDone = async (todo) => {
 
 <template>
   <div class="todo-app">
-    <h1>Todo List.</h1>
+    <div class="todo-header">
+      <h1>Todo List</h1>
+      <p class="todo-subtitle">Keep track of your tasks</p>
+    </div>
     
     <div class="input-group">
       <input 
         v-model="newTaskText" 
         @keyup.enter="addTodo"
+        placeholder="Add a new task..."
+        class="task-input"
       />
-      <button @click="addTodo" :disabled="isAdding">Add</button>
+      <button @click="addTodo" :disabled="isAdding" class="add-btn">
+        {{ isAdding ? 'Adding...' : '＋ Add' }}
+      </button>
     </div>
 
     <div v-if="errorText" class="error-alert">
+      <span class="error-icon">⚠</span>
       {{ errorText }}
     </div>
 
-    <ul class="todo-list">
-      <li v-for="todo in todos" :key="todo.id" :class="{ done: todo.status === 'done' }">
+    <div v-if="todos.length === 0" class="empty-state">
+      <p class="empty-icon">📝</p>
+      <p class="empty-text">No tasks yet. Add one to get started!</p>
+    </div>
+
+    <ul class="todo-list" v-else>
+      <li v-for="todo in todos" :key="todo.id" :class="{ done: todo.status === 'done' }" class="todo-item">
         <div class="todo-main" @click="toggleDone(todo)">
+          <div class="todo-checkbox">
+            <input 
+              type="checkbox" 
+              :checked="todo.status === 'done'"
+              readonly
+              class="checkbox-input"
+            />
+          </div>
           <span class="todo-title">{{ todo.title }}</span>
           <span class="status-pill" :data-status="todo.status">
-            {{ todo.status === 'done' ? '完成' : todo.status === 'doing' ? '进行中' : '待办' }}
+            {{ todo.status === 'done' ? '✓ 完成' : todo.status === 'doing' ? '⚡ 进行中' : '○ 待办' }}
           </span>
         </div>
-        <button class="delete-btn" @click.stop="deleteTodo(todo.id)">x</button>
+        <button class="delete-btn" @click.stop="deleteTodo(todo.id)" title="Delete task">×</button>
       </li>
     </ul>
 
@@ -77,97 +98,189 @@ const toggleDone = async (todo) => {
 
 <style scoped>
 .todo-app {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-base);
+  max-width: 800px;
   margin: 0 auto;
-  text-align: left;
+  padding: 2rem 1rem;
+}
+
+.todo-header {
+  text-align: center;
+  margin-bottom: 3rem;
 }
 
 h1 {
-  text-align: center;
-  color: #42b883;
-  margin-bottom: 2rem;
+  color: var(--color-primary);
+  margin: 0 0 0.5rem 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.todo-subtitle {
+  color: var(--color-text);
+  opacity: 0.6;
+  margin: 0;
+  font-size: 1rem;
 }
 
 .input-group {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 2rem;
 }
 
-input {
+.task-input {
   flex: 1;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: var(--font-base);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: all 0.2s ease;
 }
 
-button {
-  padding: 8px 16px;
-  background-color: #42b883;
+.task-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
+}
+
+.task-input::placeholder {
+  color: var(--color-text);
+  opacity: 0.4;
+}
+
+.add-btn {
+  padding: 12px 24px;
+  background: var(--color-primary);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-button:hover {
-  background-color: #33a06f;
+.add-btn:hover:not(:disabled) {
+  background: var(--color-primary-variant);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(66, 184, 131, 0.3);
+}
+
+.add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .error-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   color: #721c24;
   background-color: #f8d7da;
-  border-color: #f5c6cb;
-  padding: .75rem 1.25rem;
-  margin-bottom: 1rem;
-  border: 1px solid transparent;
-  border-radius: .25rem;
+  border: 1px solid #f5c6cb;
+  padding: 12px 16px;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+}
+
+.error-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text);
+  opacity: 0.6;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin: 0;
+}
+
+.empty-text {
+  margin: 0.5rem 0 0 0;
+  font-size: 1rem;
 }
 
 .todo-list {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
-li {
+.todo-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  background: #2f2f2f;
-  margin-bottom: 5px;
-  border-radius: 4px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  margin-bottom: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-li span {
-  cursor: pointer;
-  flex: 1;
+.todo-item:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-li.done span {
+.todo-item.done {
+  opacity: 0.6;
+  background: var(--color-bg);
+}
+
+.todo-item.done .todo-title {
   text-decoration: line-through;
-  color: #888;
+  color: var(--color-text);
+  opacity: 0.5;
 }
 
 .todo-main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
+  flex: 1;
+}
+
+.todo-checkbox {
+  flex-shrink: 0;
+}
+
+.checkbox-input {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 .todo-title {
   flex: 1;
+  color: var(--color-text);
+  word-break: break-word;
+  transition: all 0.2s ease;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #fff;
+  color: white;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
 }
 
 .status-pill[data-status='todo'] {
@@ -183,13 +296,59 @@ li.done span {
 }
 
 .delete-btn {
-  background-color: #ff4444;
-  padding: 4px 8px;
-  margin-left: 10px;
+  background-color: #ef4444;
+  color: white;
+  padding: 6px 12px;
+  margin-left: 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: 300;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .delete-btn:hover {
-  background-color: #cc0000;
+  background-color: #dc2626;
+  transform: scale(1.1);
 }
 
+.delete-btn:active {
+  transform: scale(0.95);
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .todo-app {
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  .input-group {
+    gap: 8px;
+  }
+
+  .task-input,
+  .add-btn {
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+  }
+
+  .status-pill {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+  }
+
+  .todo-main {
+    gap: 8px;
+  }
+
+  .delete-btn {
+    padding: 4px 8px;
+    margin-left: 8px;
+  }
+}
 </style>
