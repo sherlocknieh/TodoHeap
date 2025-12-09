@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-
+import {corsHeaders} from '../_shared/cors.ts'
 
 const number = 3
 const systemPrompt = `You are an AI assistant helping with task breakdown. 
@@ -17,7 +17,7 @@ You may optionally include a "metadata" object. Do not include any other top-lev
 
 
 interface RequestBody {
-  task: string;
+  todo: string;
   query: string;
 }
 
@@ -31,6 +31,12 @@ function cleanText(text: string): string {
 
 
 Deno.serve(async (req) => {
+
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+    }
+
+
   const body: RequestBody = await req.json()
   const apiKey = Deno.env.get('OPENAI_API_KEY')
   const baseUrl = Deno.env.get('OPENAI_BASE_URL')
@@ -49,7 +55,7 @@ Deno.serve(async (req) => {
   const chatCompletion = await openai.chat.completions.create({
     messages: [
       { role: 'system', content: systemPrompt },
-      {role:'system',content:"Task need to be breakdown: "+body.task},
+      {role:'system',content:"Task need to be breakdown: "+body.todo},
       { role: 'user', content: body.query }
     ],
     model: model,
@@ -64,9 +70,11 @@ Deno.serve(async (req) => {
   try {
     const parsed = JSON.parse(cleanText(reply))
     return new Response(JSON.stringify(parsed), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    return new Response('Invalid JSON response from OpenAI: ' + error, { status: 500 })
+    return new Response('Invalid JSON response from OpenAI: ' + error, { status: 500,
+      headers: {...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 })

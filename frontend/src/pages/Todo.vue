@@ -5,6 +5,8 @@
 			<div>
 				<div class="app-title">📝 TodoHeap</div>
 				<p class="app-sub">登录后主页 · 三视图切换</p>
+				<button class="invoke-hello" @click="todoStore.invokeHello">invoke Hello</button>
+				<button class="invoke-breakdown" @click="todoStore.invokeBreakdown">invoke Breakdown</button>
 			</div>
 			<div class="header-actions">
 				<button class="user-menu-btn" @click="showUserMenu = !showUserMenu">

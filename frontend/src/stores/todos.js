@@ -139,6 +139,26 @@ export const useTodoStore = defineStore('todos', () => {
     error.value = null
   }
 
+
+  const invokeHello = async () => {
+    
+    const { data, error } = await supabase.functions.invoke('hello',{'body':{name:'TodoHeap'}})
+
+    console.log(data,error)
+  }  
+
+  const invokeBreakdown = async () => {
+    const body = {
+      todo:'学习线性代数',
+      query:'分解'
+    }
+
+    const { data, error } = await supabase.functions.invoke('breakdown_task',{'body':body})
+    console.log(data,error)
+  }
+
+
+
   // Getters - 树形结构
   const treeNodes = computed(() => {
     const nodes = todos.value.map((item) => ({
@@ -199,6 +219,8 @@ export const useTodoStore = defineStore('todos', () => {
     updateTodo,
     toggleDone,
     deleteTodo,
-    clearError
+    clearError,
+    invokeHello,
+    invokeBreakdown
   }
 })
