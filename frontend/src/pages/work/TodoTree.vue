@@ -39,6 +39,8 @@ const props = defineProps({
 	title: { type: String, default: 'Todo 思维导图' }
 })
 
+const emit = defineEmits(['task-selected'])
+
 const todoStore = useTodoStore()
 
 const mindMapContainer = ref(null)
@@ -249,6 +251,12 @@ const initMindMap = async () => {
 				const nodeData = node.getData()
 				const text = nodeData?.text || ''
 				const nodeId = nodeData?.id
+				
+				// 如果点击了有ID的节点，触发任务选择事件
+				if (nodeId && existingTodoIds.has(nodeId)) {
+					console.log('选中任务:', { id: nodeId, title: text })
+					emit('task-selected', nodeId)
+				}
 				
 				// 如果点击了没有 ID 的新节点，需要创建任务
 				if (!nodeId && text && text !== props.title) {

@@ -59,10 +59,11 @@
 			<!-- 列表视图 -->
 			<div class="heap-list">
 				<div class="list-header">任务列表（按优先级排序）</div>
-				<div 
-					v-for="(node, idx) in heapTree" 
+				<div
+					v-for="(node, idx) in heapTree"
 					:key="node.id"
 					class="heap-item"
+					@click="selectTask(node.id)"
 				>
 					<div class="item-rank">{{ idx + 1 }}</div>
 					<div class="item-content">
@@ -79,6 +80,9 @@
 							</span>
 						</div>
 					</div>
+					<div class="item-select">
+						<button class="select-btn">选择</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -93,6 +97,8 @@ import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor,
 const props = defineProps({
 	todos: { type: Array, default: () => [] }
 })
+
+const emit = defineEmits(['task-selected'])
 
 // 调试
 watch(() => props.todos, (newVal) => {
@@ -188,6 +194,10 @@ const getNodeY = (index) => {
 	return node.level * 120 + 50
 }
 
+const selectTask = (taskId) => {
+	console.log('选中任务ID:', taskId)
+	emit('task-selected', taskId)
+}
 </script>
 
 
@@ -376,6 +386,29 @@ const getNodeY = (index) => {
 	background: #fee2e2;
 	color: #991b1b;
 	font-weight: 600;
+}
+
+.item-select {
+	display: flex;
+	align-items: center;
+	margin-left: 12px;
+}
+
+.select-btn {
+	background: #10b981;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	padding: 6px 12px;
+	cursor: pointer;
+	font-size: 0.85rem;
+	font-weight: 500;
+	transition: all 0.2s ease;
+}
+
+.select-btn:hover {
+	background: #059669;
+	transform: translateY(-1px);
 }
 
 @media (max-width: 1024px) {

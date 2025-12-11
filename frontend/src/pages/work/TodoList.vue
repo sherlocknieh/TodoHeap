@@ -33,10 +33,12 @@
         v-for="node in treeNodes"
         :key="node.id"
         :node="node"
+        :selected-task-id="selectedTaskId"
         @toggle-done="toggleDone"
         @delete-todo="deleteTodo"
         @add-subtask="addSubtask"
         @edit-subtask="editSubtask"
+        @task-selected="handleTaskSelected"
       />
     </ul>
 
@@ -54,6 +56,8 @@ const authStore = useAuthStore()
 
 const newTaskText = ref('')
 const isAdding = ref(false)
+const selectedTaskId = ref(null)
+const emit = defineEmits(['task-selected'])
 
 // 从 store 获取数据
 const todos = computed(() => todoStore.todos)
@@ -101,6 +105,11 @@ const deleteTodo = async (id) => {
 
 const toggleDone = async (todo) => {
   await todoStore.toggleDone(todo.id)
+}
+
+const handleTaskSelected = (taskId) => {
+  selectedTaskId.value = taskId
+  emit('task-selected', taskId)
 }
 </script>
 

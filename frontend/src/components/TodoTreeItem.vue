@@ -1,20 +1,22 @@
 <template>
-  <li v-for="item in flatList" :key="item.id" :class="['todo-item', { done: item.status === 'done' }]" :style="{ marginLeft: (item._level * 32) + 'px' }">
+  <li v-for="item in flatList" :key="item.id" :class="['todo-item', { done: item.status === 'done', selected: selectedTaskId === item.id }]" :style="{ marginLeft: (item._level * 32) + 'px' }">
     <div class="todo-main" @click="emitToggleDone(item)">
       <div class="todo-checkbox">
-        <input 
-          type="checkbox" 
+        <input
+          type="checkbox"
           :checked="item.status === 'done'"
           readonly
           class="checkbox-input"
         />
       </div>
-      <span v-if="editingId !== item.id" class="todo-title">{{ item.title }}</span>
+      <span v-if="editingId !== item.id" class="todo-title" @click.stop="selectTask(item.id)">{{ item.title }}</span>
       <input v-else :id="'edit-input-' + item.id" v-model="editingText" class="todo-title" @blur="finishEdit(item.id)" @keyup.enter="finishEdit(item.id)" />
       <span class="status-pill" :data-status="item.status">
         {{ item.status === 'done' ? '✓ 完成' : item.status === 'doing' ? '⚡ 进行中' : '○ 待办' }}
       </span>
       <button class="add-subtask-btn" @click.stop="emitAddSubtask(item.id, startEdit)">＋ 子任务</button>
+      <button v-if="selectedTaskId === item.id" class="select-btn selected">✓ 已选择</button>
+      <button v-else class="select-btn" @click.stop="selectTask(item.id)">选择</button>
     </div>
     <button class="delete-btn" @click.stop="emitDeleteTodo(item.id)" title="Delete task">×</button>
   </li>
@@ -22,12 +24,16 @@
 
 <script setup>
 import { computed, ref, nextTick } from 'vue'
-const props = defineProps({ node: Object })
-const emit = defineEmits(['toggle-done', 'delete-todo', 'add-subtask', 'edit-subtask'])
+const props = defineProps({
+  node: Object,
+  selectedTaskId: Number
+})
+const emit = defineEmits(['toggle-done', 'delete-todo', 'add-subtask', 'edit-subtask', 'task-selected'])
 const emitToggleDone = (node) => emit('toggle-done', node)
 const emitDeleteTodo = (id) => emit('delete-todo', id)
 const emitAddSubtask = (parentId, cb) => emit('add-subtask', parentId, cb)
 const emitEditSubtask = (id) => emit('edit-subtask', id)
+const emitTaskSelected = (id) => emit('task-selected', id)
 
 // 展平树结构为带层级的数组
 function flattenTree(node, level = 0, arr = []) {
@@ -54,6 +60,10 @@ function finishEdit(id) {
   emitEditSubtask(id, editingText.value)
   editingId.value = null
   editingText.value = ''
+}
+
+function selectTask(id) {
+  emitTaskSelected(id)
 }
 </script>
 
@@ -165,5 +175,32 @@ function finishEdit(id) {
 }
 .add-subtask-btn:hover {
   background: #2563eb;
+}
+
+.select-btn {
+  background: #10b981;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-left: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.select-btn:hover {
+  background: #059669;
+}
+
+.select-btn.selected {
+  background: #059669;
+  cursor: default;
+}
+
+.todo-item.selected {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 </style>

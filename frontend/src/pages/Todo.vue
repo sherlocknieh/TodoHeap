@@ -6,7 +6,9 @@
 				<div class="app-title">📝 TodoHeap</div>
 				<p class="app-sub">登录后主页 · 三视图切换</p>
 				<button class="invoke-hello" @click="todoStore.invokeHello">invoke Hello</button>
-				<button class="invoke-breakdown" @click="handleBreakdownTask">invoke Breakdown</button>
+				<button class="invoke-breakdown" @click="handleBreakdownTask" :disabled="!selectedTaskId">
+					invoke Breakdown {{ selectedTaskId ? `(ID: ${selectedTaskId})` : '(请先选择任务)' }}
+				</button>
 			</div>
 			<div class="header-actions">
 				<button class="user-menu-btn" @click="showUserMenu = !showUserMenu">
@@ -28,19 +30,19 @@
 
 		<div class="view-area">
 			<div v-if="activeView === 'list'">
-				<TodoList />
+				<TodoList @task-selected="handleTaskSelected" />
 			</div>
 			<div v-else-if="activeView === 'tree'">
 				<div v-if="todoStore.loading" class="loading-state">
 					<p>⏳ 加载中...</p>
 				</div>
-				<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" />
+				<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" @task-selected="handleTaskSelected" />
 			</div>
 			<div v-else>
 				<div v-if="todoStore.loading" class="loading-state">
 					<p>⏳ 加载中...</p>
 				</div>
-				<TodoHeap v-else :todos="todoStore.todos" />
+				<TodoHeap v-else :todos="todoStore.todos" @task-selected="handleTaskSelected" />
 			</div>
 		</div>
 	</div>
@@ -79,6 +81,7 @@ const activeView = computed({
 })
 
 const showUserMenu = ref(false)
+const selectedTaskId = ref(null)
 
 onMounted(async () => {
 	// 初始化认证
@@ -124,12 +127,20 @@ const switchView = (view) => {
 	activeView.value = view
 }
 
+const handleTaskSelected = (taskId) => {
+	selectedTaskId.value = taskId
+	console.log('选中任务ID:', taskId)
+}
+
 const handleBreakdownTask = async () => {
-	// 使用第一个任务作为示例，实际应用中应该让用户选择
-	const selectedNodeId = 14 // 示例ID，实际应该从用户选择获取
+	if (!selectedTaskId.value) {
+		alert('请先选择一个任务')
+		return
+	}
+	
 	const query = '继续分解'
 	
-	const result = await todoStore.invokeBreakdown(todoStore.treeNodes, selectedNodeId, query)
+	const result = await todoStore.invokeBreakdown(todoStore.treeNodes, selectedTaskId.value, query)
 	
 	if (result.success) {
 		alert(`成功添加 ${result.addedCount}/${result.totalCount} 个子任务`)
