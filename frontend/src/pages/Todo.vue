@@ -5,9 +5,8 @@
 			<div>
 				<div class="app-title">📝 TodoHeap</div>
 				<p class="app-sub">登录后主页 · 三视图切换</p>
-				<button class="invoke-hello" @click="todoStore.invokeHello">invoke Hello</button>
-				<button class="invoke-breakdown" @click="handleBreakdownTask" :disabled="!selectedTaskId">
-					invoke Breakdown {{ selectedTaskId ? `(ID: ${selectedTaskId})` : '(请先选择任务)' }}
+				<button class="invoke-breakdown" @click="handleBreakdownTask" :disabled="!selectedTaskId || isBreakingDown">
+					{{ isBreakingDown ? '分解中...' : '任务分解' }} {{ selectedTaskId ? `(ID: ${selectedTaskId})` : '(请先选择任务)' }}
 				</button>
 			</div>
 			<div class="header-actions">
@@ -20,6 +19,11 @@
 					<button class="menu-item logout" @click="handleSignOut">🚪 退出登录</button>
 				</div>
 			</div>
+		</div>
+
+		<!-- 任务分解消息提示 -->
+		<div v-if="breakdownMessage" :class="['breakdown-message', breakdownMessageType]">
+			{{ breakdownMessage }}
 		</div>
 
 		<div class="view-tabs">
@@ -42,7 +46,7 @@
 				<div v-if="todoStore.loading" class="loading-state">
 					<p>⏳ 加载中...</p>
 				</div>
-				<TodoHeap v-else :todos="todoStore.todos" @task-selected="handleTaskSelected" />
+				<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
 			</div>
 		</div>
 	</div>
@@ -82,6 +86,9 @@ const activeView = computed({
 
 const showUserMenu = ref(false)
 const selectedTaskId = ref(null)
+const isBreakingDown = ref(false)
+const breakdownMessage = ref('')
+const breakdownMessageType = ref('') // 'success' or 'error'
 
 onMounted(async () => {
 	// 初始化认证
@@ -134,21 +141,37 @@ const handleTaskSelected = (taskId) => {
 
 const handleBreakdownTask = async () => {
 	if (!selectedTaskId.value) {
-		alert('请先选择一个任务')
+		showBreakdownMessage('请先选择一个任务', 'error')
 		return
 	}
 	
-	const query = '继续分解'
+	isBreakingDown.value = true
+	breakdownMessage.value = ''
 	
-	const result = await todoStore.invokeBreakdown(todoStore.treeNodes, selectedTaskId.value, query)
-	
-	if (result.success) {
-		alert(`成功添加 ${result.addedCount}/${result.totalCount} 个子任务`)
-		// 刷新任务列表以显示新添加的子任务
-		await todoStore.fetchTodos()
-	} else {
-		alert(`任务分解失败: ${result.error}`)
+	try {
+		const query = '继续分解'
+		const result = await todoStore.invokeBreakdown(todoStore.treeNodes, selectedTaskId.value, query)
+		
+		if (result.success) {
+			showBreakdownMessage(`成功添加 ${result.addedCount}/${result.totalCount} 个子任务`, 'success')
+			// 刷新任务列表以显示新添加的子任务
+			await todoStore.fetchTodos()
+		} else {
+			showBreakdownMessage(`任务分解失败: ${result.error}`, 'error')
+		}
+	} finally {
+		isBreakingDown.value = false
 	}
+}
+
+const showBreakdownMessage = (message, type) => {
+	breakdownMessage.value = message
+	breakdownMessageType.value = type
+	// 3秒后自动清除消息
+	setTimeout(() => {
+		breakdownMessage.value = ''
+		breakdownMessageType.value = ''
+	}, 3000)
 }
 </script>
 
@@ -273,6 +296,62 @@ const handleBreakdownTask = async () => {
 	font-weight: 600;
 	color: #4b5563;
 	transition: all 0.15s ease;
+}
+
+.invoke-breakdown {
+	padding: 10px 16px;
+	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	color: white;
+	border: none;
+	border-radius: 10px;
+	cursor: pointer;
+	font-weight: 600;
+	transition: all 0.2s ease;
+	font-size: 14px;
+	margin-top: 12px;
+}
+
+.invoke-breakdown:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+}
+
+.invoke-breakdown:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.breakdown-message {
+	padding: 12px 16px;
+	border-radius: 8px;
+	margin: 0 0 16px 0;
+	font-weight: 500;
+	font-size: 14px;
+	animation: slideIn 0.3s ease-out;
+}
+
+.breakdown-message.success {
+	background: #d1fae5;
+	color: #065f46;
+	border: 1px solid #a7f3d0;
+}
+
+.breakdown-message.error {
+	background: #fee2e2;
+	color: #991b1b;
+	border: 1px solid #fecaca;
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .tab.active {

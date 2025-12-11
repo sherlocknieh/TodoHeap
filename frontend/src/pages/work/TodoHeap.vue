@@ -62,7 +62,7 @@
 				<div
 					v-for="(node, idx) in heapTree"
 					:key="node.id"
-					class="heap-item"
+					:class="['heap-item', { selected: selectedTaskId === node.id }]"
 					@click="selectTask(node.id)"
 				>
 					<div class="item-rank">{{ idx + 1 }}</div>
@@ -81,7 +81,8 @@
 						</div>
 					</div>
 					<div class="item-select">
-						<button class="select-btn">选择</button>
+						<button v-if="selectedTaskId === node.id" class="select-btn selected">✓ 已选择</button>
+						<button v-else class="select-btn">选择</button>
 					</div>
 				</div>
 			</div>
@@ -95,7 +96,8 @@ import { computed, watch } from 'vue'
 import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor, getUrgencyLevelName } from '../../utils/priorityCalculator'
 
 const props = defineProps({
-	todos: { type: Array, default: () => [] }
+	todos: { type: Array, default: () => [] },
+	selectedTaskId: Number
 })
 
 const emit = defineEmits(['task-selected'])
@@ -409,6 +411,17 @@ const selectTask = (taskId) => {
 .select-btn:hover {
 	background: #059669;
 	transform: translateY(-1px);
+}
+
+.select-btn.selected {
+	background: #059669;
+	cursor: default;
+}
+
+.heap-item.selected {
+	border-color: #10b981;
+	box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+	background: #f0fdf4;
 }
 
 @media (max-width: 1024px) {

@@ -140,13 +140,6 @@ export const useTodoStore = defineStore('todos', () => {
   }
 
 
-  const invokeHello = async () => {
-    
-    const { data, error } = await supabase.functions.invoke('hello',{'body':{name:'TodoHeap'}})
-
-    console.log(data,error)
-  }  
-
   const invokeBreakdown = async (todosTree, selectedNodeId, query) => {
     console.log('开始任务分解:', { selectedNodeId, query })
     
@@ -266,7 +259,6 @@ export const useTodoStore = defineStore('todos', () => {
     toggleDone,
     deleteTodo,
     clearError,
-    invokeHello,
     invokeBreakdown
   }
 })
