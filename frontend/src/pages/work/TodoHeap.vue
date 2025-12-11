@@ -1,3 +1,91 @@
+<template>
+	<!-- Todo 堆视图 -->
+	<div class="heap-container">
+		<div class="heap-info">
+			<h2>大顶堆视图</h2>
+			<p>优先级最高的任务在顶部，按堆结构排列（{{ heapNodes.length }}个任务）</p>
+		</div>
+		
+		<div v-if="heapNodes.length === 0" class="empty-state">
+			<div class="empty-icon">📚</div>
+			<p>暂无任务</p>
+		</div>
+		
+		<div v-else class="heap-visual">
+			<!-- 树形可视化 SVG -->
+			<div class="svg-wrapper" v-if="heapTree.length > 0">
+				<svg class="heap-svg" :width="svgWidth" :height="svgHeight">
+					<!-- 连接线 -->
+					<g class="heap-links">
+						<line 
+							v-for="node in heapTree.filter(n => n.parentIdx >= 0)" 
+							:key="`link-${node.index}`"
+							:x1="getNodeX(node.parentIdx)"
+							:y1="getNodeY(node.parentIdx)"
+							:x2="getNodeX(node.index)"
+							:y2="getNodeY(node.index)"
+							stroke="#cbd5e1"
+							stroke-width="2"
+						/>
+					</g>
+					
+					<!-- 节点圆形 -->
+					<g class="heap-nodes">
+						<circle 
+							v-for="node in heapTree" 
+							:key="`circle-${node.index}`"
+							:cx="getNodeX(node.index)"
+							:cy="getNodeY(node.index)"
+							r="30"
+							class="heap-node"
+							:style="{ fill: getNodeColor(node) }"
+						/>
+						<!-- 优先级数字 -->
+						<text 
+							v-for="node in heapTree" 
+							:key="`score-${node.index}`"
+							:x="getNodeX(node.index)"
+							:y="getNodeY(node.index) + 2"
+							class="heap-score"
+							text-anchor="middle"
+							dominant-baseline="middle"
+						>
+							{{ Math.round(node.priorityInfo.finalScore) }}
+						</text>
+					</g>
+				</svg>
+			</div>
+			
+			<!-- 列表视图 -->
+			<div class="heap-list">
+				<div class="list-header">任务列表（按优先级排序）</div>
+				<div 
+					v-for="(node, idx) in heapTree" 
+					:key="node.id"
+					class="heap-item"
+				>
+					<div class="item-rank">{{ idx + 1 }}</div>
+					<div class="item-content">
+						<div class="item-title">{{ node.title }}</div>
+						<div class="item-meta">
+							<span class="score-badge">
+								📊 {{ Math.round(node.priorityInfo.finalScore) }}
+							</span>
+							<span class="priority-label">
+								{{ getPriorityLevelName(node.priorityInfo.finalScore) }}
+							</span>
+							<span v-if="node.deadline" class="deadline-badge">
+								⏱️ {{ getUrgencyLevelName(node.priorityInfo.breakdown.daysUntilDeadline) }}
+							</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+
+
 <script setup>
 import { computed, watch } from 'vue'
 import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor, getUrgencyLevelName } from '../../utils/priorityCalculator'
@@ -102,91 +190,6 @@ const getNodeY = (index) => {
 
 </script>
 
-<template>
-	<div class="heap-container">
-		<div class="heap-info">
-			<h2>大顶堆视图</h2>
-			<p>优先级最高的任务在顶部，按堆结构排列（{{ heapNodes.length }}个任务）</p>
-		</div>
-		
-		<div v-if="heapNodes.length === 0" class="empty-state">
-			<div class="empty-icon">📚</div>
-			<p>暂无任务</p>
-		</div>
-		
-		<div v-else class="heap-visual">
-			<!-- 树形可视化 SVG -->
-			<div class="svg-wrapper" v-if="heapTree.length > 0">
-				<svg class="heap-svg" :width="svgWidth" :height="svgHeight">
-					<!-- 连接线 -->
-					<g class="heap-links">
-						<line 
-							v-for="node in heapTree.filter(n => n.parentIdx >= 0)" 
-							:key="`link-${node.index}`"
-							:x1="getNodeX(node.parentIdx)"
-							:y1="getNodeY(node.parentIdx)"
-							:x2="getNodeX(node.index)"
-							:y2="getNodeY(node.index)"
-							stroke="#cbd5e1"
-							stroke-width="2"
-						/>
-					</g>
-					
-					<!-- 节点圆形 -->
-					<g class="heap-nodes">
-						<circle 
-							v-for="node in heapTree" 
-							:key="`circle-${node.index}`"
-							:cx="getNodeX(node.index)"
-							:cy="getNodeY(node.index)"
-							r="30"
-							class="heap-node"
-							:style="{ fill: getNodeColor(node) }"
-						/>
-						<!-- 优先级数字 -->
-						<text 
-							v-for="node in heapTree" 
-							:key="`score-${node.index}`"
-							:x="getNodeX(node.index)"
-							:y="getNodeY(node.index) + 2"
-							class="heap-score"
-							text-anchor="middle"
-							dominant-baseline="middle"
-						>
-							{{ Math.round(node.priorityInfo.finalScore) }}
-						</text>
-					</g>
-				</svg>
-			</div>
-			
-			<!-- 列表视图 -->
-			<div class="heap-list">
-				<div class="list-header">任务列表（按优先级排序）</div>
-				<div 
-					v-for="(node, idx) in heapTree" 
-					:key="node.id"
-					class="heap-item"
-				>
-					<div class="item-rank">{{ idx + 1 }}</div>
-					<div class="item-content">
-						<div class="item-title">{{ node.title }}</div>
-						<div class="item-meta">
-							<span class="score-badge">
-								📊 {{ Math.round(node.priorityInfo.finalScore) }}
-							</span>
-							<span class="priority-label">
-								{{ getPriorityLevelName(node.priorityInfo.finalScore) }}
-							</span>
-							<span v-if="node.deadline" class="deadline-badge">
-								⏱️ {{ getUrgencyLevelName(node.priorityInfo.breakdown.daysUntilDeadline) }}
-							</span>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</template>
 
 <style scoped>
 .heap-container {

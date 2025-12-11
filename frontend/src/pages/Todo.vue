@@ -1,3 +1,48 @@
+<template>
+	<!-- 主界面 -->
+	<div class="todo-page">
+		<div class="page-header">
+			<div>
+				<div class="app-title">📝 TodoHeap</div>
+				<p class="app-sub">登录后主页 · 三视图切换</p>
+			</div>
+			<div class="header-actions">
+				<button class="user-menu-btn" @click="showUserMenu = !showUserMenu">
+					👤 {{ authStore.user?.email?.split('@')[0] || '用户' }}
+				</button>
+				<div v-if="showUserMenu" class="user-menu">
+					<button class="menu-item" @click="openSettings">⚙️ 设置</button>
+					<div class="divider"></div>
+					<button class="menu-item logout" @click="handleSignOut">🚪 退出登录</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="view-tabs">
+			<button :class="['tab', { active: activeView === 'list' }]" @click="switchView('list')">列表视图</button>
+			<button :class="['tab', { active: activeView === 'tree' }]" @click="switchView('tree')">树视图</button>
+			<button :class="['tab', { active: activeView === 'heap' }]" @click="switchView('heap')">堆视图</button>
+		</div>
+
+		<div class="view-area">
+			<div v-if="activeView === 'list'">
+				<TodoList />
+			</div>
+			<div v-else-if="activeView === 'tree'">
+				<div v-if="todoStore.loading" class="loading-state">
+					<p>⏳ 加载中...</p>
+				</div>
+				<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" />
+			</div>
+			<div v-else>
+				<div v-if="todoStore.loading" class="loading-state">
+					<p>⏳ 加载中...</p>
+				</div>
+				<TodoHeap v-else :todos="todoStore.todos" />
+			</div>
+		</div>
+	</div>
+</template>
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
@@ -77,51 +122,6 @@ const switchView = (view) => {
 	activeView.value = view
 }
 </script>
-
-<template>
-	<div class="todo-page">
-		<div class="page-header">
-			<div>
-				<div class="app-title">📝 TodoHeap</div>
-				<p class="app-sub">登录后主页 · 三视图切换</p>
-			</div>
-			<div class="header-actions">
-				<button class="user-menu-btn" @click="showUserMenu = !showUserMenu">
-					👤 {{ authStore.user?.email?.split('@')[0] || '用户' }}
-				</button>
-				<div v-if="showUserMenu" class="user-menu">
-					<button class="menu-item" @click="openSettings">⚙️ 设置</button>
-					<div class="divider"></div>
-					<button class="menu-item logout" @click="handleSignOut">🚪 退出登录</button>
-				</div>
-			</div>
-		</div>
-
-		<div class="view-tabs">
-			<button :class="['tab', { active: activeView === 'list' }]" @click="switchView('list')">列表视图</button>
-			<button :class="['tab', { active: activeView === 'tree' }]" @click="switchView('tree')">树视图</button>
-			<button :class="['tab', { active: activeView === 'heap' }]" @click="switchView('heap')">堆视图</button>
-		</div>
-
-		<div class="view-area">
-			<div v-if="activeView === 'list'">
-				<TodoList />
-			</div>
-			<div v-else-if="activeView === 'tree'">
-				<div v-if="todoStore.loading" class="loading-state">
-					<p>⏳ 加载中...</p>
-				</div>
-				<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" />
-			</div>
-			<div v-else>
-				<div v-if="todoStore.loading" class="loading-state">
-					<p>⏳ 加载中...</p>
-				</div>
-				<TodoHeap v-else :todos="todoStore.todos" />
-			</div>
-		</div>
-	</div>
-</template>
 
 <style scoped>
 .todo-page {

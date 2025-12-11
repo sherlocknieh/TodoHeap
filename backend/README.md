@@ -12,3 +12,12 @@
         ```bash
         uv run main.py
         ```
+
+- API文档
+
+- 基本查询
+    - 获取所有任务: `/api/todos`
+    - 获取单个任务: `/api/todo/{id}`
+    - 创建任务: `/api/todo/create`
+    - 更新任务: `/api/todo/update/{id}`
+    - 删除任务: `/api/todo/delete/{id}`

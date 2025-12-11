@@ -1,150 +1,5 @@
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/auth'
-
-const router = useRouter()
-const authStore = useAuthStore()
-
-// 标签切换
-const activeTab = ref('account')
-
-// 账户设置
-const showPasswordModal = ref(false)
-const currentPassword = ref('')
-const newPassword = ref('')
-const confirmPassword = ref('')
-const passwordError = ref('')
-const passwordSuccess = ref('')
-
-// 主题设置
-const theme = ref('light')
-
-// 通知设置
-const notifications = ref({
-  email: true,
-  push: false,
-  reminders: true
-})
-
-// 隐私设置
-const privacy = ref({
-  publicProfile: false,
-  shareProgress: false
-})
-
-// 用户信息
-const userEmail = computed(() => authStore.user?.email || '未知')
-const userCreatedAt = computed(() => {
-  if (authStore.user?.created_at) {
-    return new Date(authStore.user.created_at).toLocaleDateString('zh-CN')
-  }
-  return '未知'
-})
-
-onMounted(() => {
-  // 恢复保存的主题设置
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme) {
-    theme.value = savedTheme
-    applyTheme(savedTheme)
-  }
-
-  // 恢复保存的通知设置
-  const savedNotifications = localStorage.getItem('notifications')
-  if (savedNotifications) {
-    notifications.value = JSON.parse(savedNotifications)
-  }
-
-  // 恢复保存的隐私设置
-  const savedPrivacy = localStorage.getItem('privacy')
-  if (savedPrivacy) {
-    privacy.value = JSON.parse(savedPrivacy)
-  }
-})
-
-// 修改密码
-const handleChangePassword = async () => {
-  passwordError.value = ''
-  passwordSuccess.value = ''
-
-  // 验证
-  if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
-    passwordError.value = '请填写所有字段'
-    return
-  }
-
-  if (newPassword.value.length < 6) {
-    passwordError.value = '新密码至少需要 6 个字符'
-    return
-  }
-
-  if (newPassword.value !== confirmPassword.value) {
-    passwordError.value = '两次输入的密码不一致'
-    return
-  }
-
-  if (newPassword.value === currentPassword.value) {
-    passwordError.value = '新密码不能与旧密码相同'
-    return
-  }
-
-  // 这里可以调用更新密码的 API
-  // 当前只显示成功提示
-  passwordSuccess.value = '密码修改成功！'
-  currentPassword.value = ''
-  newPassword.value = ''
-  confirmPassword.value = ''
-  
-  setTimeout(() => {
-    showPasswordModal.value = false
-    passwordSuccess.value = ''
-  }, 2000)
-}
-
-// 主题切换
-const applyTheme = (selectedTheme) => {
-  document.documentElement.setAttribute('data-theme', selectedTheme)
-  localStorage.setItem('theme', selectedTheme)
-}
-
-const handleThemeChange = (selectedTheme) => {
-  theme.value = selectedTheme
-  applyTheme(selectedTheme)
-}
-
-// 保存通知设置
-const handleNotificationChange = () => {
-  localStorage.setItem('notifications', JSON.stringify(notifications.value))
-}
-
-// 保存隐私设置
-const handlePrivacyChange = () => {
-  localStorage.setItem('privacy', JSON.stringify(privacy.value))
-}
-
-// 退出登录
-const handleSignOut = async () => {
-  if (confirm('确定要退出登录吗?')) {
-    const result = await authStore.signOut()
-    if (result.success) {
-      router.push('/login')
-    }
-  }
-}
-
-// 删除账户
-const handleDeleteAccount = async () => {
-  if (confirm('确定要删除账户吗? 此操作无法撤销!')) {
-    if (confirm('再次确认:删除账户后,所有数据将被永久删除')) {
-      // 这里应该调用删除账户的 API
-      alert('账户删除功能开发中...')
-    }
-  }
-}
-</script>
-
 <template>
+  <!-- 设置界面 -->
   <div class="settings-page">
     <div class="settings-header">
       <h1>⚙️ 设置</h1>
@@ -391,6 +246,152 @@ const handleDeleteAccount = async () => {
     </div>
   </div>
 </template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../../stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+// 标签切换
+const activeTab = ref('account')
+
+// 账户设置
+const showPasswordModal = ref(false)
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordError = ref('')
+const passwordSuccess = ref('')
+
+// 主题设置
+const theme = ref('light')
+
+// 通知设置
+const notifications = ref({
+  email: true,
+  push: false,
+  reminders: true
+})
+
+// 隐私设置
+const privacy = ref({
+  publicProfile: false,
+  shareProgress: false
+})
+
+// 用户信息
+const userEmail = computed(() => authStore.user?.email || '未知')
+const userCreatedAt = computed(() => {
+  if (authStore.user?.created_at) {
+    return new Date(authStore.user.created_at).toLocaleDateString('zh-CN')
+  }
+  return '未知'
+})
+
+onMounted(() => {
+  // 恢复保存的主题设置
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme) {
+    theme.value = savedTheme
+    applyTheme(savedTheme)
+  }
+
+  // 恢复保存的通知设置
+  const savedNotifications = localStorage.getItem('notifications')
+  if (savedNotifications) {
+    notifications.value = JSON.parse(savedNotifications)
+  }
+
+  // 恢复保存的隐私设置
+  const savedPrivacy = localStorage.getItem('privacy')
+  if (savedPrivacy) {
+    privacy.value = JSON.parse(savedPrivacy)
+  }
+})
+
+// 修改密码
+const handleChangePassword = async () => {
+  passwordError.value = ''
+  passwordSuccess.value = ''
+
+  // 验证
+  if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
+    passwordError.value = '请填写所有字段'
+    return
+  }
+
+  if (newPassword.value.length < 6) {
+    passwordError.value = '新密码至少需要 6 个字符'
+    return
+  }
+
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = '两次输入的密码不一致'
+    return
+  }
+
+  if (newPassword.value === currentPassword.value) {
+    passwordError.value = '新密码不能与旧密码相同'
+    return
+  }
+
+  // 这里可以调用更新密码的 API
+  // 当前只显示成功提示
+  passwordSuccess.value = '密码修改成功！'
+  currentPassword.value = ''
+  newPassword.value = ''
+  confirmPassword.value = ''
+  
+  setTimeout(() => {
+    showPasswordModal.value = false
+    passwordSuccess.value = ''
+  }, 2000)
+}
+
+// 主题切换
+const applyTheme = (selectedTheme) => {
+  document.documentElement.setAttribute('data-theme', selectedTheme)
+  localStorage.setItem('theme', selectedTheme)
+}
+
+const handleThemeChange = (selectedTheme) => {
+  theme.value = selectedTheme
+  applyTheme(selectedTheme)
+}
+
+// 保存通知设置
+const handleNotificationChange = () => {
+  localStorage.setItem('notifications', JSON.stringify(notifications.value))
+}
+
+// 保存隐私设置
+const handlePrivacyChange = () => {
+  localStorage.setItem('privacy', JSON.stringify(privacy.value))
+}
+
+// 退出登录
+const handleSignOut = async () => {
+  if (confirm('确定要退出登录吗?')) {
+    const result = await authStore.signOut()
+    if (result.success) {
+      router.push('/login')
+    }
+  }
+}
+
+// 删除账户
+const handleDeleteAccount = async () => {
+  if (confirm('确定要删除账户吗? 此操作无法撤销!')) {
+    if (confirm('再次确认:删除账户后,所有数据将被永久删除')) {
+      // 这里应该调用删除账户的 API
+      alert('账户删除功能开发中...')
+    }
+  }
+}
+</script>
 
 <style scoped>
 .settings-page {

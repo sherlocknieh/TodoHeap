@@ -1,4 +1,5 @@
 <template>
+  <!-- 登录/注册页面 -->
   <div class="auth-page">
     <div class="auth-card">
       <!-- 品牌区域 -->

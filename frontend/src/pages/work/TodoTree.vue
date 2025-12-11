@@ -1,15 +1,50 @@
+<template>
+	<!-- Todo 树视图 -->
+	<div class="tree-container">
+		<div class="tree-header">
+			<h2>{{ props.title }}</h2>
+			<p>{{ (props.todos || []).length }} 个任务 · 多布局支持</p>
+			
+			<div class="layout-switch">
+				<button
+					v-for="mode in layoutModes"
+					:key="mode.value"
+					:class="['layout-btn', { active: layoutMode === mode.value }]"
+					:title="mode.label"
+					@click="layoutMode = mode.value"
+				>
+					<span class="layout-icon">{{ mode.icon }}</span>
+					<span class="layout-label">{{ mode.label }}</span>
+				</button>
+			</div>
+		</div>
+
+		<div v-if="(props.todos || []).length === 0" class="empty-state">
+			<div class="empty-icon">🌳</div>
+			<p>暂无任务</p>
+		</div>
+
+		<div v-else class="mindmap-wrapper" ref="mindMapContainer" style="flex: 1; min-height: 0;"></div>
+	</div>
+</template>
+
+
 <script setup>
 import { onMounted, ref, computed, watch, nextTick } from 'vue'
 import MindMap from 'simple-mind-map'
+import { useTodoStore } from '../../stores/todos'
 
 const props = defineProps({
 	todos: { type: Array, default: () => [] },
 	title: { type: String, default: 'Todo 思维导图' }
 })
 
+const todoStore = useTodoStore()
+
 const mindMapContainer = ref(null)
 let mindMapInstance = null
 let savedViewState = null  // 保存视图状态
+let existingTodoIds = new Set()  // 跟踪现有任务 ID，用于检测新创建的节点
 
 // 布局模式列表
 const layoutModes = [
@@ -23,7 +58,7 @@ const layoutModes = [
 
 const layoutMode = ref('mindMap')
 
-// 将 todos 转换为 simple-mind-map 格式
+	// 将 todos 转换为 simple-mind-map 格式
 const mindMapData = computed(() => {
 	const todosArray = props.todos || []
 	if (todosArray.length === 0) {
@@ -37,7 +72,8 @@ const mindMapData = computed(() => {
 	const buildNode = (todo) => ({
 		data: {
 			text: todo.title || '未命名任务',
-			status: todo.status || 'todo'
+			status: todo.status || 'todo',
+			id: todo.id  // 添加 ID 到数据中，便于后续关联
 		},
 		children: []
 	})
@@ -60,9 +96,7 @@ const mindMapData = computed(() => {
 		data: { text: props.title },
 		children: roots
 	}
-})
-
-// 初始化 mindmap 实例
+})// 初始化 mindmap 实例
 const initMindMap = async () => {
 	if (!mindMapContainer.value) {
 		console.warn('Container not ready')
@@ -147,6 +181,107 @@ const initMindMap = async () => {
 			}, 50)
 		})
 
+		// 初始化现有任务 ID 集合
+		existingTodoIds = new Set(props.todos.map(t => t.id))
+
+		// 监听节点内容修改事件，同步到数据库
+		mindMapInstance.on('node_content_change', async (node) => {
+			try {
+				const nodeData = node.getData()
+				const text = nodeData?.text || ''
+				const nodeId = nodeData?.id
+				
+				// 如果节点数据中有 ID，直接使用
+				if (nodeId && existingTodoIds.has(nodeId)) {
+					await todoStore.updateTodo(nodeId, { title: text })
+					console.log('Node content updated:', { id: nodeId, title: text })
+				}
+			} catch (err) {
+				console.error('Error updating node content:', err)
+			}
+		})
+
+		// 监听节点插入事件（插入新节点时触发）
+		mindMapInstance.on('node_insert', async (node) => {
+			try {
+				const nodeData = node.getData()
+				const text = nodeData?.text || ''
+				
+				if (!text || text === props.title) return
+				
+				const parentNode = node.parent
+				if (!parentNode) return
+				
+				// 获取父节点的 ID
+				const parentNodeData = parentNode.getData()
+				const parentId = parentNodeData?.id
+				
+				// 检查是否是新创建的节点（不在现有 ID 集合中）
+				if (!parentId || existingTodoIds.has(parentId) === false) return
+				
+				// 检查是否已经存在相同的任务
+				const existingTodo = props.todos.find(
+					t => t.title === text && t.parent_id === parentId
+				)
+				
+				if (!existingTodo) {
+					// 创建新子任务
+					const result = await todoStore.addTodo(text, {
+						parent_id: parentId,
+						status: 'todo'
+					})
+					if (result.success) {
+						console.log('New subtask created from mindmap:', result.data)
+						// 更新节点数据中的 ID
+						node.setData({ ...nodeData, id: result.data.id })
+						// 更新现有任务 ID 集合
+						existingTodoIds.add(result.data.id)
+					}
+				}
+			} catch (err) {
+				console.error('Error in node_insert event:', err)
+			}
+		})
+
+		// 监听节点被选中/点击事件，用于捕获编辑完成的节点
+		mindMapInstance.on('node_click', async (node) => {
+			try {
+				const nodeData = node.getData()
+				const text = nodeData?.text || ''
+				const nodeId = nodeData?.id
+				
+				// 如果点击了没有 ID 的新节点，需要创建任务
+				if (!nodeId && text && text !== props.title) {
+					const parentNode = node.parent
+					if (parentNode) {
+						const parentNodeData = parentNode.getData()
+						const parentId = parentNodeData?.id
+						
+						if (parentId && existingTodoIds.has(parentId)) {
+							// 检查是否已存在
+							const existingTodo = props.todos.find(
+								t => t.title === text && t.parent_id === parentId
+							)
+							
+							if (!existingTodo) {
+								const result = await todoStore.addTodo(text, {
+									parent_id: parentId,
+									status: 'todo'
+								})
+								if (result.success) {
+									console.log('New subtask created:', result.data)
+									node.setData({ ...nodeData, id: result.data.id })
+									existingTodoIds.add(result.data.id)
+								}
+							}
+						}
+					}
+				}
+			} catch (err) {
+				console.error('Error in node_click event:', err)
+			}
+		})
+
 		// ResizeObserver 来处理容器大小变化
 		if (typeof ResizeObserver !== 'undefined' && mindMapContainer.value) {
 			const resizeObserver = new ResizeObserver(() => {
@@ -194,34 +329,6 @@ onMounted(async () => {
 })
 </script>
 
-<template>
-	<div class="tree-container">
-		<div class="tree-header">
-			<h2>{{ props.title }}</h2>
-			<p>{{ (props.todos || []).length }} 个任务 · 多布局支持</p>
-			
-			<div class="layout-switch">
-				<button
-					v-for="mode in layoutModes"
-					:key="mode.value"
-					:class="['layout-btn', { active: layoutMode === mode.value }]"
-					:title="mode.label"
-					@click="layoutMode = mode.value"
-				>
-					<span class="layout-icon">{{ mode.icon }}</span>
-					<span class="layout-label">{{ mode.label }}</span>
-				</button>
-			</div>
-		</div>
-
-		<div v-if="(props.todos || []).length === 0" class="empty-state">
-			<div class="empty-icon">🌳</div>
-			<p>暂无任务</p>
-		</div>
-
-		<div v-else class="mindmap-wrapper" ref="mindMapContainer" style="flex: 1; min-height: 0;"></div>
-	</div>
-</template>
 
 <style scoped>
 .tree-container {

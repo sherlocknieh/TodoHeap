@@ -1,18 +1,5 @@
-<script setup>
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
-
-const goHome = () => {
-  router.push('/')
-}
-
-const goBack = () => {
-  router.back()
-}
-</script>
-
 <template>
+  <!-- 404 页面 -->
   <div class="not-found-page">
     <div class="container">
       <div class="content">
@@ -42,6 +29,20 @@ const goBack = () => {
     </div>
   </div>
 </template>
+
+<script setup>
+  import { useRouter } from 'vue-router'
+
+  const router = useRouter()
+
+  const goHome = () => {
+    router.push('/')
+  }
+
+  const goBack = () => {
+    router.back()
+  }
+</script>
 
 <style scoped>
 * {

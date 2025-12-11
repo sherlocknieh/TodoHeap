@@ -4,7 +4,24 @@
 - 把大任务自动分解细化为能快速完成的小任务, 减轻任务管理压力;
 - 找出最优先的任务置于最顶端, 省去在多个平行任务中做选择的精力;
 
+
+## 已实现功能
+
+- 用户注册登录 (Supabase Auth)
+- 单层任务的增删
+
+
+## TODO
+
+- 任务的编辑和详细管理
+- 子任务的创建和显示
+- 子任务的拖拽排序
+- 任务优先级排序算法
+- AI 自动分解任务 (OpenAI API)
+
+
 ## 开发指南
+
 
 ### 前端
 
@@ -29,8 +46,7 @@
 
 ### 后端
 
-- 注册 [Supabase](https://supabase.com/) 并登录;
-- 把注册邮箱发给我, 我把该账户添加为项目成员;
+- 注册登录 [Supabase](https://supabase.com/);
 - 访问 [Supabase Dashboard](https://supabase.com/dashboard/) 即可开始管理数据库;
 
 用 Python 进行本地调试:
@@ -46,23 +62,4 @@
 - 运行
     ```bash
     cd backend; uv run main.py
-    ```
-
-### 代码提交
-
-1. Fork本仓库到个人仓库 (或者联系我成为项目管理员);
-2. 在个人仓库上进行开发 (管理员直接克隆本仓库开发);
-3. 开发任何新功能前都创建一个新分支:
-    ```bash
-    git checkout -b feature-name
-    ```
-4. 在分支上开发完成后推送到个人仓库;
-5. 创建 Pull Request 并等待合并;
-6. 代码被合并后即可删除分支:
-    ```bash
-    # 删除本地分支
-    git branch -d feature-name
-
-    # 删除远程分支
-    git push origin --delete feature-name
     ```

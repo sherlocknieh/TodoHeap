@@ -1,30 +1,5 @@
-<script setup>
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-
-const router = useRouter()
-const authStore = useAuthStore()
-
-onMounted(async () => {
-  // 如果 store 未初始化，先初始化
-  if (authStore.session === null && !authStore.loading) {
-    await authStore.initialize()
-  }
-  
-  // 如果已登录，自动跳转到应用页
-  if (authStore.isAuthenticated) {
-    router.push('/app')
-  }
-})
-
-const openLogin = () => {
-  router.push('/login')
-}
-</script>
-
 <template>
-  <!-- 推广页 - 仅在未登录时显示 -->
+  <!-- 产品主页 -->
   <div class="landing-page">
     <!-- 导航栏 -->
     <nav class="navbar">
@@ -74,6 +49,32 @@ const openLogin = () => {
   </div>
 </template>
 
+<script setup>
+  import { onMounted } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useAuthStore } from '../stores/auth'
+
+  const router = useRouter()
+  const authStore = useAuthStore()
+
+  onMounted(async () => {
+    // 如果 store 未初始化，先初始化
+    if (authStore.session === null && !authStore.loading) {
+      await authStore.initialize()
+    }
+    
+    // 如果已登录，自动跳转到应用页
+    if (authStore.isAuthenticated) {
+      router.push('/app')
+    }
+  })
+
+  const openLogin = () => {
+    router.push('/login')
+  }
+</script>
+
+
 <style scoped>
 * {
   margin: 0;
@@ -81,7 +82,7 @@ const openLogin = () => {
   box-sizing: border-box;
 }
 
-/* ========== 推广页面样式 ========== */
+/* ========== 产品主页样式 ========== */
 
 .landing-page {
   min-height: 100vh;

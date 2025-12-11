@@ -1,50 +1,5 @@
-<script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useTodoStore } from '../../stores/todos'
-import { useAuthStore } from '../../stores/auth'
-
-const todoStore = useTodoStore()
-const authStore = useAuthStore()
-
-const newTaskText = ref('')
-const isAdding = ref(false)
-
-// 从 store 获取数据
-const todos = computed(() => todoStore.todos)
-const errorText = computed(() => todoStore.error)
-
-onMounted(async () => {
-  if (authStore.isAuthenticated && todos.value.length === 0) {
-    await todoStore.fetchTodos()
-  }
-})
-
-const addTodo = async () => {
-  const task = newTaskText.value.trim()
-  if (!task || isAdding.value) return
-
-  isAdding.value = true
-
-  try {
-    const result = await todoStore.addTodo(task)
-    if (result.success) {
-      newTaskText.value = ''
-    }
-  } finally {
-    isAdding.value = false
-  }
-}
-
-const deleteTodo = async (id) => {
-  await todoStore.deleteTodo(id)
-}
-
-const toggleDone = async (todo) => {
-  await todoStore.toggleDone(todo.id)
-}
-</script>
-
 <template>
+  <!-- Todo 列表视图 -->
   <div class="todo-app">
     <div class="todo-header">
       <h1>Todo List</h1>
@@ -74,27 +29,80 @@ const toggleDone = async (todo) => {
     </div>
 
     <ul class="todo-list" v-else>
-      <li v-for="todo in todos" :key="todo.id" :class="{ done: todo.status === 'done' }" class="todo-item">
-        <div class="todo-main" @click="toggleDone(todo)">
-          <div class="todo-checkbox">
-            <input 
-              type="checkbox" 
-              :checked="todo.status === 'done'"
-              readonly
-              class="checkbox-input"
-            />
-          </div>
-          <span class="todo-title">{{ todo.title }}</span>
-          <span class="status-pill" :data-status="todo.status">
-            {{ todo.status === 'done' ? '✓ 完成' : todo.status === 'doing' ? '⚡ 进行中' : '○ 待办' }}
-          </span>
-        </div>
-        <button class="delete-btn" @click.stop="deleteTodo(todo.id)" title="Delete task">×</button>
-      </li>
+      <TodoTreeItem
+        v-for="node in treeNodes"
+        :key="node.id"
+        :node="node"
+        @toggle-done="toggleDone"
+        @delete-todo="deleteTodo"
+        @add-subtask="addSubtask"
+        @edit-subtask="editSubtask"
+      />
     </ul>
 
   </div>
 </template>
+
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { useTodoStore } from '../../stores/todos'
+import { useAuthStore } from '../../stores/auth'
+import TodoTreeItem from '../../components/TodoTreeItem.vue'
+
+const todoStore = useTodoStore()
+const authStore = useAuthStore()
+
+const newTaskText = ref('')
+const isAdding = ref(false)
+
+// 从 store 获取数据
+const todos = computed(() => todoStore.todos)
+const errorText = computed(() => todoStore.error)
+const treeNodes = computed(() => todoStore.treeNodes)
+
+onMounted(async () => {
+  if (authStore.isAuthenticated && todos.value.length === 0) {
+    await todoStore.fetchTodos()
+  }
+})
+
+const addTodo = async () => {
+  const task = newTaskText.value.trim()
+  if (!task || isAdding.value) return
+
+  isAdding.value = true
+
+  try {
+    const result = await todoStore.addTodo(task)
+    if (result.success) {
+      newTaskText.value = ''
+    }
+  } finally {
+    isAdding.value = false
+  }
+}
+
+const addSubtask = async (parentId, startEditCb) => {
+  // 默认标题
+  const result = await todoStore.addTodo('新子任务', { parent_id: parentId })
+  if (result.success && result.data) {
+    // 进入编辑模式
+    startEditCb(result.data.id, result.data.title)
+  }
+}
+
+const editSubtask = async (id, newTitle) => {
+  await todoStore.updateTodo(id, { title: newTitle })
+}
+
+const deleteTodo = async (id) => {
+  await todoStore.deleteTodo(id)
+}
+
+const toggleDone = async (todo) => {
+  await todoStore.toggleDone(todo.id)
+}
+</script>
 
 <style scoped>
 .todo-app {
@@ -102,6 +110,9 @@ const toggleDone = async (todo) => {
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem 1rem;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .todo-header {
@@ -212,9 +223,17 @@ h1 {
 }
 
 .todo-list {
-  list-style: none;
-  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.todo-list ul {
+  padding-left: 24px;
+  margin-top: 8px;
 }
 
 .todo-item {
