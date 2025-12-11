@@ -1,0 +1,41 @@
+name: Deploy Supabase
+
+# 触发条件: push 到 main 分支且 supabase 目录有变动时触发
+on:
+  push:
+    branches: [main]  # 监听 main 分支
+    paths:
+      - 'supabase/**'  # 仅当 supabase 目录下的文件发生变化时触发
+
+# 作业流程
+jobs:
+  deploy:
+    # 运行环境
+    runs-on: ubuntu-latest
+    # 环境变量
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}  # Supabase 访问令牌（从 GitHub Secrets 中获取）
+      PROJECT_ID: nxzvisuvwtsnlrugqghx  # Supabase 项目 ID（公开）
+    # 作业步骤
+    steps:
+      # 克隆代码仓库
+      - name: Checkout repo
+        uses: actions/checkout@v4  # 使用官方 checkout action 克隆代码
+
+      # 安装 Supabase CLI 工具
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1 
+        with:
+          version: latest
+
+      # 链接到 Supabase 项目
+      - name: Link Supabase project
+        run: supabase link --project-ref $PROJECT_ID  # 链接到远程项目
+
+      # 部署数据库迁移
+      - name: Deploy DB migrations
+        run: supabase db push --linked
+
+      # 部署边缘函数
+      - name: Deploy Edge Functions
+        run: supabase functions deploy

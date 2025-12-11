@@ -48,7 +48,7 @@ except Exception as e:
 
 # 边缘函数调用测试
 try:
-    response = supabase_client.functions.invoke("hello-world",
+    response = supabase_client.functions.invoke("hello",
     invoke_options={"body": {"name": "Functions"}})
     print("✅ 边缘函数调用成功")
     print(f"响应: {response}")

@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     # 作业步骤
     steps:
-      # 克隆代码
+      # 克隆代码仓库
       - name: Checkout
         uses: actions/checkout@v4
       # 安装 Node.js
@@ -38,4 +38,4 @@ jobs:
         with:
           folder: frontend/dist
           branch: gh-pages
-          clean: false
+          #clean: false
