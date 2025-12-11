@@ -147,14 +147,60 @@ export const useTodoStore = defineStore('todos', () => {
     console.log(data,error)
   }  
 
-  const invokeBreakdown = async () => {
+  const invokeBreakdown = async (todosTree, selectedNodeId, query) => {
+    console.log('开始任务分解:', { selectedNodeId, query })
+    
     const body = {
-      todo:'学习线性代数',
-      query:'分解'
+      todosTree: todosTree,
+      selectedNodeId: selectedNodeId,
+      query: query
     }
-
-    const { data, error } = await supabase.functions.invoke('breakdown_task',{'body':body})
-    console.log(data,error)
+    
+    const { data, error } = await supabase.functions.invoke('breakdown_task', {'body': body})
+    
+    if (error) {
+      console.error('任务分解API调用失败:', error)
+      return { success: false, error: error.message }
+    }
+    
+    console.log('任务分解API返回:', data)
+    console.log('返回数据类型:', typeof data)
+    
+    // 处理可能的字符串格式数据
+    let parsedData = data
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data)
+        console.log('解析后的数据:', parsedData)
+      } catch (parseError) {
+        console.error('JSON解析失败:', parseError)
+        return { success: false, error: '返回的数据格式不正确' }
+      }
+    }
+    
+    // 确保获取到children数组
+    const children = parsedData?.children || []
+    console.log(`获取到 ${children.length} 个子任务`)
+    
+    // 为每个子任务创建数据库记录
+    const results = await Promise.all(
+      children.map(childTask =>
+        addTodo(childTask.title, {
+          status: childTask.status || 'todo',
+          priority: childTask.priority ?? 1,
+          parent_id: selectedNodeId
+        })
+      )
+    )
+    
+    const successCount = results.filter(r => r.success).length
+    console.log(`成功添加 ${successCount}/${children.length} 个子任务`)
+    
+    return {
+      success: successCount === children.length,
+      addedCount: successCount,
+      totalCount: children.length
+    }
   }
 
 

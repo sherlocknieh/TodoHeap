@@ -6,7 +6,7 @@
 				<div class="app-title">📝 TodoHeap</div>
 				<p class="app-sub">登录后主页 · 三视图切换</p>
 				<button class="invoke-hello" @click="todoStore.invokeHello">invoke Hello</button>
-				<button class="invoke-breakdown" @click="todoStore.invokeBreakdown">invoke Breakdown</button>
+				<button class="invoke-breakdown" @click="handleBreakdownTask">invoke Breakdown</button>
 			</div>
 			<div class="header-actions">
 				<button class="user-menu-btn" @click="showUserMenu = !showUserMenu">
@@ -122,6 +122,22 @@ const openSettings = () => {
 
 const switchView = (view) => {
 	activeView.value = view
+}
+
+const handleBreakdownTask = async () => {
+	// 使用第一个任务作为示例，实际应用中应该让用户选择
+	const selectedNodeId = 14 // 示例ID，实际应该从用户选择获取
+	const query = '继续分解'
+	
+	const result = await todoStore.invokeBreakdown(todoStore.treeNodes, selectedNodeId, query)
+	
+	if (result.success) {
+		alert(`成功添加 ${result.addedCount}/${result.totalCount} 个子任务`)
+		// 刷新任务列表以显示新添加的子任务
+		await todoStore.fetchTodos()
+	} else {
+		alert(`任务分解失败: ${result.error}`)
+	}
 }
 </script>
 
