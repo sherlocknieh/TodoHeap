@@ -1,36 +1,34 @@
 site_name: TodoHeap 文档
 site_description: TodoHeap - AI 驱动的任务分解工具
 
-docs_dir: _content
-# 输出到 public/docs，与前端产物共同部署到 Pages
-site_dir: ../public/docs
 
-
+# 主题设置
 theme:
   name: material
   language: zh
   logo: null
   palette:
     - scheme: light
-      primary: blue
-      accent: light-blue
+      primary: indigo
+      accent: pink
       toggle:
         icon: material/brightness-7
         name: 切换深色模式
     - scheme: dark
-      primary: blue
-      accent: light-blue
+      primary: indigo
+      accent: pink
       toggle:
         icon: material/brightness-4
         name: 切换浅色模式
   features:
-    - navigation.tracking
-    - navigation.tabs
-    - navigation.top
-    - search.suggest
-    - search.highlight
-    - content.code.copy
-    - content.code.select
+    - navigation.instant  # 启用即时导航
+    - navigation.tracking # 启用导航跟踪
+    - navigation.tabs     # 启用标签式导航
+    - navigation.top      # 启用顶部导航
+    - search.suggest      # 启用搜索建议
+    - search.highlight    # 启用搜索高亮
+    - content.code.copy   # 启用代码复制按钮
+    - content.code.select # 启用代码选择按钮
 
 plugins:
   - search:
@@ -49,9 +47,3 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - attr_list
-
-nav:
-  - 首页: index.md
-  - 用户手册: 'SUM.md'
-  - 需求文档: 'SRS.md'
-  - 架构文档: 'SDD.md'

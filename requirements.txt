@@ -1,0 +1,6 @@
+# 这是 MkDocs 部署在线文档所需的依赖
+# 请勿删除此文件
+
+mkdocs
+mkdocs-material
+pymdown-extensions
