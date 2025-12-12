@@ -18,7 +18,7 @@
             </h1>
           </div>
           <div class="flex items-center gap-6">
-            <a href="/docs" class="text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
+            <a href="/TodoHeap/docs" class="text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
               📄Docs
             </a>
             
