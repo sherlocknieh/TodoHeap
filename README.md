@@ -1,8 +1,11 @@
 # TodoHeap 任务堆
 
+
 - 在普通 TodoList 应用的基础上添加 AI 自动分解任务的功能;
 - 把大任务自动分解细化为能快速完成的小任务, 减轻任务管理压力;
 - 找出最优先的任务置于最顶端, 省去在多个平行任务中做选择的精力;
+
+项目主页: https://edu.gitee.com/xmu-ai/projects/820580/repos/xmu-ai/TodoHeap/sources
 
 
 ## 已实现功能
@@ -63,3 +66,15 @@
     ```bash
     cd backend; uv run main.py
     ```
+
+
+## 提交指南:
+
+1.先到 Issue 页面看看有哪些任务可做:
+https://gitee.com/xmu-ai/TodoHeap/issues
+
+(有想做但上面没列出来的就自行创建 Issue)
+
+2.本地创建新分支并开始工作, 完成后push分支;
+
+3.到仓库主页提 Pull Request, 提交时关联对应的 Issue
