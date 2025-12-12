@@ -55,7 +55,7 @@ jobs:
       - name: Install MkDocs and build docs
         run: |
           pip install -r docs/requirements.txt
-          mkdocs build -f docs/mkdocs.yml -d frontend/dist/docs
+          mkdocs build -d frontend/dist/docs
 
       # 上传构建产物到官方 GitHub Pages 服务器
       - name: Upload artifact
