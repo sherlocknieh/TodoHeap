@@ -1,0 +1,57 @@
+site_name: TodoHeap 文档
+site_description: TodoHeap - AI 驱动的任务分解工具
+
+# mkdocs.yml 在 docs/ 目录，但源文档也在 docs/ 目录
+# MkDocs 不允许 docs_dir 与 mkdocs.yml 同级，所以创建 _content 子目录
+docs_dir: _content
+site_dir: ../site
+
+theme:
+  name: material
+  language: zh
+  logo: null
+  palette:
+    - scheme: light
+      primary: blue
+      accent: light-blue
+      toggle:
+        icon: material/brightness-7
+        name: 切换深色模式
+    - scheme: dark
+      primary: blue
+      accent: light-blue
+      toggle:
+        icon: material/brightness-4
+        name: 切换浅色模式
+  features:
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.select
+
+plugins:
+  - search:
+      lang: zh
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - codehilite:
+      linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+
+nav:
+  - 首页: index.md
+  - 用户手册: 'SUM.md'
+  - 需求文档: 'SRS.md'
+  - 架构文档: 'SDD.md'
