@@ -370,7 +370,8 @@ const showBreakdownMessage = (message, type) => {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
-	overflow: hidden;
+	overflow: auto; /* 允许内部内容滚动，避免被父容器裁剪 */
+	min-height: 0; /* 配合 flex 让子元素正确计算可滚动高度 */
 }
 
 .view-area > div {
@@ -378,6 +379,7 @@ const showBreakdownMessage = (message, type) => {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
+	min-height: 0; /* 使嵌套视图支持内部滚动 */
 }
 
 .loading-state {

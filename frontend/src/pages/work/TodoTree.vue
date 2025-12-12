@@ -3,20 +3,7 @@
 	<div class="tree-container">
 		<div class="tree-header">
 			<h2>{{ props.title }}</h2>
-			<p>{{ (props.todos || []).length }} 个任务 · 多布局支持</p>
-			
-			<div class="layout-switch">
-				<button
-					v-for="mode in layoutModes"
-					:key="mode.value"
-					:class="['layout-btn', { active: layoutMode === mode.value }]"
-					:title="mode.label"
-					@click="layoutMode = mode.value"
-				>
-					<span class="layout-icon">{{ mode.icon }}</span>
-					<span class="layout-label">{{ mode.label }}</span>
-				</button>
-			</div>
+			<p>{{ (props.todos || []).length }} 个任务 · 逻辑结构图</p>
 		</div>
 
 		<div v-if="(props.todos || []).length === 0" class="empty-state">
@@ -48,17 +35,8 @@ let mindMapInstance = null
 let savedViewState = null  // 保存视图状态
 let existingTodoIds = new Set()  // 跟踪现有任务 ID，用于检测新创建的节点
 
-// 布局模式列表
-const layoutModes = [
-	{ value: 'mindMap', label: '思维导图', icon: '🧠' },
-	{ value: 'logicalStructure', label: '逻辑结构图', icon: '📊' },
-	{ value: 'catalogOrganization', label: '目录组织图', icon: '📁' },
-	{ value: 'organizationStructure', label: '组织结构图', icon: '👥' },
-	{ value: 'timeline', label: '时间轴', icon: '⏱️' },
-	{ value: 'fishbone', label: '鱼骨图', icon: '🐟' }
-]
-
-const layoutMode = ref('mindMap')
+// 默认固定使用逻辑结构图
+const layoutMode = ref('logicalStructure')
 
 	// 将 todos 转换为 simple-mind-map 格式
 const mindMapData = computed(() => {
@@ -310,9 +288,9 @@ const initMindMap = async () => {
 
 // 监听 todos 和 layoutMode 变化
 watch(
-	() => [props.todos, layoutMode.value],
+	() => props.todos,
 	async () => {
-		console.log('Todos or layout changed, reinitializing')
+		console.log('Todos changed, reinitializing')
 		await nextTick()
 		await new Promise(resolve => setTimeout(resolve, 100))
 		initMindMap()
