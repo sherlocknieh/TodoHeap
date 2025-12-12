@@ -1,0 +1,63 @@
+name: Deploy Docs to GitHub Pages # MkDocs 文档自动部署
+
+# 触发条件: push 到 main 分支且 docs / frontend 目录有变动时触发
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy_vue+docs.yml'
+
+permissions:
+  contents: read              # 读取仓库内容
+  pages: write                # 写入 Pages 发布资源
+  id-token: write             # OIDC for GitHub Pages 部署
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend deps and build
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Install MkDocs and build docs
+        run: |
+          pip install -r docs/requirements.txt
+          # 清理旧输出，准备合并前端+文档
+          rm -rf public
+          mkdir -p public
+          # 前端输出复制到 public 根
+          if [ ! -d frontend/dist ]; then echo "dist not found"; ls -la frontend; exit 1; fi
+          cp -r frontend/dist/. public/
+          # 构建文档到 public/docs
+          mkdocs build -f docs/mkdocs.yml
+
+      - name: Upload artifact (frontend + docs)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'public'      # 根为前端，文档在 public/docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
