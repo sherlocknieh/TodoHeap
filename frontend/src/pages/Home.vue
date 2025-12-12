@@ -1,306 +1,290 @@
 <template>
   <!-- 产品主页 -->
-  <div class="landing-page">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col overflow-hidden transition-colors duration-300">
+    <!-- 背景装饰 (简化版) -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute top-0 right-0 w-125 h-125 bg-indigo-200/30 dark:bg-indigo-900/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-30 animate-pulse"></div>
+      <div class="absolute bottom-0 left-0 w-125 h-125 bg-purple-200/30 dark:bg-purple-900/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-30 animate-pulse animation-delay-2000"></div>
+    </div>
+
     <!-- 导航栏 -->
-    <nav class="navbar">
-      <div class="logo-section">
-        <span class="logo">📝</span>
-        <h1 class="site-title">TodoHeap</h1>
+    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center gap-3 group cursor-pointer">
+            <div class="text-3xl font-bold transform group-hover:scale-110 transition-transform duration-300">✅</div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              TodoHeap 任务堆
+            </h1>
+          </div>
+          <div class="flex items-center gap-6">
+            <a href="/docs" class="text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
+              📄Docs
+            </a>
+            
+            <!-- 暗色模式切换按钮 -->
+            <button @click="toggleDark" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors" title="切换主题">
+              <span v-if="isDark">🌙</span>
+              <span v-else>🌞</span>
+            </button>
+
+            <button @click="openLogin"
+              class="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+              登录 / 注册
+            </button>
+          </div>
+        </div>
       </div>
-      <button class="nav-login-btn" @click="openLogin">登录 / 注册</button>
     </nav>
 
     <!-- Hero 区域 -->
-    <section class="hero">
-      <div class="hero-content">
-        <h2 class="hero-title">简洁高效的待办清单</h2>
-        <p class="hero-subtitle">用 TodoHeap 管理你的日常任务，提升工作效率</p>
-        <button class="cta-btn" @click="openLogin">立即开始</button>
+    <section class="flex-1 flex items-center justify-center relative z-10 py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-2 gap-12 items-center">
+          <!-- 文字内容 -->
+          <div class="space-y-8 animate-fadeInLeft">
+            <div>
+              <h2 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6 text-gray-900 dark:text-white">
+                AI 驱动的 <br/>
+                <span class="text-indigo-600 dark:text-indigo-400">智能任务管理</span>
+              </h2>
+            </div>
+            <p class="text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">
+              TodoHeap 用 AI 自动分解大任务，用堆结构智能排序，让你始终知道下一步该做什么，告别选择困难。
+            </p>
+            <div class="flex gap-4">
+              <button @click="openLogin"
+                class="px-8 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 text-lg transform hover:-translate-y-1">
+                立即开始
+              </button>
+              <button @click="scrollToFeatures"
+                class="px-8 py-3.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 text-lg">
+                了解更多
+              </button>
+            </div>
+          </div>
+
+          <!-- Hero 图片/动画 -->
+          <div class="text-center animate-fadeInRight">
+            <div class="relative h-96 flex items-center justify-center">
+              <div class="absolute inset-0 bg-linear-to-tr from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-3xl transform rotate-3"></div>
+              <div class="relative bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-sm w-full mx-auto transform -rotate-2 hover:rotate-0 transition-transform duration-500">
+                 <!-- 模拟 UI -->
+                 <div class="space-y-4">
+                    <div class="h-4 bg-gray-100 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800/30">
+                            <div class="w-5 h-5 rounded-full border-2 border-indigo-500"></div>
+                            <div class="h-3 bg-indigo-200 dark:bg-indigo-800 rounded w-1/2"></div>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                            <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
+                            <div class="h-3 bg-gray-200 dark:bg-gray-600 rounded w-2/3"></div>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                            <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
+                            <div class="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/3"></div>
+                        </div>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="hero-image">🚀</div>
     </section>
 
     <!-- 特色区域 -->
-    <section class="features">
-      <h2>功能特色</h2>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">✨</div>
-          <h3>简洁界面</h3>
-          <p>清爽的设计，专注于任务本身</p>
+    <section id="features" class="bg-white dark:bg-gray-900 py-24 border-y border-gray-100 dark:border-gray-800 relative z-10 transition-colors duration-300">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-20 animate-fadeInUp">
+          <h2 class="text-4xl font-bold text-gray-900 dark:text-white mb-6">
+            功能特色
+          </h2>
+          <p class="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            超越传统待办清单，AI 赋能让任务管理更智能、更轻松
+          </p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">⚡</div>
-          <h3>高效操作</h3>
-          <p>快速添加、编辑和完成任务</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">☁️</div>
-          <h3>云端同步</h3>
-          <p>您的数据安全存储在云端</p>
+
+        <div class="grid md:grid-cols-3 gap-8">
+          <!-- 特色卡片 1 -->
+          <div
+            class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-8 shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 transition-all duration-300 group">
+            <div class="text-5xl mb-6 transform group-hover:scale-110 transition-transform duration-300">🤖</div>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">AI 自动分解</h3>
+            <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+              把大任务自动分解细化为能快速完成的小任务，减轻任务管理压力，每一步都清晰可行
+            </p>
+          </div>
+
+          <!-- 特色卡片 2 -->
+          <div
+            class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-8 shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 transition-all duration-300 group">
+            <div class="text-5xl mb-6 transform group-hover:scale-110 transition-transform duration-300">🎯</div>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">智能优先级</h3>
+            <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+              以堆结构智能排序任务，最优先的任务始终在顶端，省去在多个平等任务中做选择的精力
+            </p>
+          </div>
+
+          <!-- 特色卡片 3 -->
+          <div
+            class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-8 shadow-sm hover:shadow-xl border border-gray-100 dark:border-gray-700 transition-all duration-300 group">
+            <div class="text-5xl mb-6 transform group-hover:scale-110 transition-transform duration-300">✨</div>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">简洁高效</h3>
+            <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+              清爽简约的界面设计，云端安全存储，跨设备无缝同步，让你专注于完成任务
+            </p>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
-      <p>&copy; 2024 TodoHeap. All rights reserved.</p>
+    <footer class="bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 py-12 relative z-10 transition-colors duration-300">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-3 gap-12 mb-8">
+          <!-- 品牌信息 -->
+          <div>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-2xl">📝</span>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">TodoHeap</h3>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+              AI 驱动的智能任务管理，让你始终知道下一步该做什么。
+            </p>
+          </div>
+
+          <!-- 快速链接 -->
+          <div>
+            <h4 class="text-gray-900 dark:text-white font-semibold mb-4">产品</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="#features" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">功能特色</a></li>
+              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">定价</a></li>
+              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">博客</a></li>
+            </ul>
+          </div>
+
+          <!-- 联系我们 -->
+          <div>
+            <h4 class="text-gray-900 dark:text-white font-semibold mb-4">关于</h4>
+            <ul class="space-y-2 text-sm">
+              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">关于我们</a></li>
+              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">联系方式</a></li>
+              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">隐私政策</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="border-t border-gray-200 dark:border-gray-800 pt-8 text-center">
+          <p class="text-gray-500 dark:text-gray-500 text-sm">&copy; 2024 TodoHeap. 保留所有权利。</p>
+        </div>
+      </div>
     </footer>
   </div>
 </template>
 
 <script setup>
-  import { onMounted } from 'vue'
-  import { useRouter } from 'vue-router'
-  import { useAuthStore } from '../stores/auth'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
-  const router = useRouter()
-  const authStore = useAuthStore()
+const router = useRouter()
+const authStore = useAuthStore()
+const isDark = ref(false)
 
-  onMounted(async () => {
-    // 如果 store 未初始化，先初始化
-    if (authStore.session === null && !authStore.loading) {
-      await authStore.initialize()
-    }
-    
-    // 如果已登录，自动跳转到应用页
-    if (authStore.isAuthenticated) {
-      router.push('/app')
-    }
-  })
-
-  const openLogin = () => {
-    router.push('/login')
+onMounted(async () => {
+  // 初始化暗色模式
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    isDark.value = true
+    document.documentElement.classList.add('dark')
+  } else {
+    isDark.value = false
+    document.documentElement.classList.remove('dark')
   }
+
+  // 如果 store 未初始化，先初始化
+  if (authStore.session === null && !authStore.loading) {
+    await authStore.initialize()
+  }
+
+  // 如果已登录，自动跳转到应用页
+  if (authStore.isAuthenticated) {
+    router.push('/app')
+  }
+})
+
+const toggleDark = () => {
+  isDark.value = !isDark.value
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+    localStorage.setItem('theme', 'dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', 'light')
+  }
+}
+
+const openLogin = () => {
+  router.push('/login')
+}
+
+const scrollToFeatures = () => {
+  const featuresSection = document.getElementById('features')
+  if (featuresSection) {
+    featuresSection.scrollIntoView({ behavior: 'smooth' })
+  }
+}
 </script>
 
-
 <style scoped>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-/* ========== 产品主页样式 ========== */
-
-.landing-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #333;
-}
-
-/* 导航栏 */
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 40px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.logo-section {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.logo {
-  font-size: 32px;
-}
-
-.site-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #667eea;
-  margin: 0;
-}
-
-.nav-login-btn {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.nav-login-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-/* Hero 区域 */
-.hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1200px;
-  margin: 80px auto 40px;
-  padding: 40px;
-  gap: 60px;
-}
-
-.hero-content {
-  flex: 1;
-  color: white;
-}
-
-.hero-title {
-  font-size: 48px;
-  font-weight: 700;
-  margin-bottom: 20px;
-  line-height: 1.3;
-}
-
-.hero-subtitle {
-  font-size: 18px;
-  margin-bottom: 30px;
-  opacity: 0.95;
-  line-height: 1.6;
-}
-
-.cta-btn {
-  padding: 14px 40px;
-  background: white;
-  color: #667eea;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.cta-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
-
-.hero-image {
-  flex: 1;
-  font-size: 120px;
-  text-align: center;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-20px); }
-}
-
-/* 特色区域 */
-.features {
-  max-width: 1200px;
-  margin: 80px auto 40px;
-  padding: 40px;
-}
-
-.features h2 {
-  font-size: 36px;
-  font-weight: 700;
-  text-align: center;
-  color: white;
-  margin-bottom: 50px;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 30px;
-}
-
-.feature-card {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  text-align: center;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-.feature-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
-}
-
-.feature-icon {
-  font-size: 48px;
-  margin-bottom: 15px;
-}
-
-.feature-card h3 {
-  font-size: 18px;
-  margin-bottom: 10px;
-  color: #667eea;
-}
-
-.feature-card p {
-  color: #666;
-  line-height: 1.6;
-}
-
-/* 页脚 */
-.footer {
-  text-align: center;
-  padding: 20px;
-  color: rgba(255, 255, 255, 0.8);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-/* 响应式设计 */
-@media (max-width: 1024px) {
-  .hero {
-    flex-direction: column;
-    margin: 60px auto 40px;
-    gap: 40px;
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
   }
-
-  .hero-title {
-    font-size: 36px;
-  }
-
-  .hero-image {
-    font-size: 80px;
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
-@media (max-width: 768px) {
-  .navbar {
-    padding: 15px 20px;
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
   }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
-  .site-title {
-    font-size: 18px;
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  .hero-title {
-    font-size: 28px;
-  }
+.animate-fadeInLeft {
+  animation: fadeInLeft 0.8s ease-out;
+}
 
-  .hero-subtitle {
-    font-size: 16px;
-  }
+.animate-fadeInRight {
+  animation: fadeInRight 0.8s ease-out 0.2s both;
+}
 
-  .features h2 {
-    font-size: 28px;
-  }
+.animate-fadeInUp {
+  animation: fadeInUp 0.8s ease-out;
+}
 
-  .features {
-    padding: 20px;
-  }
-
-  .hero {
-    padding: 20px;
-  }
-
-  .features-grid {
-    grid-template-columns: 1fr;
-  }
+.animation-delay-2000 {
+  animation-delay: 2s;
 }
 </style>

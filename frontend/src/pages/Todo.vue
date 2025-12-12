@@ -1,52 +1,117 @@
 <template>
 	<!-- 主界面 -->
-	<div class="todo-page">
-		<div class="page-header">
-			<div>
-				<div class="app-title">📝 TodoHeap</div>
-				<p class="app-sub">登录后主页 · 三视图切换</p>
-				<button class="invoke-breakdown" @click="handleBreakdownTask" :disabled="!selectedTaskId || isBreakingDown">
-					{{ isBreakingDown ? '分解中...' : '任务分解' }} {{ selectedTaskId ? `(ID: ${selectedTaskId})` : '(请先选择任务)' }}
-				</button>
-			</div>
-			<div class="header-actions">
-				<button class="user-menu-btn" @click="showUserMenu = !showUserMenu">
-					👤 {{ authStore.user?.email?.split('@')[0] || '用户' }}
-				</button>
-				<div v-if="showUserMenu" class="user-menu">
-					<button class="menu-item" @click="openSettings">⚙️ 设置</button>
-					<div class="divider"></div>
-					<button class="menu-item logout" @click="handleSignOut">🚪 退出登录</button>
+	<div class="min-h-screen bg-slate-100 flex flex-col">
+		<!-- 页面头部 -->
+		<div class="bg-white border-b border-slate-200 sticky top-0 z-40">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+				<div class="flex justify-between items-start md:items-center gap-4 flex-col md:flex-row">
+					<!-- 左侧标题 -->
+					<div>
+						<h1 class="text-2xl md:text-3xl font-bold text-slate-900">📝 TodoHeap</h1>
+						<p class="text-sm text-slate-500 mt-1">登录后主页 · 三视图切换</p>
+						<button
+							@click="handleBreakdownTask"
+							:disabled="!selectedTaskId || isBreakingDown"
+							class="mt-3 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-lg hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0 transition-all duration-300 text-sm"
+						>
+							{{ isBreakingDown ? '分解中...' : '任务分解' }}
+							{{ selectedTaskId ? `(ID: ${selectedTaskId})` : '(请先选择任务)' }}
+						</button>
+					</div>
+
+					<!-- 右侧用户菜单 -->
+					<div class="relative">
+						<button
+							@click="showUserMenu = !showUserMenu"
+							class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-700 text-white font-semibold rounded-lg hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-sm whitespace-nowrap"
+						>
+							👤 {{ authStore.user?.email?.split('@')[0] || '用户' }}
+						</button>
+
+						<!-- 下拉菜单 -->
+						<div
+							v-if="showUserMenu"
+							class="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-50"
+						>
+							<button
+								@click="openSettings"
+								class="w-full px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+							>
+								⚙️ 设置
+							</button>
+							<div class="border-t border-slate-200"></div>
+							<button
+								@click="handleSignOut"
+								class="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-medium"
+							>
+								🚪 退出登录
+							</button>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- 任务分解消息提示 -->
-		<div v-if="breakdownMessage" :class="['breakdown-message', breakdownMessageType]">
+		<!-- 消息提示 -->
+		<div
+			v-if="breakdownMessage"
+			:class="[
+				'mx-4 mt-4 px-4 py-3 rounded-lg font-medium text-sm animate-in fade-in slide-in-from-top-2 duration-300',
+				{
+					'bg-emerald-100 text-emerald-800 border border-emerald-300': breakdownMessageType === 'success',
+					'bg-red-100 text-red-800 border border-red-300': breakdownMessageType === 'error'
+				}
+			]"
+		>
 			{{ breakdownMessage }}
 		</div>
 
-		<div class="view-tabs">
-			<button :class="['tab', { active: activeView === 'list' }]" @click="switchView('list')">列表视图</button>
-			<button :class="['tab', { active: activeView === 'tree' }]" @click="switchView('tree')">树视图</button>
-			<button :class="['tab', { active: activeView === 'heap' }]" @click="switchView('heap')">堆视图</button>
+		<!-- 视图选项卡 -->
+		<div class="bg-white border-b border-slate-200">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex gap-2">
+					<button
+						v-for="view in ['list', 'tree', 'heap']"
+						:key="view"
+						@click="switchView(view)"
+						:class="[
+							'px-4 py-3 font-semibold border-b-2 transition-colors',
+							activeView === view
+								? 'border-indigo-600 text-indigo-600'
+								: 'border-transparent text-slate-600 hover:text-slate-900'
+						]"
+					>
+						{{ view === 'list' ? '📋 列表视图' : view === 'tree' ? '🌳 树视图' : '📦 堆视图' }}
+					</button>
+				</div>
+			</div>
 		</div>
 
-		<div class="view-area">
-			<div v-if="activeView === 'list'">
-				<TodoList @task-selected="handleTaskSelected" />
-			</div>
-			<div v-else-if="activeView === 'tree'">
-				<div v-if="todoStore.loading" class="loading-state">
-					<p>⏳ 加载中...</p>
+		<!-- 视图内容区域 -->
+		<div class="flex-1 overflow-auto bg-slate-100">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+				<div class="bg-white rounded-lg shadow-sm p-6">
+					<!-- 列表视图 -->
+					<div v-if="activeView === 'list'">
+						<TodoList @task-selected="handleTaskSelected" />
+					</div>
+
+					<!-- 树视图 -->
+					<div v-else-if="activeView === 'tree'">
+						<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
+							<p class="text-lg">⏳ 加载中...</p>
+						</div>
+						<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" @task-selected="handleTaskSelected" />
+					</div>
+
+					<!-- 堆视图 -->
+					<div v-else>
+						<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
+							<p class="text-lg">⏳ 加载中...</p>
+						</div>
+						<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
+					</div>
 				</div>
-				<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" @task-selected="handleTaskSelected" />
-			</div>
-			<div v-else>
-				<div v-if="todoStore.loading" class="loading-state">
-					<p>⏳ 加载中...</p>
-				</div>
-				<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
 			</div>
 		</div>
 	</div>
@@ -174,244 +239,3 @@ const showBreakdownMessage = (message, type) => {
 	}, 3000)
 }
 </script>
-
-<style scoped>
-.todo-page {
-	min-height: 100vh;
-	background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-	padding: 24px;
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-}
-
-.page-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	background: #fff;
-	padding: 16px 20px;
-	border-radius: 12px;
-	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-}
-
-.app-title {
-	font-size: 22px;
-	font-weight: 800;
-	color: #4c1d95;
-}
-
-.app-sub {
-	margin-top: 4px;
-	color: #6b7280;
-	font-size: 13px;
-}
-
-.header-actions {
-	position: relative;
-}
-
-.user-menu-btn {
-	padding: 10px 16px;
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	color: white;
-	border: none;
-	border-radius: 10px;
-	cursor: pointer;
-	font-weight: 600;
-	transition: all 0.2s ease;
-	font-size: 14px;
-}
-
-.user-menu-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 6px 18px rgba(102, 126, 234, 0.45);
-}
-
-.user-menu {
-	position: absolute;
-	top: 100%;
-	right: 0;
-	margin-top: 8px;
-	background: white;
-	border-radius: 8px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	overflow: hidden;
-	z-index: 100;
-	min-width: 150px;
-}
-
-.menu-item {
-	width: 100%;
-	padding: 12px 16px;
-	border: none;
-	background: none;
-	text-align: left;
-	cursor: pointer;
-	color: #374151;
-	font-size: 14px;
-	transition: background 0.2s;
-}
-
-.menu-item:hover {
-	background: #f3f4f6;
-}
-
-.menu-item.logout {
-	color: #ef4444;
-}
-
-.divider {
-	height: 1px;
-	background: #e5e7eb;
-	margin: 0;
-}
-
-.sign-out-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 6px 18px rgba(102, 126, 234, 0.45);
-}
-
-.sign-out-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 6px 18px rgba(102, 126, 234, 0.45);
-}
-
-.view-tabs {
-	display: flex;
-	gap: 10px;
-	background: #fff;
-	padding: 10px;
-	border-radius: 12px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
-.tab {
-	flex: 1;
-	padding: 10px 12px;
-	border-radius: 10px;
-	border: 1px solid #e5e7eb;
-	background: #f9fafb;
-	cursor: pointer;
-	font-weight: 600;
-	color: #4b5563;
-	transition: all 0.15s ease;
-}
-
-.invoke-breakdown {
-	padding: 10px 16px;
-	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-	color: white;
-	border: none;
-	border-radius: 10px;
-	cursor: pointer;
-	font-weight: 600;
-	transition: all 0.2s ease;
-	font-size: 14px;
-	margin-top: 12px;
-}
-
-.invoke-breakdown:hover:not(:disabled) {
-	transform: translateY(-1px);
-	box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
-}
-
-.invoke-breakdown:disabled {
-	opacity: 0.6;
-	cursor: not-allowed;
-	transform: none;
-}
-
-.breakdown-message {
-	padding: 12px 16px;
-	border-radius: 8px;
-	margin: 0 0 16px 0;
-	font-weight: 500;
-	font-size: 14px;
-	animation: slideIn 0.3s ease-out;
-}
-
-.breakdown-message.success {
-	background: #d1fae5;
-	color: #065f46;
-	border: 1px solid #a7f3d0;
-}
-
-.breakdown-message.error {
-	background: #fee2e2;
-	color: #991b1b;
-	border: 1px solid #fecaca;
-}
-
-@keyframes slideIn {
-	from {
-		opacity: 0;
-		transform: translateY(-10px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-.tab.active {
-	background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
-	color: #fff;
-	border-color: transparent;
-	box-shadow: 0 8px 18px rgba(99, 102, 241, 0.25);
-}
-
-.view-area {
-	background: #fff;
-	border-radius: 12px;
-	padding: 16px;
-	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
-	min-height: 300px;
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	overflow: auto; /* 允许内部内容滚动，避免被父容器裁剪 */
-	min-height: 0; /* 配合 flex 让子元素正确计算可滚动高度 */
-}
-
-.view-area > div {
-	width: 100%;
-	height: 100%;
-	display: flex;
-	flex-direction: column;
-	min-height: 0; /* 使嵌套视图支持内部滚动 */
-}
-
-.loading-state {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	height: 400px;
-	color: #9ca3af;
-	font-size: 16px;
-}
-
-.loading-state p {
-	margin: 0;
-}
-
-@media (max-width: 768px) {
-	.todo-page {
-		padding: 16px;
-	}
-
-	.page-header {
-		flex-direction: column;
-		gap: 10px;
-		align-items: flex-start;
-	}
-
-	.view-tabs {
-		flex-direction: column;
-	}
-
-	.tab {
-		width: 100%;
-	}
-}
-</style>

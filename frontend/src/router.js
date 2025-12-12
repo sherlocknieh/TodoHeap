@@ -9,7 +9,7 @@ const routes = [
     component: () => import('./pages/Home.vue'),
     meta: { 
       requiresAuth: false,
-      title: 'TodoHeap - 简洁高效的待办清单'
+      title: 'TodoHeap - 任务堆'
     }
   },
   // 登录页

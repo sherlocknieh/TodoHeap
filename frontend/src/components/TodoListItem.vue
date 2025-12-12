@@ -1,43 +1,95 @@
 <template>
-  <li
-    v-for="item in flatList"
-    :key="item.id"
-    :class="['todo-item', { done: item.status === 'done', selected: selectedTaskId === item.id }]"
-    :style="{ marginLeft: (item._level * 24) + 'px' }"
-  >
-    <div class="todo-main" @click="emitToggleDone(item)">
-      <div class="todo-checkbox">
+  <ul class="space-y-2">
+    <li
+      v-for="item in flatList"
+      :key="item.id"
+      :class="[
+        'flex items-center gap-3 px-3 py-2 bg-white border border-slate-200 rounded-lg',
+        'hover:bg-slate-50 transition-colors cursor-pointer',
+        {
+          'bg-emerald-50 border-emerald-200': selectedTaskId === item.id,
+          'opacity-60': item.status === 'done'
+        }
+      ]"
+      :style="{ marginLeft: (item._level * 24) + 'px' }"
+    >
+      <!-- 复选框 -->
+      <div class="flex-shrink-0">
         <input
           type="checkbox"
           :checked="item.status === 'done'"
           readonly
-          class="checkbox-input"
+          class="w-5 h-5 rounded accent-emerald-600 cursor-pointer"
+          @click="emitToggleDone(item)"
         />
       </div>
+
+      <!-- 标题 -->
+      <div class="flex-1 min-w-0">
+        <span
+          v-if="editingId !== item.id"
+          class="block text-slate-900 font-medium truncate"
+          @click.stop="selectTask(item.id)"
+        >
+          {{ item.title || '未命名任务' }}
+        </span>
+        <input
+          v-else
+          :id="'edit-input-' + item.id"
+          v-model="editingText"
+          class="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          @blur="finishEdit(item.id)"
+          @keyup.enter="finishEdit(item.id)"
+        />
+      </div>
+
+      <!-- 状态标签 -->
       <span
-        v-if="editingId !== item.id"
-        class="todo-title"
-        @click.stop="selectTask(item.id)"
+        :class="[
+          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0',
+          {
+            'bg-blue-100 text-blue-800': item.status === 'todo',
+            'bg-amber-100 text-amber-800': item.status === 'doing',
+            'bg-emerald-100 text-emerald-800': item.status === 'done'
+          }
+        ]"
       >
-        {{ item.title || '未命名任务' }}
-      </span>
-      <input
-        v-else
-        :id="'edit-input-' + item.id"
-        v-model="editingText"
-        class="todo-title"
-        @blur="finishEdit(item.id)"
-        @keyup.enter="finishEdit(item.id)"
-      />
-      <span class="status-pill" :data-status="item.status">
         {{ item.status === 'done' ? '✓ 完成' : item.status === 'doing' ? '⚡ 进行中' : '○ 待办' }}
       </span>
-      <button class="add-subtask-btn" @click.stop="emitAddSubtask(item.id, startEdit)">＋ 子任务</button>
-      <button v-if="selectedTaskId === item.id" class="select-btn selected">✓ 已选择</button>
-      <button v-else class="select-btn" @click.stop="selectTask(item.id)">选择</button>
-    </div>
-    <button class="delete-btn" @click.stop="emitDeleteTodo(item.id)" title="删除任务">×</button>
-  </li>
+
+      <!-- 操作按钮 -->
+      <button
+        class="hidden sm:inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+        @click.stop="emitAddSubtask(item.id, startEdit)"
+      >
+        ➕ 子任务
+      </button>
+
+      <button
+        v-if="selectedTaskId === item.id"
+        class="inline-flex items-center px-2 py-1 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded transition-colors"
+        @click.stop="selectTask(item.id)"
+      >
+        ✓ 已选择
+      </button>
+      <button
+        v-else
+        class="hidden sm:inline-flex items-center px-2 py-1 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded transition-colors"
+        @click.stop="selectTask(item.id)"
+      >
+        选择
+      </button>
+
+      <!-- 删除按钮 -->
+      <button
+        class="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 text-red-600 hover:bg-red-50 rounded transition-colors"
+        @click.stop="emitDeleteTodo(item.id)"
+        title="删除任务"
+      >
+        ×
+      </button>
+    </li>
+  </ul>
 </template>
 
 <script setup>
@@ -88,123 +140,3 @@ function selectTask(id) {
   emitTaskSelected(id)
 }
 </script>
-
-<style scoped>
-
-.todo-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  margin-bottom: 6px;
-  border-radius: 6px;
-  position: relative;
-}
-
-.todo-item.done {
-  opacity: 0.7;
-  background: #f8fafc;
-}
-
-.todo-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  width: 100%;
-  flex: 1;
-  min-width: 0;
-}
-
-.todo-checkbox {
-  flex-shrink: 0;
-}
-
-.checkbox-input {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: #2563eb;
-}
-
-.todo-title {
-  flex: 1;
-  color: #0f172a;
-  word-break: break-word;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #0f172a;
-  background: #eef2ff;
-  flex-shrink: 0;
-}
-
-.status-pill[data-status='todo'] {
-  color: #1d4ed8;
-  background: #e0e7ff;
-}
-
-.status-pill[data-status='doing'] {
-  color: #b45309;
-  background: #fef3c7;
-}
-
-.status-pill[data-status='done'] {
-  color: #065f46;
-  background: #d1fae5;
-}
-
-.delete-btn {
-  background-color: transparent;
-  color: #ef4444;
-  padding: 4px 6px;
-  margin-left: 10px;
-  border: 1px solid #fecdd3;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  flex-shrink: 0;
-  align-self: center;
-}
-
-.add-subtask-btn {
-  background: #f8fafc;
-  color: #1d4ed8;
-  border: 1px solid #e0e7ff;
-  border-radius: 6px;
-  padding: 4px 8px;
-  margin-left: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.select-btn {
-  background: #ecfdf3;
-  color: #047857;
-  border: 1px solid #bbf7d0;
-  border-radius: 6px;
-  padding: 4px 8px;
-  margin-left: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.todo-item.selected {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-}
-</style>
