@@ -4,7 +4,9 @@ site_description: TodoHeap - AI 驱动的任务分解工具
 # mkdocs.yml 在 docs/ 目录，但源文档也在 docs/ 目录
 # MkDocs 不允许 docs_dir 与 mkdocs.yml 同级，所以创建 _content 子目录
 docs_dir: _content
-site_dir: ../site
+# 输出到仓库根目录下的 docs/，便于与前端根路径区分
+site_dir: ../site/docs
+
 
 theme:
   name: material
