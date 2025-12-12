@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* 全局CSS变量 */
 :root {
   /* 颜色 */
