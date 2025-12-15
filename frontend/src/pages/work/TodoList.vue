@@ -75,11 +75,13 @@
     <section v-if="loading" class="banner muted">同步中，请稍候...</section>
 
     <section v-if="!loading && visibleCount === 0" class="empty">
-      <div class="empty-icon">🌤</div>
-      <p>所有清单都清空了，添加一个新的吧！</p>
+      <div class="empty-icon">📋</div>
+      <p class="empty-title">暂无任务</p>
+      <p class="empty-desc">点击上方输入框快速添加任务</p>
     </section>
 
-    <ul v-else class="tt-list">
+    <div v-else class="tt-list-wrapper">
+      <ul class="tt-list">
       <TodoListItem
         v-for="node in filteredTree"
         :key="node.id"
@@ -91,7 +93,8 @@
         @edit-subtask="editSubtask"
         @task-selected="handleTaskSelected"
       />
-    </ul>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -514,24 +517,46 @@ const handleTaskSelected = (taskId) => {
 }
 
 .empty {
-  margin-top: 28px;
-  padding: 32px;
+  margin-top: 32px;
+  padding: 48px 32px;
   text-align: center;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed #cbd5e1;
   border-radius: 12px;
-  color: #475569;
+  color: #64748b;
   background: #f8fafc;
 }
 
 .empty-icon {
-  font-size: 2.4rem;
-  margin-bottom: 10px;
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 6px;
+}
+
+.empty-desc {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.tt-list-wrapper {
+  margin-top: 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
 }
 
 .tt-list {
-  margin-top: 18px;
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 @media (max-width: 768px) {
