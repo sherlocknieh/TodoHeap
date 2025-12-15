@@ -1,124 +1,171 @@
 <template>
 	<!-- 主界面 -->
-	<div class="min-h-screen bg-slate-100 flex flex-col">
+	<div class="min-h-screen bg-slate-50 flex flex-col">
 		<!-- 页面头部 -->
-		<div class="bg-white border-b border-slate-200 sticky top-0 z-40">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-				<div class="flex justify-between items-start md:items-center gap-4 flex-col md:flex-row">
-					<!-- 左侧标题 -->
-					<div>
-						<h1 class="text-2xl md:text-3xl font-bold text-slate-900">📝 TodoHeap</h1>
-						<p class="text-sm text-slate-500 mt-1">登录后主页 · 三视图切换</p>
+		<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex items-center justify-between h-16 gap-4">
+					<!-- 左侧标题和操作 -->
+					<div class="flex items-center gap-4 flex-1 min-w-0">
+						<div class="flex-shrink-0">
+							<h1 class="text-xl sm:text-2xl font-bold text-slate-900">📝 TodoHeap</h1>
+						</div>
+						<div class="hidden sm:block flex-shrink-0">
+							<p class="text-xs text-slate-500">智能任务管理</p>
+						</div>
 						<button
 							@click="handleBreakdownTask"
 							:disabled="!selectedTaskId || isBreakingDown"
-							class="mt-3 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-lg hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0 transition-all duration-300 text-sm"
+							class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-500 text-white text-sm font-medium rounded-md hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 						>
-							{{ isBreakingDown ? '分解中...' : '任务分解' }}
-							{{ selectedTaskId ? `(ID: ${selectedTaskId})` : '(请先选择任务)' }}
+							<span v-if="isBreakingDown">⏳</span>
+							<span>{{ isBreakingDown ? '分解中' : 'AI 分解' }}</span>
 						</button>
 					</div>
 
 					<!-- 右侧用户菜单 -->
-					<div class="relative">
+					<div class="relative flex-shrink-0">
 						<button
 							@click="showUserMenu = !showUserMenu"
-							class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-700 text-white font-semibold rounded-lg hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-sm whitespace-nowrap"
+							class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-200 transition-colors"
 						>
-							👤 {{ authStore.user?.email?.split('@')[0] || '用户' }}
+							<span>👤</span>
+							<span class="hidden sm:inline">{{ authStore.user?.email?.split('@')[0] || '用户' }}</span>
 						</button>
 
 						<!-- 下拉菜单 -->
-						<div
-							v-if="showUserMenu"
-							class="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-50"
+						<Transition
+							enter-active-class="transition ease-out duration-100"
+							enter-from-class="opacity-0 scale-95"
+							enter-to-class="opacity-100 scale-100"
+							leave-active-class="transition ease-in duration-75"
+							leave-from-class="opacity-100 scale-100"
+							leave-to-class="opacity-0 scale-95"
 						>
-							<button
-								@click="openSettings"
-								class="w-full px-4 py-3 text-left text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+							<div
+								v-if="showUserMenu"
+								ref="userMenuRef"
+								class="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50"
 							>
-								⚙️ 设置
-							</button>
-							<div class="border-t border-slate-200"></div>
-							<button
-								@click="handleSignOut"
-								class="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-medium"
-							>
-								🚪 退出登录
-							</button>
-						</div>
+								<button
+									@click="openSettings"
+									class="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm"
+								>
+									<span>⚙️</span>
+									<span>设置</span>
+								</button>
+								<div class="border-t border-slate-200"></div>
+								<button
+									@click="handleSignOut"
+									class="w-full px-4 py-2.5 text-left text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 text-sm font-medium"
+								>
+									<span>🚪</span>
+									<span>退出登录</span>
+								</button>
+							</div>
+						</Transition>
 					</div>
 				</div>
 			</div>
-		</div>
+		</header>
 
 		<!-- 消息提示 -->
-		<div
-			v-if="breakdownMessage"
-			:class="[
-				'mx-4 mt-4 px-4 py-3 rounded-lg font-medium text-sm animate-in fade-in slide-in-from-top-2 duration-300',
-				{
-					'bg-emerald-100 text-emerald-800 border border-emerald-300': breakdownMessageType === 'success',
-					'bg-red-100 text-red-800 border border-red-300': breakdownMessageType === 'error'
-				}
-			]"
+		<Transition
+			enter-active-class="transition ease-out duration-300"
+			enter-from-class="opacity-0 -translate-y-2"
+			enter-to-class="opacity-100 translate-y-0"
+			leave-active-class="transition ease-in duration-200"
+			leave-from-class="opacity-100 translate-y-0"
+			leave-to-class="opacity-0 -translate-y-2"
 		>
-			{{ breakdownMessage }}
-		</div>
+			<div
+				v-if="breakdownMessage"
+				:class="[
+					'mx-4 mt-4 px-4 py-2.5 rounded-lg text-sm font-medium',
+					{
+						'bg-emerald-50 text-emerald-800 border border-emerald-200': breakdownMessageType === 'success',
+						'bg-red-50 text-red-800 border border-red-200': breakdownMessageType === 'error'
+					}
+				]"
+			>
+				{{ breakdownMessage }}
+			</div>
+		</Transition>
 
 		<!-- 视图选项卡 -->
-		<div class="bg-white border-b border-slate-200">
+		<nav class="bg-white border-b border-slate-200">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex gap-2">
+				<div class="flex gap-1 overflow-x-auto">
 					<button
 						v-for="view in ['list', 'tree', 'heap']"
 						:key="view"
 						@click="switchView(view)"
 						:class="[
-							'px-4 py-3 font-semibold border-b-2 transition-colors',
+							'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
 							activeView === view
 								? 'border-indigo-600 text-indigo-600'
-								: 'border-transparent text-slate-600 hover:text-slate-900'
+								: 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
 						]"
 					>
-						{{ view === 'list' ? '📋 列表视图' : view === 'tree' ? '🌳 树视图' : '📦 堆视图' }}
+						{{ view === 'list' ? '📋 列表' : view === 'tree' ? '🌳 树形' : '📦 堆' }}
 					</button>
 				</div>
 			</div>
-		</div>
+		</nav>
 
 		<!-- 视图内容区域 -->
-		<div class="flex-1 overflow-auto bg-slate-100">
+		<main class="flex-1 overflow-auto bg-slate-50">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-				<div class="bg-white rounded-lg shadow-sm p-6">
-					<!-- 列表视图 -->
-					<div v-if="activeView === 'list'">
-						<TodoList @task-selected="handleTaskSelected" />
+				<div class="bg-white rounded-lg shadow-sm border border-slate-200">
+					<!-- 移动端 AI 分解按钮 -->
+					<div class="md:hidden px-4 pt-4 pb-2 border-b border-slate-200">
+						<button
+							@click="handleBreakdownTask"
+							:disabled="!selectedTaskId || isBreakingDown"
+							class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-md hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+						>
+							<span v-if="isBreakingDown">⏳</span>
+							<span>{{ isBreakingDown ? '分解中...' : 'AI 任务分解' }}</span>
+							<span v-if="selectedTaskId" class="text-xs opacity-75">(已选择)</span>
+						</button>
 					</div>
 
-					<!-- 树视图 -->
-					<div v-else-if="activeView === 'tree'">
-						<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
-							<p class="text-lg">⏳ 加载中...</p>
+					<div class="p-4 sm:p-6">
+						<!-- 列表视图 -->
+						<div v-if="activeView === 'list'">
+							<TodoList @task-selected="handleTaskSelected" />
 						</div>
-						<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" @task-selected="handleTaskSelected" />
-					</div>
 
-					<!-- 堆视图 -->
-					<div v-else>
-						<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
-							<p class="text-lg">⏳ 加载中...</p>
+						<!-- 树视图 -->
+						<div v-else-if="activeView === 'tree'">
+							<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
+								<div class="text-center">
+									<p class="text-lg mb-2">⏳</p>
+									<p class="text-sm">加载中...</p>
+								</div>
+							</div>
+							<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" @task-selected="handleTaskSelected" />
 						</div>
-						<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
+
+						<!-- 堆视图 -->
+						<div v-else>
+							<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
+								<div class="text-center">
+									<p class="text-lg mb-2">⏳</p>
+									<p class="text-sm">加载中...</p>
+								</div>
+							</div>
+							<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
+						</div>
 					</div>
 				</div>
 			</div>
-		</div>
+		</main>
 	</div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useTodoStore } from '../stores/todos'
@@ -130,6 +177,8 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
+
+const userMenuRef = ref(null)
 
 // 根据路由名称同步当前视图
 const activeView = computed({
@@ -238,4 +287,22 @@ const showBreakdownMessage = (message, type) => {
 		breakdownMessageType.value = ''
 	}, 3000)
 }
+
+// 点击外部关闭用户菜单
+const handleClickOutside = (event) => {
+	if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
+		const userMenuButton = event.target.closest('button')
+		if (!userMenuButton || !userMenuButton.textContent.includes('👤')) {
+			showUserMenu.value = false
+		}
+	}
+}
+
+onMounted(() => {
+	document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+	document.removeEventListener('click', handleClickOutside)
+})
 </script>
