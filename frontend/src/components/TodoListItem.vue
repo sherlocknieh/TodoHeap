@@ -1,35 +1,33 @@
 <template>
-  <ul class="space-y-2">
+  <ul class="task-list">
     <li
       v-for="item in flatList"
       :key="item.id"
       :class="[
-        'flex items-center gap-3 px-3 py-2 bg-white border border-slate-200 rounded-lg',
-        'hover:bg-slate-50 transition-colors cursor-pointer',
+        'task-item',
         {
-          'bg-emerald-50 border-emerald-200': selectedTaskId === item.id,
-          'opacity-60': item.status === 'done'
+          'task-item-selected': selectedTaskId === item.id,
+          'task-item-done': item.status === 'done'
         }
       ]"
-      :style="{ marginLeft: (item._level * 24) + 'px' }"
+      :style="{ paddingLeft: (12 + item._level * 20) + 'px' }"
     >
       <!-- 复选框 -->
-      <div class="flex-shrink-0">
+      <div class="task-checkbox">
         <input
           type="checkbox"
           :checked="item.status === 'done'"
           readonly
-          class="w-5 h-5 rounded accent-emerald-600 cursor-pointer"
-          @click="emitToggleDone(item)"
+          class="checkbox-input"
+          @click.stop="emitToggleDone(item)"
         />
       </div>
 
       <!-- 标题 -->
-      <div class="flex-1 min-w-0">
+      <div class="task-title-wrapper" @click.stop="selectTask(item.id)">
         <span
           v-if="editingId !== item.id"
-          class="block text-slate-900 font-medium truncate"
-          @click.stop="selectTask(item.id)"
+          class="task-title"
         >
           {{ item.title || '未命名任务' }}
         </span>
@@ -37,57 +35,46 @@
           v-else
           :id="'edit-input-' + item.id"
           v-model="editingText"
-          class="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          class="task-title-input"
           @blur="finishEdit(item.id)"
           @keyup.enter="finishEdit(item.id)"
+          @keyup.esc="editingId = null"
         />
       </div>
 
-      <!-- 状态标签 -->
-      <span
-        :class="[
-          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0',
-          {
-            'bg-blue-100 text-blue-800': item.status === 'todo',
-            'bg-amber-100 text-amber-800': item.status === 'doing',
-            'bg-emerald-100 text-emerald-800': item.status === 'done'
-          }
-        ]"
-      >
-        {{ item.status === 'done' ? '✓ 完成' : item.status === 'doing' ? '⚡ 进行中' : '○ 待办' }}
-      </span>
+      <!-- 元信息 -->
+      <div class="task-meta">
+        <!-- 截止日期 -->
+        <span v-if="item.deadline" class="task-deadline">
+          {{ formatDeadline(item.deadline) }}
+        </span>
+        
+        <!-- 优先级标签 -->
+        <span
+          v-if="item.priority > 0"
+          :class="['task-priority', `priority-${item.priority}`]"
+        >
+          P{{ item.priority }}
+        </span>
+      </div>
 
-      <!-- 操作按钮 -->
-      <button
-        class="hidden sm:inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
-        @click.stop="emitAddSubtask(item.id, startEdit)"
-      >
-        ➕ 子任务
-      </button>
-
-      <button
-        v-if="selectedTaskId === item.id"
-        class="inline-flex items-center px-2 py-1 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded transition-colors"
-        @click.stop="selectTask(item.id)"
-      >
-        ✓ 已选择
-      </button>
-      <button
-        v-else
-        class="hidden sm:inline-flex items-center px-2 py-1 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded transition-colors"
-        @click.stop="selectTask(item.id)"
-      >
-        选择
-      </button>
-
-      <!-- 删除按钮 -->
-      <button
-        class="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 text-red-600 hover:bg-red-50 rounded transition-colors"
-        @click.stop="emitDeleteTodo(item.id)"
-        title="删除任务"
-      >
-        ×
-      </button>
+      <!-- 操作按钮组 -->
+      <div class="task-actions">
+        <button
+          class="task-action-btn task-action-subtask"
+          @click.stop="emitAddSubtask(item.id, startEdit)"
+          title="添加子任务"
+        >
+          <span class="action-icon">+</span>
+        </button>
+        <button
+          class="task-action-btn task-action-delete"
+          @click.stop="emitDeleteTodo(item.id)"
+          title="删除任务"
+        >
+          <span class="action-icon">×</span>
+        </button>
+      </div>
     </li>
   </ul>
 </template>
@@ -139,4 +126,188 @@ function finishEdit(id) {
 function selectTask(id) {
   emitTaskSelected(id)
 }
+
+function formatDeadline(deadline) {
+  if (!deadline) return ''
+  const date = new Date(deadline)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+  
+  const diffDays = Math.floor((target - today) / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return '今天'
+  if (diffDays === 1) return '明天'
+  if (diffDays === -1) return '昨天'
+  if (diffDays > 0 && diffDays <= 7) return `${diffDays}天后`
+  if (diffDays < 0 && diffDays >= -7) return `${Math.abs(diffDays)}天前`
+  
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
 </script>
+
+<style scoped>
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+}
+
+.task-item:hover {
+  background: #f8fafc;
+}
+
+.task-item:last-child {
+  border-bottom: none;
+}
+
+.task-item-selected {
+  background: #eff6ff;
+  border-left: 3px solid #2563eb;
+}
+
+.task-item-done {
+  opacity: 0.6;
+}
+
+.task-item-done .task-title {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.task-checkbox {
+  flex-shrink: 0;
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+.task-title-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  display: block;
+  font-size: 0.95rem;
+  color: #1e293b;
+  font-weight: 400;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.task-title-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  outline: none;
+  background: #fff;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.task-deadline {
+  font-size: 0.85rem;
+  color: #64748b;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.task-priority {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.priority-1 {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.priority-2 {
+  background: #fed7aa;
+  color: #9a3412;
+}
+
+.priority-3 {
+  background: #fecaca;
+  color: #991b1b;
+}
+
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.task-item:hover .task-actions {
+  opacity: 1;
+}
+
+.task-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  color: #64748b;
+}
+
+.task-action-btn:hover {
+  background: #e2e8f0;
+}
+
+.task-action-delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.action-icon {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+@media (max-width: 640px) {
+  .task-meta {
+    display: none;
+  }
+  
+  .task-actions {
+    opacity: 1;
+  }
+}
+</style>
