@@ -31,7 +31,7 @@ export default [
   {
     path: '/settings',
     name: 'Settings',
-    component: () => import('../pages/work/Settings.vue'),
+    component: () => import('../pages/todo/Settings.vue'),
     meta: { requiresAuth: true, title: 'TodoHeap - 设置' }
   },
   // 404 页

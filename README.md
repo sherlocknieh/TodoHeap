@@ -34,7 +34,7 @@
 
 - 需要修改的代码在 frontend/src 目录下:
   - 主要页面的代码在: pages
-  - 工作页面的代码在: pages/work
+  - 工作页面的代码在: pages/todo
   - 通用组件的代码在: components
   - 状态管理的代码在: store
   - 布局组件的代码在: layouts

@@ -27,7 +27,7 @@ export const useTodoStore = defineStore('todos', () => {
         .order('id', { ascending: true })
 
       if (fetchError) throw fetchError
-      todos.value = data || []
+      todos.value = data || [] // 把获取到的数据赋值给 todos 常量
       isFetched.value = true
       return { success: true }
     } catch (err) {

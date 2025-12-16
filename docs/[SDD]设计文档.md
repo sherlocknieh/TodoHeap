@@ -46,7 +46,7 @@ frontend/src/
 │   ├── Login.vue      # 登录/注册页
 │   ├── Todo.vue       # 主应用页（路由容器）
 │   ├── 404.vue        # 404 错误页
-│   └── work/          # 工作页面
+│   └── todo/          # 工作页面
 │       ├── TodoList.vue    # 列表视图
 │       ├── TodoTree.vue    # 树视图（思维导图）
 │       ├── TodoHeap.vue    # 堆视图（优先级排序）
