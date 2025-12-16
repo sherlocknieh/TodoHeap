@@ -142,7 +142,7 @@ export const useTodoStore = defineStore('todos', () => {
 
 
   const invokeBreakdown = async (todosTree, selectedNodeId, query) => {
-    console.log('开始任务分解:', { selectedNodeId, query })
+    console.log('开始任务分解:', {todosTree, selectedNodeId, query })
     
     const body = {
       todosTree: todosTree,
@@ -182,7 +182,8 @@ export const useTodoStore = defineStore('todos', () => {
         addTodo(childTask.title, {
           status: childTask.status || 'todo',
           priority: childTask.priority ?? 1,
-          parent_id: selectedNodeId
+          parent_id: selectedNodeId,
+          deadline: childTask.deadline || null
         })
       )
     )
@@ -207,6 +208,7 @@ export const useTodoStore = defineStore('todos', () => {
       status: item.status || 'todo',
       priority: item.priority ?? 0,
       parent_id: item.parent_id,
+      deadline: item.deadline || null,
       children: []
     }))
 

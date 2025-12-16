@@ -10,6 +10,7 @@ Each child task must include ALL of the following fields:
 - title: A clear, actionable title (5-200 characters)
 - status: A status label (todo, doing, done, deleted)
 - priority: A priority label interger(0 for low, 1 for medium, 2 for high)
+- deadline: An optional deadline in ISO 8601 format or null if no deadline is set.
 
 You may optionally include a "metadata" object. Do not include any other top-level properties.
 `;
@@ -30,6 +31,7 @@ interface treeNode {
   title: string;
   status: Status;
   priority: Priority;
+  deadline?: string | null;
   children?: treeNode[];
 }
 
@@ -73,6 +75,7 @@ function dumpTree(tree: treeNode | treeNode[] | null | undefined): string {
     result += `${indent}   ID: ${node.id}\n`;
     result += `${indent}   状态: ${statusText}\n`;
     result += `${indent}   优先级: ${priorityText}\n`;
+    result += `${indent}   截止日期: ${node.deadline || "无"}\n`;
     
     if (node.children && node.children.length > 0) {
       result += `${indent}   子任务:\n`;
