@@ -122,10 +122,16 @@ const sortedTodos = computed(() => {
 	}
 })
 
-// 构建大顶堆结构（基于计算后的优先级）
+// 构建大顶堆结构（仅使用叶子任务，基于计算后的优先级）
 const heapNodes = computed(() => {
-	const todos = sortedTodos.value.filter(t => t.status !== 'done')
-	console.log('堆节点:', todos)
+	const todos = sortedTodos.value.filter(t => {
+		// 只保留未完成的叶子节点（没有子任务）
+		const isNotDone = t.status !== 'done'
+		const childCount = t.priorityInfo?.breakdown?.childCount ?? 0
+		const isLeaf = childCount === 0
+		return isNotDone && isLeaf
+	})
+	console.log('堆节点 (仅叶子):', todos)
 	return todos
 })
 
