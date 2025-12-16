@@ -1,45 +1,25 @@
 <template>
   <ul class="task-list">
-    <li
-      v-for="item in flatList"
-      :key="item.id"
-      :class="[
-        'task-item',
-        {
-          'task-item-selected': selectedTaskId === item.id,
-          'task-item-done': item.status === 'done'
-        }
-      ]"
-      :style="{ paddingLeft: (12 + item._level * 20) + 'px' }"
-    >
+    <li v-for="item in flatList" :key="item.id" :class="[
+      'task-item',
+      {
+        'task-item-selected': selectedTaskId === item.id,
+        'task-item-done': item.status === 'done'
+      }
+    ]" :style="{ paddingLeft: (12 + item._level * 20) + 'px' }">
       <!-- 复选框 -->
       <div class="task-checkbox">
-        <input
-          type="checkbox"
-          :checked="item.status === 'done'"
-          readonly
-          class="checkbox-input"
-          @click.stop="emitToggleDone(item)"
-        />
+        <input type="checkbox" :checked="item.status === 'done'" readonly class="checkbox-input"
+          @click.stop="emitToggleDone(item)" />
       </div>
 
       <!-- 标题 -->
-      <div class="task-title-wrapper" @click.stop="selectTask(item.id)">
-        <span
-          v-if="editingId !== item.id"
-          class="task-title"
-        >
+      <div class="task-title-wrapper" @click.stop="selectTask(item.id)" @dblclick.stop="startEdit(item.id, item.title)">
+        <span v-if="editingId !== item.id" class="task-title">
           {{ item.title || '未命名任务' }}
         </span>
-        <input
-          v-else
-          :id="'edit-input-' + item.id"
-          v-model="editingText"
-          class="task-title-input"
-          @blur="finishEdit(item.id)"
-          @keyup.enter="finishEdit(item.id)"
-          @keyup.esc="editingId = null"
-        />
+        <input v-else :id="'edit-input-' + item.id" v-model="editingText" class="task-title-input"
+          @blur="finishEdit(item.id)" @keyup.enter="finishEdit(item.id)" @keyup.esc="editingId = null" />
       </div>
 
       <!-- 元信息 -->
@@ -48,30 +28,20 @@
         <span v-if="item.deadline" class="task-deadline">
           {{ formatDeadline(item.deadline) }}
         </span>
-        
+
         <!-- 优先级标签 -->
-        <span
-          v-if="item.priority > 0"
-          :class="['task-priority', `priority-${item.priority}`]"
-        >
+        <span v-if="item.priority > 0" :class="['task-priority', `priority-${item.priority}`]">
           P{{ item.priority }}
         </span>
       </div>
 
       <!-- 操作按钮组 -->
       <div class="task-actions">
-        <button
-          class="task-action-btn task-action-subtask"
-          @click.stop="emitAddSubtask(item.id, startEdit)"
-          title="添加子任务"
-        >
+        <button class="task-action-btn task-action-subtask" @click.stop="emitAddSubtask(item.id, startEdit)"
+          title="添加子任务">
           <span class="action-icon">+</span>
         </button>
-        <button
-          class="task-action-btn task-action-delete"
-          @click.stop="emitDeleteTodo(item.id)"
-          title="删除任务"
-        >
+        <button class="task-action-btn task-action-delete" @click.stop="emitDeleteTodo(item.id)" title="删除任务">
           <span class="action-icon">×</span>
         </button>
       </div>
@@ -91,7 +61,7 @@ const emit = defineEmits(['toggle-done', 'delete-todo', 'add-subtask', 'edit-sub
 const emitToggleDone = (node) => emit('toggle-done', node)
 const emitDeleteTodo = (id) => emit('delete-todo', id)
 const emitAddSubtask = (parentId, cb) => emit('add-subtask', parentId, cb)
-const emitEditSubtask = (id) => emit('edit-subtask', id)
+const emitEditSubtask = (id) => emit('edit-subtask', id, editingText.value)
 const emitTaskSelected = (id) => emit('task-selected', id)
 
 // 展平树结构为带层级的数组
@@ -113,11 +83,15 @@ function startEdit(id, title) {
   editingText.value = title
   nextTick(() => {
     const input = document.getElementById('edit-input-' + id)
-    if (input) input.focus()
+    if (input) {
+      input.focus()
+      input.select()
+    }
   })
 }
 
 function finishEdit(id) {
+  console.log('finishEdit', id, editingText.value)
   emitEditSubtask(id, editingText.value)
   editingId.value = null
   editingText.value = ''
@@ -134,15 +108,15 @@ function formatDeadline(deadline) {
   today.setHours(0, 0, 0, 0)
   const target = new Date(date)
   target.setHours(0, 0, 0, 0)
-  
+
   const diffDays = Math.floor((target - today) / (1000 * 60 * 60 * 24))
-  
+
   if (diffDays === 0) return '今天'
   if (diffDays === 1) return '明天'
   if (diffDays === -1) return '昨天'
   if (diffDays > 0 && diffDays <= 7) return `${diffDays}天后`
   if (diffDays < 0 && diffDays >= -7) return `${Math.abs(diffDays)}天前`
-  
+
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 </script>
@@ -305,7 +279,7 @@ function formatDeadline(deadline) {
   .task-meta {
     display: none;
   }
-  
+
   .task-actions {
     opacity: 1;
   }
