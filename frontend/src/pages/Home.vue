@@ -13,7 +13,7 @@
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-3 group cursor-pointer min-w-0">
             <div class="text-3xl font-bold shrink-0 transform group-hover:scale-110 transition-transform duration-300">✅</div>
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate max-w-[140px] sm:max-w-none">
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate max-w-35 sm:max-w-none">
               TodoHeap 任务堆
             </h1>
           </div>

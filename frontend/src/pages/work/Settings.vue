@@ -1,208 +1,76 @@
 <template>
   <!-- 设置界面 -->
-  <div class="settings-page">
-    <div class="settings-header">
-      <h1>设置</h1>
-      <p class="subtitle">管理您的账户和应用偏好</p>
+  <div class="min-h-screen bg-linear-to-br from-gray-100 via-gray-200 to-blue-100 p-6">
+    <div class="max-w-5xl mx-auto mb-8 text-left">
+      <h1 class="text-3xl font-extrabold text-gray-800">设置</h1>
+      <p class="mt-2 text-sm text-gray-500">管理您的账户和应用偏好</p>
     </div>
 
-    <div class="settings-container">
-      <!-- 左侧标签栏 -->
-      <nav class="tabs-sidebar">
+    <div class="max-w-5xl mx-auto grid md:grid-cols-[200px_1fr] grid-cols-1 gap-6 bg-white rounded-lg overflow-hidden shadow-lg">
+      <!-- 左侧标签栏（Tailwind 改写） -->
+      <nav class="bg-gray-50 p-4 border-r border-gray-200" role="tablist">
         <button
           v-for="tab in tabs"
           :key="tab.id"
-          :class="['tab-item', { active: activeTab === tab.id }]"
+          :class="[
+            'flex items-center gap-3 w-full p-3 text-sm transition-colors rounded-sm',
+            activeTab === tab.id
+              ? 'bg-white text-indigo-600 border-r-4 border-indigo-600 font-semibold'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+          ]"
+          role="tab"
+          :aria-selected="activeTab === tab.id"
           @click="activeTab = tab.id"
         >
-          <span class="tab-icon">{{ tab.icon }}</span>
+          <span class="tab-icon text-lg">{{ tab.icon }}</span>
           <span class="tab-label">{{ tab.label }}</span>
         </button>
       </nav>
 
       <!-- 右侧内容区 -->
-      <div class="settings-content">
+      <div class="p-8">
         <!-- 账户设置 -->
-        <div v-if="activeTab === 'account'" class="setting-section">
-          <h2>账户信息</h2>
-          <div class="info-group">
-            <div class="info-item">
-              <label>邮箱地址</label>
-              <div class="info-value">{{ userEmail }}</div>
+        <div v-if="activeTab === 'account'">
+          <h2 class="text-lg font-bold text-gray-800 mt-0 mb-4">账户信息</h2>
+          <div class="grid gap-3">
+            <div class="p-4 bg-gray-50 rounded-md border border-gray-200">
+              <div class="text-xs text-gray-500 uppercase mb-1">邮箱地址</div>
+              <div class="text-sm text-gray-800 wrap-break-word">{{ userEmail }}</div>
             </div>
-            <div class="info-item">
-              <label>账户创建时间</label>
-              <div class="info-value">{{ userCreatedAt }}</div>
+
+            <div class="p-4 bg-gray-50 rounded-md border border-gray-200">
+              <div class="text-xs text-gray-500 uppercase mb-1">账户创建时间</div>
+              <div class="text-sm text-gray-800">{{ userCreatedAt }}</div>
             </div>
-            <div class="info-item" v-if="userEmailVerified">
-              <label>邮箱验证状态</label>
-              <div class="info-value verified">
-                <span class="verified-icon">✓</span>
-                已验证
-              </div>
+
+            <div v-if="userEmailVerified" class="p-4 bg-gray-50 rounded-md border border-gray-200">
+              <div class="text-xs text-gray-500 uppercase mb-1">邮箱验证状态</div>
+              <div class="text-sm text-green-600 flex items-center gap-2"> <span class="text-lg">✓</span> 已验证</div>
             </div>
           </div>
 
-          <div class="divider"></div>
+          <div class="border-t border-gray-200 my-6"></div>
 
-          <h2>安全</h2>
-          <div class="action-group">
-            <button class="btn-secondary" @click="showPasswordModal = true">
+          <h2 class="text-lg font-bold text-gray-800 mt-6 mb-4">安全</h2>
+          <div class="flex gap-3">
+            <button class="bg-gray-100 text-gray-800 border border-gray-200 px-4 py-2 rounded-md font-semibold hover:bg-gray-200" @click="showPasswordModal = true">
               <span>🔒</span>
-              <span>修改密码</span>
+              <span class="ml-2">修改密码</span>
             </button>
           </div>
 
-          <div class="divider"></div>
+          <div class="border-t border-gray-200 my-6"></div>
 
-          <h2>账户操作</h2>
-          <div class="action-group danger">
-            <button class="btn-danger" @click="handleSignOut">
+          <h2 class="text-lg font-bold text-gray-800 mt-6 mb-4">账户操作</h2>
+          <div class="flex flex-col gap-3">
+            <button class="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600" @click="handleSignOut">
               <span>🚪</span>
-              <span>退出登录</span>
+              <span class="ml-2">退出登录</span>
             </button>
-            <button class="btn-danger-outline" @click="handleDeleteAccount">
+            <button class="border-2 border-red-500 text-red-500 px-4 py-2 rounded-md hover:bg-red-50" @click="handleDeleteAccount">
               <span>🗑️</span>
-              <span>删除账户</span>
+              <span class="ml-2">删除账户</span>
             </button>
-          </div>
-        </div>
-
-        <!-- 主题设置 -->
-        <div v-if="activeTab === 'theme'" class="setting-section">
-          <h2>外观主题</h2>
-          <p class="section-desc">选择您偏好的界面主题</p>
-          <div class="theme-options">
-            <div class="theme-item">
-              <input
-                type="radio"
-                id="light-theme"
-                value="light"
-                :checked="theme === 'light'"
-                @change="handleThemeChange('light')"
-              />
-              <label for="light-theme" class="theme-label">
-                <div class="theme-preview light">
-                  <div class="preview-content">
-                    <div class="preview-bar"></div>
-                    <div class="preview-bar short"></div>
-                    <div class="preview-bar"></div>
-                  </div>
-                </div>
-                <div class="theme-name">浅色</div>
-                <div class="theme-desc">明亮的界面，适合白天使用</div>
-              </label>
-            </div>
-
-            <div class="theme-item">
-              <input
-                type="radio"
-                id="dark-theme"
-                value="dark"
-                :checked="theme === 'dark'"
-                @change="handleThemeChange('dark')"
-              />
-              <label for="dark-theme" class="theme-label">
-                <div class="theme-preview dark">
-                  <div class="preview-content">
-                    <div class="preview-bar"></div>
-                    <div class="preview-bar short"></div>
-                    <div class="preview-bar"></div>
-                  </div>
-                </div>
-                <div class="theme-name">深色</div>
-                <div class="theme-desc">暗色界面，保护眼睛</div>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- 通知设置 -->
-        <div v-if="activeTab === 'notifications'" class="setting-section">
-          <h2>通知偏好</h2>
-          <p class="section-desc">配置您希望接收的通知类型</p>
-          <div class="toggle-group">
-            <div class="toggle-item">
-              <div class="toggle-content">
-                <div class="toggle-title">邮件通知</div>
-                <div class="toggle-desc">接收重要更新和提醒的邮件</div>
-              </div>
-              <label class="toggle-switch">
-                <input
-                  v-model="notifications.email"
-                  type="checkbox"
-                  @change="handleNotificationChange"
-                />
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="toggle-item">
-              <div class="toggle-content">
-                <div class="toggle-title">推送通知</div>
-                <div class="toggle-desc">接收浏览器推送通知</div>
-              </div>
-              <label class="toggle-switch">
-                <input
-                  v-model="notifications.push"
-                  type="checkbox"
-                  @change="handleNotificationChange"
-                />
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="toggle-item">
-              <div class="toggle-content">
-                <div class="toggle-title">任务提醒</div>
-                <div class="toggle-desc">接收待办任务到期前的提醒</div>
-              </div>
-              <label class="toggle-switch">
-                <input
-                  v-model="notifications.reminders"
-                  type="checkbox"
-                  @change="handleNotificationChange"
-                />
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- 隐私设置 -->
-        <div v-if="activeTab === 'privacy'" class="setting-section">
-          <h2>隐私和共享</h2>
-          <p class="section-desc">管理您的隐私设置和数据共享偏好</p>
-          <div class="toggle-group">
-            <div class="toggle-item">
-              <div class="toggle-content">
-                <div class="toggle-title">公开个人资料</div>
-                <div class="toggle-desc">允许其他用户查看您的个人资料</div>
-              </div>
-              <label class="toggle-switch">
-                <input
-                  v-model="privacy.publicProfile"
-                  type="checkbox"
-                  @change="handlePrivacyChange"
-                />
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="toggle-item">
-              <div class="toggle-content">
-                <div class="toggle-title">分享进度统计</div>
-                <div class="toggle-desc">允许我们收集使用数据以改进服务</div>
-              </div>
-              <label class="toggle-switch">
-                <input
-                  v-model="privacy.shareProgress"
-                  type="checkbox"
-                  @change="handlePrivacyChange"
-                />
-                <span class="slider"></span>
-              </label>
-            </div>
           </div>
         </div>
       </div>
@@ -226,67 +94,47 @@
           leave-from-class="opacity-100 scale-100"
           leave-to-class="opacity-0 scale-95"
         >
-          <div class="modal-content" v-if="showPasswordModal">
-            <div class="modal-header">
-              <h2>修改密码</h2>
-              <button class="close-btn" @click="closePasswordModal" aria-label="关闭">×</button>
-            </div>
+              <div class="bg-white rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden" v-if="showPasswordModal">
+                <div class="flex justify-between items-center p-6 border-b">
+                  <h2 class="text-lg font-semibold">修改密码</h2>
+                  <button class="text-gray-400 hover:text-gray-700" @click="closePasswordModal" aria-label="关闭">×</button>
+                </div>
 
-            <div class="modal-body">
-              <div class="form-group">
-                <label for="current-password">当前密码</label>
-                <input
-                  id="current-password"
-                  v-model="currentPassword"
-                  type="password"
-                  placeholder="请输入当前密码"
-                  autocomplete="current-password"
-                />
-              </div>
+                <div class="p-6">
+                  <div class="mb-4">
+                    <label for="current-password" class="block mb-2 text-sm font-medium text-gray-700">当前密码</label>
+                    <input id="current-password" v-model="currentPassword" type="password" placeholder="请输入当前密码" autocomplete="current-password" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                  </div>
 
-              <div class="form-group">
-                <label for="new-password">新密码</label>
-                <input
-                  id="new-password"
-                  v-model="newPassword"
-                  type="password"
-                  placeholder="请输入新密码（至少6个字符）"
-                  autocomplete="new-password"
-                />
-                <div class="form-hint">密码长度至少6个字符</div>
-              </div>
+                  <div class="mb-4">
+                    <label for="new-password" class="block mb-2 text-sm font-medium text-gray-700">新密码</label>
+                    <input id="new-password" v-model="newPassword" type="password" placeholder="请输入新密码（至少6个字符）" autocomplete="new-password" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                    <div class="mt-2 text-xs text-gray-500">密码长度至少6个字符</div>
+                  </div>
 
-              <div class="form-group">
-                <label for="confirm-password">确认新密码</label>
-                <input
-                  id="confirm-password"
-                  v-model="confirmPassword"
-                  type="password"
-                  placeholder="请再次输入新密码"
-                  autocomplete="new-password"
-                />
-              </div>
+                  <div class="mb-4">
+                    <label for="confirm-password" class="block mb-2 text-sm font-medium text-gray-700">确认新密码</label>
+                    <input id="confirm-password" v-model="confirmPassword" type="password" placeholder="请再次输入新密码" autocomplete="new-password" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                  </div>
 
-              <div v-if="passwordError" class="error-message">
-                <span class="error-icon">⚠️</span>
-                <span>{{ passwordError }}</span>
-              </div>
-              <div v-if="passwordSuccess" class="success-message">
-                <span class="success-icon">✓</span>
-                <span>{{ passwordSuccess }}</span>
-              </div>
-            </div>
+                  <div v-if="passwordError" class="mt-4 p-3 bg-red-50 text-red-700 border border-red-100 rounded-md text-sm flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{{ passwordError }}</span>
+                  </div>
+                  <div v-if="passwordSuccess" class="mt-4 p-3 bg-green-50 text-green-700 border border-green-100 rounded-md text-sm flex items-center gap-2">
+                    <span>✓</span>
+                    <span>{{ passwordSuccess }}</span>
+                  </div>
+                </div>
 
-            <div class="modal-footer">
-              <button class="btn-secondary" @click="closePasswordModal">
-                取消
-              </button>
-              <button class="btn-primary" @click="handleChangePassword" :disabled="isChangingPassword">
-                <span v-if="isChangingPassword">处理中...</span>
-                <span v-else>修改密码</span>
-              </button>
-            </div>
-          </div>
+                <div class="p-6 border-t flex gap-3 justify-end">
+                  <button class="bg-gray-100 text-gray-800 border border-gray-200 px-4 py-2 rounded-md" @click="closePasswordModal">取消</button>
+                  <button class="bg-linear-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-md font-semibold" @click="handleChangePassword" :disabled="isChangingPassword">
+                    <span v-if="isChangingPassword">处理中...</span>
+                    <span v-else>修改密码</span>
+                  </button>
+                </div>
+              </div>
         </Transition>
       </div>
     </Transition>
@@ -304,10 +152,8 @@ const authStore = useAuthStore()
 
 // 标签配置
 const tabs = [
-  { id: 'account', label: '账户', icon: '👤' },
-  { id: 'theme', label: '主题', icon: '🎨' },
-  { id: 'notifications', label: '通知', icon: '🔔' },
-  { id: 'privacy', label: '隐私', icon: '🔒' }
+  { id: 'userinfo', label: '用户信息', icon: '👤' },
+  { id: 'account', label: '账户安全', icon: '🔒' }
 ]
 
 // 标签切换
@@ -322,21 +168,7 @@ const passwordError = ref('')
 const passwordSuccess = ref('')
 const isChangingPassword = ref(false)
 
-// 主题设置
-const theme = ref('light')
-
-// 通知设置
-const notifications = ref({
-  email: true,
-  push: false,
-  reminders: true
-})
-
-// 隐私设置
-const privacy = ref({
-  publicProfile: false,
-  shareProgress: false
-})
+// 主题/通知/隐私 设置已移除
 
 // 用户信息
 const userEmail = computed(() => authStore.user?.email || '未知')
@@ -354,24 +186,7 @@ const userCreatedAt = computed(() => {
 })
 
 onMounted(() => {
-  // 恢复保存的主题设置
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme) {
-    theme.value = savedTheme
-    applyTheme(savedTheme)
-  }
-
-  // 恢复保存的通知设置
-  const savedNotifications = localStorage.getItem('notifications')
-  if (savedNotifications) {
-    notifications.value = JSON.parse(savedNotifications)
-  }
-
-  // 恢复保存的隐私设置
-  const savedPrivacy = localStorage.getItem('privacy')
-  if (savedPrivacy) {
-    privacy.value = JSON.parse(savedPrivacy)
-  }
+  // 以前用于恢复本地设置的逻辑已移除
 })
 
 // 关闭密码修改弹窗
@@ -434,26 +249,6 @@ const handleChangePassword = async () => {
   }
 }
 
-// 主题切换
-const applyTheme = (selectedTheme) => {
-  document.documentElement.setAttribute('data-theme', selectedTheme)
-  localStorage.setItem('theme', selectedTheme)
-}
-
-const handleThemeChange = (selectedTheme) => {
-  theme.value = selectedTheme
-  applyTheme(selectedTheme)
-}
-
-// 保存通知设置
-const handleNotificationChange = () => {
-  localStorage.setItem('notifications', JSON.stringify(notifications.value))
-}
-
-// 保存隐私设置
-const handlePrivacyChange = () => {
-  localStorage.setItem('privacy', JSON.stringify(privacy.value))
-}
 
 // 退出登录
 const handleSignOut = async () => {
@@ -525,42 +320,7 @@ const handleDeleteAccount = async () => {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* 左侧标签栏 */
-.tabs-sidebar {
-  background: #f9fafb;
-  padding: 16px 0;
-  border-right: 1px solid #e5e7eb;
-}
-
-.tab-item {
-  width: 100%;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: #6b7280;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.tab-item:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.tab-item.active {
-  background: white;
-  color: #667eea;
-  border-right: 3px solid #667eea;
-  font-weight: 600;
-}
-
-.tab-icon {
-  font-size: 18px;
-}
+/* 侧边栏样式已替换为 Tailwind CSS */
 
 /* 右侧内容区 */
 .settings-content {
@@ -636,170 +396,7 @@ const handleDeleteAccount = async () => {
   margin: 24px 0;
 }
 
-/* 主题选项 */
-.theme-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.theme-item {
-  position: relative;
-}
-
-.theme-item input {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.theme-label {
-  display: block;
-  padding: 16px;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.2s ease;
-}
-
-.theme-item input:checked + .theme-label {
-  border-color: #667eea;
-  background: #f0f4ff;
-}
-
-.theme-preview {
-  width: 100%;
-  height: 80px;
-  border-radius: 4px;
-  margin-bottom: 8px;
-}
-
-.theme-preview.light {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-}
-
-.theme-preview.dark {
-  background: #1f2937;
-}
-
-.preview-content {
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.preview-bar {
-  height: 4px;
-  background: #e5e7eb;
-  border-radius: 2px;
-}
-
-.theme-preview.dark .preview-bar {
-  background: #374151;
-}
-
-.preview-bar.short {
-  width: 60%;
-}
-
-.theme-name {
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 4px;
-}
-
-.theme-desc {
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-/* 切换组 */
-.toggle-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.toggle-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  transition: background-color 0.15s ease;
-}
-
-.toggle-item:hover {
-  background: #f3f4f6;
-}
-
-.toggle-content {
-  flex: 1;
-}
-
-.toggle-title {
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 4px;
-}
-
-.toggle-desc {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-/* 切换开关 */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: 0.3s;
-  border-radius: 24px;
-}
-
-.slider:before {
-  position: absolute;
-  content: '';
-  height: 20px;
-  width: 20px;
-  left: 2px;
-  bottom: 2px;
-  background-color: white;
-  transition: 0.3s;
-  border-radius: 50%;
-}
-
-input:checked + .slider {
-  background-color: #667eea;
-}
-
-input:checked + .slider:before {
-  transform: translateX(20px);
-}
+/* 主题与通知相关样式已移除 */
 
 /* 按钮 */
 .btn-primary,
@@ -1003,24 +600,6 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
 
-  .tabs-sidebar {
-    display: flex;
-    border-right: none;
-    border-bottom: 1px solid #e5e7eb;
-    overflow-x: auto;
-  }
-
-  .tab-item {
-    padding: 12px;
-    flex-shrink: 0;
-    border-right: none;
-    border-bottom: 3px solid transparent;
-  }
-
-  .tab-item.active {
-    border-right: none;
-    border-bottom: 3px solid #667eea;
-  }
 
   .settings-content {
     padding: 20px;

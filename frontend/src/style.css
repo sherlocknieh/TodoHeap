@@ -1,7 +1,4 @@
 @import "tailwindcss";
-@config "../tailwind.config.js";
-
-@variant dark (&:where(.dark, .dark *));
 
 html, body, #app {
   height: 100%;
