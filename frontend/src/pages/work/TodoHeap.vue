@@ -80,10 +80,6 @@
 							</span>
 						</div>
 					</div>
-					<div class="item-select">
-						<button v-if="selectedTaskId === node.id" class="select-btn selected">✓ 已选择</button>
-						<button v-else class="select-btn">选择</button>
-					</div>
 				</div>
 			</div>
 		</div>
@@ -396,32 +392,11 @@ const selectTask = (taskId) => {
 	margin-left: 12px;
 }
 
-.select-btn {
-	background: #10b981;
-	color: white;
-	border: none;
-	border-radius: 6px;
-	padding: 6px 12px;
-	cursor: pointer;
-	font-size: 0.85rem;
-	font-weight: 500;
-	transition: all 0.2s ease;
-}
-
-.select-btn:hover {
-	background: #059669;
-	transform: translateY(-1px);
-}
-
-.select-btn.selected {
-	background: #059669;
-	cursor: default;
-}
-
 .heap-item.selected {
-	border-color: #10b981;
-	box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-	background: #f0fdf4;
+	/* border-color: #10b981; */
+	/* box-shadow: 0 0 0 2px #d1fae5; */
+	background: #eff6ff;
+  	border-left: 3px solid #2563eb;
 }
 
 @media (max-width: 1024px) {
