@@ -3,7 +3,7 @@
 /node_modules
 /.pnp
 .pnp.js
-
+pnpm-workspace.yaml
 
 # build
 /dist

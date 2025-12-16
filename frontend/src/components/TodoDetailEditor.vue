@@ -88,7 +88,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { supabase } from '../supabase'
+import { supabase } from '../libs/supabase.js'
 import { useTodoStore } from '../stores/todos'
 
 const props = defineProps({

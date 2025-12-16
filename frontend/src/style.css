@@ -1,40 +1,11 @@
 @import "tailwindcss";
 
+/* 跟随系统切换亮暗主题 */
+html {
+  color-scheme: light dark;
+}
+
+/* 使应用程序占满视口高度 */
 html, body, #app {
   height: 100%;
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', sans-serif;
-  color: rgb(17, 24, 39);
-  background-color: rgb(255, 255, 255);
 }
-
-html {
-  scroll-behavior: smooth;
-}
-
-a {
-  color: rgb(79, 70, 229);
-  text-decoration: none;
-  transition-property: color;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
-a:hover,
-a:focus-visible {
-  color: rgb(67, 56, 202);
-  text-decoration: underline;
-}
-
-:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgb(199, 210, 254);
-}
-
-
-.dark body {
-  color: rgb(226, 232, 240);
-  background-color: rgb(3, 7, 18);
-}
-

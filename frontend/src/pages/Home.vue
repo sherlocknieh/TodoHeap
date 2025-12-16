@@ -1,33 +1,26 @@
 <template>
   <!-- 产品主页 -->
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col overflow-hidden transition-colors duration-300">
-    <!-- 背景装饰 (简化版) -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute top-0 right-0 w-125 h-125 bg-indigo-200/30 dark:bg-indigo-900/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-30 animate-pulse"></div>
-      <div class="absolute bottom-0 left-0 w-125 h-125 bg-purple-200/30 dark:bg-purple-900/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-30 animate-pulse animation-delay-2000"></div>
-    </div>
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col transition-colors duration-300">
 
     <!-- 导航栏 -->
     <nav class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
+      <!-- 内容居中与限制宽度 -->
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 内容布局管理 -->
         <div class="flex justify-between items-center h-16">
+          <!-- 左侧内容 -->
           <div class="flex items-center gap-3 group cursor-pointer min-w-0">
-            <div class="text-3xl font-bold shrink-0 transform group-hover:scale-110 transition-transform duration-300">✅</div>
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate max-w-35 sm:max-w-none">
               TodoHeap 任务堆
             </h1>
           </div>
+          <!-- 右侧内容 -->
           <div class="flex items-center gap-3 sm:gap-6 shrink-0">
+            <!-- 文档链接 -->
             <a href="/TodoHeap/docs" class="hidden sm:inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
-              📄Docs
+              📄在线文档
             </a>
-
-            <!-- 暗色模式切换按钮 -->
-            <button @click="toggleDark" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors" title="切换主题">
-              <span v-if="isDark">🌙</span>
-              <span v-else>🌞</span>
-            </button>
-
+            <!-- 登录按钮 -->
             <button @click="openLogin"
               class="px-3 sm:px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap">
               登录 / 注册
@@ -37,7 +30,7 @@
       </div>
     </nav>
 
-    <!-- Hero 区域 -->
+    <!-- 宣传语 -->
     <section class="flex-1 flex items-center justify-center relative z-10 py-20">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid md:grid-cols-2 gap-12 items-center">
@@ -94,7 +87,7 @@
       </div>
     </section>
 
-    <!-- 特色区域 -->
+    <!-- 功能特色 -->
     <section id="features" class="bg-white dark:bg-gray-900 py-24 border-y border-gray-100 dark:border-gray-800 relative z-10 transition-colors duration-300">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-20 animate-fadeInUp">
@@ -140,7 +133,7 @@
       </div>
     </section>
 
-    <!-- Footer -->
+    <!-- 页脚 -->
     <footer class="bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 py-12 relative z-10 transition-colors duration-300">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid md:grid-cols-3 gap-12 mb-8">
@@ -185,24 +178,54 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
 const isDark = ref(false)
 
-onMounted(async () => {
-  // 初始化暗色模式
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    isDark.value = true
-    document.documentElement.classList.add('dark')
-  } else {
-    isDark.value = false
-    document.documentElement.classList.remove('dark')
+// 监听系统深色模式变化的 MediaQueryList（用于初始跟随与会话内监听）
+const prefersDarkMQ = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+let mqListener = null
+let userOverrode = false // 用户在当前会话内是否手动覆盖了系统
+
+const applyTheme = (dark) => {
+  isDark.value = !!dark
+  if (isDark.value) document.documentElement.classList.add('dark')
+  else document.documentElement.classList.remove('dark')
+}
+
+const handleSystemChange = (e) => {
+  // 仅当用户未手动切换时，才随系统变化
+  if (!userOverrode) applyTheme(e.matches)
+}
+
+const addSystemListener = () => {
+  if (!prefersDarkMQ) return
+  mqListener = handleSystemChange
+  if (typeof prefersDarkMQ.addEventListener === 'function') {
+    prefersDarkMQ.addEventListener('change', mqListener)
   }
+}
+
+const removeSystemListener = () => {
+  if (!prefersDarkMQ || !mqListener) return
+  if (typeof prefersDarkMQ.removeEventListener === 'function') {
+    prefersDarkMQ.removeEventListener('change', mqListener)
+  } else if (typeof prefersDarkMQ.removeListener === 'function') {
+    prefersDarkMQ.removeListener(mqListener)
+  }
+  mqListener = null
+}
+
+onMounted(async () => {
+  // 初始化主题
+  const systemDark = prefersDarkMQ ? prefersDarkMQ.matches : false
+  applyTheme(systemDark)  // 初始跟随系统
+  addSystemListener()     // 监听系统主题变化
 
   // 如果 store 未初始化，先初始化
   if (authStore.session === null && !authStore.loading) {
@@ -215,15 +238,13 @@ onMounted(async () => {
   }
 })
 
+onBeforeUnmount(() => {
+  removeSystemListener()
+})
+
 const toggleDark = () => {
-  isDark.value = !isDark.value
-  if (isDark.value) {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('theme', 'dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('theme', 'light')
-  }
+  userOverrode = true
+  applyTheme(!isDark.value)
 }
 
 const openLogin = () => {

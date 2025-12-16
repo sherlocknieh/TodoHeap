@@ -1,53 +1,5 @@
 <template>
-  <div class="tt-shell">
-    <header class="tt-hero">
-      <div>
-        <p class="eyebrow">滴答清单风格 · 今日概览</p>
-        <h1>我的任务</h1>
-        <div class="hero-meta">
-          <span>{{ stats.todo }} 待办</span>
-          <span>{{ stats.today }} 今天</span>
-          <span>{{ stats.upcoming }} 即将到期</span>
-          <span>{{ stats.done }} 已完成</span>
-        </div>
-      </div>
-      <div class="progress-card">
-        <div class="progress-top">
-          <span>完成度</span>
-          <strong>{{ completion }}%</strong>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" :style="{ width: completion + '%' }"></div>
-        </div>
-      </div>
-    </header>
-
-    <section class="tt-filters">
-      <div class="filter-chips">
-        <button
-          v-for="f in filters"
-          :key="f.value"
-          :class="['chip', { active: activeFilter === f.value }]"
-          @click="activeFilter = f.value"
-        >
-          {{ f.label }}
-          <span class="chip-count">{{ f.badge }}</span>
-        </button>
-      </div>
-      <div class="filter-tools">
-        <div class="input-with-icon">
-          <span class="icon">🔍</span>
-          <input v-model.trim="searchText" placeholder="搜索任务或子任务" />
-        </div>
-        <select v-model="priorityFilter" class="select">
-          <option value="all">优先级（全部）</option>
-          <option value="2">P1 最高</option>
-          <option value="1">P2 较高</option>
-          <option value="0">P3 一般</option>
-        </select>
-      </div>
-    </section>
-
+  <div class="tt-shell" ref="shellRef">
     <section class="tt-quick">
       <div class="quick-left">
         <input
@@ -99,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useTodoStore } from '../../stores/todos'
 import { useAuthStore } from '../../stores/auth'
 import TodoListItem from '../../components/TodoListItem.vue'
@@ -119,9 +71,8 @@ const newTaskTitle = ref('')
 const newTaskDate = ref('')
 const newTaskPriority = ref(1)
 const isAdding = ref(false)
-const activeFilter = ref('all')
-const priorityFilter = ref('all')
-const searchText = ref('')
+const shellRef = ref(null)
+
 
 const todos = computed(() => todoStore.todos)
 const loading = computed(() => todoStore.loading)
@@ -131,6 +82,31 @@ onMounted(async () => {
   if (authStore.isAuthenticated && todos.value.length === 0) {
     await todoStore.fetchTodos()
   }
+})
+
+const outsideClickHandler = (e) => {
+  const el = shellRef.value
+  if (!el) return
+
+  // 仅在点击发生在 .tt-shell 内时考虑取消选中
+  if (el.contains(e.target)) {
+    // 如果当前没有选中任务，则不需要处理
+    if (props.selectedTaskId == null) return
+
+    // 如果点击落在某个任务项内部（.task-item），则不取消选中
+    const taskItem = e.target.closest && e.target.closest('.task-item')
+    if (!taskItem) {
+      emit('task-selected', null)
+    }
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', outsideClickHandler)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', outsideClickHandler)
 })
 
 // 以滴答清单的分组方式进行树构建与过滤
@@ -183,20 +159,8 @@ const isUpcoming = (deadline) => {
 }
 
 const matchesFilters = (node) => {
-  if (priorityFilter.value !== 'all' && (node.priority ?? 0) !== Number(priorityFilter.value)) return false
-  if (searchText.value && !node.title.toLowerCase().includes(searchText.value.toLowerCase())) return false
-
-  switch (activeFilter.value) {
-    case 'today':
-      return isToday(node.deadline)
-    case 'upcoming':
-      return isUpcoming(node.deadline)
-    case 'done':
-      return node.status === 'done'
-    case 'all':
-    default:
-      return true
-  }
+  // 过滤功能已移除：默认展示所有节点
+  return true
 }
 
 const filterTree = (list) => {
@@ -216,31 +180,7 @@ const filteredTree = computed(() => filterTree(taskTree.value))
 const countNodes = (list) => list.reduce((acc, n) => acc + 1 + countNodes(n.children || []), 0)
 const visibleCount = computed(() => countNodes(filteredTree.value))
 
-const stats = computed(() => {
-  const total = todos.value.length
-  const done = todos.value.filter((t) => t.status === 'done').length
-  const today = todos.value.filter((t) => isToday(t.deadline)).length
-  const upcoming = todos.value.filter((t) => isUpcoming(t.deadline)).length
-  return {
-    total,
-    done,
-    today,
-    upcoming,
-    todo: total - done
-  }
-})
-
-const completion = computed(() => {
-  if (!stats.value.total) return 0
-  return Math.round((stats.value.done / stats.value.total) * 100)
-})
-
-const filters = computed(() => [
-  { label: '今天', value: 'today', badge: stats.value.today },
-  { label: '即将到期', value: 'upcoming', badge: stats.value.upcoming },
-  { label: '全部', value: 'all', badge: stats.value.total },
-  { label: '已完成', value: 'done', badge: stats.value.done }
-])
+// filters 已移除
 
 const addTodo = async () => {
   const title = newTaskTitle.value.trim()
@@ -575,6 +515,134 @@ const handleTaskSelected = (taskId) => {
     align-items: flex-start;
   }
 
+  .filter-tools,
+  .quick-left {
+    width: 100%;
+  }
+}
+<style scoped>
+.tt-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  color: var(--color-text, #0f172a);
+}
+
+.tt-quick {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.quick-left {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-width: 320px;
+}
+
+.quick-left input[type='text'],
+.quick-left input:not([type]),
+.quick-left input[type='date'] {
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.date-input {
+  max-width: 160px;
+}
+
+.primary {
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.banner {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+
+.banner.error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
+}
+
+.banner.muted {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px dashed #cbd5e1;
+}
+
+.empty {
+  margin-top: 32px;
+  padding: 48px 32px;
+  text-align: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 6px;
+}
+
+.empty-desc {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.tt-list-wrapper {
+  margin-top: 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.tt-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
   .filter-tools,
   .quick-left {
     width: 100%;

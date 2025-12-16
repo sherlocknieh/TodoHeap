@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { supabase } from '../supabase'
+import { supabase } from '../libs/supabase'
 
 export const useAuthStore = defineStore('auth', () => {
   // 状态
