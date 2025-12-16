@@ -140,6 +140,151 @@ export const useTodoStore = defineStore('todos', () => {
     error.value = null
   }
 
+  // ========== 垃圾箱功能 ==========
+  
+  // 垃圾箱任务列表
+  const trashTodos = ref([])
+  const trashLoading = ref(false)
+
+  // 获取垃圾箱中的任务（deleted_at 不为 null）
+  const fetchTrash = async () => {
+    if (trashLoading.value) return { success: true }
+    
+    trashLoading.value = true
+    error.value = null
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('todos')
+        .select('*')
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false })
+
+      if (fetchError) throw fetchError
+      trashTodos.value = data || []
+      return { success: true }
+    } catch (err) {
+      error.value = err.message
+      console.error('Fetch trash error:', err)
+      return { success: false, error: err.message }
+    } finally {
+      trashLoading.value = false
+    }
+  }
+
+  // 恢复任务（将 deleted_at 设为 null）
+  const restoreTodo = async (id) => {
+    loading.value = true
+    error.value = null
+    try {
+      const { data, error: restoreError } = await supabase
+        .from('todos')
+        .update({ deleted_at: null })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (restoreError) throw restoreError
+      
+      // 从垃圾箱列表移除
+      trashTodos.value = trashTodos.value.filter(t => t.id !== id)
+      // 添加到正常列表
+      todos.value.push(data)
+      
+      return { success: true, data }
+    } catch (err) {
+      error.value = err.message
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 永久删除任务
+  const permanentDeleteTodo = async (id) => {
+    loading.value = true
+    error.value = null
+    try {
+      const { error: deleteError } = await supabase
+        .from('todos')
+        .delete()
+        .eq('id', id)
+
+      if (deleteError) throw deleteError
+      
+      // 从垃圾箱列表移除
+      trashTodos.value = trashTodos.value.filter(t => t.id !== id)
+      
+      return { success: true }
+    } catch (err) {
+      error.value = err.message
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 清空垃圾箱（永久删除所有）
+  const emptyTrash = async () => {
+    loading.value = true
+    error.value = null
+    try {
+      const authStore = useAuthStore()
+      if (!authStore.user) {
+        throw new Error('请先登录')
+      }
+
+      const { error: deleteError } = await supabase
+        .from('todos')
+        .delete()
+        .eq('user_id', authStore.user.id)
+        .not('deleted_at', 'is', null)
+
+      if (deleteError) throw deleteError
+      
+      trashTodos.value = []
+      
+      return { success: true }
+    } catch (err) {
+      error.value = err.message
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 恢复所有任务
+  const restoreAllTrash = async () => {
+    loading.value = true
+    error.value = null
+    try {
+      const authStore = useAuthStore()
+      if (!authStore.user) {
+        throw new Error('请先登录')
+      }
+
+      const { data, error: restoreError } = await supabase
+        .from('todos')
+        .update({ deleted_at: null })
+        .eq('user_id', authStore.user.id)
+        .not('deleted_at', 'is', null)
+        .select()
+
+      if (restoreError) throw restoreError
+      
+      // 添加到正常列表
+      if (data) {
+        todos.value.push(...data)
+      }
+      trashTodos.value = []
+      
+      return { success: true }
+    } catch (err) {
+      error.value = err.message
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
 
   const invokeBreakdown = async (todosTree, selectedNodeId, query) => {
     console.log('开始任务分解:', {todosTree, selectedNodeId, query })
@@ -252,6 +397,9 @@ export const useTodoStore = defineStore('todos', () => {
     loading,
     error,
     isFetched,
+    // 垃圾箱状态
+    trashTodos,
+    trashLoading,
     // 计算属性
     treeNodes,
     columns,
@@ -262,6 +410,12 @@ export const useTodoStore = defineStore('todos', () => {
     toggleDone,
     deleteTodo,
     clearError,
-    invokeBreakdown
+    invokeBreakdown,
+    // 垃圾箱方法
+    fetchTrash,
+    restoreTodo,
+    permanentDeleteTodo,
+    emptyTrash,
+    restoreAllTrash
   }
 })

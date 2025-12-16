@@ -63,6 +63,15 @@ const routes = [
           requiresAuth: true,
           title: 'TodoHeap - 堆视图'
         }
+      },
+      {
+        path: 'trash',
+        name: 'TrashView',
+        component: () => import('./pages/Todo.vue'),
+        meta: { 
+          requiresAuth: true,
+          title: 'TodoHeap - 垃圾箱'
+        }
       }
     ]
   },

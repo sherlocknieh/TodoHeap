@@ -109,6 +109,18 @@
 					>
 						{{ view === 'list' ? '📋 列表' : view === 'tree' ? '🌳 树形' : '📦 堆' }}
 					</button>
+					<!-- 垃圾箱入口 -->
+					<button
+						@click="switchView('trash')"
+						:class="[
+							'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ml-auto',
+							activeView === 'trash'
+								? 'border-red-500 text-red-500'
+								: 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+						]"
+					>
+						🗑️ 垃圾箱
+					</button>
 				</div>
 			</div>
 		</nav>
@@ -156,7 +168,7 @@
 							</div>
 
 							<!-- 堆视图 -->
-							<div v-else>
+							<div v-else-if="activeView === 'heap'">
 								<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
 									<div class="text-center">
 										<p class="text-lg mb-2">⏳</p>
@@ -164,6 +176,11 @@
 									</div>
 								</div>
 								<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
+							</div>
+
+							<!-- 垃圾箱视图 -->
+							<div v-else-if="activeView === 'trash'">
+								<Trash :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
 							</div>
 						</div>
 					</div>
@@ -188,6 +205,7 @@ import { useTodoStore } from '../stores/todos'
 import TodoList from './work/TodoList.vue'
 import TodoTree from './work/TodoTree.vue'
 import TodoHeap from './work/TodoHeap.vue'
+import Trash from './work/Trash.vue'
 import TodoDetailEditor from '../components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '../utils/detailPanelContext'
 
@@ -204,13 +222,15 @@ const activeView = computed({
 		const routeName = route.name
 		if (routeName === 'TreeView') return 'tree'
 		if (routeName === 'HeapView') return 'heap'
+		if (routeName === 'TrashView') return 'trash'
 		return 'list' // 默认是 ListView
 	},
 	set: (view) => {
 		const viewNames = {
 			'list': 'ListView',
 			'tree': 'TreeView',
-			'heap': 'HeapView'
+			'heap': 'HeapView',
+			'trash': 'TrashView'
 		}
 		router.push({ name: viewNames[view] })
 	}

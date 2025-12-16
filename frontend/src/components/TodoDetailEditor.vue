@@ -3,8 +3,15 @@
     <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-slate-900">任务详情</h3>
       <div class="flex items-center gap-2">
+        <!-- 已删除标记 -->
+        <span
+          v-if="isDeleted"
+          class="text-xs font-medium px-2 py-1 rounded-full bg-red-50 text-red-600"
+        >
+          🗑️ 已删除
+        </span>
         <p
-          v-if="statusText"
+          v-else-if="statusText"
           aria-live="polite"
           :class="[
             'text-xs font-medium px-2 py-1 rounded-full',
@@ -18,7 +25,7 @@
           {{ statusText }}
         </p>
         <button
-          v-if="saveState === 'error' && lastAttemptedPayload"
+          v-if="saveState === 'error' && lastAttemptedPayload && !isDeleted"
           type="button"
           class="text-xs font-medium text-indigo-600 hover:text-indigo-700"
           @click="retryLastSave"
@@ -35,12 +42,21 @@
     </div>
 
     <div v-else class="flex-1 min-h-0 overflow-auto px-4 py-4 space-y-4">
+      <!-- 已删除任务提示 -->
+      <div v-if="isDeleted" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        此任务已删除，仅可查看，不可编辑。若需编辑，请先恢复任务。
+      </div>
+
       <div class="space-y-1">
         <label class="block text-xs font-medium text-slate-600">标题</label>
         <input
           v-model.trim="draftTitle"
           type="text"
-          class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          :disabled="isDeleted"
+          :class="[
+            'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+            isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+          ]"
           placeholder="请输入标题"
           @input="markDirty('title')"
           @blur="saveIfNeeded('title')"
@@ -51,7 +67,11 @@
         <label class="block text-xs font-medium text-slate-600">备注</label>
         <textarea
           v-model="draftDescription"
-          class="w-full min-h-48 px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          :disabled="isDeleted"
+          :class="[
+            'w-full min-h-48 px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500',
+            isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+          ]"
           placeholder="添加备注（失焦自动保存）"
           @input="markDirty('description')"
           @blur="saveIfNeeded('description')"
@@ -59,7 +79,8 @@
       </div>
 
       <div class="text-xs text-slate-500">
-        <span v-if="lastSavedAt">最后保存：{{ lastSavedAt }}</span>
+        <span v-if="isDeleted && todo.deleted_at">删除时间：{{ formatDate(todo.deleted_at) }}</span>
+        <span v-else-if="lastSavedAt">最后保存：{{ lastSavedAt }}</span>
       </div>
     </div>
   </section>
@@ -79,10 +100,26 @@ const props = defineProps({
 
 const todoStore = useTodoStore()
 
+// 同时从正常列表和垃圾箱中查找任务
 const todo = computed(() => {
   if (!props.todoId) return null
-  return todoStore.todos.find(t => t.id === props.todoId) || null
+  // 先从正常列表查找
+  const normalTodo = todoStore.todos.find(t => t.id === props.todoId)
+  if (normalTodo) return normalTodo
+  // 再从垃圾箱查找
+  return todoStore.trashTodos.find(t => t.id === props.todoId) || null
 })
+
+// 判断是否是已删除的任务
+const isDeleted = computed(() => {
+  return todo.value?.deleted_at != null
+})
+
+// 格式化日期
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleString('zh-CN')
+}
 
 const draftTitle = ref('')
 const draftDescription = ref('')
@@ -209,6 +246,8 @@ const savePayload = async (payload) => {
 
 const saveIfNeeded = async (field) => {
   if (!todo.value) return
+  // 已删除的任务不允许保存
+  if (isDeleted.value) return
 
   if (field === 'title') {
     markDirty('title')
