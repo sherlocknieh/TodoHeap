@@ -23,7 +23,8 @@ import { useTodoStore } from '../../stores/todos'
 
 const props = defineProps({
 	todos: { type: Array, default: () => [] },
-	title: { type: String, default: 'Todo 思维导图' }
+	title: { type: String, default: 'Todo 思维导图' },
+	selectedTaskId: { type: Number, default: null }
 })
 
 const emit = defineEmits(['task-selected'])

@@ -1,6 +1,6 @@
 <template>
 	<!-- 主界面 -->
-	<div class="min-h-screen bg-slate-50 flex flex-col">
+	<div class="h-screen bg-slate-50 flex flex-col">
 		<!-- 页面头部 -->
 		<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -114,50 +114,66 @@
 		</nav>
 
 		<!-- 视图内容区域 -->
-		<main class="flex-1 overflow-auto bg-slate-50">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-				<div class="bg-white rounded-lg shadow-sm border border-slate-200">
-					<!-- 移动端 AI 分解按钮 -->
-					<div class="md:hidden px-4 pt-4 pb-2 border-b border-slate-200">
-						<button
-							@click="handleBreakdownTask"
-							:disabled="!selectedTaskId || isBreakingDown"
-							class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-md hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-						>
-							<span v-if="isBreakingDown">⏳</span>
-							<span>{{ isBreakingDown ? '分解中...' : 'AI 任务分解' }}</span>
-							<span v-if="selectedTaskId" class="text-xs opacity-75">(已选择)</span>
-						</button>
+		<main class="flex-1 overflow-hidden bg-slate-50">
+			<div class="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8">
+				<div class="flex gap-4 h-full py-4">
+					<!-- 左侧：三视图内容 -->
+					<div class="flex-1 min-w-0 bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+						<!-- 移动端 AI 分解按钮 -->
+						<div class="md:hidden px-4 pt-4 pb-2 border-b border-slate-200">
+							<button
+								@click="handleBreakdownTask"
+								:disabled="!selectedTaskId || isBreakingDown"
+								class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-md hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							>
+								<span v-if="isBreakingDown">⏳</span>
+								<span>{{ isBreakingDown ? '分解中...' : 'AI 任务分解' }}</span>
+								<span v-if="selectedTaskId" class="text-xs opacity-75">(已选择)</span>
+							</button>
+						</div>
+
+						<div class="flex-1 overflow-auto p-4 sm:p-6">
+							<!-- 列表视图 -->
+							<div v-if="activeView === 'list'">
+								<TodoList :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
+							</div>
+
+							<!-- 树视图 -->
+							<div v-else-if="activeView === 'tree'">
+								<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
+									<div class="text-center">
+										<p class="text-lg mb-2">⏳</p>
+										<p class="text-sm">加载中...</p>
+									</div>
+								</div>
+								<TodoTree
+									v-else
+									:todos="todoStore.todos"
+									:title="'Todo Mind Map'"
+									:selected-task-id="selectedTaskId"
+									@task-selected="handleTaskSelected"
+								/>
+							</div>
+
+							<!-- 堆视图 -->
+							<div v-else>
+								<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
+									<div class="text-center">
+										<p class="text-lg mb-2">⏳</p>
+										<p class="text-sm">加载中...</p>
+									</div>
+								</div>
+								<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
+							</div>
+						</div>
 					</div>
 
-					<div class="p-4 sm:p-6">
-						<!-- 列表视图 -->
-						<div v-if="activeView === 'list'">
-							<TodoList @task-selected="handleTaskSelected" />
+					<!-- 右侧：详情面板（桌面端常驻，全高） -->
+					<aside class="hidden lg:flex lg:flex-col w-96 shrink-0">
+						<div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 overflow-hidden">
+							<TodoDetailEditor :todo-id="selectedTaskId" />
 						</div>
-
-						<!-- 树视图 -->
-						<div v-else-if="activeView === 'tree'">
-							<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
-								<div class="text-center">
-									<p class="text-lg mb-2">⏳</p>
-									<p class="text-sm">加载中...</p>
-								</div>
-							</div>
-							<TodoTree v-else :todos="todoStore.todos" title="Todo Mind Map" @task-selected="handleTaskSelected" />
-						</div>
-
-						<!-- 堆视图 -->
-						<div v-else>
-							<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
-								<div class="text-center">
-									<p class="text-lg mb-2">⏳</p>
-									<p class="text-sm">加载中...</p>
-								</div>
-							</div>
-							<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
-						</div>
-					</div>
+					</aside>
 				</div>
 			</div>
 		</main>
@@ -165,13 +181,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useTodoStore } from '../stores/todos'
 import TodoList from './work/TodoList.vue'
 import TodoTree from './work/TodoTree.vue'
 import TodoHeap from './work/TodoHeap.vue'
+import TodoDetailEditor from '../components/TodoDetailEditor.vue'
+import { TODO_DETAIL_PANEL_CONTEXT } from '../utils/detailPanelContext'
 
 const router = useRouter()
 const route = useRoute()
@@ -203,6 +221,16 @@ const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
+
+const detailPanelRequested = ref(false)
+
+const openDetailPanel = () => {
+	detailPanelRequested.value = true
+}
+
+provide(TODO_DETAIL_PANEL_CONTEXT, {
+	openDetailPanel
+})
 
 onMounted(async () => {
 	// 初始化认证

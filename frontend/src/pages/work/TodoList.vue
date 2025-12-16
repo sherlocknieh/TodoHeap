@@ -86,7 +86,7 @@
         v-for="node in filteredTree"
         :key="node.id"
         :node="node"
-        :selected-task-id="selectedTaskId"
+        :selected-task-id="props.selectedTaskId"
         @toggle-done="toggleDone"
         @delete-todo="deleteTodo"
         @add-subtask="addSubtask"
@@ -104,6 +104,13 @@ import { useTodoStore } from '../../stores/todos'
 import { useAuthStore } from '../../stores/auth'
 import TodoListItem from '../../components/TodoListItem.vue'
 
+const props = defineProps({
+  selectedTaskId: {
+    type: Number,
+    default: null
+  }
+})
+
 const todoStore = useTodoStore()
 const authStore = useAuthStore()
 const emit = defineEmits(['task-selected'])
@@ -115,7 +122,6 @@ const isAdding = ref(false)
 const activeFilter = ref('all')
 const priorityFilter = ref('all')
 const searchText = ref('')
-const selectedTaskId = ref(null)
 
 const todos = computed(() => todoStore.todos)
 const loading = computed(() => todoStore.loading)
@@ -277,7 +283,6 @@ const toggleDone = async (todo) => {
 }
 
 const handleTaskSelected = (taskId) => {
-  selectedTaskId.value = taskId
   emit('task-selected', taskId)
 }
 </script>
