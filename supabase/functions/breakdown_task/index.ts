@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsWrapper } from "../_shared/cors.ts";
 
 const number = 3;
 const systemPrompt = `You are an AI assistant helping with task breakdown. 
@@ -136,19 +136,7 @@ function getGoalTask(tree: treeNode | treeNode[] | null | undefined, selectedNod
   return goalTasks;
 }
 
-function corsWrapper(handler: (req: Request) => Promise<Response>) {
-  return async (req: Request) => {
-    if (req.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
-    }
-    const response = await handler(req);
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: { ...corsHeaders, ...response.headers },
-    });
-  };
-}
+
 
 async function callOpenAI(messages: OpenAIMessage[] = []): Promise<string> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
