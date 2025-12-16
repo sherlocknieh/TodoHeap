@@ -1,4 +1,4 @@
-import { supabase } from '@/supabase'
+import { supabase } from '@/libs/supabase'
 
 /**
  * 从视图查询所有活跃任务（未删除）

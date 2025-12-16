@@ -1,9 +1,17 @@
 <template>
   <!-- 设置界面 -->
-  <div class="min-h-screen bg-linear-to-br from-gray-100 via-gray-200 to-blue-100 p-6">
+  <div class="min-h-screen bg-linear-to-br from-gray-100 via-gray-200 to-blue-100 p-6 relative">
+    <!-- 右上角关闭按钮 -->
+    <button
+      class="absolute top-6 right-6 z-20 bg-white rounded-full shadow hover:bg-gray-100 transition-colors border border-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center"
+      style="width: 40px; height: 40px; min-width: 40px; min-height: 40px; padding: 0;"
+      @click="handleClose"
+      aria-label="关闭设置"
+    >
+      <span style="font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">×</span>
+    </button>
     <div class="max-w-5xl mx-auto mb-8 text-left">
       <h1 class="text-3xl font-extrabold text-gray-800">设置</h1>
-      <p class="mt-2 text-sm text-gray-500">管理您的账户和应用偏好</p>
     </div>
 
     <div class="max-w-5xl mx-auto grid md:grid-cols-[200px_1fr] grid-cols-1 gap-6 bg-white rounded-lg overflow-hidden shadow-lg">
@@ -144,11 +152,16 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/auth'
-import { supabase } from '../../supabase'
+import { useAuthStore } from '@/stores/auth'
+import { supabase } from '@/libs/supabase'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+// 关闭设置页，返回上一页
+const handleClose = () => {
+  router.back()
+}
 
 // 标签配置
 const tabs = [

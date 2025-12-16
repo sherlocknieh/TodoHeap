@@ -5,10 +5,11 @@
 
 ## 快速链接
 
-- **项目主页**: https://edu.gitee.com/xmu-ai/projects/820580/
-- **代码仓库**: https://gitee.com/xmu-ai/TodoHeap
 - **应用首页**: https://sherlocknieh.github.io/TodoHeap/
 - **在线文档**: https://sherlocknieh.github.io/TodoHeap/docs/
+- **项目主页**: https://edu.gitee.com/xmu-ai/projects/820580/
+- **代码仓库**: https://github.com/sherlocknieh/TodoHeap
+- **代码仓库**: https://gitee.com/xmu-ai/TodoHeap
 
 ## 开发指南
 
