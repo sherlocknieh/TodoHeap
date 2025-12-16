@@ -11,17 +11,17 @@
     <nav class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
-          <div class="flex items-center gap-3 group cursor-pointer">
-            <div class="text-3xl font-bold transform group-hover:scale-110 transition-transform duration-300">✅</div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+          <div class="flex items-center gap-3 group cursor-pointer min-w-0">
+            <div class="text-3xl font-bold shrink-0 transform group-hover:scale-110 transition-transform duration-300">✅</div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate max-w-[140px] sm:max-w-none">
               TodoHeap 任务堆
             </h1>
           </div>
-          <div class="flex items-center gap-6">
-            <a href="/TodoHeap/docs" class="text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
+          <div class="flex items-center gap-3 sm:gap-6 shrink-0">
+            <a href="/TodoHeap/docs" class="hidden sm:inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
               📄Docs
             </a>
-            
+
             <!-- 暗色模式切换按钮 -->
             <button @click="toggleDark" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors" title="切换主题">
               <span v-if="isDark">🌙</span>
@@ -29,7 +29,7 @@
             </button>
 
             <button @click="openLogin"
-              class="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+              class="px-3 sm:px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap">
               登录 / 注册
             </button>
           </div>

@@ -25,7 +25,6 @@ const routes = [
   // 应用页（需要认证） - 三视图切换
   {
     path: '/app',
-    name: 'App',
     component: () => import('./pages/Todo.vue'),
     meta: { 
       requiresAuth: true,
@@ -34,7 +33,9 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: '/app/list'
+        name: 'App',
+        redirect: '/app/list',
+        meta: { requiresAuth: true, title: 'TodoHeap - 我的清单' }
       },
       {
         path: 'list',
@@ -96,6 +97,9 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   
+  // 调试输出：记录目标路径与匹配到的路由条目，便于定位 404 问题
+  console.debug('[router] navigating to', to.fullPath, 'matched:', to.matched.map(r => r.name))
+
   // 如果 store 未初始化，先初始化（只在首次访问时执行）
   if (authStore.session === null && !authStore.loading) {
     await authStore.initialize()

@@ -7,10 +7,10 @@
 				<div class="flex items-center justify-between h-16 gap-4">
 					<!-- 左侧标题和操作 -->
 					<div class="flex items-center gap-4 flex-1 min-w-0">
-						<div class="flex-shrink-0">
+						<div class="shrink-0">
 							<h1 class="text-xl sm:text-2xl font-bold text-slate-900">📝 TodoHeap</h1>
 						</div>
-						<div class="hidden sm:block flex-shrink-0">
+						<div class="hidden sm:block shrink-0">
 							<p class="text-xs text-slate-500">智能任务管理</p>
 						</div>
 						<button
@@ -24,7 +24,7 @@
 					</div>
 
 					<!-- 右侧用户菜单 -->
-					<div class="relative flex-shrink-0">
+					<div class="relative shrink-0">
 						<button
 							@click="showUserMenu = !showUserMenu"
 							class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-200 transition-colors"
