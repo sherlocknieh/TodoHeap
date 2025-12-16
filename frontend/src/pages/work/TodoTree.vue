@@ -323,6 +323,7 @@ onMounted(async () => {
 	border-radius: 12px;
 	width: 100%;
 	height: 100%;
+	min-height: 600px; /* 新增，保证有基础高度 */
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
@@ -408,7 +409,7 @@ onMounted(async () => {
 .mindmap-wrapper {
 	/* 关键：flex 容器中占据剩余空间 */
 	flex: 1;
-	min-height: 0;
+	min-height: 300px; /* 新增，保证思维导图区有高度 */
 	width: 100%;
 	max-height: 100%;
 	
