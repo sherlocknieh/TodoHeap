@@ -21,7 +21,8 @@ export const useTodoStore = defineStore('todos', () => {
       const { data, error: fetchError } = await supabase
         .from('todos')
         .select('*')
-        .neq('status', 'deleted')
+        // .neq('status', 'deleted')
+        .is('deleted_at', null)
         .order('priority', { ascending: false })
         .order('id', { ascending: true })
 
@@ -117,7 +118,7 @@ export const useTodoStore = defineStore('todos', () => {
       const { error: deleteError } = await supabase
         .from('todos')
         .update({ 
-          status: 'deleted', 
+          // status: 'deleted', 
           deleted_at: new Date().toISOString() 
         })
         .eq('id', id)
