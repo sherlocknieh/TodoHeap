@@ -2,8 +2,10 @@
 	<!-- Todo 树视图 -->
 	<div class="p-6 bg-gray-50 rounded-xl w-full h-full min-h-150 overflow-hidden flex flex-col gap-4">
 		<div class="flex flex-wrap items-center gap-3">
-			<h2 class="text-2xl font-extrabold text-gray-900 m-0">{{ props.title }}</h2>
-			<p class="text-sm text-gray-500 m-0">{{ (todos || []).length }} 个任务 · 逻辑结构图</p>
+			<h2 class="text-2xl font-extrabold text-gray-900 m-0">
+				{{ props.title }}</h2>
+			<p class="text-sm text-gray-500 m-0">
+				{{ (todos || []).length }} 个任务 · 逻辑结构图</p>
 		</div>
 
 		<div v-if="(todos || []).length === 0" class="empty-state">
@@ -12,13 +14,15 @@
 		</div>
 
 		<MindMapWrapper v-else
-		  :todos="todos"
-		  :title="props.title"
-		  :selectedTaskId="props.selectedTaskId"
-		  :mindData="mindData"
-		  @task-selected="id => emit('task-selected', id)"
-		  @node-content-change="onNodeContentChange"
-		  @node-insert="onNodeInsert"
+			:todos="todos"
+			:title="props.title"
+			:selectedTaskId="props.selectedTaskId"
+			:mindData="mindData"
+			@task-selected="id => emit('task-selected', id)"
+			@node-content-change="onNodeContentChange"
+			@node-insert="onNodeInsert"
+			@node-delete="onNodeDelete"
+			@data-change-detail="onDataChangeDetail"
 		/>
 	</div>
 </template>
@@ -60,6 +64,29 @@ const onNodeInsert = async ({ text, parentId }) => {
 		await todoStore.addTodo(text, { parent_id: parentId, status: 'todo' })
 	} catch (err) {
 		console.error('Add todo from mindmap failed:', err)
+	}
+}
+
+// 处理 data_change_detail 事件：增量同步变更到 todoStore
+const onDataChangeDetail = async (details) => {
+	if (!Array.isArray(details)) return
+	for (const detail of details) {
+		const { action, data } = detail
+		const nodeData = data?.data
+		if (!nodeData) continue
+		const { id, text } = nodeData
+		try {
+			if (action === 'create') {
+				const parentId = data.parent?.data?.id || null
+				await todoStore.addTodo(text, { parent_id: parentId, status: 'todo' })
+			} else if (action === 'update') {
+				await todoStore.updateTodo(id, { title: text })
+			} else if (action === 'delete') {
+				await todoStore.deleteTodo(id)
+			}
+		} catch (err) {
+			console.error(`Sync ${action} failed for id ${id}:`, err)
+		}
 	}
 }
 

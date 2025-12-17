@@ -107,9 +107,9 @@
 								: 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
 						]"
 					>
-						{{ view === 'list' ? '📋 列表' : view === 'tree' ? '🌳 树形' : '📦 堆' }}
+						{{ view === 'list' ? '✅ 列表视图' : view === 'tree' ? ' 🌳 树视图' : '🏔️ 堆视图' }}
 					</button>
-					<!-- 垃圾箱入口 -->
+					<!-- 回收站入口 -->
 					<button
 						@click="switchView('trash')"
 						:class="[
@@ -119,7 +119,7 @@
 								: 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
 						]"
 					>
-						🗑️ 垃圾箱
+						🗑️ 回收站
 					</button>
 				</div>
 			</div>
@@ -161,7 +161,7 @@
 								<TodoTree
 									v-else
 									:todos="todoStore.todos"
-									:title="'Todo Mind Map'"
+									:title="'全部任务'"
 									:selected-task-id="selectedTaskId"
 									@task-selected="handleTaskSelected"
 								/>
