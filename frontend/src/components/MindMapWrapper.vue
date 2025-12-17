@@ -1,5 +1,5 @@
 <template>
-  <div ref="mindMapContainer" class="min-h-[400px] w-full border border-gray-300 rounded-lg"></div>
+  <div ref="mindMapContainer" class="min-h-100 w-full border border-gray-300 rounded-lg"></div>
 </template>
 
 <script setup>

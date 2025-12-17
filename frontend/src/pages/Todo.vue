@@ -1,7 +1,7 @@
 <template>
 	<!-- 主界面 -->
 	<div class="h-screen bg-slate-50 flex flex-col">
-		<!-- 页面头部 -->
+		<!-- 顶栏 -->
 		<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex items-center justify-between h-16 gap-4">
@@ -13,6 +13,7 @@
 						<div class="hidden sm:block shrink-0">
 							<p class="text-xs text-slate-500">智能任务管理</p>
 						</div>
+						<!-- AI 分解按钮 -->
 						<button
 							@click="handleBreakdownTask"
 							:disabled="!selectedTaskId || isBreakingDown"
@@ -21,6 +22,28 @@
 							<span v-if="isBreakingDown">⏳</span>
 							<span>{{ isBreakingDown ? '分解中' : 'AI 分解' }}</span>
 						</button>
+						<!-- 消息提示 -->
+						<Transition
+							enter-active-class="transition ease-out duration-300"
+							enter-from-class="opacity-0 -translate-y-2"
+							enter-to-class="opacity-100 translate-y-0"
+							leave-active-class="transition ease-in duration-200"
+							leave-from-class="opacity-100 translate-y-0"
+							leave-to-class="opacity-0 -translate-y-2"
+						>
+							<div
+								v-if="breakdownMessage"
+								:class="[
+									'mx-4 mt-4 px-4 py-2.5 rounded-lg text-sm font-medium',
+									{
+										'bg-emerald-50 text-emerald-800 border border-emerald-200': breakdownMessageType === 'success',
+										'bg-red-50 text-red-800 border border-red-200': breakdownMessageType === 'error'
+									}
+								]"
+							>
+								{{ breakdownMessage }}
+							</div>
+						</Transition>
 					</div>
 
 					<!-- 右侧用户菜单 -->
@@ -69,30 +92,7 @@
 			</div>
 		</header>
 
-		<!-- 消息提示 -->
-		<Transition
-			enter-active-class="transition ease-out duration-300"
-			enter-from-class="opacity-0 -translate-y-2"
-			enter-to-class="opacity-100 translate-y-0"
-			leave-active-class="transition ease-in duration-200"
-			leave-from-class="opacity-100 translate-y-0"
-			leave-to-class="opacity-0 -translate-y-2"
-		>
-			<div
-				v-if="breakdownMessage"
-				:class="[
-					'mx-4 mt-4 px-4 py-2.5 rounded-lg text-sm font-medium',
-					{
-						'bg-emerald-50 text-emerald-800 border border-emerald-200': breakdownMessageType === 'success',
-						'bg-red-50 text-red-800 border border-red-200': breakdownMessageType === 'error'
-					}
-				]"
-			>
-				{{ breakdownMessage }}
-			</div>
-		</Transition>
-
-		<!-- 视图选项卡 -->
+		<!-- 视图切换栏 -->
 		<nav class="bg-white border-b border-slate-200">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex gap-1 overflow-x-auto">
@@ -125,7 +125,7 @@
 			</div>
 		</nav>
 
-		<!-- 视图内容区域 -->
+		<!-- 内容区域 -->
 		<main class="flex-1 overflow-hidden bg-slate-50">
 			<div class="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8">
 				<div class="flex gap-4 h-full py-4">
@@ -178,15 +178,15 @@
 								<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
 							</div>
 
-							<!-- 垃圾箱视图 -->
+							<!-- 回收站 -->
 							<div v-else-if="activeView === 'trash'">
 								<Trash :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
 							</div>
 						</div>
 					</div>
 
-					<!-- 右侧：详情面板（桌面端常驻，全高） -->
-					<aside class="hidden lg:flex lg:flex-col w-96 shrink-0">
+					<!-- 右侧：详情面板 -->
+					<aside v-if="selectedTaskId" class="hidden lg:flex lg:flex-col w-96 shrink-0">
 						<div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 overflow-hidden">
 							<TodoDetailEditor :todo-id="selectedTaskId" />
 						</div>

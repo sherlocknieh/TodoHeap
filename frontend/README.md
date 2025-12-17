@@ -18,15 +18,12 @@
     npm run dev
     ```
 
-## 目录指南
+## 目录结构
 
-- `src/` - 源代码目录
+- `src/`            - 源代码目录
   - `components/`   - 可复用小组件
-  - `layouts/`      - 布局组件
   - `libs/`         - 第三方库封装
   - `pages/`        - 主要页面
-  - `utils/`        - 算法工具
+  - `router/`       - 路由配置
   - `store/`        - 状态管理
-  - `style.css`     - 全局样式文件
-  - `main.js`       - 入口文件
-  - `App.vue`       - 根组件
+  - `utils/`        - 算法工具

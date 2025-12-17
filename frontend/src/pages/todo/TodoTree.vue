@@ -1,6 +1,6 @@
 <template>
 	<!-- Todo 树视图 -->
-	<div class="p-6 bg-gray-50 rounded-xl w-full h-full min-h-[600px] overflow-hidden flex flex-col gap-4">
+	<div class="p-6 bg-gray-50 rounded-xl w-full h-full min-h-150 overflow-hidden flex flex-col gap-4">
 		<div class="flex flex-wrap items-center gap-3">
 			<h2 class="text-2xl font-extrabold text-gray-900 m-0">{{ props.title }}</h2>
 			<p class="text-sm text-gray-500 m-0">{{ (todos || []).length }} 个任务 · 逻辑结构图</p>

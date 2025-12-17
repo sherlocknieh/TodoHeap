@@ -1,39 +1,42 @@
 <template>
-  <div class="tt-shell" ref="shellRef">
-    <section class="tt-quick">
-      <div class="quick-left">
-        <input
-          v-model.trim="newTaskTitle"
-          @keyup.enter="addTodo"
-          placeholder="快速记录：输入任务，回车即可添加"
-        />
-        <input v-model="newTaskDate" type="date" class="date-input" />
-        <select v-model.number="newTaskPriority" class="select">
-          <option :value="2">P1</option>
-          <option :value="1">P2</option>
-          <option :value="0">P3</option>
-        </select>
-      </div>
-      <button class="primary" :disabled="isAdding" @click="addTodo">
+  <div class="max-w-4xl mx-auto p-6 pb-12 text-slate-900" ref="shellRef">
+    <!-- 快速添加任务 -->
+    <section class="flex gap-2 items-center bg-white rounded-lg">
+      <input
+        v-model.trim="newTaskTitle"
+        @keyup.enter="addTodo"
+        placeholder="快速添加：输入任务，回车添加"
+        class="flex-1 border border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+      />
+      <input
+        v-model="newTaskDate"
+        type="date"
+        class="border border-slate-200 rounded-md px-3 py-2 text-sm w-32 bg-white text-left hover:bg-slate-50 transition"
+      />
+      <button
+        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
+        :disabled="isAdding"
+        @click="addTodo"
+      >
         {{ isAdding ? '添加中...' : '添加任务' }}
       </button>
     </section>
 
-    <section v-if="errorText" class="banner error">
+    <section v-if="errorText" class="mt-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 font-semibold">
       <span>⚠</span>
       <span>{{ errorText }}</span>
     </section>
 
-    <section v-if="loading" class="banner muted">同步中，请稍候...</section>
+    <section v-if="loading" class="mt-4 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg px-4 py-3">同步中，请稍候...</section>
 
-    <section v-if="!loading && visibleCount === 0" class="empty">
-      <div class="empty-icon">📋</div>
-      <p class="empty-title">暂无任务</p>
-      <p class="empty-desc">点击上方输入框快速添加任务</p>
+    <section v-if="!loading && visibleCount === 0" class="mt-8 text-center border border-dashed border-slate-200 rounded-lg bg-slate-50 py-12 text-slate-500">
+      <div class="text-4xl mb-3 opacity-60">📋</div>
+      <p class="text-lg font-semibold text-slate-700 mb-1">暂无任务</p>
+      <p class="text-sm">点击上方输入框快速添加任务</p>
     </section>
 
-    <div v-else class="tt-list-wrapper">
-      <ul class="tt-list">
+    <div v-else class="mt-6 bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <ul class="divide-y divide-slate-100">
       <TodoListItem
         v-for="node in filteredTree"
         :key="node.id"
@@ -51,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useTodoStore } from '../../stores/todos'
 import { useAuthStore } from '../../stores/auth'
 import TodoListItem from '../../components/TodoListItem.vue'
@@ -72,6 +75,11 @@ const newTaskDate = ref('')
 const newTaskPriority = ref(1)
 const isAdding = ref(false)
 const shellRef = ref(null)
+const dateInputRef = ref(null)
+
+const onDateChange = (e) => {
+  newTaskDate.value = e.target.value
+}
 
 
 const todos = computed(() => todoStore.todos)
@@ -227,425 +235,3 @@ const handleTaskSelected = (taskId) => {
 }
 </script>
 
-<style scoped>
-.tt-shell {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px 16px 48px;
-  color: var(--color-text, #0f172a);
-}
-
-.tt-hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  padding: 20px 20px 16px;
-  background: linear-gradient(135deg, #f8fafc, #eef2ff);
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.eyebrow {
-  font-size: 0.85rem;
-  color: #64748b;
-  margin: 0 0 6px;
-  letter-spacing: 0.5px;
-}
-
-.tt-hero h1 {
-  margin: 0 0 8px;
-  font-size: 2.2rem;
-  color: #0f172a;
-  letter-spacing: -0.5px;
-}
-
-.hero-meta {
-  display: flex;
-  gap: 12px;
-  color: #475569;
-  font-weight: 600;
-  flex-wrap: wrap;
-}
-
-.hero-meta span {
-  padding: 6px 10px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.progress-card {
-  min-width: 220px;
-  background: #0f172a;
-  color: #e2e8f0;
-  padding: 16px;
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
-}
-
-.progress-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-}
-
-.progress-bar {
-  margin-top: 12px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #22d3ee, #4ade80);
-  border-radius: 999px;
-  transition: width 0.3s ease;
-}
-
-.tt-filters {
-  margin-top: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.filter-chips {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.chip {
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #0f172a;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.chip.active {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
-}
-
-.chip-count {
-  background: rgba(255, 255, 255, 0.18);
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-}
-
-.filter-tools {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.input-with-icon {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #fff;
-  min-width: 240px;
-}
-
-.input-with-icon input {
-  border: none;
-  outline: none;
-  width: 100%;
-  font-size: 0.95rem;
-  color: #0f172a;
-}
-
-.icon {
-  opacity: 0.6;
-}
-
-.select {
-  border: 1px solid #e2e8f0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #fff;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.tt-quick {
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.quick-left {
-  display: flex;
-  gap: 10px;
-  flex: 1;
-  min-width: 320px;
-}
-
-.quick-left input[type='text'],
-.quick-left input:not([type]),
-.quick-left input[type='date'] {
-  flex: 1;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 0.95rem;
-}
-
-.date-input {
-  max-width: 160px;
-}
-
-.primary {
-  background: linear-gradient(90deg, #2563eb, #4f46e5);
-  color: #fff;
-  border: none;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.banner {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  font-weight: 600;
-}
-
-.banner.error {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecdd3;
-}
-
-.banner.muted {
-  background: #f8fafc;
-  color: #475569;
-  border: 1px dashed #cbd5e1;
-}
-
-.empty {
-  margin-top: 32px;
-  padding: 48px 32px;
-  text-align: center;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  color: #64748b;
-  background: #f8fafc;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 12px;
-  opacity: 0.6;
-}
-
-.empty-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #334155;
-  margin: 0 0 6px;
-}
-
-.empty-desc {
-  font-size: 0.9rem;
-  color: #64748b;
-  margin: 0;
-}
-
-.tt-list-wrapper {
-  margin-top: 20px;
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
-}
-
-.tt-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-@media (max-width: 768px) {
-  .tt-hero {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .tt-filters {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .filter-tools,
-  .quick-left {
-    width: 100%;
-  }
-}
-<style scoped>
-.tt-shell {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 24px 16px 48px;
-  color: var(--color-text, #0f172a);
-}
-
-.tt-quick {
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.quick-left {
-  display: flex;
-  gap: 10px;
-  flex: 1;
-  min-width: 320px;
-}
-
-.quick-left input[type='text'],
-.quick-left input:not([type]),
-.quick-left input[type='date'] {
-  flex: 1;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 0.95rem;
-}
-
-.date-input {
-  max-width: 160px;
-}
-
-.primary {
-  background: linear-gradient(90deg, #2563eb, #4f46e5);
-  color: #fff;
-  border: none;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.banner {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  font-weight: 600;
-}
-
-.banner.error {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecdd3;
-}
-
-.banner.muted {
-  background: #f8fafc;
-  color: #475569;
-  border: 1px dashed #cbd5e1;
-}
-
-.empty {
-  margin-top: 32px;
-  padding: 48px 32px;
-  text-align: center;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  color: #64748b;
-  background: #f8fafc;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 12px;
-  opacity: 0.6;
-}
-
-.empty-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #334155;
-  margin: 0 0 6px;
-}
-
-.empty-desc {
-  font-size: 0.9rem;
-  color: #64748b;
-  margin: 0;
-}
-
-.tt-list-wrapper {
-  margin-top: 20px;
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
-}
-
-.tt-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-@media (max-width: 768px) {
-  .filter-tools,
-  .quick-left {
-    width: 100%;
-  }
-}
-</style>
