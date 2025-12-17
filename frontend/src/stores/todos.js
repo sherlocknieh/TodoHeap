@@ -10,7 +10,7 @@ export const useTodoStore = defineStore('todos', () => {
   const error = ref(null)
   const isFetched = ref(false)  // 记录是否已经成功获取过一次数据
 
-  // 获取待办事项列表
+  // 获取所有未被删除 Todo
   const fetchTodos = async () => {
     // 如果已经在加载中，不重复请求
     if (loading.value) return { success: true }
@@ -21,7 +21,6 @@ export const useTodoStore = defineStore('todos', () => {
       const { data, error: fetchError } = await supabase
         .from('todos')
         .select('*')
-        // .neq('status', 'deleted')
         .is('deleted_at', null)
         .order('priority', { ascending: false })
         .order('id', { ascending: true })
@@ -39,7 +38,7 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
-  // 添加待办事项
+  // 添加
   const addTodo = async (title, options = {}) => {
     const authStore = useAuthStore()
     if (!authStore.user) {
@@ -74,7 +73,32 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
-  // 更新待办事项
+  // 删除
+  const deleteTodo = async (id) => {
+    loading.value = true
+    error.value = null
+    try {
+      const { error: deleteError } = await supabase
+        .from('todos')
+        .update({ 
+          // status: 'deleted', 
+          deleted_at: new Date().toISOString() 
+        })
+        .eq('id', id)
+
+      if (deleteError) throw deleteError
+      
+      todos.value = todos.value.filter(t => t.id !== id)
+      return { success: true }
+    } catch (err) {
+      error.value = err.message
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 修改
   const updateTodo = async (id, updates) => {
     loading.value = true
     error.value = null
@@ -101,38 +125,13 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
-  // 切换完成状态
+  // 切换状态
   const toggleDone = async (id) => {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return { success: false, error: '任务不存在' }
 
     const nextStatus = todo.status === 'done' ? 'todo' : 'done'
     return await updateTodo(id, { status: nextStatus })
-  }
-
-  // 删除待办事项（软删除）
-  const deleteTodo = async (id) => {
-    loading.value = true
-    error.value = null
-    try {
-      const { error: deleteError } = await supabase
-        .from('todos')
-        .update({ 
-          // status: 'deleted', 
-          deleted_at: new Date().toISOString() 
-        })
-        .eq('id', id)
-
-      if (deleteError) throw deleteError
-      
-      todos.value = todos.value.filter(t => t.id !== id)
-      return { success: true }
-    } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
-    } finally {
-      loading.value = false
-    }
   }
 
   // 清除错误
@@ -146,7 +145,7 @@ export const useTodoStore = defineStore('todos', () => {
   const trashTodos = ref([])
   const trashLoading = ref(false)
 
-  // 获取垃圾箱中的任务（deleted_at 不为 null）
+  // 获取已删除的 Todo
   const fetchTrash = async () => {
     if (trashLoading.value) return { success: true }
     

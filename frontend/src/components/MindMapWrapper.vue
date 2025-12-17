@@ -1,22 +1,55 @@
 <template>
-  <div ref="mindMapContainer" class="min-h-100 w-full border border-gray-300 rounded-lg"></div>
+  <!-- 思维导图容器 -->
+  <div ref="mindMapContainer" class="min-h-100 w-full border border-gray-300 rounded-lg relative">
+    <!-- 控件层 -->
+    <div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
+      <button
+        @click="centerView"
+        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
+        title="居中视图"
+      >
+        🎯
+      </button>
+      <button
+        @click="leftView"
+        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
+        title="居左视图"
+      >
+        ⬅️
+      </button>
+      <button
+        @click="zoomIn"
+        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
+        title="放大"
+      >
+        ➕
+      </button>
+      <button
+        @click="zoomOut"
+        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
+        title="缩小"
+      >
+        ➖
+      </button>
+      <button
+        @click="fitView"
+        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
+        title="适应视图"
+      >
+        📐
+      </button>
+    </div>
+  </div>
 </template>
 
 <script setup>
-/**
- * MindMapWrapper: 封装 simple-mind-map 库，接收 mindData 渲染思维导图，转发事件给父组件。
- */
+
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import MindMap from 'simple-mind-map'
 
-// ----------------------------- Props & Emits -----------------------------
-// 从父组件接收的 props
+
 const props = defineProps({
-  // 导图数据，必须与 simple-mind-map 要求的数据结构一致
-  mindData: { type: Object, default: () => ({ data: { text: '' }, children: [] }) },
-  // 以下为可选的上下文 prop，组件内部当前不直接使用，但保留以便父组件传参
-  title: { type: String, default: '' },
-  todos: { type: Array, default: () => [] },
+  mindData: { type: Object, default: () => ({ data: { text: '根节点' }, children: [] }) },
   selectedTaskId: { type: Number, default: null }
 })
 
@@ -47,7 +80,6 @@ const moveToCenter = () => {
   const relX = forkViewX - canvasCenterX
   const relY = forkViewY - canvasCenterY
   mindMapInstance.view.translateXY(-relX, -relY)
-  return { relX, relY, forkViewX, forkViewY }
 }
 
 // 初始化思维导图实例
@@ -73,19 +105,59 @@ const initMindMap = () => {
     mindMapInstance.on('delete', (payload) => emit('node-delete', payload))
     mindMapInstance.on('data_change', (data) => emit('data-change', data))
     mindMapInstance.on('data_change_detail', (details) => emit('data-change-detail', details))
+    mindMapInstance.on('node_active', (node, activeNodeList) => {
+      // 总是通过 activeNodeList 的状态来判断
+      if (activeNodeList.length === 0) {
+        console.log('没有激活的节点')
+        // 取消选中
+        emit('task-selected', null)
+        if (typeof hideNodeToolbar === 'function') hideNodeToolbar()
+      } else {
+        console.log('有', activeNodeList.length, '个激活的节点')
+        // 打印节点uid列表
+        const uids = activeNodeList.map(n => n.getData ? n.getData('uid') : n?.data?.uid)
+        console.log('激活节点 UID 列表:', uids)
+        // 选中节点uid对应的任务
+        const activeNode = activeNodeList[0]
+        const nodeUid = activeNode.getData ? activeNode.getData('uid') : activeNode?.data?.uid
+        emit('task-selected', nodeUid ? parseInt(nodeUid) : null)
+      }
+    })
   }
 
   // 初次挂载后自动居中
-  setTimeout(() => moveToCenter(), 0)
+  setTimeout(() => {
+    moveToCenter()
+  }, 0)
 
   // 每次节点树渲染后自动居中
   mindMapInstance.on('node_tree_render_end', () => {
     moveToCenter()
+    // 渲染完成后，如果有选中的任务，选中对应节点
+    if (props.selectedTaskId) {
+      const nodeUid = props.selectedTaskId.toString()
+      const node = mindMapInstance.renderer.findNodeByUid(nodeUid)
+      if (node) {
+        node.active()
+        console.warn('Node tree render end selectedTaskId:', props.selectedTaskId, 'Node found and activated')
+      }
+    }
   })
 }
 
 // 生命周期 & 数据同步
 onMounted(() => initMindMap())
+
+// 监听 selectedTaskId 变化，选中对应节点
+watch(() => props.selectedTaskId, (newId) => {
+  if (!mindMapInstance || !newId) return
+  const nodeUid = newId.toString()
+  const node = mindMapInstance.renderer.findNodeByUid(nodeUid)
+  console.warn('Watch selectedTaskId:', newId, 'Found node:', node)
+  if (node) {
+    node.active()
+  }
+})
 
 // 监听 mindData 变化，更新实例
 watch(() => props.mindData, (newVal) => {
@@ -95,10 +167,36 @@ watch(() => props.mindData, (newVal) => {
   } else {
     initMindMap()
   }
+  // 数据更新后，如果有选中的任务，选中对应节点
+  setTimeout(() => {
+    if (props.selectedTaskId) {
+      const nodeUid = props.selectedTaskId.toString()
+      const node = mindMapInstance.renderer.findNodeByUid(nodeUid)
+      if (node) {
+        node.active()
+      }
+    }
+  }, 100) // 延迟一点时间，确保渲染完成
 }, { deep: true })
 
-// 卸载时清理实例
-onBeforeUnmount(() => {
-  if (mindMapInstance && mindMapInstance.destroy) mindMapInstance.destroy()
-})
+// 控件方法
+const centerView = () => {
+  if (!mindMapInstance) return
+  moveToCenter()
+}
+
+const zoomIn = () => {
+  if (!mindMapInstance) return
+  mindMapInstance.view.scale(1.2)
+}
+
+const zoomOut = () => {
+  if (!mindMapInstance) return
+  mindMapInstance.view.scale(0.8)
+}
+
+const fitView = () => {
+  if (!mindMapInstance) return
+  mindMapInstance.view.fit()
+}
 </script>
