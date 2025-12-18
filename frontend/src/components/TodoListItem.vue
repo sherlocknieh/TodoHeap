@@ -20,6 +20,12 @@
         </span>
         <input v-else :id="'edit-input-' + item.id" v-model="editingText" class="task-title-input"
           @blur="finishEdit(item.id)" @keyup.enter="finishEdit(item.id)" @keyup.esc="editingId = null" />
+        <!-- 同步状态指示器 -->
+        <span v-if="item._isSyncing" class="sync-indicator" title="正在同步...">
+          <svg class="sync-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/>
+          </svg>
+        </span>
       </div>
 
       <!-- 元信息 -->
@@ -273,6 +279,25 @@ function formatDeadline(deadline) {
   font-size: 18px;
   line-height: 1;
   font-weight: 300;
+}
+
+/* 同步指示器 */
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  color: #64748b;
+}
+
+.sync-icon {
+  width: 14px;
+  height: 14px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 640px) {

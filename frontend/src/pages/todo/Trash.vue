@@ -10,7 +10,6 @@
         <button
           v-if="trashTodos.length > 0"
           class="btn btn-secondary"
-          :disabled="loading"
           @click="handleRestoreAll"
         >
           ↩️ 恢复全部
@@ -18,7 +17,6 @@
         <button
           v-if="trashTodos.length > 0"
           class="btn btn-danger"
-          :disabled="loading"
           @click="handleEmptyTrash"
         >
           🗑️ 清空垃圾箱
@@ -70,7 +68,6 @@
         <div class="task-actions">
           <button
             class="task-action-btn task-action-restore"
-            :disabled="loading"
             @click.stop="handleRestore(todo.id)"
             title="恢复任务"
           >
@@ -78,7 +75,6 @@
           </button>
           <button
             class="task-action-btn task-action-delete"
-            :disabled="loading"
             @click.stop="handlePermanentDelete(todo.id)"
             title="永久删除"
           >

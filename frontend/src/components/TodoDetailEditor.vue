@@ -88,8 +88,8 @@
 
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { supabase } from '../libs/supabase.js'
 import { useTodoStore } from '../stores/todos'
+import { useSyncQueueStore } from '../stores/syncQueue'
 
 const props = defineProps({
   todoId: {
@@ -99,12 +99,13 @@ const props = defineProps({
 })
 
 const todoStore = useTodoStore()
+const syncQueueStore = useSyncQueueStore()
 
 // 同时从正常列表和垃圾箱中查找任务
 const todo = computed(() => {
   if (!props.todoId) return null
-  // 先从正常列表查找
-  const normalTodo = todoStore.todos.find(t => t.id === props.todoId)
+  // 使用 store 的辅助方法查找（支持临时ID）
+  const normalTodo = todoStore.findTodoById(props.todoId)
   if (normalTodo) return normalTodo
   // 再从垃圾箱查找
   return todoStore.trashTodos.find(t => t.id === props.todoId) || null
@@ -138,11 +139,55 @@ const lastAttemptedPayload = ref(null)
 let clearSavedTimer = null
 
 const statusText = computed(() => {
+  // 检查是否正在同步
+  const isSyncing = syncQueueStore.queue.some(
+    item => item.targetId === props.todoId || 
+           syncQueueStore.getRealId(item.targetId) === props.todoId
+  )
+  
   if (saveState.value === 'saving') return '保存中...'
+  if (isSyncing) return '同步中...'
   if (saveState.value === 'saved') return '已保存'
   if (saveState.value === 'error') return lastErrorMessage.value || '保存失败'
   return ''
 })
+
+// 乐观更新的保存方法
+const savePayload = async (payload) => {
+  if (!todo.value) return
+
+  saveState.value = 'saving'
+  lastErrorMessage.value = ''
+  lastAttemptedPayload.value = payload
+
+  try {
+    // 使用 todoStore 的乐观更新方法
+    const result = await todoStore.updateTodo(props.todoId, payload)
+    
+    if (!result.success) {
+      throw new Error(result.error || '保存失败')
+    }
+
+    // 乐观更新成功，更新本地状态
+    if (payload.title !== undefined) {
+      initialTitle.value = payload.title
+      draftTitle.value = payload.title
+      dirtyTitle.value = false
+    }
+
+    if (payload.description !== undefined) {
+      initialDescription.value = payload.description
+      draftDescription.value = payload.description
+      dirtyDescription.value = false
+    }
+
+    lastSavedAt.value = new Date().toLocaleString()
+    setSavedStateTemporarily()
+  } catch (e) {
+    saveState.value = 'error'
+    lastErrorMessage.value = e?.message || '保存失败'
+  }
+}
 
 const resetDraftFromTodo = () => {
   if (!todo.value) {
@@ -196,52 +241,6 @@ const setSavedStateTemporarily = () => {
   clearSavedTimer = setTimeout(() => {
     saveState.value = 'idle'
   }, 1500)
-}
-
-const updateTodoInStore = (updated) => {
-  const idx = todoStore.todos.findIndex(t => t.id === updated.id)
-  if (idx !== -1) {
-    todoStore.todos[idx] = updated
-  }
-}
-
-const savePayload = async (payload) => {
-  if (!todo.value) return
-
-  saveState.value = 'saving'
-  lastErrorMessage.value = ''
-  lastAttemptedPayload.value = payload
-
-  try {
-    const { data, error } = await supabase
-      .from('todos')
-      .update(payload)
-      .eq('id', todo.value.id)
-      .select('*')
-      .single()
-
-    if (error) throw error
-
-    updateTodoInStore(data)
-
-    if (payload.title !== undefined) {
-      initialTitle.value = data.title || ''
-      draftTitle.value = initialTitle.value
-      dirtyTitle.value = false
-    }
-
-    if (payload.description !== undefined) {
-      initialDescription.value = data.description || ''
-      draftDescription.value = initialDescription.value
-      dirtyDescription.value = false
-    }
-
-    lastSavedAt.value = new Date().toLocaleString()
-    setSavedStateTemporarily()
-  } catch (e) {
-    saveState.value = 'error'
-    lastErrorMessage.value = e?.message || '保存失败'
-  }
 }
 
 const saveIfNeeded = async (field) => {

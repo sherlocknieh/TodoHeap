@@ -14,11 +14,10 @@
         class="border border-slate-200 rounded-md px-3 py-2 text-sm w-32 bg-white text-left hover:bg-slate-50 transition"
       />
       <button
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
-        :disabled="isAdding"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition"
         @click="addTodo"
       >
-        {{ isAdding ? '添加中...' : '添加任务' }}
+        添加任务
       </button>
     </section>
 
@@ -27,7 +26,7 @@
       <span>{{ errorText }}</span>
     </section>
 
-    <section v-if="loading" class="mt-4 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg px-4 py-3">同步中，请稍候...</section>
+    <section v-if="loading && !isFetched" class="mt-4 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg px-4 py-3">加载中，请稍候...</section>
 
     <section v-if="!loading && visibleCount === 0" class="mt-8 text-center border border-dashed border-slate-200 rounded-lg bg-slate-50 py-12 text-slate-500">
       <div class="text-4xl mb-3 opacity-60">📋</div>
@@ -73,7 +72,6 @@ const emit = defineEmits(['task-selected'])
 const newTaskTitle = ref('')
 const newTaskDate = ref('')
 const newTaskPriority = ref(1)
-const isAdding = ref(false)
 const shellRef = ref(null)
 const dateInputRef = ref(null)
 
@@ -84,6 +82,7 @@ const onDateChange = (e) => {
 
 const todos = computed(() => todoStore.todos)
 const loading = computed(() => todoStore.loading)
+const isFetched = computed(() => todoStore.isFetched)
 const errorText = computed(() => todoStore.error)
 
 onMounted(async () => {
@@ -192,23 +191,18 @@ const visibleCount = computed(() => countNodes(filteredTree.value))
 
 const addTodo = async () => {
   const title = newTaskTitle.value.trim()
-  if (!title || isAdding.value) return
+  if (!title) return
 
-  isAdding.value = true
-  try {
-    const deadline = newTaskDate.value ? new Date(newTaskDate.value).toISOString() : null
-    const result = await todoStore.addTodo(title, {
-      priority: Number(newTaskPriority.value),
-      deadline
-    })
-    if (result.success) {
-      newTaskTitle.value = ''
-      newTaskDate.value = ''
-      newTaskPriority.value = 1
-    }
-  } finally {
-    isAdding.value = false
-  }
+  const deadline = newTaskDate.value ? new Date(newTaskDate.value).toISOString() : null
+  const result = await todoStore.addTodo(title, {
+    priority: Number(newTaskPriority.value),
+    deadline
+  })
+  
+  // 乐观更新：无论成功与否都立即清空输入框
+  newTaskTitle.value = ''
+  newTaskDate.value = ''
+  newTaskPriority.value = 1
 }
 
 const addSubtask = async (parentId, startEditCb) => {

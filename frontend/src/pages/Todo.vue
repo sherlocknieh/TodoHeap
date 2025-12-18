@@ -36,6 +36,9 @@
 						</Transition>
 					</div>
 
+					<!-- 同步状态指示器 -->
+					<SyncStatusIndicator />
+
 					<!-- 右侧用户菜单 -->
 					<div class="relative shrink-0">
 						<button @click="showUserMenu = !showUserMenu"
@@ -167,6 +170,9 @@ import { ref, onMounted, computed, watch, onUnmounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useTodoStore } from '../stores/todos'
+import { useSyncQueueStore } from '../stores/syncQueue'
+import { storeToRefs } from 'pinia'
+import SyncStatusIndicator from '../components/SyncStatusIndicator.vue'
 import TodoList from './todo/TodoList.vue'
 import TodoTree from './todo/TodoTree.vue'
 import TodoHeap from './todo/TodoHeap.vue'
@@ -178,6 +184,10 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
+const syncQueueStore = useSyncQueueStore()
+
+// 获取同步队列状态
+const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
 
 const userMenuRef = ref(null)
 
@@ -217,6 +227,15 @@ provide(TODO_DETAIL_PANEL_CONTEXT, {
 	openDetailPanel
 })
 
+// 页面离开警告处理
+const handleBeforeUnload = (e) => {
+	if (hasUnsyncedChanges.value) {
+		e.preventDefault()
+		e.returnValue = '有更改尚未保存到服务器，确定离开吗？'
+		return e.returnValue
+	}
+}
+
 onMounted(async () => {
 	// 初始化认证
 	if (authStore.session === null && !authStore.loading) {
@@ -226,7 +245,12 @@ onMounted(async () => {
 	// 如果已登录，获取待办事项
 	if (authStore.isAuthenticated) {
 		await todoStore.fetchTodos()
+		// 初始化 Realtime 订阅
+		todoStore.setupRealtimeSubscription()
 	}
+
+	// 添加页面离开警告
+	window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
 // 监听路由变化，确保数据总是最新的
@@ -317,5 +341,9 @@ onMounted(() => {
 
 onUnmounted(() => {
 	document.removeEventListener('click', handleClickOutside)
+	// 清理 Realtime 订阅
+	todoStore.cleanupRealtimeSubscription()
+	// 移除页面离开警告
+	window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>

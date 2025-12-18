@@ -11,8 +11,12 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
     "@tailwindcss/vite": "^4.1.18",
+    "@vueuse/core": "^14.1.0",
+    "localforage": "^1.10.0",
+    "lodash-es": "^4.17.22",
     "pinia": "^3.0.4",
     "simple-mind-map": "^0.14.0-fix.1",
+    "uuid": "^13.0.0",
     "vue": "^3.3.4",
     "vue-datepicker-next": "^1.0.3",
     "vue-router": "^4.6.3"
