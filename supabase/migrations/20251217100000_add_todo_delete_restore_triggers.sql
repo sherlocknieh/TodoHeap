@@ -5,7 +5,11 @@
 BEGIN;
 
 -- 函数：当父任务的 deleted_at 发生变化时，传播到所有子孙任务
-CREATE OR REPLACE FUNCTION todos_propagate_deleted_at() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION public.todos_propagate_deleted_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 BEGIN
   -- 仅在 deleted_at 字段发生变化时处理
   IF (TG_OP = 'UPDATE') THEN
@@ -39,7 +43,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- 注册触发器：在更新 deleted_at 字段后触发
 DROP TRIGGER IF EXISTS trg_todos_propagate_deleted_at ON todos;
