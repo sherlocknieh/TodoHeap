@@ -93,6 +93,23 @@ export const useTodoStore = defineStore('todos', () => {
         }
         error.value = '恢复任务失败'
         break
+      
+      case OperationType.BATCH_PERMANENT_DELETE:
+        // 回滚清空垃圾箱：恢复快照
+        if (snapshot && Array.isArray(snapshot)) {
+          trashTodos.value = snapshot
+        }
+        error.value = '清空垃圾箱失败，已恢复'
+        break
+      
+      case OperationType.BATCH_RESTORE:
+        // 回滚批量恢复：恢复快照
+        if (snapshot) {
+          trashTodos.value = snapshot.trash || []
+          todos.value = snapshot.todos || []
+        }
+        error.value = '恢复全部任务失败，已恢复'
+        break
     }
     
     // 3秒后清除错误
@@ -378,68 +395,59 @@ export const useTodoStore = defineStore('todos', () => {
     return { success: true }
   }
 
-  // 清空垃圾箱 (批量操作，保持同步)
+  // 清空垃圾箱 (乐观更新)
   const emptyTrash = async () => {
     const authStore = useAuthStore()
     if (!authStore.user) {
       return { success: false, error: '请先登录' }
     }
 
-    // 对于批量操作，我们保持同步方式以确保一致性
-    loading.value = true
-    error.value = null
-    try {
-      const { error: deleteError } = await supabase
-        .from('todos')
-        .delete()
-        .eq('user_id', authStore.user.id)
-        .not('deleted_at', 'is', null)
-
-      if (deleteError) throw deleteError
-      
-      trashTodos.value = []
-      
-      return { success: true }
-    } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
-    } finally {
-      loading.value = false
-    }
+    const syncQueue = getSyncQueue()
+    
+    // 1. 保存快照用于回滚
+    const trashSnapshot = [...trashTodos.value]
+    syncQueue.saveSnapshot('batch-empty-trash', trashSnapshot)
+    
+    // 2. 乐观更新：立即清空垃圾箱
+    trashTodos.value = []
+    
+    // 3. 将批量删除操作加入同步队列
+    await syncQueue.enqueue({
+      type: OperationType.BATCH_PERMANENT_DELETE,
+      targetId: 'batch-empty-trash',
+      payload: { user_id: authStore.user.id }
+    })
+    
+    return { success: true }
   }
 
-  // 恢复所有任务 (批量操作，保持同步)
+  // 恢复所有任务 (乐观更新)
   const restoreAllTrash = async () => {
     const authStore = useAuthStore()
     if (!authStore.user) {
       return { success: false, error: '请先登录' }
     }
 
-    loading.value = true
-    error.value = null
-    try {
-      const { data, error: restoreError } = await supabase
-        .from('todos')
-        .update({ deleted_at: null })
-        .eq('user_id', authStore.user.id)
-        .not('deleted_at', 'is', null)
-        .select()
-
-      if (restoreError) throw restoreError
-      
-      // 添加到正常列表
-      if (data) {
-        todos.value.push(...data)
-      }
-      trashTodos.value = []
-      
-      return { success: true }
-    } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
-    } finally {
-      loading.value = false
-    }
+    const syncQueue = getSyncQueue()
+    
+    // 1. 保存快照用于回滚
+    const trashSnapshot = [...trashTodos.value]
+    const todosSnapshot = [...todos.value]
+    syncQueue.saveSnapshot('batch-restore-all', { trash: trashSnapshot, todos: todosSnapshot })
+    
+    // 2. 乐观更新：立即移动所有任务到正常列表
+    const restoredTodos = trashTodos.value.map(t => ({ ...t, deleted_at: null }))
+    todos.value.push(...restoredTodos)
+    trashTodos.value = []
+    
+    // 3. 将批量恢复操作加入同步队列
+    await syncQueue.enqueue({
+      type: OperationType.BATCH_RESTORE,
+      targetId: 'batch-restore-all',
+      payload: { user_id: authStore.user.id }
+    })
+    
+    return { success: true }
   }
 
   // AI 任务分解

@@ -17,7 +17,9 @@ export const OperationType = {
   UPDATE: 'UPDATE',
   DELETE: 'DELETE',
   RESTORE: 'RESTORE',
-  PERMANENT_DELETE: 'PERMANENT_DELETE'
+  PERMANENT_DELETE: 'PERMANENT_DELETE',
+  BATCH_RESTORE: 'BATCH_RESTORE',
+  BATCH_PERMANENT_DELETE: 'BATCH_PERMANENT_DELETE'
 }
 
 // 同步状态常量
@@ -36,6 +38,11 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
   const tempIdMap = ref(new Map())         // 临时ID -> 真实ID 映射表
   const snapshots = ref(new Map())         // 快照存储 (用于回滚)
   const isOnline = useOnline()             // 网络状态
+  const activeOperations = ref(new Set())  // 正在执行的操作ID
+  const processingTargets = ref(new Set()) // 正在处理的 targetId 集合
+
+  // 并发配置
+  const MAX_CONCURRENT = 5                 // 最大并发数
 
   // 计算同步状态
   const syncStatus = computed(() => {
@@ -155,7 +162,7 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     return delay + Math.random() * 1000
   }
 
-  // 处理队列
+  // 处理队列 (并行版本)
   const processQueue = async () => {
     if (isProcessing.value || queue.value.length === 0 || !isOnline.value) {
       return
@@ -164,55 +171,114 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     isProcessing.value = true
     lastError.value = null
 
+    // 持续处理直到队列为空
     while (queue.value.length > 0 && isOnline.value) {
-      const item = queue.value[0]
+      // 找出可以并行执行的操作
+      const executableItems = selectExecutableItems()
       
-      try {
-        const result = await executeOperation(item)
-        
-        if (result.success) {
-          // 操作成功，从队列移除
-          queue.value.shift()
-          clearSnapshot(item.targetId)
-          await persistQueue()
-        } else if (result.isNetworkError) {
-          // 网络错误，等待后重试
-          item.retryCount++
-          await persistQueue()
-          
-          const delay = getBackoffDelay(item.retryCount)
-          console.log(`网络错误，${delay}ms 后重试...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
-        } else {
-          // 业务错误，触发回滚，从队列移除
-          console.error('业务错误，触发回滚:', result.error)
-          lastError.value = result.error
-          queue.value.shift()
-          await persistQueue()
-          
-          // 触发回滚事件
-          if (result.needsRollback) {
-            triggerRollback(item)
-          }
-        }
-      } catch (e) {
-        console.error('队列处理异常:', e)
-        // 未知错误，增加重试计数
-        item.retryCount++
-        if (item.retryCount >= 5) {
-          // 超过最大重试次数，移除并触发回滚
-          lastError.value = e.message
-          queue.value.shift()
-          triggerRollback(item)
-        }
-        await persistQueue()
-        
-        // 等待后继续
-        await new Promise(resolve => setTimeout(resolve, 3000))
+      if (executableItems.length === 0) {
+        // 没有可执行的操作（可能都在等待依赖），等待一下
+        await new Promise(resolve => setTimeout(resolve, 100))
+        continue
       }
+
+      // 并行执行选中的操作
+      const promises = executableItems.map(item => executeWithRetry(item))
+      await Promise.all(promises)
     }
 
     isProcessing.value = false
+  }
+
+  // 选择可以并行执行的操作
+  const selectExecutableItems = () => {
+    const items = []
+    const selectedTargets = new Set()
+
+    for (const item of queue.value) {
+      // 跳过已经在执行的操作
+      if (activeOperations.value.has(item.id)) continue
+      
+      // 跳过 targetId 正在被处理的操作（保证同一目标串行）
+      if (processingTargets.value.has(item.targetId)) continue
+      
+      // 跳过本轮已选中相同 targetId 的操作
+      if (selectedTargets.has(item.targetId)) continue
+
+      // 检查依赖：如果 parent_id 是临时ID且还没有映射，需要等待
+      if (item.payload?.parent_id && isTempId(item.payload.parent_id)) {
+        const realParentId = getRealId(item.payload.parent_id)
+        if (isTempId(realParentId)) {
+          // 父任务还没有真实ID，跳过
+          continue
+        }
+      }
+
+      items.push(item)
+      selectedTargets.add(item.targetId)
+
+      // 达到最大并发数就停止选择
+      if (items.length >= MAX_CONCURRENT) break
+    }
+
+    return items
+  }
+
+  // 带重试的执行单个操作
+  const executeWithRetry = async (item) => {
+    activeOperations.value.add(item.id)
+    processingTargets.value.add(item.targetId)
+
+    try {
+      const result = await executeOperation(item)
+      
+      if (result.success) {
+        // 操作成功，从队列移除
+        removeFromQueue(item.id)
+        clearSnapshot(item.targetId)
+        await persistQueue()
+      } else if (result.isNetworkError) {
+        // 网络错误，增加重试计数
+        item.retryCount++
+        await persistQueue()
+        
+        // 等待后会在下一轮重试
+        const delay = getBackoffDelay(item.retryCount)
+        console.log(`操作 ${item.id} 网络错误，${delay}ms 后重试...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      } else {
+        // 业务错误，触发回滚，从队列移除
+        console.error('业务错误，触发回滚:', result.error)
+        lastError.value = result.error
+        removeFromQueue(item.id)
+        await persistQueue()
+        
+        if (result.needsRollback) {
+          triggerRollback(item)
+        }
+      }
+    } catch (e) {
+      console.error('队列处理异常:', e)
+      item.retryCount++
+      
+      if (item.retryCount >= 5) {
+        lastError.value = e.message
+        removeFromQueue(item.id)
+        triggerRollback(item)
+      }
+      await persistQueue()
+    } finally {
+      activeOperations.value.delete(item.id)
+      processingTargets.value.delete(item.targetId)
+    }
+  }
+
+  // 从队列移除指定操作
+  const removeFromQueue = (operationId) => {
+    const index = queue.value.findIndex(item => item.id === operationId)
+    if (index !== -1) {
+      queue.value.splice(index, 1)
+    }
   }
 
   // 执行单个操作
@@ -238,6 +304,12 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
         
         case OperationType.PERMANENT_DELETE:
           return await executePermanentDelete(realTargetId)
+        
+        case OperationType.BATCH_RESTORE:
+          return await executeBatchRestore(payload)
+        
+        case OperationType.BATCH_PERMANENT_DELETE:
+          return await executeBatchPermanentDelete(payload)
         
         default:
           return { success: false, error: '未知操作类型', needsRollback: true }
@@ -373,6 +445,53 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
       .from('todos')
       .delete()
       .eq('id', id)
+
+    if (error) {
+      if (error.code === '401' || error.message?.includes('JWT')) {
+        return { success: false, error: '认证已过期，请重新登录', needsRollback: false, isAuthError: true }
+      }
+      throw error
+    }
+
+    return { success: true }
+  }
+
+  // 执行批量恢复操作
+  const executeBatchRestore = async (payload) => {
+    const { user_id } = payload
+    
+    const { data, error } = await supabase
+      .from('todos')
+      .update({ deleted_at: null })
+      .eq('user_id', user_id)
+      .not('deleted_at', 'is', null)
+      .select()
+
+    if (error) {
+      if (error.code === '401' || error.message?.includes('JWT')) {
+        return { success: false, error: '认证已过期，请重新登录', needsRollback: false, isAuthError: true }
+      }
+      throw error
+    }
+
+    // 通知批量恢复成功
+    const event = new CustomEvent('sync:batch-restore-success', {
+      detail: { data }
+    })
+    window.dispatchEvent(event)
+
+    return { success: true, data }
+  }
+
+  // 执行批量永久删除操作
+  const executeBatchPermanentDelete = async (payload) => {
+    const { user_id } = payload
+    
+    const { error } = await supabase
+      .from('todos')
+      .delete()
+      .eq('user_id', user_id)
+      .not('deleted_at', 'is', null)
 
     if (error) {
       if (error.code === '401' || error.message?.includes('JWT')) {
