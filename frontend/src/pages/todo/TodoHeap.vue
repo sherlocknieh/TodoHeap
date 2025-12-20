@@ -1,11 +1,6 @@
 <template>
 	<!-- Todo 堆视图 -->
-	<div class="heap-container">
-		<div class="heap-info">
-			<h2>大顶堆视图</h2>
-			<p>优先级最高的任务在顶部，按堆结构排列（{{ heapNodes.length }}个任务）</p>
-		</div>
-		
+	<div class="heap-container" ref="heapContainerRef">
 		<div v-if="heapNodes.length === 0" class="empty-state">
 			<div class="empty-icon">📚</div>
 			<p>暂无任务</p>
@@ -36,7 +31,7 @@
 							:key="`circle-${node.index}`"
 							:cx="getNodeX(node.index)"
 							:cy="getNodeY(node.index)"
-							r="30"
+							:r="getNodeRadius(node.level)"
 							class="heap-node"
 							:style="{ fill: getNodeColor(node) }"
 						/>
@@ -88,7 +83,15 @@
 
 
 <script setup>
-import { computed, watch } from 'vue'
+// 不同层级节点半径，level越小越大
+const getNodeRadius = (level) => {
+	// 0层最大，后续每层递减，最小20，最大40
+	const base = 40;
+	const min = 20;
+	const r = base - level * 6;
+	return r > min ? r : min;
+}
+import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor, getUrgencyLevelName } from '../../utils/priorityCalculator'
 
 const props = defineProps({
@@ -97,6 +100,34 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['task-selected'])
+
+// 点击空白区域处理
+const heapContainerRef = ref(null)
+
+const outsideClickHandler = (e) => {
+	const el = heapContainerRef.value
+	if (!el) return
+
+	// 如果点击发生在堆容器内部但不在任务项上，则取消选中
+	if (el.contains(e.target)) {
+		// 如果当前没有选中任务，则不需要处理
+		if (props.selectedTaskId == null) return
+
+		// 如果点击落在某个任务项内部，则不取消选中
+		const taskItem = e.target.closest && e.target.closest('.heap-item')
+		if (!taskItem) {
+			emit('task-selected', null)
+		}
+	}
+}
+
+onMounted(() => {
+	document.addEventListener('click', outsideClickHandler)
+})
+
+onUnmounted(() => {
+	document.removeEventListener('click', outsideClickHandler)
+})
 
 // 调试
 watch(() => props.todos, (newVal) => {
@@ -165,38 +196,49 @@ const getNodeColor = (node) => {
 	return getPriorityLevelColor(node.priorityInfo.finalScore)
 }
 
-// 计算 SVG 尺寸
+
+// 节点间距参数
+const BASE_RADIUS = 40;
+const MIN_RADIUS = 20;
+const H_GAP = 2.8; // 水平间距系数
+const V_GAP = 2.5; // 垂直间距系数
+
+// 计算 SVG 尺寸（根据最大半径和层数自适应）
 const svgWidth = computed(() => {
-	if (heapTree.value.length === 0) return 800
-	const maxLevel = Math.max(...heapTree.value.map(n => n.level))
-	return Math.pow(2, maxLevel + 1) * 60
-})
+	if (heapTree.value.length === 0) return 800;
+	const maxLevel = Math.max(...heapTree.value.map(n => n.level));
+	// 每层节点数 * 节点直径 * 间距系数
+	const maxNodes = Math.pow(2, maxLevel);
+	return maxNodes * BASE_RADIUS * H_GAP;
+});
 
 const svgHeight = computed(() => {
-	if (heapTree.value.length === 0) return 400
-	const maxLevel = Math.max(...heapTree.value.map(n => n.level))
-	return (maxLevel + 1) * 120 + 60
-})
+	if (heapTree.value.length === 0) return 400;
+	const maxLevel = Math.max(...heapTree.value.map(n => n.level));
+	// 层数 * 节点直径 * 间距系数
+	return (maxLevel + 1) * BASE_RADIUS * V_GAP + BASE_RADIUS;
+});
 
 // 计算节点 X 坐标（水平方向）
 const getNodeX = (index) => {
-	const node = heapTree.value.find(n => n.index === index)
-	if (!node) return 0
-	
-	const levelWidth = Math.pow(2, node.level) * 60
-	const offsetInLevel = (node.posInLevel + 0.5) / Math.pow(2, node.level)
-	const levelStartX = (svgWidth.value - levelWidth) / 2
-	
-	return levelStartX + offsetInLevel * levelWidth
-}
+	const node = heapTree.value.find(n => n.index === index);
+	if (!node) return 0;
+	const level = node.level;
+	const nodesInLevel = Math.pow(2, level);
+	const radius = getNodeRadius(level);
+	const levelWidth = nodesInLevel * radius * H_GAP;
+	const offsetInLevel = (node.posInLevel + 0.5) / nodesInLevel;
+	const levelStartX = (svgWidth.value - levelWidth) / 2;
+	return levelStartX + offsetInLevel * levelWidth;
+};
 
 // 计算节点 Y 坐标（垂直方向）
 const getNodeY = (index) => {
-	const node = heapTree.value.find(n => n.index === index)
-	if (!node) return 0
-	
-	return node.level * 120 + 50
-}
+	const node = heapTree.value.find(n => n.index === index);
+	if (!node) return 0;
+	const radius = getNodeRadius(node.level);
+	return node.level * BASE_RADIUS * V_GAP + BASE_RADIUS;
+};
 
 const selectTask = (taskId) => {
 	console.log('选中任务ID:', taskId)

@@ -1,5 +1,5 @@
 <template>
-  <div class="trash-container">
+  <div class="trash-container" ref="trashContainerRef">
     <!-- 头部 -->
     <header class="trash-header">
       <div class="header-info">
@@ -101,7 +101,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTodoStore } from '../../stores/todos'
 
 const props = defineProps({
@@ -112,6 +112,34 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['task-selected'])
+
+// 点击空白区域处理
+const trashContainerRef = ref(null)
+
+const outsideClickHandler = (e) => {
+	const el = trashContainerRef.value
+	if (!el) return
+
+	// 如果点击发生在垃圾箱容器内部但不在任务项上，则取消选中
+	if (el.contains(e.target)) {
+		// 如果当前没有选中任务，则不需要处理
+		if (props.selectedTaskId == null) return
+
+		// 如果点击落在某个任务项内部，则不取消选中
+		const taskItem = e.target.closest && e.target.closest('.task-item')
+		if (!taskItem) {
+			emit('task-selected', null)
+		}
+	}
+}
+
+onMounted(() => {
+	document.addEventListener('click', outsideClickHandler)
+})
+
+onUnmounted(() => {
+	document.removeEventListener('click', outsideClickHandler)
+})
 
 const todoStore = useTodoStore()
 

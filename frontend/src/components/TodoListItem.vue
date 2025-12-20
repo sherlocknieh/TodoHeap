@@ -6,7 +6,7 @@
         'task-item-selected': selectedTaskId === item.id,
         'task-item-done': item.status === 'done'
       }
-    ]" :style="{ paddingLeft: (12 + item._level * 20) + 'px' }">
+    ]" :style="{ paddingLeft: (12 + item._level * 20) + 'px' }" @click="selectTask(item.id)">
       <!-- 复选框 -->
       <div class="task-checkbox">
         <input type="checkbox" :checked="item.status === 'done'" readonly class="checkbox-input"
@@ -14,7 +14,7 @@
       </div>
 
       <!-- 标题 -->
-      <div class="task-title-wrapper" @click.stop="selectTask(item.id)" @dblclick.stop="startEdit(item.id, item.title)">
+      <div class="task-title-wrapper" @dblclick.stop="startEdit(item.id, item.title)">
         <span v-if="editingId !== item.id" class="task-title">
           {{ item.title || '未命名任务' }}
         </span>

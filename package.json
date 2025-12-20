@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "supabase": "^2.67.2"
+  },
+  "dependencies": {
+    "@vueuse/core": "^14.1.0"
   }
 }

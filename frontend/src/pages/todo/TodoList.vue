@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-4xl mx-auto p-6 pb-12 text-slate-900" ref="shellRef">
+  <div class="max-w-4xl mx-auto text-slate-900" ref="shellRef">
     <!-- 快速添加任务 -->
     <section class="flex gap-2 items-center bg-white rounded-lg">
       <input
@@ -91,30 +91,6 @@ onMounted(async () => {
   }
 })
 
-const outsideClickHandler = (e) => {
-  const el = shellRef.value
-  if (!el) return
-
-  // 仅在点击发生在 .tt-shell 内时考虑取消选中
-  if (el.contains(e.target)) {
-    // 如果当前没有选中任务，则不需要处理
-    if (props.selectedTaskId == null) return
-
-    // 如果点击落在某个任务项内部（.task-item），则不取消选中
-    const taskItem = e.target.closest && e.target.closest('.task-item')
-    if (!taskItem) {
-      emit('task-selected', null)
-    }
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', outsideClickHandler)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', outsideClickHandler)
-})
 
 // 以滴答清单的分组方式进行树构建与过滤
 const taskTree = computed(() => {

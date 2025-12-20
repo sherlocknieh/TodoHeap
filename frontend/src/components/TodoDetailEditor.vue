@@ -1,8 +1,16 @@
 <template>
   <section class="h-full flex flex-col min-h-0">
-    <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-      <h3 class="text-sm font-semibold text-slate-900">任务详情</h3>
+    <!-- 宽屏模式：固定侧边栏头部 -->
+    <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 hidden lg:flex">
       <div class="flex items-center gap-2">
+        <!-- 返回按钮 -->
+        <button
+          @click="$emit('close')"
+          class="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded transition-colors"
+          title="关闭详情面板"
+        >
+          <span class="text-sm">◀</span>
+        </button>
         <!-- 已删除标记 -->
         <span
           v-if="isDeleted"
@@ -34,6 +42,90 @@
         </button>
       </div>
     </header>
+
+    <!-- 窄屏模式：模态框头部 -->
+    <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 lg:hidden">
+      <div class="flex items-center gap-2">
+        <h2 class="text-lg font-semibold text-slate-900 truncate">{{ todo?.title || '任务详情' }}</h2>
+      </div>
+      <!-- 关闭按钮 -->
+      <button
+        @click="$emit('close')"
+        class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+        title="关闭详情面板"
+      >
+        <span class="text-lg">✕</span>
+      </button>
+    </header>
+    <!-- 宽屏模式：状态信息 -->
+    <div class="hidden lg:flex px-4 py-2 border-b border-slate-200">
+      <div class="flex items-center gap-2">
+        <!-- 已删除标记 -->
+        <span
+          v-if="isDeleted"
+          class="text-xs font-medium px-2 py-1 rounded-full bg-red-50 text-red-600"
+        >
+          🗑️ 已删除
+        </span>
+        <p
+          v-else-if="statusText"
+          aria-live="polite"
+          :class="[
+            'text-xs font-medium px-2 py-1 rounded-full',
+            saveState === 'error'
+              ? 'bg-red-50 text-red-700'
+              : saveState === 'saving'
+                ? 'bg-slate-100 text-slate-600'
+                : 'bg-emerald-50 text-emerald-700'
+          ]"
+        >
+          {{ statusText }}
+        </p>
+        <button
+          v-if="saveState === 'error' && lastAttemptedPayload && !isDeleted"
+          type="button"
+          class="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          @click="retryLastSave"
+        >
+          重试
+        </button>
+      </div>
+    </div>
+
+    <!-- 窄屏模式：状态信息 -->
+    <div class="lg:hidden px-4 py-2 border-b border-slate-200">
+      <div class="flex items-center gap-2">
+        <!-- 已删除标记 -->
+        <span
+          v-if="isDeleted"
+          class="text-xs font-medium px-2 py-1 rounded-full bg-red-50 text-red-600"
+        >
+          🗑️ 已删除
+        </span>
+        <p
+          v-else-if="statusText"
+          aria-live="polite"
+          :class="[
+            'text-xs font-medium px-2 py-1 rounded-full',
+            saveState === 'error'
+              ? 'bg-red-50 text-red-700'
+              : saveState === 'saving'
+                ? 'bg-slate-100 text-slate-600'
+                : 'bg-emerald-50 text-emerald-700'
+          ]"
+        >
+          {{ statusText }}
+        </p>
+        <button
+          v-if="saveState === 'error' && lastAttemptedPayload && !isDeleted"
+          type="button"
+          class="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          @click="retryLastSave"
+        >
+          重试
+        </button>
+      </div>
+    </div>
 
     <div v-if="!todo" class="flex-1 flex items-center justify-center px-4">
       <div class="text-center text-sm text-slate-500">
@@ -97,6 +189,8 @@ const props = defineProps({
     default: null
   }
 })
+
+const emit = defineEmits(['close'])
 
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
