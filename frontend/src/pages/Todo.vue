@@ -9,7 +9,7 @@
 				<div class="flex items-center gap-3">
 					<!-- 侧栏切换按钮（汉堡菜单） -->
 					<button @click="toggleLeftPanel"
-						class="lg:hidden flex items-center justify-center w-10 h-10 rounded-md border border-slate-200 bg-white shadow hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+						class="lg:hidden flex items-center justify-center w-10 h-10 rounded-md border border-slate-200 bg-white shadow hover:bg-slate-100 transition"
 						title="切换侧栏">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 							<rect x="4" y="6" width="16" height="2" rx="1" fill="#6366F1" />
@@ -60,7 +60,7 @@
 		</header>
 
 		<!-- 内容区域 - 左中右三栏布局 -->
-		<main class="flex-1 overflow-hidden bg-slate-50">
+		<main class="flex-1 overflow-hidden bg-slate-50 relative">
 			<div class="h-full flex relative">
 				<!-- 左栏：任务导航面板（大屏常驻） -->
 				<aside :class="[
@@ -80,12 +80,12 @@
 							<div class="flex justify-between items-center p-2 bg-emerald-50 rounded">
 								<span class="text-emerald-700">已完成</span>
 								<span class="font-medium text-emerald-900">{{todoStore.todos.filter(t =>
-									t.completed).length }}</span>
+									t.completed).length}}</span>
 							</div>
 							<div class="flex justify-between items-center p-2 bg-orange-50 rounded">
 								<span class="text-orange-700">进行中</span>
 								<span class="font-medium text-orange-900">{{todoStore.todos.filter(t =>
-									!t.completed).length }}</span>
+									!t.completed).length}}</span>
 							</div>
 						</div>
 					</div>
@@ -141,7 +141,7 @@
 					leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0"
 					leave-to-class="-translate-x-full">
 					<div v-if="showMobileSidebar"
-						class="lg:hidden fixed top-0 left-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-50">
+						class="lg:hidden absolute top-0 left-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-50">
 						<!-- 标题栏 -->
 						<div class="flex items-center justify-between p-4 border-b border-slate-200">
 							<h3 class="font-semibold text-slate-900">📁 任务分类</h3>
@@ -160,12 +160,12 @@
 								<div class="flex justify-between items-center p-2 bg-emerald-50 rounded">
 									<span class="text-emerald-700">已完成</span>
 									<span class="font-medium text-emerald-900">{{todoStore.todos.filter(t =>
-										t.completed).length }}</span>
+										t.completed).length}}</span>
 								</div>
 								<div class="flex justify-between items-center p-2 bg-orange-50 rounded">
 									<span class="text-orange-700">进行中</span>
 									<span class="font-medium text-orange-900">{{todoStore.todos.filter(t =>
-										!t.completed).length }}</span>
+										!t.completed).length}}</span>
 								</div>
 							</div>
 							<!-- 导航菜单 -->
@@ -270,36 +270,28 @@
 					</div>
 				</div>
 
-				   <!-- 右栏：详情面板 -->
-				   <!-- 大屏常驻，窄屏浮层 -->
-				   <Transition enter-active-class="transition-all duration-300 ease-out"
-					   enter-from-class="translate-x-full" enter-to-class="translate-x-0"
-					   leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0"
-					   leave-to-class="translate-x-full">
-					   <div v-if="selectedTaskId && showDetailPanel"
-											 :class="[
-												 // 小屏浮层
-												 'absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-20',
-												 // 大屏常驻右栏
-												 'lg:static lg:relative lg:flex lg:w-96 lg:max-w-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
-												 // 大屏显示
-												 'lg:block'
-											 ]">
-						   <!-- 详情内容 -->
-						   <div class="flex-1 overflow-hidden">
-							   <TodoDetailEditor :todo-id="selectedTaskId" @close="showDetailPanel = false" />
-						   </div>
-					   </div>
-				   </Transition>
+				<!-- 右栏：详情面板 -->
+				<!-- 大屏常驻，窄屏根据选中任务显示 -->
+				<Transition enter-active-class="transition-all duration-300 ease-out"
+					enter-from-class="translate-x-full" enter-to-class="translate-x-0"
+					leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0"
+					leave-to-class="translate-x-full">
+					<!-- 大屏下总是显示面板 -->
+					<div v-if="showDetailPanel" :class="[
+						// 小屏浮层
+						'absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-20',
+						// 大屏常驻右栏
+						'lg:static lg:flex lg:w-96 lg:max-w-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
+						// 大屏显示
+						'lg:block'
+					]">
+						<!-- 详情内容 -->
+						<div class="flex-1 overflow-hidden">
+							<TodoDetailEditor :todo-id="selectedTaskId" @close="closeDetailPanel" />
+						</div>
+					</div>
+				</Transition>
 
-				<!-- 窄屏：浮动按钮 -->
-				<div v-if="selectedTaskId && !showDetailPanel" class="lg:hidden fixed bottom-6 right-6 z-40">
-					<button @click="showDetailPanel = true"
-						class="p-4 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
-						title="显示详情面板">
-						<span class="text-xl">📝</span>
-					</button>
-				</div>
 			</div>
 		</main>
 	</div>
@@ -323,7 +315,7 @@ const showMobileSidebar = ref(false)
 // 切换左侧侧栏（大屏为折叠，窄屏为浮层）
 const toggleLeftPanel = () => {
 	if (window.innerWidth < 1024) {
-		showMobileSidebar.value = true
+		showMobileSidebar.value = !showMobileSidebar.value
 	} else {
 		leftPanelCollapsed.value = !leftPanelCollapsed.value
 	}
@@ -379,13 +371,33 @@ const isBreakingDown = ref(false)
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const leftPanelCollapsed = ref(false)
-const showDetailPanel = ref(false) // 右侧详情面板默认隐藏
+const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 
 const detailPanelRequested = ref(false)
+
+// 窗口大小响应式处理
+const windowWidth = ref(window.innerWidth)
+
+const updateWindowWidth = () => {
+	windowWidth.value = window.innerWidth
+	// 当窗口从窄屏变为宽屏时，自动显示详情面板
+	if (windowWidth.value >= 1024 && !showDetailPanel.value) {
+		showDetailPanel.value = true
+	}
+	// 当窗口从宽屏变为窄屏时，如果没有选中任务，隐藏详情面板
+	if (windowWidth.value < 1024 && !selectedTaskId.value) {
+		showDetailPanel.value = false
+	}
+}
 
 const openDetailPanel = () => {
 	detailPanelRequested.value = true
 	showDetailPanel.value = true // 确保详情面板打开
+}
+
+// 关闭详情面板（大屏/小屏通用）
+const closeDetailPanel = () => {
+	showDetailPanel.value = false
 }
 
 provide(TODO_DETAIL_PANEL_CONTEXT, {
@@ -453,11 +465,11 @@ const switchView = (view) => {
 const handleTaskSelected = (taskId) => {
 	if (taskId === null) {
 		// 取消选中任务
-		selectedTaskId.value = null
-		showDetailPanel.value = false
+		closeDetailPanel()
 	} else if (selectedTaskId.value === taskId) {
 		// 如果点击的是已选中的任务，切换详情面板显示状态
 		showDetailPanel.value = !showDetailPanel.value
+		if (!showDetailPanel.value) selectedTaskId.value = null
 	} else {
 		// 如果选择的是新任务，更新选中ID并自动显示详情面板
 		selectedTaskId.value = taskId
@@ -513,10 +525,16 @@ const handleClickOutside = (event) => {
 
 onMounted(() => {
 	document.addEventListener('click', handleClickOutside)
+	// 添加窗口大小变化监听
+	window.addEventListener('resize', updateWindowWidth)
+	// 初始化窗口宽度
+	updateWindowWidth()
 })
 
 onUnmounted(() => {
 	document.removeEventListener('click', handleClickOutside)
+	// 移除窗口大小变化监听
+	window.removeEventListener('resize', updateWindowWidth)
 	// 清理 Realtime 订阅
 	todoStore.cleanupRealtimeSubscription()
 	// 移除页面离开警告

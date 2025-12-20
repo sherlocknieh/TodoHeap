@@ -1,50 +1,7 @@
 <template>
   <section class="h-full flex flex-col min-h-0">
-    <!-- 宽屏模式：固定侧边栏头部 -->
-    <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 hidden lg:flex">
-      <div class="flex items-center gap-2">
-        <!-- 返回按钮 -->
-        <button
-          @click="$emit('close')"
-          class="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded transition-colors"
-          title="关闭详情面板"
-        >
-          <span class="text-sm">◀</span>
-        </button>
-        <!-- 已删除标记 -->
-        <span
-          v-if="isDeleted"
-          class="text-xs font-medium px-2 py-1 rounded-full bg-red-50 text-red-600"
-        >
-          🗑️ 已删除
-        </span>
-        <p
-          v-else-if="statusText"
-          aria-live="polite"
-          :class="[
-            'text-xs font-medium px-2 py-1 rounded-full',
-            saveState === 'error'
-              ? 'bg-red-50 text-red-700'
-              : saveState === 'saving'
-                ? 'bg-slate-100 text-slate-600'
-                : 'bg-emerald-50 text-emerald-700'
-          ]"
-        >
-          {{ statusText }}
-        </p>
-        <button
-          v-if="saveState === 'error' && lastAttemptedPayload && !isDeleted"
-          type="button"
-          class="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-          @click="retryLastSave"
-        >
-          重试
-        </button>
-      </div>
-    </header>
-
-    <!-- 窄屏模式：模态框头部 -->
-    <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 lg:hidden">
+    <!-- 头部 -->
+    <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <h2 class="text-lg font-semibold text-slate-900 truncate">{{ todo?.title || '任务详情' }}</h2>
       </div>
@@ -57,79 +14,12 @@
         <span class="text-lg">✕</span>
       </button>
     </header>
-    <!-- 宽屏模式：状态信息 -->
-    <div class="hidden lg:flex px-4 py-2 border-b border-slate-200">
-      <div class="flex items-center gap-2">
-        <!-- 已删除标记 -->
-        <span
-          v-if="isDeleted"
-          class="text-xs font-medium px-2 py-1 rounded-full bg-red-50 text-red-600"
-        >
-          🗑️ 已删除
-        </span>
-        <p
-          v-else-if="statusText"
-          aria-live="polite"
-          :class="[
-            'text-xs font-medium px-2 py-1 rounded-full',
-            saveState === 'error'
-              ? 'bg-red-50 text-red-700'
-              : saveState === 'saving'
-                ? 'bg-slate-100 text-slate-600'
-                : 'bg-emerald-50 text-emerald-700'
-          ]"
-        >
-          {{ statusText }}
-        </p>
-        <button
-          v-if="saveState === 'error' && lastAttemptedPayload && !isDeleted"
-          type="button"
-          class="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-          @click="retryLastSave"
-        >
-          重试
-        </button>
-      </div>
-    </div>
-
-    <!-- 窄屏模式：状态信息 -->
-    <div class="lg:hidden px-4 py-2 border-b border-slate-200">
-      <div class="flex items-center gap-2">
-        <!-- 已删除标记 -->
-        <span
-          v-if="isDeleted"
-          class="text-xs font-medium px-2 py-1 rounded-full bg-red-50 text-red-600"
-        >
-          🗑️ 已删除
-        </span>
-        <p
-          v-else-if="statusText"
-          aria-live="polite"
-          :class="[
-            'text-xs font-medium px-2 py-1 rounded-full',
-            saveState === 'error'
-              ? 'bg-red-50 text-red-700'
-              : saveState === 'saving'
-                ? 'bg-slate-100 text-slate-600'
-                : 'bg-emerald-50 text-emerald-700'
-          ]"
-        >
-          {{ statusText }}
-        </p>
-        <button
-          v-if="saveState === 'error' && lastAttemptedPayload && !isDeleted"
-          type="button"
-          class="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-          @click="retryLastSave"
-        >
-          重试
-        </button>
-      </div>
-    </div>
-
-    <div v-if="!todo" class="flex-1 flex items-center justify-center px-4">
-      <div class="text-center text-sm text-slate-500">
-        请选择一个任务查看详情
+    
+    <!-- 空状态显示 -->
+    <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400">
+      <div class="text-center">
+        <p class="text-4xl mb-2">📝</p>
+        <p class="text-sm">选择一个任务查看详情</p>
       </div>
     </div>
 
@@ -138,7 +28,7 @@
       <div v-if="isDeleted" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
         此任务已删除，仅可查看，不可编辑。若需编辑，请先恢复任务。
       </div>
-
+      <!-- 任务标题 -->
       <div class="space-y-1">
         <label class="block text-xs font-medium text-slate-600">标题</label>
         <input
@@ -154,9 +44,9 @@
           @blur="saveIfNeeded('title')"
         />
       </div>
-
+      <!-- 任务描述 -->
       <div class="space-y-1">
-        <label class="block text-xs font-medium text-slate-600">备注</label>
+        <label class="block text-xs font-medium text-slate-600">详情</label>
         <textarea
           v-model="draftDescription"
           :disabled="isDeleted"
@@ -169,7 +59,7 @@
           @blur="saveIfNeeded('description')"
         ></textarea>
       </div>
-
+      <!-- 最后保存时间 -->
       <div class="text-xs text-slate-500">
         <span v-if="isDeleted && todo.deleted_at">删除时间：{{ formatDate(todo.deleted_at) }}</span>
         <span v-else-if="lastSavedAt">最后保存：{{ lastSavedAt }}</span>
@@ -225,34 +115,15 @@ const initialDescription = ref('')
 const dirtyTitle = ref(false)
 const dirtyDescription = ref(false)
 
-const saveState = ref('idle') // idle | saving | saved | error
-const lastErrorMessage = ref('')
 const lastSavedAt = ref('')
-const lastAttemptedPayload = ref(null)
 
 let clearSavedTimer = null
-
-const statusText = computed(() => {
-  // 检查是否正在同步
-  const isSyncing = syncQueueStore.queue.some(
-    item => item.targetId === props.todoId || 
-           syncQueueStore.getRealId(item.targetId) === props.todoId
-  )
-  
-  if (saveState.value === 'saving') return '保存中...'
-  if (isSyncing) return '同步中...'
-  if (saveState.value === 'saved') return '已保存'
-  if (saveState.value === 'error') return lastErrorMessage.value || '保存失败'
-  return ''
-})
 
 // 乐观更新的保存方法
 const savePayload = async (payload) => {
   if (!todo.value) return
 
-  saveState.value = 'saving'
-  lastErrorMessage.value = ''
-  lastAttemptedPayload.value = payload
+
 
   try {
     // 使用 todoStore 的乐观更新方法
@@ -276,10 +147,8 @@ const savePayload = async (payload) => {
     }
 
     lastSavedAt.value = new Date().toLocaleString()
-    setSavedStateTemporarily()
   } catch (e) {
-    saveState.value = 'error'
-    lastErrorMessage.value = e?.message || '保存失败'
+
   }
 }
 
@@ -291,10 +160,7 @@ const resetDraftFromTodo = () => {
     initialDescription.value = ''
     dirtyTitle.value = false
     dirtyDescription.value = false
-    saveState.value = 'idle'
-    lastErrorMessage.value = ''
     lastSavedAt.value = ''
-    lastAttemptedPayload.value = null
     return
   }
 
@@ -305,9 +171,6 @@ const resetDraftFromTodo = () => {
 
   dirtyTitle.value = false
   dirtyDescription.value = false
-  saveState.value = 'idle'
-  lastErrorMessage.value = ''
-  lastAttemptedPayload.value = null
 }
 
 watch(
@@ -326,43 +189,24 @@ const markDirty = (field) => {
   }
 }
 
-const setSavedStateTemporarily = () => {
-  if (clearSavedTimer) {
-    clearTimeout(clearSavedTimer)
-    clearSavedTimer = null
-  }
-  saveState.value = 'saved'
-  clearSavedTimer = setTimeout(() => {
-    saveState.value = 'idle'
-  }, 1500)
-}
+
 
 const saveIfNeeded = async (field) => {
   if (!todo.value) return
   // 已删除的任务不允许保存
   if (isDeleted.value) return
-
   if (field === 'title') {
     markDirty('title')
     if (!dirtyTitle.value) return
     await savePayload({ title: draftTitle.value })
     return
   }
-
   markDirty('description')
   if (!dirtyDescription.value) return
   await savePayload({ description: draftDescription.value })
 }
 
-const retryLastSave = async () => {
-  if (!todo.value || !lastAttemptedPayload.value) return
-  await savePayload(lastAttemptedPayload.value)
-}
 
-onBeforeUnmount(() => {
-  if (clearSavedTimer) {
-    clearTimeout(clearSavedTimer)
-    clearSavedTimer = null
-  }
-})
+
+
 </script>
