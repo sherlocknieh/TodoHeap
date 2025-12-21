@@ -1,20 +1,43 @@
 <template>
   <div class="max-w-4xl mx-auto text-slate-900" ref="shellRef">
     <!-- 快速添加任务 -->
-    <section class="flex gap-2 items-center bg-white rounded-lg">
-      <input
-        v-model.trim="newTaskTitle"
-        @keyup.enter="addTodo"
-        placeholder="快速添加：输入任务，回车添加"
-        class="flex-1 border border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-      />
-      <input
-        v-model="newTaskDate"
-        type="date"
-        class="border border-slate-200 rounded-md px-3 py-2 text-sm w-32 bg-white text-left hover:bg-slate-50 transition"
-      />
+    <section class="flex items-center rounded-lg">
+      <div class="flex-1 relative flex items-center">
+        <input
+          v-model.trim="newTaskTitle"
+          @keyup.enter="addTodo"
+          placeholder="快速添加：输入任务，回车添加"
+          class="w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-24"
+        />
+        <input
+          v-model="newTaskDate"
+          type="date"
+          class="absolute right-12 top-1/2 -translate-y-1/2 w-28 border-none bg-transparent text-slate-500 text-sm focus:ring-0 focus:outline-none cursor-pointer"
+          style="height:28px;"
+        />
+        <div class="absolute right-2 top-1/2 -translate-y-1/2">
+          <button @click="showMore = !showMore" class="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100 transition" type="button">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="1.5"/>
+              <circle cx="19" cy="12" r="1.5"/>
+              <circle cx="5" cy="12" r="1.5"/>
+            </svg>
+          </button>
+          <div v-if="showMore" class="absolute right-0 mt-2 w-40 bg-white border border-slate-200 rounded shadow-lg" ref="moreMenuRef">
+            <ul class="py-1 text-sm text-slate-700">
+              <li>
+                <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('优先级')">设置优先级</button>
+              </li>
+              <li>
+                <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('标签')">添加标签</button>
+              </li>
+              <!-- 可继续添加更多选项 -->
+            </ul>
+          </div>
+        </div>
+      </div>
       <button
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition"
+        class="ml-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition"
         @click="addTodo"
       >
         添加任务
@@ -34,7 +57,7 @@
       <p class="text-sm">点击上方输入框快速添加任务</p>
     </section>
 
-    <div v-else class="mt-6 bg-white rounded-lg border border-slate-200 overflow-hidden">
+    <div v-else class="mt-6 bg-white rounded-lg border border-slate-200">
       <ul class="divide-y divide-slate-100">
       <TodoListItem
         v-for="node in filteredTree"
@@ -53,7 +76,31 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
+const showMore = ref(false)
+const moreMenuRef = ref(null)
+
+const handleMoreOption = (option) => {
+  showMore.value = false
+  if (option === '优先级') {
+    // 打开优先级设置弹窗或聚焦优先级输入
+  } else if (option === '标签') {
+    // 打开标签设置弹窗或聚焦标签输入
+  }
+}
+
+// 点击菜单外自动关闭
+function handleClickOutside(event) {
+  if (showMore.value && moreMenuRef.value && !moreMenuRef.value.contains(event.target)) {
+    showMore.value = false
+  }
+}
+onMounted(() => {
+  document.addEventListener('mousedown', handleClickOutside)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', handleClickOutside)
+})
 import { useTodoStore } from '../../stores/todos'
 import { useAuthStore } from '../../stores/auth'
 import TodoListItem from '../../components/TodoListItem.vue'

@@ -1,71 +1,82 @@
 <template>
-  <section class="h-full flex flex-col min-h-0">
-    <!-- 头部 -->
-    <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <h2 class="text-lg font-semibold text-slate-900 truncate">{{ todo?.title || '任务详情' }}</h2>
-      </div>
-      <!-- 关闭按钮 -->
-      <button
-        @click="$emit('close')"
-        class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-        title="关闭详情面板"
-      >
-        <span class="text-lg">✕</span>
-      </button>
-    </header>
-    
-    <!-- 空状态显示 -->
-    <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400">
-      <div class="text-center">
-        <p class="text-4xl mb-2">📝</p>
-        <p class="text-sm">选择一个任务查看详情</p>
-      </div>
-    </div>
+  <Transition enter-active-class="transition-all duration-300 ease-out" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
+    <div v-if="show" :class="[
+      // 小屏浮层
+      'absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-20',
+      // 大屏常驻右栏
+      'lg:static lg:flex lg:w-96 lg:max-w-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
+      // 大屏显示
+      'lg:block'
+    ]">
+      <section class="h-full flex flex-col min-h-0">
+        <!-- 头部 -->
+        <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-semibold text-slate-900 truncate">{{ todo?.title || '任务详情' }}</h2>
+          </div>
+          <!-- 关闭按钮 -->
+          <button
+            @click="$emit('close')"
+            class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+            title="关闭详情面板"
+          >
+            <span class="text-lg">✕</span>
+          </button>
+        </header>
 
-    <div v-else class="flex-1 min-h-0 overflow-auto px-4 py-4 space-y-4">
-      <!-- 已删除任务提示 -->
-      <div v-if="isDeleted" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-        此任务已删除，仅可查看，不可编辑。若需编辑，请先恢复任务。
-      </div>
-      <!-- 任务标题 -->
-      <div class="space-y-1">
-        <label class="block text-xs font-medium text-slate-600">标题</label>
-        <input
-          v-model.trim="draftTitle"
-          type="text"
-          :disabled="isDeleted"
-          :class="[
-            'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500',
-            isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
-          ]"
-          placeholder="请输入标题"
-          @input="markDirty('title')"
-          @blur="saveIfNeeded('title')"
-        />
-      </div>
-      <!-- 任务描述 -->
-      <div class="space-y-1">
-        <label class="block text-xs font-medium text-slate-600">详情</label>
-        <textarea
-          v-model="draftDescription"
-          :disabled="isDeleted"
-          :class="[
-            'w-full min-h-48 px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500',
-            isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
-          ]"
-          placeholder="添加备注（失焦自动保存）"
-          @input="markDirty('description')"
-          @blur="saveIfNeeded('description')"
-        ></textarea>
-      </div>
-      <!-- 最后保存时间 -->
-      <div class="text-xs text-slate-500">
-        <span v-if="isDeleted && todo.deleted_at">删除时间：{{ formatDate(todo.deleted_at) }}</span>
-        <span v-else-if="lastSavedAt">最后保存：{{ lastSavedAt }}</span>
-      </div>
+        <!-- 空状态显示 -->
+        <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400">
+          <div class="text-center">
+            <p class="text-4xl mb-2">📝</p>
+            <p class="text-sm">选择一个任务查看详情</p>
+          </div>
+        </div>
+
+        <div v-else class="flex-1 min-h-0 overflow-auto px-4 py-4 space-y-4">
+          <!-- 已删除任务提示 -->
+          <div v-if="isDeleted" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            此任务已删除，仅可查看，不可编辑。若需编辑，请先恢复任务。
+          </div>
+          <!-- 任务标题 -->
+          <div class="space-y-1">
+            <label class="block text-xs font-medium text-slate-600">标题</label>
+            <input
+              v-model.trim="draftTitle"
+              type="text"
+              :disabled="isDeleted"
+              :class="[
+                'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+              ]"
+              placeholder="请输入标题"
+              @input="markDirty('title')"
+              @blur="saveIfNeeded('title')"
+            />
+          </div>
+          <!-- 任务描述 -->
+          <div class="space-y-1">
+            <label class="block text-xs font-medium text-slate-600">详情</label>
+            <textarea
+              v-model="draftDescription"
+              :disabled="isDeleted"
+              :class="[
+                'w-full min-h-48 px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+              ]"
+              placeholder="添加备注（失焦自动保存）"
+              @input="markDirty('description')"
+              @blur="saveIfNeeded('description')"
+            ></textarea>
+          </div>
+          <!-- 最后保存时间 -->
+          <div class="text-xs text-slate-500">
+            <span v-if="isDeleted && todo.deleted_at">删除时间：{{ formatDate(todo.deleted_at) }}</span>
+            <span v-else-if="lastSavedAt">最后保存：{{ lastSavedAt }}</span>
+          </div>
+        </div>
+      </section>
     </div>
-  </section>
+  </Transition>
 </template>
 
 <script setup>
@@ -74,16 +85,17 @@ import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
 
 const props = defineProps({
-  todoId: {
-    type: Number,
-    default: null
-  }
+  todoId: { type: Number, default: null },
+  show: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close'])
 
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
+
+// 为模板提供 `show` 绑定（确保模板中的 v-if="show" 可访问）
+const show = computed(() => props.show)
 
 // 同时从正常列表和垃圾箱中查找任务
 const todo = computed(() => {

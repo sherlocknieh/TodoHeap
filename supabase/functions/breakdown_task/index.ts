@@ -1,9 +1,9 @@
 import OpenAI from "openai";
 import { corsWrapper } from "../_shared/cors.ts";
 
-const number = 3;
 const systemPrompt = `You are an AI assistant helping with task breakdown. 
-Generate exactly ${number} an appropriate number of child tasks based on the provided Goal task and context.
+Generate an appropriate number of child tasks based on the provided Goal task and context.
+The number of child tasks should be reasonable and practical - typically between 2-6 tasks depending on the complexity and scope of the goal task.
 
 IMPORTANT: Your response MUST be a JSON object with a "children" property containing an array of child task objects. 
 Each child task must include ALL of the following fields:

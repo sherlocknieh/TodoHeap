@@ -3,13 +3,13 @@
 	<div class="h-screen bg-slate-50 flex flex-col">
 		<!-- 顶栏 -->
 		<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-			<!-- 用于内容布局的容器（去掉限宽） -->
+			<!-- 顶栏布局容器 -->
 			<div class="flex items-center justify-between h-16 gap-4 px-6">
 				<!-- 左侧标题 -->
 				<div class="flex items-center gap-3">
-					<!-- 侧栏切换按钮（汉堡菜单） -->
+					<!-- 侧栏切换按钮 -->
 					<button @click="toggleLeftPanel"
-						class="lg:hidden flex items-center justify-center w-10 h-10 rounded-md border border-slate-200 bg-white shadow hover:bg-slate-100 transition"
+						class="flex items-center justify-center w-10 h-10 rounded-md border border-slate-200 bg-white shadow hover:bg-slate-100 transition"
 						title="切换侧栏">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 							<rect x="4" y="6" width="16" height="2" rx="1" fill="#6366F1" />
@@ -20,7 +20,6 @@
 					<h1 class="text-xl sm:text-2xl font-bold text-slate-900">📝 TodoHeap</h1>
 					<span class="hidden sm:inline text-sm text-slate-500">智能任务管理</span>
 				</div>
-
 				<!-- 右侧用户信息和同步状态 -->
 				<div class="flex items-center gap-4">
 					<!-- 同步状态指示器 -->
@@ -62,159 +61,18 @@
 		<!-- 内容区域 - 左中右三栏布局 -->
 		<main class="flex-1 overflow-hidden bg-slate-50 relative">
 			<div class="h-full flex relative">
-				<!-- 左栏：任务导航面板（大屏常驻） -->
-				<aside :class="[
-					'bg-white border-r border-slate-200 flex flex-col transition-all duration-300',
-					leftPanelCollapsed ? 'w-0 overflow-hidden' : 'w-64',
-					'hidden lg:flex'
-				]">
-					<!-- 侧栏内容... -->
-					<div class="p-4 border-b border-slate-200">
-						<h3 class="font-semibold text-slate-900 mb-3">📁 任务分类</h3>
-						<!-- 快速统计 -->
-						<div class="space-y-2 text-sm">
-							<div class="flex justify-between items-center p-2 bg-slate-50 rounded">
-								<span class="text-slate-600">全部任务</span>
-								<span class="font-medium text-slate-900">{{ todoStore.todos.length }}</span>
-							</div>
-							<div class="flex justify-between items-center p-2 bg-emerald-50 rounded">
-								<span class="text-emerald-700">已完成</span>
-								<span class="font-medium text-emerald-900">{{todoStore.todos.filter(t =>
-									t.completed).length}}</span>
-							</div>
-							<div class="flex justify-between items-center p-2 bg-orange-50 rounded">
-								<span class="text-orange-700">进行中</span>
-								<span class="font-medium text-orange-900">{{todoStore.todos.filter(t =>
-									!t.completed).length}}</span>
-							</div>
-						</div>
-					</div>
-					<!-- 导航菜单 -->
-					<nav class="flex-1 p-4 space-y-1">
-						<button @click="switchView('list')" :class="[
-							'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-							activeView === 'list'
-								? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600'
-								: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-						]">
-							📄 列表视图
-						</button>
-						<button @click="switchView('tree')" :class="[
-							'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-							activeView === 'tree'
-								? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600'
-								: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-						]">
-							🌳 树视图
-						</button>
-						<button @click="switchView('heap')" :class="[
-							'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-							activeView === 'heap'
-								? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600'
-								: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-						]">
-							🏔️ 堆视图
-						</button>
-						<hr class="my-4 border-slate-200">
-						<button @click="switchView('trash')" :class="[
-							'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-							activeView === 'trash'
-								? 'bg-red-50 text-red-700 border-l-4 border-red-600'
-								: 'text-slate-400 hover:bg-red-50 hover:text-red-600'
-						]">
-							🗑️ 回收站
-						</button>
-					</nav>
-					<!-- AI分解区域 -->
-					<div class="p-4 border-t border-slate-200">
-						<button @click="handleBreakdownTask" :disabled="!selectedTaskId || isBreakingDown"
-							class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-md hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-							<span v-if="isBreakingDown">⏳</span>
-							<span>{{ isBreakingDown ? '分解中...' : 'AI 任务分解' }}</span>
-						</button>
-					</div>
-				</aside>
+				<!-- 左栏：任务导航面板（统一在 LeftSidebar 内部处理移动/桌面渲染与动画） -->
+				<LeftSidebar
+					:show="showLeftSidebar"
+					:active-view="activeView"
+					:selected-task-id="selectedTaskId"
+					:is-breaking-down="isBreakingDown"
+					@close="() => { showLeftSidebar = false; showMobileSidebar = false }"
+					@switch-view="switchView"
+					@create-task="createNewTask"
+					@breakdown-task="handleBreakdownTask"
+				/>
 
-				<!-- 小屏浮层侧栏（左侧滑出，机制与详情面板一致） -->
-				<Transition enter-active-class="transition-all duration-300 ease-out"
-					enter-from-class="-translate-x-full" enter-to-class="translate-x-0"
-					leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0"
-					leave-to-class="-translate-x-full">
-					<div v-if="showMobileSidebar"
-						class="lg:hidden absolute top-0 left-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-50">
-						<!-- 标题栏 -->
-						<div class="flex items-center justify-between p-4 border-b border-slate-200">
-							<h3 class="font-semibold text-slate-900">📁 任务分类</h3>
-							<button @click="showMobileSidebar = false" class="p-2 rounded hover:bg-slate-100">
-								<span class="text-lg">✖️</span>
-							</button>
-						</div>
-						<!-- 侧栏主体内容（复用原侧栏内容） -->
-						<div class="flex-1 overflow-y-auto">
-							<!-- 快速统计 -->
-							<div class="space-y-2 text-sm p-4">
-								<div class="flex justify-between items-center p-2 bg-slate-50 rounded">
-									<span class="text-slate-600">全部任务</span>
-									<span class="font-medium text-slate-900">{{ todoStore.todos.length }}</span>
-								</div>
-								<div class="flex justify-between items-center p-2 bg-emerald-50 rounded">
-									<span class="text-emerald-700">已完成</span>
-									<span class="font-medium text-emerald-900">{{todoStore.todos.filter(t =>
-										t.completed).length}}</span>
-								</div>
-								<div class="flex justify-between items-center p-2 bg-orange-50 rounded">
-									<span class="text-orange-700">进行中</span>
-									<span class="font-medium text-orange-900">{{todoStore.todos.filter(t =>
-										!t.completed).length}}</span>
-								</div>
-							</div>
-							<!-- 导航菜单 -->
-							<nav class="p-4 space-y-1">
-								<button @click="switchView('list'); showMobileSidebar = false" :class="[
-									'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-									activeView === 'list'
-										? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600'
-										: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-								]">
-									📄 列表视图
-								</button>
-								<button @click="switchView('tree'); showMobileSidebar = false" :class="[
-									'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-									activeView === 'tree'
-										? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600'
-										: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-								]">
-									🌳 树视图
-								</button>
-								<button @click="switchView('heap'); showMobileSidebar = false" :class="[
-									'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-									activeView === 'heap'
-										? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600'
-										: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-								]">
-									🏔️ 堆视图
-								</button>
-								<hr class="my-4 border-slate-200">
-								<button @click="switchView('trash'); showMobileSidebar = false" :class="[
-									'w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-									activeView === 'trash'
-										? 'bg-red-50 text-red-700 border-l-4 border-red-600'
-										: 'text-slate-400 hover:bg-red-50 hover:text-red-600'
-								]">
-									🗑️ 回收站
-								</button>
-							</nav>
-							<!-- AI分解区域 -->
-							<div class="p-4 border-t border-slate-200">
-								<button @click="handleBreakdownTask" :disabled="!selectedTaskId || isBreakingDown"
-									class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-md hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-									<span v-if="isBreakingDown">⏳</span>
-									<span>{{ isBreakingDown ? '分解中...' : 'AI 任务分解' }}</span>
-								</button>
-							</div>
-						</div>
-					</div>
-				</Transition>
 
 				<!-- 中栏：主要视图内容 -->
 				<div class="flex-1 flex flex-col min-w-0" @click="onMainAreaClick">
@@ -270,34 +128,27 @@
 					</div>
 				</div>
 
-				<!-- 右栏：详情面板 -->
-				<!-- 大屏常驻，窄屏根据选中任务显示 -->
-				<Transition enter-active-class="transition-all duration-300 ease-out"
-					enter-from-class="translate-x-full" enter-to-class="translate-x-0"
-					leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0"
-					leave-to-class="translate-x-full">
-					<!-- 大屏下总是显示面板 -->
-					<div v-if="showDetailPanel" :class="[
-						// 小屏浮层
-						'absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-20',
-						// 大屏常驻右栏
-						'lg:static lg:flex lg:w-96 lg:max-w-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
-						// 大屏显示
-						'lg:block'
-					]">
-						<!-- 详情内容 -->
-						<div class="flex-1 overflow-hidden">
-							<TodoDetailEditor :todo-id="selectedTaskId" @close="closeDetailPanel" />
-						</div>
-					</div>
-				</Transition>
-
+				<!-- 右栏：详情面板（由组件内部处理过渡与响应式布局） -->
+				<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel" />
 			</div>
 		</main>
 	</div>
 </template>
 
 <script setup>
+// 切换左栏显示状态
+const toggleLeftPanel = () => {
+	if (window.innerWidth >= 1024) {
+		// 大屏模式下切换左栏折叠状态
+		leftPanelCollapsed.value = !leftPanelCollapsed.value
+		showLeftSidebar.value = !leftPanelCollapsed.value
+	} else {
+		// 小屏模式下切换移动端侧栏
+		showMobileSidebar.value = !showMobileSidebar.value
+		showLeftSidebar.value = showMobileSidebar.value
+	}
+}
+
 // 只在点击中栏空白区域时取消选中任务
 const onMainAreaClick = (e) => {
 	if (e.target === e.currentTarget) {
@@ -309,17 +160,9 @@ const clearTaskSelection = () => {
 	selectedTaskId.value = null
 	showDetailPanel.value = false
 }
-// 移动端侧栏显示状态
-const showMobileSidebar = ref(false)
 
-// 切换左侧侧栏（大屏为折叠，窄屏为浮层）
-const toggleLeftPanel = () => {
-	if (window.innerWidth < 1024) {
-		showMobileSidebar.value = !showMobileSidebar.value
-	} else {
-		leftPanelCollapsed.value = !leftPanelCollapsed.value
-	}
-}
+
+
 import { ref, onMounted, computed, watch, onUnmounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -327,6 +170,7 @@ import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
 import { storeToRefs } from 'pinia'
 import SyncStatusIndicator from '../components/SyncStatusIndicator.vue'
+import LeftSidebar from '../components/LeftSidebar.vue'
 import TodoList from './todo/TodoList.vue'
 import TodoTree from './todo/TodoTree.vue'
 import TodoHeap from './todo/TodoHeap.vue'
@@ -372,6 +216,8 @@ const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const leftPanelCollapsed = ref(false)
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
+const showLeftSidebar = ref(false) // 侧栏显示状态
+const showMobileSidebar = ref(false) // 移动端侧栏显示状态
 
 const detailPanelRequested = ref(false)
 
@@ -380,13 +226,16 @@ const windowWidth = ref(window.innerWidth)
 
 const updateWindowWidth = () => {
 	windowWidth.value = window.innerWidth
-	// 当窗口从窄屏变为宽屏时，自动显示详情面板
-	if (windowWidth.value >= 1024 && !showDetailPanel.value) {
+	// 当窗口从窄屏变为宽屏时，自动显示详情面板和侧栏
+	if (windowWidth.value >= 1024) {
 		showDetailPanel.value = true
+		showLeftSidebar.value = true
+		showMobileSidebar.value = false
 	}
-	// 当窗口从宽屏变为窄屏时，如果没有选中任务，隐藏详情面板
-	if (windowWidth.value < 1024 && !selectedTaskId.value) {
-		showDetailPanel.value = false
+	// 当窗口从宽屏变为窄屏时，如果没有选中任务，隐藏详情面板和侧栏
+	if (windowWidth.value < 1024) {
+		if (!selectedTaskId.value) showDetailPanel.value = false
+		showLeftSidebar.value = false
 	}
 }
 
@@ -478,6 +327,23 @@ const handleTaskSelected = (taskId) => {
 	console.log('选中任务ID:', taskId)
 }
 
+// 创建新任务
+const createNewTask = async () => {
+	try {
+		const result = await todoStore.addTodo('新任务', {
+			description: '',
+			completed: false
+		})
+		if (result) {
+			// 选中新创建的任务
+			selectedTaskId.value = result.id
+			showDetailPanel.value = true
+		}
+	} catch (error) {
+		console.error('创建任务失败:', error)
+	}
+}
+
 const handleBreakdownTask = async () => {
 	if (!selectedTaskId.value) {
 		showBreakdownMessage('请先选择一个任务', 'error')
@@ -529,6 +395,8 @@ onMounted(() => {
 	window.addEventListener('resize', updateWindowWidth)
 	// 初始化窗口宽度
 	updateWindowWidth()
+	// 初始化侧栏显示（大屏默认显示，窄屏默认隐藏）
+	showLeftSidebar.value = window.innerWidth >= 1024
 })
 
 onUnmounted(() => {
