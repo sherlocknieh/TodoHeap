@@ -9,25 +9,25 @@
         }
       ]" :style="{ paddingLeft: (12 + item._level * 20) + 'px' }" @click="selectTask(item.id)">
         <!-- 展开/折叠按钮预留空间，只有父任务显示按钮，其他显示透明占位 -->
-        <div class="flex items-center mr-1 w-8 justify-center">
-          <button v-if="item.children && item.children.length" class="inline-flex items-center justify-center w-7 h-7 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 hover:bg-slate-200" @click.stop="toggleExpand(item.id)">
-            <svg v-if="expandedMap[item.id]" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        <div class="flex items-center mr-1 w-6 justify-center">
+          <button v-if="item.children && item.children.length" class="inline-flex items-center justify-center w-5 h-5 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 hover:bg-slate-200" @click.stop="toggleExpand(item.id)">
+            <svg v-if="expandedMap[item.id]" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>
+            <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <span v-else class="inline-block w-6 h-6"></span>
+          <span v-else class="inline-block w-4 h-4"></span>
         </div>
         <!-- 自定义三状态复选框 -->
         <div class="shrink-0">
-          <button type="button" class="inline-flex items-center justify-center w-6 h-6 rounded border" :class="{
+          <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded border align-baseline" :class="{
             'bg-blue-600 border-blue-600 text-white': statusMap[item.id] === 'checked',
             'bg-white border-slate-300 text-slate-700': statusMap[item.id] === 'unchecked',
             'bg-slate-100 border-slate-300 text-slate-700': statusMap[item.id] === 'indeterminate'
           }" @click.stop="cycleStatus(item)" :aria-pressed="statusMap[item.id] === 'checked'">
             <template v-if="statusMap[item.id] === 'checked'">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </template>
             <template v-else-if="statusMap[item.id] === 'indeterminate'">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 12h12" stroke-linecap="round"/></svg>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 12h12" stroke-linecap="round"/></svg>
             </template>
           </button>
         </div>
@@ -35,7 +35,7 @@
         <!-- 标题 -->
         <div class="flex-1 min-w-0" @dblclick.stop="startEdit(item.id, item.title)">
           <span v-if="editingId !== item.id" :class="[
-            'block text-sm text-slate-800 font-normal leading-relaxed break-words',
+            'block text-sm text-slate-800 font-normal leading-relaxed wrap-break-word',
             { 'line-through text-slate-500': item.status === 'done' }
           ]">
             {{ item.title || '未命名任务' }}

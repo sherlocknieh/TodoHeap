@@ -158,7 +158,6 @@ const onMainAreaClick = (e) => {
 // 点击中栏空白区域时取消选中任务
 const clearTaskSelection = () => {
 	selectedTaskId.value = null
-	showDetailPanel.value = false
 }
 
 

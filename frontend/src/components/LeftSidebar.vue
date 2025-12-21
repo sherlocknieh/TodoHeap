@@ -126,7 +126,7 @@
                 :disabled="isBreakingDown"
                 :class="[
                   'w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed',
-                  'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-sm hover:shadow-md',
+                  'bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-sm hover:shadow-md',
                   !isBreakingDown && 'animate-pulse-glow'
                 ]"
               >

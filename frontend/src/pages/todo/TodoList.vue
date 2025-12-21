@@ -7,7 +7,7 @@
           v-model.trim="newTaskTitle"
           @keyup.enter="addTodo"
           placeholder="快速添加：输入任务，回车添加"
-          class="w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-24"
+          class="w-full border bg-white border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-24"
         />
         <input
           v-model="newTaskDate"
