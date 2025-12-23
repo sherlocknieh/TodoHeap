@@ -17,7 +17,7 @@
 							<rect x="4" y="16" width="16" height="2" rx="1" fill="#6366F1" />
 						</svg>
 					</button>
-					<h1 class="text-xl sm:text-2xl font-bold text-slate-900">📝 TodoHeap</h1>
+					<h1 class="text-xl sm:text-2xl font-bold text-slate-900">TodoHeap</h1>
 					<span class="hidden sm:inline text-sm text-slate-500">智能任务管理</span>
 				</div>
 				<!-- 右侧用户信息和同步状态 -->
