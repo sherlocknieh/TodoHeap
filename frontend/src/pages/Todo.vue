@@ -146,15 +146,18 @@ const toggleLeftPanel = () => {
 	}
 }
 
-// 只在点击中栏空白区域时取消选中任务
+// 点击中栏区域时关闭详情面板（如果点击的不是任务项）
 const onMainAreaClick = (e) => {
-	if (e.target === e.currentTarget) {
-		clearTaskSelection();
+	// 检查是否点击了任务项（带有 data-task-item 属性的元素）
+	const clickedTaskItem = e.target.closest('[data-task-item]')
+	// 检查是否点击了详情面板
+	const clickedDetailPanel = e.target.closest('[data-detail-panel]')
+	
+	// 如果没有点击任务项也没有点击详情面板，则关闭详情面板
+	if (!clickedTaskItem && !clickedDetailPanel) {
+		closeDetailPanel()
+		selectedTaskId.value = null
 	}
-}
-// 点击中栏空白区域时取消选中任务
-const clearTaskSelection = () => {
-	selectedTaskId.value = null
 }
 
 
@@ -316,10 +319,10 @@ const handleTaskSelected = (taskId) => {
 	if (taskId === null) {
 		// 取消选中任务
 		closeDetailPanel()
+		selectedTaskId.value = null
 	} else if (selectedTaskId.value === taskId) {
-		// 如果点击的是已选中的任务，切换详情面板显示状态
-		showDetailPanel.value = !showDetailPanel.value
-		if (!showDetailPanel.value) selectedTaskId.value = null
+		// 如果点击的是已选中的任务，不做任何操作（保持详情面板打开）
+		// 这样可以避免在编辑时误触导致面板关闭
 	} else {
 		// 如果选择的是新任务，更新选中ID并自动显示详情面板
 		selectedTaskId.value = taskId

@@ -1,6 +1,6 @@
 <template>
   <Transition enter-active-class="transition-all duration-300 ease-out" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
-    <div v-if="show" :class="[
+    <div v-if="show" data-detail-panel :class="[
       // 小屏浮层
       'absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-20',
       // 大屏常驻右栏
