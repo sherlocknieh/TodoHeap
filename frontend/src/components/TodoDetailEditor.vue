@@ -48,13 +48,19 @@
                 </svg>
                 删除于 {{ formatDate(todo.deleted_at) }}
               </span>
-              <span v-else-if="lastSavedAt" class="flex items-center gap-1 text-emerald-600">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <span v-else-if="isDirty" class="flex items-center gap-1 text-slate-500">
+                <!-- <svg class="w-3.5 h-3.5 animate-pulse" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" />
+                </svg> -->
+                编辑中...
+              </span>
+              <span v-else-if="lastSavedAt" class="flex items-center gap-1 text-slate-500">
+                <!-- <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
+                </svg> -->
                 已保存
               </span>
-              <span v-else class="text-slate-400">编辑中...</span>
+              <span v-else class="text-slate-400">就绪</span>
             </div>
             <div class="flex items-center gap-1">
               <!-- 占位按钮 -->
@@ -100,10 +106,22 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
+
+// 防抖函数
+function debounce(fn, delay) {
+  let timer = null
+  return function (...args) {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+      timer = null
+    }, delay)
+  }
+}
 
 const props = defineProps({
   todoId: { type: Number, default: null },
@@ -153,18 +171,43 @@ const lastSavedAt = ref('')
 // Milkdown 编辑器相关
 const editorKey = ref(0)
 
+let debounceTimer = null
+const debouncedSaveDescription = debounce(async () => {
+  if (!todo.value || isDeleted.value) return
+  markDirty('description')
+  if (!dirtyDescription.value) return
+  await savePayload({ description: draftDescription.value })
+}, 500)
+
 // 处理描述内容变化
 const onDescriptionChange = (value) => {
   draftDescription.value = value
   markDirty('description')
+  // 触发防抖保存
+  debouncedSaveDescription()
 }
 
-// 处理描述区域失焦
+// 处理描述区域失焦 - 立即保存（取消防抖等待）
 const handleDescriptionBlur = async () => {
+  // 取消防抖定时器，立即保存
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
   await saveIfNeeded('description')
 }
 
 let clearSavedTimer = null
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+  if (clearSavedTimer) {
+    clearTimeout(clearSavedTimer)
+  }
+})
 
 // 乐观更新的保存方法
 const savePayload = async (payload) => {
@@ -237,6 +280,9 @@ const markDirty = (field) => {
     dirtyDescription.value = draftDescription.value !== initialDescription.value
   }
 }
+
+// 计算属性：是否有未保存的更改
+const isDirty = computed(() => dirtyTitle.value || dirtyDescription.value)
 
 
 
