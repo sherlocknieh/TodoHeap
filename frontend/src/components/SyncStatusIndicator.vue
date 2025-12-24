@@ -1,27 +1,28 @@
 <template>
   <div class="sync-indicator">
-    <Transition name="fade" mode="out-in">
+    <div class="status-container">
       <!-- 已同步状态 -->
-      <div v-if="syncStatus === 'idle'" key="idle" class="status-badge status-synced">
+      <div v-show="syncStatus === 'idle'" class="status-badge status-synced">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 15a4 4 0 0 0 4 4h9a5 5 0 0 0 .5-9.97" stroke-linecap="round" stroke-linejoin="round"/>
-          <polyline points="9,12 12,15 19,8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="9,12 12,15 17,10" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <span class="label">已同步</span>
       </div>
       
       <!-- 同步中状态 -->
-      <div v-else-if="syncStatus === 'syncing'" key="syncing" class="status-badge status-syncing">
+      <div v-show="syncStatus === 'syncing'" class="status-badge status-syncing">
         <svg class="icon spinning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/>
         </svg>
-        <span class="label">同步中 ({{ pendingCount }})</span>
+        <span class="label">同步中</span>
+        <span class="pending-count">({{ pendingCount }})</span>
       </div>
       
       <!-- 离线状态 -->
-      <div v-else-if="syncStatus === 'offline'" key="offline" class="status-badge status-offline">
+      <div v-show="syncStatus === 'offline'" class="status-badge status-offline">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 15a4 4 0 0 0 4 4h9a5 5 0 0 0 .5-9.97" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" stroke-linecap="round" stroke-linejoin="round"/>
           <line x1="2" y1="2" x2="22" y2="22" stroke-linecap="round"/>
         </svg>
         <span class="label">离线</span>
@@ -29,7 +30,7 @@
       </div>
       
       <!-- 错误状态 -->
-      <div v-else-if="syncStatus === 'error'" key="error" class="status-badge status-error" @click="handleRetry">
+      <div v-show="syncStatus === 'error'" class="status-badge status-error" @click="handleRetry">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/>
           <line x1="12" y1="8" x2="12" y2="12" stroke-linecap="round"/>
@@ -38,7 +39,7 @@
         <span class="label">同步失败</span>
         <span class="retry-hint">点击重试</span>
       </div>
-    </Transition>
+    </div>
     
     <!-- 详情弹窗 -->
     <Transition name="popup">
@@ -115,25 +116,39 @@ onUnmounted(() => {
   align-items: center;
 }
 
+.status-container {
+  position: relative;
+  width: 100px;
+  height: 30px;
+}
+
 .status-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease, background-color 0.2s ease;
+  white-space: nowrap;
 }
 
 .status-badge:hover {
-  transform: scale(1.02);
+  filter: brightness(0.97);
 }
 
 .icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .spinning {
@@ -167,8 +182,12 @@ onUnmounted(() => {
 }
 
 .pending-count {
-  font-size: 11px;
+  font-size: 10px;
   opacity: 0.8;
+}
+
+.label {
+  flex-shrink: 0;
 }
 
 /* 错误状态 */
@@ -266,16 +285,6 @@ onUnmounted(() => {
 }
 
 /* 过渡动画 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
 .popup-enter-active,
 .popup-leave-active {
   transition: all 0.2s ease;
