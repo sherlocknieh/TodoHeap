@@ -53,20 +53,27 @@
               @blur="saveIfNeeded('title')"
             />
           </div>
-          <!-- 任务描述 -->
+          <!-- 任务描述 - Milkdown 所见即所得编辑器 -->
           <div class="space-y-1">
-            <label class="block text-xs font-medium text-slate-600">详情</label>
-            <textarea
-              v-model="draftDescription"
-              :disabled="isDeleted"
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-medium text-slate-600">详情</label>
+              <span class="text-xs text-slate-400">Markdown格式</span>
+            </div>
+            <div
               :class="[
-                'w-full min-h-48 px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+                'w-full min-h-48 rounded-lg border border-slate-200 bg-white overflow-hidden transition-colors',
+                isDeleted ? 'bg-slate-50 opacity-75' : 'hover:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500'
               ]"
-              placeholder="添加备注（失焦自动保存）"
-              @input="markDirty('description')"
-              @blur="saveIfNeeded('description')"
-            ></textarea>
+            >
+              <MilkdownEditor
+                :key="editorKey"
+                v-model="draftDescription"
+                :readonly="isDeleted"
+                placeholder="输入内容，支持 Markdown 语法..."
+                @blur="handleDescriptionBlur"
+                @update:modelValue="onDescriptionChange"
+              />
+            </div>
           </div>
           <!-- 最后保存时间 -->
           <div class="text-xs text-slate-500">
@@ -80,9 +87,10 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
+import MilkdownEditor from './MilkdownEditor.vue'
 
 const props = defineProps({
   todoId: { type: Number, default: null },
@@ -129,6 +137,20 @@ const dirtyDescription = ref(false)
 
 const lastSavedAt = ref('')
 
+// Milkdown 编辑器相关
+const editorKey = ref(0)
+
+// 处理描述内容变化
+const onDescriptionChange = (value) => {
+  draftDescription.value = value
+  markDirty('description')
+}
+
+// 处理描述区域失焦
+const handleDescriptionBlur = async () => {
+  await saveIfNeeded('description')
+}
+
 let clearSavedTimer = null
 
 // 乐观更新的保存方法
@@ -173,6 +195,7 @@ const resetDraftFromTodo = () => {
     dirtyTitle.value = false
     dirtyDescription.value = false
     lastSavedAt.value = ''
+    editorKey.value++ // 强制重新创建编辑器
     return
   }
 
@@ -183,6 +206,7 @@ const resetDraftFromTodo = () => {
 
   dirtyTitle.value = false
   dirtyDescription.value = false
+  editorKey.value++ // 强制重新创建编辑器以加载新内容
 }
 
 watch(

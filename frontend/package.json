@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@milkdown/kit": "^7.17.3",
+    "@milkdown/theme-nord": "^7.17.3",
+    "@milkdown/vue": "^7.17.3",
     "@supabase/supabase-js": "^2.86.0",
     "@tailwindcss/vite": "^4.1.18",
     "@vueuse/core": "^14.1.0",
