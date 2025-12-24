@@ -1,15 +1,25 @@
 <template>
-  <Transition enter-active-class="transition-all duration-300 ease-out" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
+  <!-- 移动端：底部滑出；桌面端：右侧滑出 -->
+  <Transition
+    :enter-active-class="isMobile ? 'transition-all duration-300 ease-out' : 'transition-all duration-300 ease-out'"
+    :enter-from-class="isMobile ? 'translate-y-full' : 'translate-x-full'"
+    :enter-to-class="isMobile ? 'translate-y-0' : 'translate-x-0'"
+    :leave-active-class="isMobile ? 'transition-all duration-200 ease-in' : 'transition-all duration-200 ease-in'"
+    :leave-from-class="isMobile ? 'translate-y-0' : 'translate-x-0'"
+    :leave-to-class="isMobile ? 'translate-y-full' : 'translate-x-full'"
+  >
     <div v-if="show" data-detail-panel :class="[
-      // 小屏浮层
-      'absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-20',
-      // 大屏常驻右栏
-      'lg:static lg:flex lg:w-96 lg:max-w-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
-      // 大屏显示
-      'lg:block',
+      // 移动端：底部弹出面板
+      'fixed inset-x-0 bottom-0 h-[70vh] bg-white shadow-2xl flex flex-col z-20 rounded-t-2xl',
+      // 桌面端：右侧常驻面板
+      'lg:absolute lg:inset-x-auto lg:top-0 lg:right-0 lg:bottom-0 lg:h-auto lg:w-96 lg:rounded-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
       // 已删除任务时整个面板显示禁用光标
       isDeleted ? 'cursor-not-allowed' : ''
     ]">
+      <!-- 移动端拖动条 -->
+      <div class="lg:hidden shrink-0 flex justify-center py-2">
+        <div class="w-10 h-1 bg-slate-300 rounded-full"></div>
+      </div>
       <section class="h-full flex flex-col min-h-0">
         <!-- 空状态显示 -->
         <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400">
@@ -103,7 +113,7 @@
     </div>
   </Transition>
   
-  <!-- 放大编辑模态框 -->
+  <!-- 放大编辑模态框 - 始终居中漂浮 -->
   <Teleport to="body">
     <Transition
       enter-active-class="transition-all duration-200 ease-out"
@@ -115,7 +125,7 @@
     >
       <div
         v-if="showExpandedEditor"
-        class="fixed inset-0 z-50 flex items-center justify-center p-8 bg-black/50"
+        class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 lg:p-8"
         @click.self="closeExpandedEditor"
       >
         <Transition
@@ -128,7 +138,7 @@
         >
           <div
             v-if="showExpandedEditor"
-            class="w-full max-w-4xl h-[80vh] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
+            class="bg-white shadow-2xl flex flex-col overflow-hidden w-full max-w-4xl h-[85vh] lg:h-[80vh] rounded-xl"
           >
             <!-- 模态框头部 -->
             <div class="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -198,10 +208,22 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
+
+// 响应式窗口宽度检测
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+const isMobile = computed(() => windowWidth.value < 1024)
+
+const handleResize = () => {
+  windowWidth.value = window.innerWidth
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
 
 // 防抖函数
 function debounce(fn, delay) {
@@ -314,7 +336,7 @@ const handleDescriptionBlur = async () => {
 
 let clearSavedTimer = null
 
-// 组件卸载时清理定时器
+// 组件卸载时清理定时器和事件监听
 onUnmounted(() => {
   if (debounceTimer) {
     clearTimeout(debounceTimer)
@@ -322,6 +344,7 @@ onUnmounted(() => {
   if (clearSavedTimer) {
     clearTimeout(clearSavedTimer)
   }
+  window.removeEventListener('resize', handleResize)
 })
 
 // 乐观更新的保存方法
