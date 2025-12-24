@@ -75,9 +75,15 @@ export const useTodoStore = defineStore('todos', () => {
         break
       
       case OperationType.DELETE:
-        // 回滚删除：恢复快照
+        // 回滚删除：恢复快照（包含父任务和后代任务）
         if (snapshot) {
           todos.value.push(snapshot)
+          // 检查是否有后代任务快照
+          const descendantSnapshot = getSyncQueue().getSnapshot(`${item.targetId}-descendants`)
+          if (descendantSnapshot && Array.isArray(descendantSnapshot)) {
+            todos.value.push(...descendantSnapshot)
+            getSyncQueue().clearSnapshot(`${item.targetId}-descendants`)
+          }
         }
         error.value = '删除任务失败，已恢复'
         break
@@ -215,6 +221,21 @@ export const useTodoStore = defineStore('todos', () => {
     return { success: true, data: newTodo }
   }
 
+  // 递归查找所有后代任务ID
+  const findDescendantIds = (parentId) => {
+    const descendants = []
+    const findChildren = (pid) => {
+      todos.value.forEach(t => {
+        if (t.parent_id === pid) {
+          descendants.push(t.id)
+          findChildren(t.id)
+        }
+      })
+    }
+    findChildren(parentId)
+    return descendants
+  }
+
   // 删除 (乐观更新 - 软删除)
   const deleteTodo = async (id) => {
     const syncQueue = getSyncQueue()
@@ -226,21 +247,38 @@ export const useTodoStore = defineStore('todos', () => {
       return { success: false, error: '任务不存在' }
     }
     
-    // 2. 保存快照用于回滚
+    // 2. 保存快照用于回滚（包含父任务）
     const todoToDelete = todos.value[index]
     syncQueue.saveSnapshot(realId, todoToDelete)
     
-    // 3. 乐观更新：立即从列表移除
-    todos.value.splice(index, 1)
+    // 3. 找到所有后代任务（用于乐观更新）
+    const descendantIds = findDescendantIds(realId)
     
-    // 4. 如果是临时ID且还未同步，直接从队列移除相关操作
+    // 4. 保存后代任务快照（用于回滚）
+    const descendantSnapshots = []
+    descendantIds.forEach(descId => {
+      const descTodo = todos.value.find(t => t.id === descId)
+      if (descTodo) {
+        descendantSnapshots.push({ ...descTodo })
+      }
+    })
+    if (descendantSnapshots.length > 0) {
+      syncQueue.saveSnapshot(`${realId}-descendants`, descendantSnapshots)
+    }
+    
+    // 5. 乐观更新：立即从列表移除父任务及所有后代
+    const idsToRemove = new Set([realId, ...descendantIds])
+    todos.value = todos.value.filter(t => !idsToRemove.has(t.id))
+    
+    // 6. 如果是临时ID且还未同步，直接从队列移除相关操作
     if (syncQueue.isTempId(id)) {
       // 临时任务还没同步到服务器，不需要发请求
       syncQueue.clearSnapshot(realId)
+      syncQueue.clearSnapshot(`${realId}-descendants`)
       return { success: true }
     }
     
-    // 5. 将删除操作加入同步队列
+    // 7. 将删除操作加入同步队列（数据库触发器会级联删除子任务）
     await syncQueue.enqueue({
       type: OperationType.DELETE,
       targetId: realId,
