@@ -76,21 +76,16 @@
 
 				<!-- 中栏：主要视图内容 -->
 				<div class="flex-1 flex flex-col min-w-0" @click="onMainAreaClick">
-					<!-- 消息提示区域 -->
-					<Transition enter-active-class="transition ease-out duration-300"
-						enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0"
-						leave-active-class="transition ease-in duration-200"
-						leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity 0 -translate-y-2">
-						<div v-if="breakdownMessage" :class="[
-							'mx-4 mt-4 mb-2 px-4 py-2.5 rounded-lg text-sm font-medium',
-							{
-								'bg-emerald-50 text-emerald-800 border border-emerald-200': breakdownMessageType === 'success',
-								'bg-red-50 text-red-800 border border-red-200': breakdownMessageType === 'error'
-							}
-						]">
-							{{ breakdownMessage }}
-						</div>
-					</Transition>
+					<!-- AI 分解状态区域 -->
+					<div class="mx-4 mt-4 mb-2">
+						<BreakdownStatusCard
+							:is-processing="isBreakingDown"
+							:message="breakdownMessage"
+							:status="breakdownMessageType"
+							:task-count="breakdownProgress.count"
+							:tasks="breakdownProgress.tasks"
+						/>
+					</div>
 
 					<div class="flex-1 overflow-auto p-4" @click="onMainAreaClick">
 						<!-- 列表视图 -->
@@ -170,6 +165,7 @@ import { useSyncQueueStore } from '../stores/syncQueue'
 import { storeToRefs } from 'pinia'
 import SyncStatusIndicator from '../components/SyncStatusIndicator.vue'
 import LeftSidebar from '../components/LeftSidebar.vue'
+import BreakdownStatusCard from '../components/BreakdownStatusCard.vue'
 import TodoList from './todo/TodoList.vue'
 import TodoTree from './todo/TodoTree.vue'
 import TodoHeap from './todo/TodoHeap.vue'
@@ -213,6 +209,7 @@ const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
+const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
 const leftPanelCollapsed = ref(false)
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 const showLeftSidebar = ref(false) // 侧栏显示状态
@@ -351,20 +348,35 @@ const handleBreakdownTask = async () => {
 
 	isBreakingDown.value = true
 	breakdownMessage.value = ''
+	breakdownProgress.value = { count: 0, tasks: [] }
 
 	try {
 		const query = '继续分解'
-		const result = await todoStore.invokeBreakdown(todoStore.treeNodes, selectedTaskId.value, query)
+		
+		// 使用流式接收，每收到一个子任务就更新进度
+		const onTaskReceived = ({ task, index, totalSoFar }) => {
+			breakdownProgress.value.count = totalSoFar
+			breakdownProgress.value.tasks.push(task)
+		}
+		
+		const result = await todoStore.invokeBreakdown(
+			todoStore.treeNodes,
+			selectedTaskId.value,
+			query,
+			onTaskReceived
+		)
 
 		if (result.success) {
-			showBreakdownMessage(`成功添加 ${result.addedCount}/${result.totalCount} 个子任务`, 'success')
-			// 刷新任务列表以显示新添加的子任务
-			await todoStore.fetchTodos()
+			showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
 		} else {
 			showBreakdownMessage(`任务分解失败: ${result.error}`, 'error')
 		}
 	} finally {
 		isBreakingDown.value = false
+		// 清空进度
+		setTimeout(() => {
+			breakdownProgress.value = { count: 0, tasks: [] }
+		}, 300)
 	}
 }
 
@@ -408,3 +420,7 @@ onUnmounted(() => {
 	window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>
+
+<style scoped>
+/* 无需额外样式，状态卡片样式已移至 BreakdownStatusCard 组件 */
+</style>
