@@ -1,5 +1,5 @@
 <template>
-  <div ref="editorRef" class="milkdown-editor"></div>
+  <div ref="editorRef" class="milkdown-editor h-full"></div>
 </template>
 
 <script setup>
@@ -110,17 +110,27 @@ defineExpose({
 /* Milkdown 编辑器基础样式 */
 .milkdown-editor {
   min-height: 12rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   color: #1e293b;
 }
 
 .milkdown-editor .milkdown {
   padding: 0;
   background: transparent !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .milkdown-editor .editor {
   padding: 0.75rem;
   min-height: 12rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   color: #1e293b;
 }
 
@@ -128,6 +138,8 @@ defineExpose({
 .milkdown-editor .ProseMirror {
   position: relative;
   min-height: 12rem;
+  flex: 1;
+  overflow-y: auto;
   color: #1e293b;
   background: transparent;
 }

@@ -9,21 +9,6 @@
       'lg:block'
     ]">
       <section class="h-full flex flex-col min-h-0">
-        <!-- 头部 -->
-        <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
-            <h2 class="text-lg font-semibold text-slate-900 truncate">{{ todo?.title || '任务详情' }}</h2>
-          </div>
-          <!-- 关闭按钮 -->
-          <button
-            @click="$emit('close')"
-            class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-            title="关闭详情面板"
-          >
-            <span class="text-lg">✕</span>
-          </button>
-        </header>
-
         <!-- 空状态显示 -->
         <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400">
           <div class="text-center">
@@ -32,37 +17,72 @@
           </div>
         </div>
 
-        <div v-else class="flex-1 min-h-0 overflow-auto px-4 py-4 space-y-4">
+        <template v-else>
           <!-- 已删除任务提示 -->
-          <div v-if="isDeleted" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <div v-if="isDeleted" class="shrink-0 mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             此任务已删除，仅可查看，不可编辑。若需编辑，请先恢复任务。
           </div>
-          <!-- 任务标题 -->
-          <div class="space-y-1">
-            <label class="block text-xs font-medium text-slate-600">标题</label>
+          
+          <!-- 区块1: 可编辑任务标题 -->
+          <div class="shrink-0 px-4 pt-4 pb-3">
             <input
               v-model.trim="draftTitle"
               type="text"
               :disabled="isDeleted"
               :class="[
-                'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+                'w-full px-0 py-1 text-xl font-bold text-slate-800 placeholder:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0',
+                isDeleted ? 'cursor-not-allowed opacity-75' : ''
               ]"
-              placeholder="请输入标题"
+              placeholder="任务标题"
               @input="markDirty('title')"
               @blur="saveIfNeeded('title')"
             />
           </div>
-          <!-- 任务描述 - Milkdown 所见即所得编辑器 -->
-          <div class="space-y-1">
-            <div class="flex items-center justify-between">
-              <label class="block text-xs font-medium text-slate-600">详情</label>
-              <span class="text-xs text-slate-400">Markdown格式</span>
+          
+          <!-- 分割线 -->
+          <div class="shrink-0 border-t border-slate-200"></div>
+          
+          <!-- 区块2: 功能键区 -->
+          <div class="shrink-0 px-4 py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-3 text-xs text-slate-500">
+              <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                {{ formatDate(todo.deleted_at) }}
+              </span>
+              <span v-else-if="lastSavedAt" class="flex items-center gap-1 text-emerald-600">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                已保存
+              </span>
+              <span v-else class="text-slate-400">编辑中...</span>
             </div>
+            <div class="flex items-center gap-1">
+              <!-- 占位按钮 -->
+              <button
+                class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition-colors"
+                title="更多操作"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="1" fill="currentColor" />
+                  <circle cx="19" cy="12" r="1" fill="currentColor" />
+                  <circle cx="5" cy="12" r="1" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <!-- 分割线 -->
+          <div class="shrink-0 border-t border-slate-200"></div>
+          
+          <!-- 区块3: 任务描述 - Milkdown 编辑器（占满剩余空间） -->
+          <div class="flex-1 min-h-0 overflow-hidden">
             <div
               :class="[
-                'w-full min-h-48 rounded-lg border border-slate-200 bg-white overflow-hidden transition-colors',
-                isDeleted ? 'bg-slate-50 opacity-75' : 'hover:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500'
+                'h-full bg-white',
+                isDeleted ? 'opacity-60' : ''
               ]"
             >
               <MilkdownEditor
@@ -70,17 +90,13 @@
                 v-model="draftDescription"
                 :readonly="isDeleted"
                 placeholder="输入内容，支持 Markdown 语法..."
+                class="h-full"
                 @blur="handleDescriptionBlur"
                 @update:modelValue="onDescriptionChange"
               />
             </div>
           </div>
-          <!-- 最后保存时间 -->
-          <div class="text-xs text-slate-500">
-            <span v-if="isDeleted && todo.deleted_at">删除时间：{{ formatDate(todo.deleted_at) }}</span>
-            <span v-else-if="lastSavedAt">最后保存：{{ lastSavedAt }}</span>
-          </div>
-        </div>
+        </template>
       </section>
     </div>
   </Transition>
