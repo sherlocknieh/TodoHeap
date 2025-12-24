@@ -411,6 +411,28 @@ watch(
   { immediate: true }
 )
 
+// 监听远程更新：当 todo 数据变化时，如果不是用户正在编辑，则同步更新
+watch(
+  () => todo.value,
+  (newTodo, oldTodo) => {
+    if (!newTodo) return
+    // 如果 todoId 改变了，resetDraftFromTodo 已经处理了
+    if (oldTodo && newTodo.id !== oldTodo.id) return
+    
+    // 如果用户没有在编辑，同步远程更新
+    if (!dirtyTitle.value && newTodo.title !== draftTitle.value) {
+      draftTitle.value = newTodo.title || ''
+      initialTitle.value = newTodo.title || ''
+    }
+    if (!dirtyDescription.value && newTodo.description !== draftDescription.value) {
+      draftDescription.value = newTodo.description || ''
+      initialDescription.value = newTodo.description || ''
+      editorKey.value++ // 强制刷新编辑器
+    }
+  },
+  { deep: true }
+)
+
 const markDirty = (field) => {
   if (field === 'title') {
     dirtyTitle.value = draftTitle.value !== initialTitle.value
