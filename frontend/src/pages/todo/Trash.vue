@@ -42,6 +42,7 @@
       <li
         v-for="todo in trashTodos"
         :key="todo.id"
+        data-task-item
         :class="['task-item', 'task-item-deleted', { 'task-item-selected': props.selectedTaskId === todo.id }]"
         @click="selectTask(todo.id)"
       >

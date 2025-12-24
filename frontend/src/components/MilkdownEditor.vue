@@ -267,4 +267,26 @@ defineExpose({
   background-color: #f8fafc;
   font-weight: 600;
 }
+
+/* 已删除内容的灰色样式 */
+.deleted-content .milkdown-editor,
+.deleted-content .milkdown-editor .milkdown,
+.deleted-content .milkdown-editor .ProseMirror,
+.deleted-content .milkdown-editor p,
+.deleted-content .milkdown-editor h1,
+.deleted-content .milkdown-editor h2,
+.deleted-content .milkdown-editor h3,
+.deleted-content .milkdown-editor h4,
+.deleted-content .milkdown-editor h5,
+.deleted-content .milkdown-editor h6,
+.deleted-content .milkdown-editor ul,
+.deleted-content .milkdown-editor ol,
+.deleted-content .milkdown-editor li,
+.deleted-content .milkdown-editor blockquote {
+  color: #94a3b8 !important;
+}
+
+.deleted-content .milkdown-editor a {
+  color: #94a3b8 !important;
+}
 </style>

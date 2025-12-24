@@ -6,7 +6,9 @@
       // 大屏常驻右栏
       'lg:static lg:flex lg:w-96 lg:max-w-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
       // 大屏显示
-      'lg:block'
+      'lg:block',
+      // 已删除任务时整个面板显示禁用光标
+      isDeleted ? 'cursor-not-allowed' : ''
     ]">
       <section class="h-full flex flex-col min-h-0">
         <!-- 空状态显示 -->
@@ -18,11 +20,6 @@
         </div>
 
         <template v-else>
-          <!-- 已删除任务提示 -->
-          <div v-if="isDeleted" class="shrink-0 mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            此任务已删除，仅可查看，不可编辑。若需编辑，请先恢复任务。
-          </div>
-          
           <!-- 区块1: 可编辑任务标题 -->
           <div class="shrink-0 px-4 pt-4 pb-3">
             <input
@@ -30,8 +27,8 @@
               type="text"
               :disabled="isDeleted"
               :class="[
-                'w-full px-0 py-1 text-xl font-bold text-slate-800 placeholder:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0',
-                isDeleted ? 'cursor-not-allowed opacity-75' : ''
+                'w-full px-0 py-1 text-xl font-bold placeholder:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0',
+                isDeleted ? 'cursor-not-allowed text-slate-400' : 'text-slate-800'
               ]"
               placeholder="任务标题"
               @input="markDirty('title')"
@@ -45,11 +42,11 @@
           <!-- 区块2: 功能键区 -->
           <div class="shrink-0 px-4 py-2.5 flex items-center justify-between">
             <div class="flex items-center gap-3 text-xs text-slate-500">
-              <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1">
+              <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1 text-slate-400">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                {{ formatDate(todo.deleted_at) }}
+                删除于 {{ formatDate(todo.deleted_at) }}
               </span>
               <span v-else-if="lastSavedAt" class="flex items-center gap-1 text-emerald-600">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -82,7 +79,7 @@
             <div
               :class="[
                 'h-full bg-white',
-                isDeleted ? 'opacity-60' : ''
+                isDeleted ? 'pointer-events-none deleted-content' : ''
               ]"
             >
               <MilkdownEditor
