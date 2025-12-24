@@ -3,6 +3,8 @@
 - **核心功能**: 在 TodoList 上增加 AI 自动分解任务的功能, 减轻任务管理压力;
 - **特色功能**: 以堆结构展示最优先的任务, 省去在多个平等任务中做选择的精力;
 
+![TodoHeap 主页面截图](docs/images/main-page.png)
+
 ## 快速链接
 
 - **应用首页**: https://sherlocknieh.github.io/TodoHeap/
