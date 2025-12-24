@@ -63,15 +63,14 @@
               <span v-else class="text-slate-400">就绪</span>
             </div>
             <div class="flex items-center gap-1">
-              <!-- 占位按钮 -->
+              <!-- 放大编辑按钮 -->
               <button
+                @click="openExpandedEditor"
                 class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition-colors"
-                title="更多操作"
+                title="放大编辑"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="1" fill="currentColor" />
-                  <circle cx="19" cy="12" r="1" fill="currentColor" />
-                  <circle cx="5" cy="12" r="1" fill="currentColor" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                 </svg>
               </button>
             </div>
@@ -103,6 +102,99 @@
       </section>
     </div>
   </Transition>
+  
+  <!-- 放大编辑模态框 -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-all duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="showExpandedEditor"
+        class="fixed inset-0 z-50 flex items-center justify-center p-8 bg-black/50"
+        @click.self="closeExpandedEditor"
+      >
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <div
+            v-if="showExpandedEditor"
+            class="w-full max-w-4xl h-[80vh] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
+          >
+            <!-- 模态框头部 -->
+            <div class="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <input
+                v-model.trim="draftTitle"
+                type="text"
+                :disabled="isDeleted"
+                :class="[
+                  'flex-1 px-0 py-1 text-2xl font-bold placeholder:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0',
+                  isDeleted ? 'cursor-not-allowed text-slate-400' : 'text-slate-800'
+                ]"
+                placeholder="任务标题"
+                @input="markDirty('title')"
+                @blur="saveIfNeeded('title')"
+              />
+              <button
+                @click="closeExpandedEditor"
+                class="ml-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                title="关闭"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <!-- 模态框状态栏 -->
+            <div class="shrink-0 px-6 py-2 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <div class="flex items-center gap-3">
+                <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1 text-slate-400">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  删除于 {{ formatDate(todo.deleted_at) }}
+                </span>
+                <span v-else-if="isDirty" class="text-slate-500">编辑中...</span>
+                <span v-else-if="lastSavedAt" class="text-slate-500">已保存</span>
+                <span v-else class="text-slate-400">就绪</span>
+              </div>
+              <span class="text-slate-400">按 ESC 关闭</span>
+            </div>
+            
+            <!-- 模态框内容 - Milkdown 编辑器 -->
+            <div class="flex-1 min-h-0 overflow-hidden">
+              <div
+                :class="[
+                  'h-full bg-white',
+                  isDeleted ? 'pointer-events-none deleted-content' : ''
+                ]"
+              >
+                <MilkdownEditor
+                  :key="'expanded-' + editorKey"
+                  v-model="draftDescription"
+                  :readonly="isDeleted"
+                  placeholder="输入内容，支持 Markdown 语法..."
+                  class="h-full"
+                  @blur="handleDescriptionBlur"
+                  @update:modelValue="onDescriptionChange"
+                />
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
@@ -129,6 +221,29 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+// 放大编辑器状态
+const showExpandedEditor = ref(false)
+
+const openExpandedEditor = () => {
+  showExpandedEditor.value = true
+  // 添加 ESC 键监听
+  document.addEventListener('keydown', handleEscKey)
+}
+
+const closeExpandedEditor = () => {
+  showExpandedEditor.value = false
+  // 移除 ESC 键监听
+  document.removeEventListener('keydown', handleEscKey)
+  // 强制刷新侧栏编辑器以显示最新内容
+  editorKey.value++
+}
+
+const handleEscKey = (e) => {
+  if (e.key === 'Escape') {
+    closeExpandedEditor()
+  }
+}
 
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
