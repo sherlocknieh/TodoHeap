@@ -1,43 +1,41 @@
 <template>
   <div class="max-w-4xl mx-auto text-slate-900" ref="shellRef">
     <!-- 快速添加任务 -->
-    <section class="flex items-center rounded-lg">
+    <section class="flex items-center rounded-lg gap-2">
       <div class="flex-1 relative flex items-center">
         <input
           v-model.trim="newTaskTitle"
           @keyup.enter="addTodo"
           placeholder="快速添加：输入任务，回车添加"
-          class="w-full border bg-white border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-24"
+          class="w-full border bg-white border-slate-200 rounded-md pl-3 pr-44 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         />
-        <input
-          v-model="newTaskDate"
-          type="date"
-          class="absolute right-12 top-1/2 -translate-y-1/2 w-28 border-none bg-transparent text-slate-500 text-sm focus:ring-0 focus:outline-none cursor-pointer"
-          style="height:28px;"
-        />
-        <div class="absolute right-2 top-1/2 -translate-y-1/2">
-          <button @click="showMore = !showMore" class="w-8 h-8 flex items-center justify-center rounded hover:bg-slate-100 transition" type="button">
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <input
+            v-model="newTaskDate"
+            type="date"
+            class="date-input border-none bg-transparent text-slate-500 text-sm focus:ring-0 focus:outline-none cursor-pointer"
+          />
+          <button @click="showMore = !showMore" class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition flex-shrink-0" type="button">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="1.5"/>
               <circle cx="19" cy="12" r="1.5"/>
               <circle cx="5" cy="12" r="1.5"/>
             </svg>
           </button>
-          <div v-if="showMore" class="absolute right-0 mt-2 w-40 bg-white border border-slate-200 rounded shadow-lg" ref="moreMenuRef">
-            <ul class="py-1 text-sm text-slate-700">
-              <li>
-                <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('优先级')">设置优先级</button>
-              </li>
-              <li>
-                <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('标签')">添加标签</button>
-              </li>
-              <!-- 可继续添加更多选项 -->
-            </ul>
-          </div>
+        </div>
+        <div v-if="showMore" class="absolute right-2 top-full mt-2 w-40 bg-white border border-slate-200 rounded shadow-lg z-10" ref="moreMenuRef">
+          <ul class="py-1 text-sm text-slate-700">
+            <li>
+              <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('优先级')">设置优先级</button>
+            </li>
+            <li>
+              <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('标签')">添加标签</button>
+            </li>
+          </ul>
         </div>
       </div>
       <button
-        class="ml-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition flex-shrink-0"
         @click="addTodo"
       >
         添加任务
@@ -246,9 +244,20 @@ const deleteTodo = async (id) => {
 const toggleDone = async (todo) => {
   await todoStore.toggleDone(todo.id)
 }
-
 const handleTaskSelected = (taskId) => {
   emit('task-selected', taskId)
 }
 </script>
+
+<style scoped>
+.date-input {
+  width: 140px;
+  height: 28px;
+}
+
+/* 确保日期输入框在各浏览器中显示完整 */
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+</style>
 
