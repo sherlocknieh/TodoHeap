@@ -16,7 +16,7 @@
           <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round"/>
         </svg>
         <span class="label">同步中</span>
-        <span class="pending-count">({{ pendingCount }})</span>
+        <span v-if="pendingCount > 0" class="pending-count">({{ pendingCount }})</span>
       </div>
       
       <!-- 离线状态 -->

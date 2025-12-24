@@ -40,6 +40,8 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
   const isOnline = useOnline()             // 网络状态
   const activeOperations = ref(new Set())  // 正在执行的操作ID
   const processingTargets = ref(new Set()) // 正在处理的 targetId 集合
+  const isReceivingRemote = ref(false)     // 是否正在接收远程更新
+  let remoteUpdateTimer = null             // 远程更新定时器
 
   // 并发配置
   const MAX_CONCURRENT = 5                 // 最大并发数
@@ -48,9 +50,22 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
   const syncStatus = computed(() => {
     if (!isOnline.value) return SyncStatus.OFFLINE
     if (lastError.value) return SyncStatus.ERROR
-    if (isProcessing.value || queue.value.length > 0) return SyncStatus.SYNCING
+    if (isProcessing.value || queue.value.length > 0 || isReceivingRemote.value) return SyncStatus.SYNCING
     return SyncStatus.IDLE
   })
+  
+  // 标记收到远程更新（短暂显示同步中状态）
+  const markRemoteUpdate = () => {
+    isReceivingRemote.value = true
+    // 清除之前的定时器
+    if (remoteUpdateTimer) {
+      clearTimeout(remoteUpdateTimer)
+    }
+    // 500ms 后自动清除
+    remoteUpdateTimer = setTimeout(() => {
+      isReceivingRemote.value = false
+    }, 500)
+  }
 
   // 计算队列中待处理的操作数
   const pendingCount = computed(() => queue.value.length)
@@ -565,6 +580,7 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     retryQueue,
     clearQueue,
     updateQueueTargetIds,
+    markRemoteUpdate,
     
     // 常量
     OperationType,

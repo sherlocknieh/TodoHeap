@@ -536,10 +536,13 @@ export const useTodoStore = defineStore('todos', () => {
           filter: `user_id=eq.${authStore.user.id}`
         },
         (payload) => {
+          console.log('Realtime 收到变更:', payload.eventType, payload)
           handleRealtimeChange(payload)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Realtime 订阅状态:', status)
+      })
   }
 
   const handleRealtimeChange = (payload) => {
@@ -556,6 +559,9 @@ export const useTodoStore = defineStore('todos', () => {
       console.log('忽略服务器推送，本地有未同步修改')
       return
     }
+
+    // 标记正在接收远程更新（短暂显示同步中状态）
+    syncQueue.markRemoteUpdate()
 
     switch (eventType) {
       case 'INSERT':
