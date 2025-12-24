@@ -47,6 +47,7 @@
 ### 后端
 
 - 注册登录 [Supabase](https://supabase.com/) 管理数据库;
+- 联系我获取项目权限: sherlocknieh@gmail.com
 - 本地编写后端函数: supabase/functions/;
   - 参考[官方教程](https://supabase.com/docs/guides/local-development)下载supabase-cli;
   - 参考[官方边缘函数快速开始](https://supabase.com/docs/guides/functions/quickstart)编写边缘函数;
