@@ -84,6 +84,8 @@
 							:status="breakdownMessageType"
 							:task-count="breakdownProgress.count"
 							:tasks="breakdownProgress.tasks"
+							@confirm="handleConfirmTasks"
+							@cancel="handleCancelTasks"
 						/>
 					</div>
 
@@ -162,6 +164,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
+import { useSettingsStore } from '../stores/settings'
 import { storeToRefs } from 'pinia'
 import SyncStatusIndicator from '../components/SyncStatusIndicator.vue'
 import LeftSidebar from '../components/LeftSidebar.vue'
@@ -178,6 +181,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
+const settingsStore = useSettingsStore()
 
 // 获取同步队列状态
 const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
@@ -210,6 +214,7 @@ const isBreakingDown = ref(false)
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
+const pendingTasks = ref([]) // 待确认的任务列表（用于预览模式）
 const leftPanelCollapsed = ref(false)
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 const showLeftSidebar = ref(false) // 侧栏显示状态
@@ -348,10 +353,13 @@ const handleBreakdownTask = async () => {
 
 	isBreakingDown.value = true
 	breakdownMessage.value = ''
+	breakdownMessageType.value = ''
 	breakdownProgress.value = { count: 0, tasks: [] }
+	pendingTasks.value = []
 
 	try {
 		const query = '继续分解'
+		const autoApply = settingsStore.autoApplyAITasks
 		
 		// 使用流式接收，每收到一个子任务就更新进度
 		const onTaskReceived = ({ task, index, totalSoFar }) => {
@@ -363,21 +371,57 @@ const handleBreakdownTask = async () => {
 			todoStore.treeNodes,
 			selectedTaskId.value,
 			query,
-			onTaskReceived
+			onTaskReceived,
+			autoApply
 		)
 
 		if (result.success) {
-			showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
+			if (autoApply) {
+				// 自动应用模式：显示成功消息
+				showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
+			} else {
+				// 预览模式：保存待确认的任务，显示确认界面
+				pendingTasks.value = result.pendingTasks || []
+				breakdownMessageType.value = 'pending'
+				// 不清空进度，保持显示任务列表供用户确认
+			}
 		} else {
 			showBreakdownMessage(`任务分解失败: ${result.error}`, 'error')
 		}
 	} finally {
 		isBreakingDown.value = false
-		// 清空进度
-		setTimeout(() => {
-			breakdownProgress.value = { count: 0, tasks: [] }
-		}, 300)
+		// 只有在非预览模式下才清空进度
+		if (settingsStore.autoApplyAITasks) {
+			setTimeout(() => {
+				breakdownProgress.value = { count: 0, tasks: [] }
+			}, 300)
+		}
 	}
+}
+
+// 确认保存待确认的任务
+const handleConfirmTasks = async () => {
+	if (pendingTasks.value.length === 0) return
+	
+	const result = await todoStore.applyPendingTasks(pendingTasks.value)
+	
+	if (result.success) {
+		showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
+	} else {
+		showBreakdownMessage('保存任务失败', 'error')
+	}
+	
+	// 清空状态
+	pendingTasks.value = []
+	breakdownProgress.value = { count: 0, tasks: [] }
+}
+
+// 取消待确认的任务
+const handleCancelTasks = () => {
+	pendingTasks.value = []
+	breakdownProgress.value = { count: 0, tasks: [] }
+	breakdownMessage.value = ''
+	breakdownMessageType.value = ''
 }
 
 const showBreakdownMessage = (message, type) => {

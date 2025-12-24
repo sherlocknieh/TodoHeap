@@ -1,10 +1,10 @@
 <template>
-  <Transition 
+  <Transition
     enter-active-class="transition ease-out duration-300"
-    enter-from-class="opacity-0 -translate-y-2" 
+    enter-from-class="opacity-0 -translate-y-2"
     enter-to-class="opacity-100 translate-y-0"
     leave-active-class="transition ease-in duration-200"
-    leave-from-class="opacity-100 translate-y-0" 
+    leave-from-class="opacity-100 translate-y-0"
     leave-to-class="opacity-0 -translate-y-2"
   >
     <div v-if="visible" class="breakdown-wrapper">
@@ -41,6 +41,51 @@
             <span class="breakdown-task-title">{{ task.title }}</span>
           </li>
         </TransitionGroup>
+      </div>
+
+      <!-- 待确认状态（预览模式） -->
+      <div v-else-if="status === 'pending'" class="breakdown-card breakdown-card--pending">
+        <div class="breakdown-header">
+          <div class="breakdown-status">
+            <svg class="breakdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="breakdown-title">
+              <span class="breakdown-label">AI 已生成 {{ taskCount }} 个子任务</span>
+              <span class="breakdown-count">请确认是否保存到任务列表</span>
+            </div>
+          </div>
+        </div>
+        <!-- 显示待确认的子任务列表 -->
+        <ul v-if="tasks.length > 0" class="breakdown-task-list">
+          <li
+            v-for="task in tasks"
+            :key="task.id"
+            class="breakdown-task-item"
+          >
+            <svg class="breakdown-task-pending" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+            <span class="breakdown-task-title">{{ task.title }}</span>
+          </li>
+        </ul>
+        <!-- 确认/取消按钮 -->
+        <div class="breakdown-actions">
+          <button class="breakdown-btn breakdown-btn--cancel" @click="$emit('cancel')">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round"/>
+              <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round"/>
+            </svg>
+            取消
+          </button>
+          <button class="breakdown-btn breakdown-btn--confirm" @click="$emit('confirm')">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20,6 9,17 4,12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            保存全部
+          </button>
+        </div>
       </div>
 
       <!-- 成功状态 -->
@@ -87,7 +132,7 @@ const props = defineProps({
     type: String,
     default: ''
   },
-  // 状态类型: 'success' | 'error' | ''
+  // 状态类型: 'success' | 'error' | 'pending' | ''
   status: {
     type: String,
     default: ''
@@ -104,9 +149,12 @@ const props = defineProps({
   }
 })
 
+// 定义事件
+defineEmits(['confirm', 'cancel'])
+
 // 是否显示组件
 const visible = computed(() => {
-  return props.isProcessing || props.message
+  return props.isProcessing || props.message || props.status === 'pending'
 })
 </script>
 
@@ -148,6 +196,13 @@ const visible = computed(() => {
   background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
   border-color: #fecaca;
   color: #b91c1c;
+}
+
+/* 待确认状态 */
+.breakdown-card--pending {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fcd34d;
+  color: #92400e;
 }
 
 /* 头部 */
@@ -198,6 +253,26 @@ const visible = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* 滚动条样式 */
+.breakdown-task-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.breakdown-task-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.breakdown-task-list::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 2px;
+}
+
+.breakdown-task-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
 }
 
 .breakdown-task-item {
@@ -218,6 +293,13 @@ const visible = computed(() => {
   height: 16px;
   flex-shrink: 0;
   color: #10b981;
+}
+
+.breakdown-task-pending {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #f59e0b;
 }
 
 .breakdown-task-title {
@@ -264,5 +346,62 @@ const visible = computed(() => {
 
 .spinning {
   animation: spin 1s linear infinite;
+}
+
+/* ========== 操作按钮区域 ========== */
+.breakdown-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(245, 158, 11, 0.2);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.breakdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.breakdown-btn:hover {
+  transform: translateY(-1px);
+}
+
+.breakdown-btn:active {
+  transform: translateY(0);
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.breakdown-btn--cancel {
+  background: rgba(255, 255, 255, 0.8);
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.breakdown-btn--cancel:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.breakdown-btn--confirm {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.breakdown-btn--confirm:hover {
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
 }
 </style>
