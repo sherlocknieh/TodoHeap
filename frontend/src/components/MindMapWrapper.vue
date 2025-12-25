@@ -44,7 +44,7 @@
 
 <script setup>
 
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import MindMap from 'simple-mind-map'
 
 
@@ -52,6 +52,11 @@ const props = defineProps({
   mindData: { type: Object, default: () => ({ data: { text: '根节点' }, children: [] }) },
   selectedTaskId: { type: Number, default: null }
 })
+
+// 标记是否由内部操作引起的变化（避免反向同步循环）
+let isInternalChange = false
+// 标记是否已完成首次初始化
+let isInitialized = false
 
 // 组件事件：task-selected, node-content-change, node-insert, node-delete, data-change, data-change-detail
 const emit = defineEmits(['task-selected', 'node-content-change', 'node-insert', 'node-delete', 'data-change', 'data-change-detail'])
@@ -63,6 +68,9 @@ let mindMapInstance = null // 思维导图实例
 // 居中思维导图视图
 const moveToCenter = () => {
   if (!mindMapInstance || !mindMapInstance.renderer.root) return
+  const containerDiv = mindMapContainer.value
+  if (!containerDiv) return // 容器还未准备好
+  
   const root = mindMapInstance.renderer.root
   const children = root.children || []
   const rootRight = root.left + root.width
@@ -72,7 +80,6 @@ const moveToCenter = () => {
   const transform = mindMapInstance.draw.transform()
   const forkViewX = centerX * transform.scaleX + transform.translateX
   const forkViewY = centerY * transform.scaleY + transform.translateY
-  const containerDiv = mindMapContainer.value
   const width = containerDiv.clientWidth
   const height = containerDiv.clientHeight
   const canvasCenterX = width / 2
@@ -139,23 +146,29 @@ const initMindMap = () => {
 
   // 初次挂载后自动居中
   setTimeout(() => {
-    console.log('[MindMap DEBUG] Initial moveToCenter called')
     moveToCenter()
+    isInitialized = true
   }, 0)
 
-  // 每次节点树渲染后自动居中 - 这会导致视角重置问题！
+  // 节点树渲染完成事件 - 不再自动居中，只处理节点选中
   mindMapInstance.on('node_tree_render_end', () => {
-    console.log('[MindMap DEBUG] node_tree_render_end event - moveToCenter called (问题根源!)')
-    moveToCenter()
     // 渲染完成后，如果有选中的任务，选中对应节点
     if (props.selectedTaskId) {
       const nodeUid = props.selectedTaskId.toString()
       const node = mindMapInstance.renderer.findNodeByUid(nodeUid)
       if (node) {
         node.active()
-        console.warn('Node tree render end selectedTaskId:', props.selectedTaskId, 'Node found and activated')
       }
     }
+  })
+  
+  // 监听内部数据变化，标记为内部操作
+  mindMapInstance.on('data_change', () => {
+    isInternalChange = true
+    // 下一个 tick 重置标记
+    setTimeout(() => {
+      isInternalChange = false
+    }, 100)
   })
 }
 
@@ -174,27 +187,41 @@ watch(() => props.selectedTaskId, (newId) => {
 })
 
 // 监听 mindData 变化，更新实例
+// 只在非内部变化且未初始化时才重新设置数据
 watch(() => props.mindData, (newVal, oldVal) => {
-  console.log('[MindMap DEBUG] mindData watch triggered')
-  console.log('[MindMap DEBUG] Old nodes count:', oldVal?.children?.length || 0)
-  console.log('[MindMap DEBUG] New nodes count:', newVal?.children?.length || 0)
-  if (!mindMapInstance) return initMindMap()
-  if (mindMapInstance.setData) {
-    console.log('[MindMap DEBUG] Calling setData() - this triggers full re-render!')
-    mindMapInstance.setData(newVal)
-  } else {
-    initMindMap()
+  // 如果是内部操作引起的变化，跳过（避免循环）
+  if (isInternalChange) {
+    return
   }
-  // 数据更新后，如果有选中的任务，选中对应节点
-  setTimeout(() => {
-    if (props.selectedTaskId) {
-      const nodeUid = props.selectedTaskId.toString()
-      const node = mindMapInstance.renderer.findNodeByUid(nodeUid)
-      if (node) {
-        node.active()
-      }
+  
+  // 如果实例不存在，初始化
+  if (!mindMapInstance) {
+    return initMindMap()
+  }
+  
+  // 如果已初始化，只在首次加载数据时同步（避免反向同步导致的闪烁）
+  // 通过比较节点数量变化来判断是否需要同步
+  const oldCount = oldVal?.children?.length || 0
+  const newCount = newVal?.children?.length || 0
+  
+  // 尝试使用 updateData 代替 setData 以避免全量重绘和视图重置
+  if (oldCount === 0 && newCount > 0) {
+    // 记录当前视图状态（位置、缩放）
+    const viewTransform = mindMapInstance.view.getTransformData()
+    
+    if (mindMapInstance.updateData) {
+      mindMapInstance.updateData(newVal)
+    } else {
+      mindMapInstance.setData(newVal)
     }
-  }, 100) // 延迟一点时间，确保渲染完成
+    
+    // 恢复视图状态，防止视图重置
+    if (viewTransform) {
+       mindMapInstance.view.setTransformData(viewTransform)
+    }
+  }
+  // 其他情况：数据变化由 MindMap 内部操作触发，
+  // MindMap 已经更新了视图，无需再次 setData
 }, { deep: true })
 
 // 控件方法
