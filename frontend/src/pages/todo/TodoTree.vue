@@ -83,6 +83,20 @@ const onDataChangeDetail = (details) => {
 	// 预处理：建立 UID 到父节点信息的临时映射（针对同一个 details 批次）
 	const batchUidToParent = new Map()
 
+	   // 递归建立父子关系映射
+	   const mapRelations = (node, pId, pUid) => {
+	       batchUidToParent.set(node.data.uid, {
+	           parentId: pId,
+	           parentUid: pUid
+	       })
+	       if (node.children && node.children.length > 0) {
+	           node.children.forEach(child => {
+	               // 子节点的父节点就是当前 node (uid 肯定有，id 可能没有)
+	               mapRelations(child, null, node.data.uid)
+	           })
+	       }
+	   }
+
 	for (const detail of details) {
 		if (detail.action === 'update') {
 			const parentData = detail.data?.data
@@ -94,21 +108,15 @@ const onDataChangeDetail = (details) => {
 			const addedChildren = newChildren.filter(c => !oldUids.has(c.data.uid))
 			
 			addedChildren.forEach(child => {
-				batchUidToParent.set(child.data.uid, {
-					parentId: parentData.id,
-					parentUid: parentData.uid
-				})
+	               // 递归处理新增子树的所有层级
+	               mapRelations(child, parentData.id, parentData.uid)
 			})
 		} else if (detail.action === 'create') {
-			// 修复：同时扫描 create 事件中的 children，建立多层级同时创建时的父子关系
 			const parentData = detail.data?.data
 			const children = detail.data?.children || []
 			
 			children.forEach(child => {
-				batchUidToParent.set(child.data.uid, {
-					parentId: parentData.id,
-					parentUid: parentData.uid
-				})
+	               mapRelations(child, parentData.id, parentData.uid)
 			})
 		}
 	}
@@ -124,7 +132,6 @@ const onDataChangeDetail = (details) => {
 			// 将 create 操作加入 Promise 链，确保串行执行
 			createPromiseChain = createPromiseChain.then(async () => {
 				try {
-					console.log(`[TodoTree] Processing create for uid ${uid}`)
 					let parentId = null
 					
 					const parentInfo = batchUidToParent.get(uid)
@@ -133,25 +140,20 @@ const onDataChangeDetail = (details) => {
 							parentId = parentInfo.parentId
 						} else if (parentInfo.parentUid) {
 							// 此时前一个 Promise 已执行完，如果是刚刚创建的父节点，这里应该能取到了
-							// 此时前一个 Promise 已执行完，如果是刚刚创建的父节点，这里应该能取到了
 							parentId = uidToIdMap.value.get(parentInfo.parentUid)
-							console.log(`[TodoTree] Found parentId ${parentId} for uid ${parentInfo.parentUid} from Map`)
 						}
 					} else if (data.parent?.data) {
 						if (data.parent.data.id) {
 							parentId = data.parent.data.id
 						} else if (data.parent.data.uid) {
 							parentId = uidToIdMap.value.get(data.parent.data.uid)
-							console.log(`[TodoTree] Found parentId ${parentId} for uid ${data.parent.data.uid} from data.parent.data`)
 						}
 					}
 
-					console.log(`[TodoTree] Creating todo: text="${text}", parentId=${parentId}, uid=${uid}`)
 					const res = await todoStore.addTodo(text, { parent_id: parentId || null, status: 'todo' })
 					
 					if (res.success) {
 						uidToIdMap.value.set(uid, res.data.id)
-						console.log(`[TodoTree] Mapped uid ${uid} -> todoId ${res.data.id}`)
 					}
 				} catch (err) {
 					console.error(`Create failed for uid ${uid}:`, err)

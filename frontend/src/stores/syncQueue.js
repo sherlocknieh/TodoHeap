@@ -66,12 +66,22 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
 
   // 判断是否是临时ID
   const isTempId = (id) => {
-    return typeof id === 'number' && id < 0
+    const num = Number(id)
+    return !isNaN(num) && num < 0
   }
 
   // 获取真实ID (如果存在映射则返回映射的ID，否则返回原ID)
   const getRealId = (id) => {
-    return tempIdMap.value.get(id) ?? id
+    // 尝试直接获取
+    if (tempIdMap.value.has(id)) return tempIdMap.value.get(id)
+    
+    // 尝试转换类型后获取 (处理 string/number 不一致)
+    const numId = Number(id)
+    if (!isNaN(numId) && tempIdMap.value.has(numId)) {
+        return tempIdMap.value.get(numId)
+    }
+    
+    return id
   }
 
   // 更新队列中后续操作的目标ID (当临时ID被替换时)
@@ -80,8 +90,8 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
       if (item.targetId === oldId) {
         item.targetId = newId
       }
-      // 处理 payload 中可能包含的 parent_id
-      if (item.payload?.parent_id === oldId) {
+      // 处理 payload 中可能包含的 parent_id (兼容字符串类型的 ID)
+      if (item.payload?.parent_id == oldId) {
         item.payload.parent_id = newId
       }
     })
