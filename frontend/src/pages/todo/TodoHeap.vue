@@ -57,6 +57,7 @@
 				<div
 					v-for="(node, idx) in heapTree"
 					:key="node.id"
+					data-task-item
 					:class="['heap-item', { selected: selectedTaskId === node.id }]"
 					@click="selectTask(node.id)"
 				>

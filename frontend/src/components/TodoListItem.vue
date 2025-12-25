@@ -1,7 +1,7 @@
 <template>
   <ul class="list-none p-0 m-0">
     <template v-for="item in flatList">
-      <li v-if="!item.parent_id || expandedMap[item.parent_id]" :key="item.id" :class="[
+      <li v-if="!item.parent_id || expandedMap[item.parent_id]" :key="item.id" data-task-item :class="[
         'flex items-center gap-2.5 p-2.5 px-3 bg-white border-b border-slate-100 transition-colors duration-150 cursor-pointer',
         {
           'bg-blue-50 border-l-3 border-l-blue-600': selectedTaskId === item.id,

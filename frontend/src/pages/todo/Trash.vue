@@ -37,6 +37,7 @@
       <p class="empty-desc">删除的任务会显示在这里</p>
     </div>
 
+
     <!-- 树形任务列表 -->
     <ul v-else class="list-none p-0 m-0 flex-1 overflow-y-auto">
       <template v-for="item in flatTrashList" :key="item.id">
@@ -120,6 +121,7 @@
           </div>
         </li>
       </template>
+
     </ul>
 
     <!-- 确认弹窗 -->

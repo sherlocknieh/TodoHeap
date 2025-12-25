@@ -76,21 +76,18 @@
 
 				<!-- 中栏：主要视图内容 -->
 				<div class="flex-1 flex flex-col min-w-0" @click="onMainAreaClick">
-					<!-- 消息提示区域 -->
-					<Transition enter-active-class="transition ease-out duration-300"
-						enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0"
-						leave-active-class="transition ease-in duration-200"
-						leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity 0 -translate-y-2">
-						<div v-if="breakdownMessage" :class="[
-							'mx-4 mt-4 mb-2 px-4 py-2.5 rounded-lg text-sm font-medium',
-							{
-								'bg-emerald-50 text-emerald-800 border border-emerald-200': breakdownMessageType === 'success',
-								'bg-red-50 text-red-800 border border-red-200': breakdownMessageType === 'error'
-							}
-						]">
-							{{ breakdownMessage }}
-						</div>
-					</Transition>
+					<!-- AI 分解状态区域 -->
+					<div class="mx-4 mt-4 mb-2">
+						<BreakdownStatusCard
+							:is-processing="isBreakingDown"
+							:message="breakdownMessage"
+							:status="breakdownMessageType"
+							:task-count="breakdownProgress.count"
+							:tasks="breakdownProgress.tasks"
+							@confirm="handleConfirmTasks"
+							@cancel="handleCancelTasks"
+						/>
+					</div>
 
 					<div class="flex-1 overflow-auto p-4" @click="onMainAreaClick">
 						<!-- 列表视图 -->
@@ -149,15 +146,18 @@ const toggleLeftPanel = () => {
 	}
 }
 
-// 只在点击中栏空白区域时取消选中任务
+// 点击中栏区域时关闭详情面板（如果点击的不是任务项）
 const onMainAreaClick = (e) => {
-	if (e.target === e.currentTarget) {
-		clearTaskSelection();
+	// 检查是否点击了任务项（带有 data-task-item 属性的元素）
+	const clickedTaskItem = e.target.closest('[data-task-item]')
+	// 检查是否点击了详情面板
+	const clickedDetailPanel = e.target.closest('[data-detail-panel]')
+	
+	// 如果没有点击任务项也没有点击详情面板，则关闭详情面板
+	if (!clickedTaskItem && !clickedDetailPanel) {
+		closeDetailPanel()
+		selectedTaskId.value = null
 	}
-}
-// 点击中栏空白区域时取消选中任务
-const clearTaskSelection = () => {
-	selectedTaskId.value = null
 }
 
 
@@ -167,9 +167,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
+import { useSettingsStore } from '../stores/settings'
 import { storeToRefs } from 'pinia'
 import SyncStatusIndicator from '../components/SyncStatusIndicator.vue'
 import LeftSidebar from '../components/LeftSidebar.vue'
+import BreakdownStatusCard from '../components/BreakdownStatusCard.vue'
 import TodoList from './todo/TodoList.vue'
 import TodoTree from './todo/TodoTree.vue'
 import TodoHeap from './todo/TodoHeap.vue'
@@ -182,6 +184,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
+const settingsStore = useSettingsStore()
 
 // 获取同步队列状态
 const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
@@ -213,6 +216,8 @@ const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
+const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
+const pendingTasks = ref([]) // 待确认的任务列表（用于预览模式）
 const leftPanelCollapsed = ref(false)
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 const showLeftSidebar = ref(false) // 侧栏显示状态
@@ -314,10 +319,10 @@ const handleTaskSelected = (taskId) => {
 	if (taskId === null) {
 		// 取消选中任务
 		closeDetailPanel()
+		selectedTaskId.value = null
 	} else if (selectedTaskId.value === taskId) {
-		// 如果点击的是已选中的任务，切换详情面板显示状态
-		showDetailPanel.value = !showDetailPanel.value
-		if (!showDetailPanel.value) selectedTaskId.value = null
+		// 如果点击的是已选中的任务，不做任何操作（保持详情面板打开）
+		// 这样可以避免在编辑时误触导致面板关闭
 	} else {
 		// 如果选择的是新任务，更新选中ID并自动显示详情面板
 		selectedTaskId.value = taskId
@@ -351,21 +356,75 @@ const handleBreakdownTask = async () => {
 
 	isBreakingDown.value = true
 	breakdownMessage.value = ''
+	breakdownMessageType.value = ''
+	breakdownProgress.value = { count: 0, tasks: [] }
+	pendingTasks.value = []
 
 	try {
 		const query = '继续分解'
-		const result = await todoStore.invokeBreakdown(todoStore.treeNodes, selectedTaskId.value, query)
+		const autoApply = settingsStore.autoApplyAITasks
+		
+		// 使用流式接收，每收到一个子任务就更新进度
+		const onTaskReceived = ({ task, index, totalSoFar }) => {
+			breakdownProgress.value.count = totalSoFar
+			breakdownProgress.value.tasks.push(task)
+		}
+		
+		const result = await todoStore.invokeBreakdown(
+			todoStore.treeNodes,
+			selectedTaskId.value,
+			query,
+			onTaskReceived,
+			autoApply
+		)
 
 		if (result.success) {
-			showBreakdownMessage(`成功添加 ${result.addedCount}/${result.totalCount} 个子任务`, 'success')
-			// 刷新任务列表以显示新添加的子任务
-			await todoStore.fetchTodos()
+			if (autoApply) {
+				// 自动应用模式：显示成功消息
+				showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
+			} else {
+				// 预览模式：保存待确认的任务，显示确认界面
+				pendingTasks.value = result.pendingTasks || []
+				breakdownMessageType.value = 'pending'
+				// 不清空进度，保持显示任务列表供用户确认
+			}
 		} else {
 			showBreakdownMessage(`任务分解失败: ${result.error}`, 'error')
 		}
 	} finally {
 		isBreakingDown.value = false
+		// 只有在非预览模式下才清空进度
+		if (settingsStore.autoApplyAITasks) {
+			setTimeout(() => {
+				breakdownProgress.value = { count: 0, tasks: [] }
+			}, 300)
+		}
 	}
+}
+
+// 确认保存待确认的任务
+const handleConfirmTasks = async () => {
+	if (pendingTasks.value.length === 0) return
+	
+	const result = await todoStore.applyPendingTasks(pendingTasks.value)
+	
+	if (result.success) {
+		showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
+	} else {
+		showBreakdownMessage('保存任务失败', 'error')
+	}
+	
+	// 清空状态
+	pendingTasks.value = []
+	breakdownProgress.value = { count: 0, tasks: [] }
+}
+
+// 取消待确认的任务
+const handleCancelTasks = () => {
+	pendingTasks.value = []
+	breakdownProgress.value = { count: 0, tasks: [] }
+	breakdownMessage.value = ''
+	breakdownMessageType.value = ''
 }
 
 const showBreakdownMessage = (message, type) => {
@@ -408,3 +467,7 @@ onUnmounted(() => {
 	window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>
+
+<style scoped>
+/* 无需额外样式，状态卡片样式已移至 BreakdownStatusCard 组件 */
+</style>

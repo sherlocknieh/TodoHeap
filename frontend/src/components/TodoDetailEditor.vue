@@ -1,29 +1,26 @@
 <template>
-  <Transition enter-active-class="transition-all duration-300 ease-out" enter-from-class="translate-x-full" enter-to-class="translate-x-0" leave-active-class="transition-all duration-200 ease-in" leave-from-class="translate-x-0" leave-to-class="translate-x-full">
-    <div v-if="show" :class="[
-      // 小屏浮层
-      'absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-20',
-      // 大屏常驻右栏
-      'lg:static lg:flex lg:w-96 lg:max-w-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
-      // 大屏显示
-      'lg:block'
+  <!-- 移动端：底部滑出；桌面端：右侧滑出 -->
+  <Transition
+    :enter-active-class="isMobile ? 'transition-all duration-300 ease-out' : 'transition-all duration-300 ease-out'"
+    :enter-from-class="isMobile ? 'translate-y-full' : 'translate-x-full'"
+    :enter-to-class="isMobile ? 'translate-y-0' : 'translate-x-0'"
+    :leave-active-class="isMobile ? 'transition-all duration-200 ease-in' : 'transition-all duration-200 ease-in'"
+    :leave-from-class="isMobile ? 'translate-y-0' : 'translate-x-0'"
+    :leave-to-class="isMobile ? 'translate-y-full' : 'translate-x-full'"
+  >
+    <div v-if="show" data-detail-panel :class="[
+      // 移动端：底部弹出面板
+      'fixed inset-x-0 bottom-0 h-[70vh] bg-white shadow-2xl flex flex-col z-20 rounded-t-2xl',
+      // 桌面端：右侧常驻面板
+      'lg:absolute lg:inset-x-auto lg:top-0 lg:right-0 lg:bottom-0 lg:h-auto lg:w-96 lg:rounded-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
+      // 已删除任务时整个面板显示禁用光标
+      isDeleted ? 'cursor-not-allowed' : ''
     ]">
+      <!-- 移动端拖动条 -->
+      <div class="lg:hidden shrink-0 flex justify-center py-2">
+        <div class="w-10 h-1 bg-slate-300 rounded-full"></div>
+      </div>
       <section class="h-full flex flex-col min-h-0">
-        <!-- 头部 -->
-        <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
-            <h2 class="text-lg font-semibold text-slate-900 truncate">{{ todo?.title || '任务详情' }}</h2>
-          </div>
-          <!-- 关闭按钮 -->
-          <button
-            @click="$emit('close')"
-            class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-            title="关闭详情面板"
-          >
-            <span class="text-lg">✕</span>
-          </button>
-        </header>
-
         <!-- 空状态显示 -->
         <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400">
           <div class="text-center">
@@ -32,57 +29,213 @@
           </div>
         </div>
 
-        <div v-else class="flex-1 min-h-0 overflow-auto px-4 py-4 space-y-4">
-          <!-- 已删除任务提示 -->
-          <div v-if="isDeleted" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            此任务已删除，仅可查看，不可编辑。若需编辑，请先恢复任务。
-          </div>
-          <!-- 任务标题 -->
-          <div class="space-y-1">
-            <label class="block text-xs font-medium text-slate-600">标题</label>
+        <template v-else>
+          <!-- 区块1: 可编辑任务标题 -->
+          <div class="shrink-0 px-4 pt-4 pb-3">
             <input
               v-model.trim="draftTitle"
               type="text"
               :disabled="isDeleted"
               :class="[
-                'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+                'w-full px-0 py-1 text-xl font-bold placeholder:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0',
+                isDeleted ? 'cursor-not-allowed text-slate-400' : 'text-slate-800'
               ]"
-              placeholder="请输入标题"
+              placeholder="任务标题"
               @input="markDirty('title')"
               @blur="saveIfNeeded('title')"
             />
           </div>
-          <!-- 任务描述 -->
-          <div class="space-y-1">
-            <label class="block text-xs font-medium text-slate-600">详情</label>
-            <textarea
-              v-model="draftDescription"
-              :disabled="isDeleted"
+          
+          <!-- 分割线 -->
+          <div class="shrink-0 border-t border-slate-200"></div>
+          
+          <!-- 区块2: 功能键区 -->
+          <div class="shrink-0 px-4 py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-3 text-xs text-slate-500">
+              <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1 text-slate-400">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                删除于 {{ formatDate(todo.deleted_at) }}
+              </span>
+              <span v-else-if="isDirty" class="flex items-center gap-1 text-slate-500">
+                <!-- <svg class="w-3.5 h-3.5 animate-pulse" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" />
+                </svg> -->
+                编辑中...
+              </span>
+              <span v-else-if="lastSavedAt" class="flex items-center gap-1 text-slate-500">
+                <!-- <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg> -->
+                已保存
+              </span>
+              <span v-else class="text-slate-400">就绪</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <!-- 放大编辑按钮 -->
+              <button
+                @click="openExpandedEditor"
+                class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition-colors"
+                title="放大编辑"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <!-- 分割线 -->
+          <div class="shrink-0 border-t border-slate-200"></div>
+          
+          <!-- 区块3: 任务描述 - Milkdown 编辑器（占满剩余空间） -->
+          <div class="flex-1 min-h-0 overflow-hidden">
+            <div
               :class="[
-                'w-full min-h-48 px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                isDeleted ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''
+                'h-full bg-white',
+                isDeleted ? 'pointer-events-none deleted-content' : ''
               ]"
-              placeholder="添加备注（失焦自动保存）"
-              @input="markDirty('description')"
-              @blur="saveIfNeeded('description')"
-            ></textarea>
+            >
+              <MilkdownEditor
+                :key="editorKey"
+                v-model="draftDescription"
+                :readonly="isDeleted"
+                placeholder="输入内容，支持 Markdown 语法..."
+                class="h-full"
+                @blur="handleDescriptionBlur"
+                @update:modelValue="onDescriptionChange"
+              />
+            </div>
           </div>
-          <!-- 最后保存时间 -->
-          <div class="text-xs text-slate-500">
-            <span v-if="isDeleted && todo.deleted_at">删除时间：{{ formatDate(todo.deleted_at) }}</span>
-            <span v-else-if="lastSavedAt">最后保存：{{ lastSavedAt }}</span>
-          </div>
-        </div>
+        </template>
       </section>
     </div>
   </Transition>
+  
+  <!-- 放大编辑模态框 - 始终居中漂浮 -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-all duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="showExpandedEditor"
+        class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 lg:p-8"
+        @click.self="closeExpandedEditor"
+      >
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <div
+            v-if="showExpandedEditor"
+            class="bg-white shadow-2xl flex flex-col overflow-hidden w-full max-w-4xl h-[85vh] lg:h-[80vh] rounded-xl"
+          >
+            <!-- 模态框头部 -->
+            <div class="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <input
+                v-model.trim="draftTitle"
+                type="text"
+                :disabled="isDeleted"
+                :class="[
+                  'flex-1 px-0 py-1 text-2xl font-bold placeholder:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0',
+                  isDeleted ? 'cursor-not-allowed text-slate-400' : 'text-slate-800'
+                ]"
+                placeholder="任务标题"
+                @input="markDirty('title')"
+                @blur="saveIfNeeded('title')"
+              />
+              <button
+                @click="closeExpandedEditor"
+                class="ml-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                title="关闭"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <!-- 模态框状态栏 -->
+            <div class="shrink-0 px-6 py-2 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <div class="flex items-center gap-3">
+                <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1 text-slate-400">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  删除于 {{ formatDate(todo.deleted_at) }}
+                </span>
+                <span v-else-if="isDirty" class="text-slate-500">编辑中...</span>
+                <span v-else-if="lastSavedAt" class="text-slate-500">已保存</span>
+                <span v-else class="text-slate-400">就绪</span>
+              </div>
+              <span class="text-slate-400">按 ESC 关闭</span>
+            </div>
+            
+            <!-- 模态框内容 - Milkdown 编辑器 -->
+            <div class="flex-1 min-h-0 overflow-hidden">
+              <div
+                :class="[
+                  'h-full bg-white',
+                  isDeleted ? 'pointer-events-none deleted-content' : ''
+                ]"
+              >
+                <MilkdownEditor
+                  :key="'expanded-' + editorKey"
+                  v-model="draftDescription"
+                  :readonly="isDeleted"
+                  placeholder="输入内容，支持 Markdown 语法..."
+                  class="h-full"
+                  @blur="handleDescriptionBlur"
+                  @update:modelValue="onDescriptionChange"
+                />
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useTodoStore } from '../stores/todos'
 import { useSyncQueueStore } from '../stores/syncQueue'
+import MilkdownEditor from './MilkdownEditor.vue'
+
+// 响应式窗口宽度检测
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+const isMobile = computed(() => windowWidth.value < 1024)
+
+const handleResize = () => {
+  windowWidth.value = window.innerWidth
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
+// 防抖函数
+function debounce(fn, delay) {
+  let timer = null
+  return function (...args) {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+      timer = null
+    }, delay)
+  }
+}
 
 const props = defineProps({
   todoId: { type: Number, default: null },
@@ -90,6 +243,29 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+// 放大编辑器状态
+const showExpandedEditor = ref(false)
+
+const openExpandedEditor = () => {
+  showExpandedEditor.value = true
+  // 添加 ESC 键监听
+  document.addEventListener('keydown', handleEscKey)
+}
+
+const closeExpandedEditor = () => {
+  showExpandedEditor.value = false
+  // 移除 ESC 键监听
+  document.removeEventListener('keydown', handleEscKey)
+  // 强制刷新侧栏编辑器以显示最新内容
+  editorKey.value++
+}
+
+const handleEscKey = (e) => {
+  if (e.key === 'Escape') {
+    closeExpandedEditor()
+  }
+}
 
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
@@ -129,7 +305,47 @@ const dirtyDescription = ref(false)
 
 const lastSavedAt = ref('')
 
+// Milkdown 编辑器相关
+const editorKey = ref(0)
+
+let debounceTimer = null
+const debouncedSaveDescription = debounce(async () => {
+  if (!todo.value || isDeleted.value) return
+  markDirty('description')
+  if (!dirtyDescription.value) return
+  await savePayload({ description: draftDescription.value })
+}, 500)
+
+// 处理描述内容变化
+const onDescriptionChange = (value) => {
+  draftDescription.value = value
+  markDirty('description')
+  // 触发防抖保存
+  debouncedSaveDescription()
+}
+
+// 处理描述区域失焦 - 立即保存（取消防抖等待）
+const handleDescriptionBlur = async () => {
+  // 取消防抖定时器，立即保存
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  await saveIfNeeded('description')
+}
+
 let clearSavedTimer = null
+
+// 组件卸载时清理定时器和事件监听
+onUnmounted(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+  if (clearSavedTimer) {
+    clearTimeout(clearSavedTimer)
+  }
+  window.removeEventListener('resize', handleResize)
+})
 
 // 乐观更新的保存方法
 const savePayload = async (payload) => {
@@ -173,6 +389,7 @@ const resetDraftFromTodo = () => {
     dirtyTitle.value = false
     dirtyDescription.value = false
     lastSavedAt.value = ''
+    editorKey.value++ // 强制重新创建编辑器
     return
   }
 
@@ -183,6 +400,7 @@ const resetDraftFromTodo = () => {
 
   dirtyTitle.value = false
   dirtyDescription.value = false
+  editorKey.value++ // 强制重新创建编辑器以加载新内容
 }
 
 watch(
@@ -193,6 +411,28 @@ watch(
   { immediate: true }
 )
 
+// 监听远程更新：当 todo 数据变化时，如果不是用户正在编辑，则同步更新
+watch(
+  () => todo.value,
+  (newTodo, oldTodo) => {
+    if (!newTodo) return
+    // 如果 todoId 改变了，resetDraftFromTodo 已经处理了
+    if (oldTodo && newTodo.id !== oldTodo.id) return
+    
+    // 如果用户没有在编辑，同步远程更新
+    if (!dirtyTitle.value && newTodo.title !== draftTitle.value) {
+      draftTitle.value = newTodo.title || ''
+      initialTitle.value = newTodo.title || ''
+    }
+    if (!dirtyDescription.value && newTodo.description !== draftDescription.value) {
+      draftDescription.value = newTodo.description || ''
+      initialDescription.value = newTodo.description || ''
+      editorKey.value++ // 强制刷新编辑器
+    }
+  },
+  { deep: true }
+)
+
 const markDirty = (field) => {
   if (field === 'title') {
     dirtyTitle.value = draftTitle.value !== initialTitle.value
@@ -200,6 +440,9 @@ const markDirty = (field) => {
     dirtyDescription.value = draftDescription.value !== initialDescription.value
   }
 }
+
+// 计算属性：是否有未保存的更改
+const isDirty = computed(() => dirtyTitle.value || dirtyDescription.value)
 
 
 

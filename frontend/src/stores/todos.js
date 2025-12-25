@@ -541,9 +541,10 @@ export const useTodoStore = defineStore('todos', () => {
     return { success: true }
   }
 
-  // AI 任务分解
-  const invokeBreakdown = async (todosTree, selectedNodeId, query) => {
-    console.log('开始任务分解:', {todosTree, selectedNodeId, query })
+  // AI 任务分解 - 流式版本
+  // autoApply: true = 立即添加任务, false = 仅收集任务数据供确认
+  const invokeBreakdown = async (todosTree, selectedNodeId, query, onTaskReceived, autoApply = true) => {
+    console.log('开始流式任务分解:', { todosTree, selectedNodeId, query, autoApply })
     
     const body = {
       todosTree: todosTree,
@@ -551,55 +552,171 @@ export const useTodoStore = defineStore('todos', () => {
       query: query
     }
     
-    const { data, error } = await supabase.functions.invoke('breakdown_task', {'body': body})
-    
-    if (error) {
-      console.error('任务分解API调用失败:', error)
-      return { success: false, error: error.message }
-    }
-    
-    console.log('任务分解API返回:', data)
-    console.log('返回数据类型:', typeof data)
-    
-    // 处理可能的字符串格式数据
-    let parsedData = data
-    if (typeof data === 'string') {
-      try {
-        parsedData = JSON.parse(data)
-        console.log('解析后的数据:', parsedData)
-      } catch (parseError) {
-        console.error('JSON解析失败:', parseError)
-        return { success: false, error: '返回的数据格式不正确' }
-      }
-    }
-    
-    // 确保获取到children数组
-    const children = parsedData?.children || []
-    console.log(`获取到 ${children.length} 个子任务`)
-    
     // 获取同步队列以获取真实的parent_id
     const syncQueue = getSyncQueue()
     const realParentId = syncQueue.getRealId(selectedNodeId)
     
-    // 为每个子任务创建数据库记录
-    const results = await Promise.all(
-      children.map(childTask =>
-        addTodo(childTask.title, {
-          status: childTask.status || 'todo',
-          priority: childTask.priority ?? 1,
-          parent_id: realParentId,
-          deadline: childTask.deadline || null
-        })
-      )
-    )
+    // 收集的任务数据（用于非自动应用模式）
+    const collectedTasks = []
     
-    const successCount = results.filter(r => r.success).length
-    console.log(`成功添加 ${successCount}/${children.length} 个子任务`)
+    try {
+      // 获取 Supabase 配置
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      
+      // 直接使用 fetch 调用边缘函数以支持流式响应
+      const response = await fetch(`${supabaseUrl}/functions/v1/breakdown_task`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify(body)
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('任务分解API调用失败:', errorText)
+        return { success: false, error: `HTTP ${response.status}: ${errorText}` }
+      }
+      
+      // 处理 SSE 流式响应
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      
+      let successCount = 0
+      let totalCount = 0
+      let buffer = ''
+      
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) {
+          console.log('流式响应结束')
+          break
+        }
+        
+        // 解码并处理数据
+        buffer += decoder.decode(value, { stream: true })
+        
+        // 按行处理 SSE 数据
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // 保留不完整的行
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6).trim()
+            if (!jsonStr) continue
+            
+            try {
+              const event = JSON.parse(jsonStr)
+              
+              if (event.type === 'task') {
+                totalCount++
+                console.log(`收到子任务 ${event.index}:`, event.data)
+                
+                const taskData = {
+                  title: event.data.title,
+                  status: event.data.status || 'todo',
+                  priority: event.data.priority ?? 1,
+                  parent_id: realParentId,
+                  deadline: event.data.deadline || null
+                }
+                
+                if (autoApply) {
+                  // 立即添加任务
+                  const result = await addTodo(taskData.title, {
+                    status: taskData.status,
+                    priority: taskData.priority,
+                    parent_id: taskData.parent_id,
+                    deadline: taskData.deadline
+                  })
+                  
+                  if (result.success) {
+                    successCount++
+                    // 回调通知前端
+                    if (onTaskReceived) {
+                      onTaskReceived({
+                        task: result.data,
+                        index: event.index,
+                        totalSoFar: totalCount
+                      })
+                    }
+                  }
+                } else {
+                  // 仅收集任务数据，不实际添加
+                  collectedTasks.push({
+                    ...taskData,
+                    // 生成临时ID用于UI显示
+                    id: `preview-${Date.now()}-${event.index}`
+                  })
+                  successCount++
+                  // 回调通知前端
+                  if (onTaskReceived) {
+                    onTaskReceived({
+                      task: collectedTasks[collectedTasks.length - 1],
+                      index: event.index,
+                      totalSoFar: totalCount
+                    })
+                  }
+                }
+              } else if (event.type === 'done') {
+                console.log(`任务分解完成，共 ${event.totalCount} 个子任务`)
+              } else if (event.type === 'error') {
+                console.error('AI分解错误:', event.message)
+                return { success: false, error: event.message }
+              }
+            } catch (parseError) {
+              console.warn('解析SSE数据失败:', jsonStr, parseError)
+            }
+          }
+        }
+      }
+      
+      console.log(`${autoApply ? '成功添加' : '收集'} ${successCount}/${totalCount} 个子任务`)
+      
+      return {
+        success: successCount > 0,
+        addedCount: successCount,
+        totalCount: totalCount,
+        // 返回收集的任务数据（用于确认后批量添加）
+        pendingTasks: autoApply ? [] : collectedTasks
+      }
+    } catch (error) {
+      console.error('流式任务分解失败:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  // 批量添加待确认的任务
+  const applyPendingTasks = async (pendingTasks) => {
+    console.log('批量添加待确认任务:', pendingTasks.length)
+    
+    let successCount = 0
+    const results = []
+    
+    for (const task of pendingTasks) {
+      const result = await addTodo(task.title, {
+        status: task.status,
+        priority: task.priority,
+        parent_id: task.parent_id,
+        deadline: task.deadline
+      })
+      
+      if (result.success) {
+        successCount++
+        results.push(result.data)
+      }
+    }
+    
+    console.log(`成功添加 ${successCount}/${pendingTasks.length} 个任务`)
     
     return {
-      success: successCount === children.length,
+      success: successCount > 0,
       addedCount: successCount,
-      totalCount: children.length
+      totalCount: pendingTasks.length,
+      tasks: results
     }
   }
 
@@ -627,10 +744,13 @@ export const useTodoStore = defineStore('todos', () => {
           filter: `user_id=eq.${authStore.user.id}`
         },
         (payload) => {
+          console.log('Realtime 收到变更:', payload.eventType, payload)
           handleRealtimeChange(payload)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Realtime 订阅状态:', status)
+      })
   }
 
   const handleRealtimeChange = (payload) => {
@@ -647,6 +767,9 @@ export const useTodoStore = defineStore('todos', () => {
       console.log('忽略服务器推送，本地有未同步修改')
       return
     }
+
+    // 标记正在接收远程更新（短暂显示同步中状态）
+    syncQueue.markRemoteUpdate()
 
     switch (eventType) {
       case 'INSERT':
@@ -901,6 +1024,7 @@ export const useTodoStore = defineStore('todos', () => {
     deleteTodo,
     clearError,
     invokeBreakdown,
+    applyPendingTasks,
     // 垃圾箱方法
     fetchTrash,
     restoreTodo,

@@ -1,6 +1,6 @@
 <template>
   <!-- 思维导图容器 -->
-  <div ref="mindMapContainer" class="min-h-100 w-full border border-gray-300 rounded-lg relative">
+  <div ref="mindMapContainer" class="min-h-100 w-full border border-gray-300 rounded-lg relative" @click.stop>
     <!-- 控件层 -->
     <div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
       <button
@@ -64,6 +64,7 @@ const emit = defineEmits(['task-selected', 'node-content-change', 'node-insert',
 // 本地变量
 const mindMapContainer = ref(null) // DOM 容器
 let mindMapInstance = null // 思维导图实例
+let isUpdatingData = false // 标志位：是否正在更新数据（用于防止闪烁）
 
 // 居中思维导图视图
 const moveToCenter = () => {
@@ -125,6 +126,12 @@ const initMindMap = () => {
       emit('data-change-detail', details)
     })
     mindMapInstance.on('node_active', (node, activeNodeList) => {
+      // 如果正在更新数据，忽略此事件以防止闪烁
+      if (isUpdatingData) {
+        console.log('正在更新数据，忽略 node_active 事件')
+        return
+      }
+      
       // 总是通过 activeNodeList 的状态来判断
       if (activeNodeList.length === 0) {
         console.log('没有激活的节点')
@@ -187,6 +194,7 @@ watch(() => props.selectedTaskId, (newId) => {
 })
 
 // 监听 mindData 变化，更新实例
+
 // 只在非内部变化且未初始化时才重新设置数据
 watch(() => props.mindData, (newVal, oldVal) => {
   // 如果是内部操作引起的变化，跳过（避免循环）
@@ -222,6 +230,7 @@ watch(() => props.mindData, (newVal, oldVal) => {
   }
   // 其他情况：数据变化由 MindMap 内部操作触发，
   // MindMap 已经更新了视图，无需再次 setData
+
 }, { deep: true })
 
 // 控件方法
