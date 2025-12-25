@@ -71,19 +71,66 @@ const onNodeDelete = async ({ id }) => {
 // 处理 data_change_detail 事件：增量同步变更到 todoStore
 const onDataChangeDetail = async (details) => {
 	if (!Array.isArray(details)) return // 如果 details 不是数组，直接返回
+	
+	// 第一步：收集所有 create 节点的 uid，并建立 uid -> parentId 的映射
+	const createNodes = [] // { uid, text, parentId }
+	const uidToParentId = new Map() // uid -> parentId
+	
+	// 从 update action 中解析父子关系
+	// update action 会显示父节点的 children 数组变化，包含新增的子节点
+	for (const detail of details) {
+		if (detail.action === 'update') {
+			const parentNodeData = detail.data?.data
+			const parentId = parentNodeData?.id // 父节点的 todo ID
+			const newChildren = detail.data?.children || []
+			const oldChildren = detail.oldData?.children || []
+			
+			// 找出新增的子节点（在 newChildren 中但不在 oldChildren 中）
+			const oldChildUids = new Set(oldChildren.map(c => c.data?.uid))
+			for (const child of newChildren) {
+				const childUid = child.data?.uid
+				if (childUid && !oldChildUids.has(childUid)) {
+					// 这是新增的子节点，记录其父节点 ID
+					uidToParentId.set(childUid, parentId || null)
+				}
+			}
+		}
+	}
+	
+	// 第二步：处理所有 action
 	for (const detail of details) {
 		const { action, data } = detail
 		const nodeData = data?.data
 		if (!nodeData) continue // 如果没有节点数据，跳过
-		const { id, text } = nodeData
+		const { id, text, uid } = nodeData
+		
 		try {
 			if (action === 'create') {
-				const parentId = data.parent?.data?.id || null
+				// 优先从 uidToParentId 映射获取父节点 ID
+				// 如果没有，则尝试从 data.parent 获取（备用）
+				let parentId = uidToParentId.get(uid) ?? null
+				if (parentId === null && data.parent?.data?.id) {
+					parentId = data.parent.data.id
+				}
+				
+				// 检查是否已存在该 uid 对应的 todo（避免重复创建）
+				const existingTodo = todos.value.find(t => t.id.toString() === uid)
+				if (existingTodo) {
+					console.log(`[TodoTree] Skip create: todo with uid ${uid} already exists`)
+					continue
+				}
+				
+				console.log(`[TodoTree] Creating todo: text="${text}", parentId=${parentId}`)
 				await todoStore.addTodo(text, { parent_id: parentId, status: 'todo' }) // 创建新任务
 			} else if (action === 'update') {
-				await todoStore.updateTodo(id, { title: text }) // 更新任务
+				// 只有当 id 是有效的 todo ID 时才更新
+				if (id && !isNaN(id)) {
+					await todoStore.updateTodo(id, { title: text }) // 更新任务
+				}
 			} else if (action === 'delete') {
-				await todoStore.deleteTodo(id) // 删除任务
+				if (id && !isNaN(id)) {
+					await todoStore.deleteTodo(id) // 删除任务
+				}
 			}
 		} catch (err) {
 			console.error(`Sync ${action} failed for id ${id}:`, err) // 记录同步失败的错误

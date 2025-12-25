@@ -101,10 +101,22 @@ const initMindMap = () => {
   if (mindMapInstance && mindMapInstance.on) {
     mindMapInstance.on('select', (node) => emit('task-selected', node?.data?.id ?? null))
     mindMapInstance.on('change', ({ id, text } = {}) => emit('node-content-change', { id, text }))
-    mindMapInstance.on('insert', (payload) => emit('node-insert', payload))
-    mindMapInstance.on('delete', (payload) => emit('node-delete', payload))
-    mindMapInstance.on('data_change', (data) => emit('data-change', data))
-    mindMapInstance.on('data_change_detail', (details) => emit('data-change-detail', details))
+    mindMapInstance.on('insert', (payload) => {
+      console.log('[MindMap DEBUG] insert event payload:', JSON.stringify(payload, null, 2))
+      emit('node-insert', payload)
+    })
+    mindMapInstance.on('delete', (payload) => {
+      console.log('[MindMap DEBUG] delete event payload:', JSON.stringify(payload, null, 2))
+      emit('node-delete', payload)
+    })
+    mindMapInstance.on('data_change', (data) => {
+      console.log('[MindMap DEBUG] data_change event triggered')
+      emit('data-change', data)
+    })
+    mindMapInstance.on('data_change_detail', (details) => {
+      console.log('[MindMap DEBUG] data_change_detail event:', JSON.stringify(details, null, 2))
+      emit('data-change-detail', details)
+    })
     mindMapInstance.on('node_active', (node, activeNodeList) => {
       // 总是通过 activeNodeList 的状态来判断
       if (activeNodeList.length === 0) {
@@ -127,11 +139,13 @@ const initMindMap = () => {
 
   // 初次挂载后自动居中
   setTimeout(() => {
+    console.log('[MindMap DEBUG] Initial moveToCenter called')
     moveToCenter()
   }, 0)
 
-  // 每次节点树渲染后自动居中
+  // 每次节点树渲染后自动居中 - 这会导致视角重置问题！
   mindMapInstance.on('node_tree_render_end', () => {
+    console.log('[MindMap DEBUG] node_tree_render_end event - moveToCenter called (问题根源!)')
     moveToCenter()
     // 渲染完成后，如果有选中的任务，选中对应节点
     if (props.selectedTaskId) {
@@ -160,9 +174,13 @@ watch(() => props.selectedTaskId, (newId) => {
 })
 
 // 监听 mindData 变化，更新实例
-watch(() => props.mindData, (newVal) => {
+watch(() => props.mindData, (newVal, oldVal) => {
+  console.log('[MindMap DEBUG] mindData watch triggered')
+  console.log('[MindMap DEBUG] Old nodes count:', oldVal?.children?.length || 0)
+  console.log('[MindMap DEBUG] New nodes count:', newVal?.children?.length || 0)
   if (!mindMapInstance) return initMindMap()
   if (mindMapInstance.setData) {
+    console.log('[MindMap DEBUG] Calling setData() - this triggers full re-render!')
     mindMapInstance.setData(newVal)
   } else {
     initMindMap()
