@@ -15,7 +15,7 @@
 
 
 <script setup>
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useTodoStore } from '../../stores/todos'
 import MindMapWrapper from '../../components/MindMapWrapper.vue'
 
@@ -30,6 +30,10 @@ const emit = defineEmits(['task-selected']) // 当任务被选中时发出事件
 const todoStore = useTodoStore()
 // 获取所有待办事项的计算属性
 const todos = computed(() => todoStore.todos || [])
+
+// 维护 MindMap UID 到 Todo ID 的映射
+// 用于处理连续创建子节点时，父节点 ID 尚未回写到 MindMap 数据的情况
+const uidToIdMap = ref(new Map())
 
 // 组件挂载时初始化数据
 onMounted(async () => {
@@ -68,72 +72,102 @@ const onNodeDelete = async ({ id }) => {
 	}
 }
 
+// 所有的 create 操作都通过这个 Promise 链串行执行
+// 这解决了快速操作（如长按Tab）导致产生多个并发事件，后一个事件无法在 map 中找到前一个事件创建的 ID 的问题
+let createPromiseChain = Promise.resolve()
+
 // 处理 data_change_detail 事件：增量同步变更到 todoStore
-const onDataChangeDetail = async (details) => {
-	if (!Array.isArray(details)) return // 如果 details 不是数组，直接返回
-	
-	// 第一步：收集所有 create 节点的 uid，并建立 uid -> parentId 的映射
-	const createNodes = [] // { uid, text, parentId }
-	const uidToParentId = new Map() // uid -> parentId
-	
-	// 从 update action 中解析父子关系
-	// update action 会显示父节点的 children 数组变化，包含新增的子节点
+const onDataChangeDetail = (details) => {
+	if (!Array.isArray(details)) return
+
+	// 预处理：建立 UID 到父节点信息的临时映射（针对同一个 details 批次）
+	const batchUidToParent = new Map()
+
 	for (const detail of details) {
 		if (detail.action === 'update') {
-			const parentNodeData = detail.data?.data
-			const parentId = parentNodeData?.id // 父节点的 todo ID
+			const parentData = detail.data?.data
 			const newChildren = detail.data?.children || []
 			const oldChildren = detail.oldData?.children || []
 			
-			// 找出新增的子节点（在 newChildren 中但不在 oldChildren 中）
-			const oldChildUids = new Set(oldChildren.map(c => c.data?.uid))
-			for (const child of newChildren) {
-				const childUid = child.data?.uid
-				if (childUid && !oldChildUids.has(childUid)) {
-					// 这是新增的子节点，记录其父节点 ID
-					uidToParentId.set(childUid, parentId || null)
-				}
-			}
+			// 找出新增的子节点
+			const oldUids = new Set(oldChildren.map(c => c.data.uid))
+			const addedChildren = newChildren.filter(c => !oldUids.has(c.data.uid))
+			
+			addedChildren.forEach(child => {
+				batchUidToParent.set(child.data.uid, {
+					parentId: parentData.id,
+					parentUid: parentData.uid
+				})
+			})
+		} else if (detail.action === 'create') {
+			// 修复：同时扫描 create 事件中的 children，建立多层级同时创建时的父子关系
+			const parentData = detail.data?.data
+			const children = detail.data?.children || []
+			
+			children.forEach(child => {
+				batchUidToParent.set(child.data.uid, {
+					parentId: parentData.id,
+					parentUid: parentData.uid
+				})
+			})
 		}
 	}
-	
-	// 第二步：处理所有 action
+
 	for (const detail of details) {
 		const { action, data } = detail
 		const nodeData = data?.data
-		if (!nodeData) continue // 如果没有节点数据，跳过
+		if (!nodeData) continue
+		
 		const { id, text, uid } = nodeData
 		
-		try {
-			if (action === 'create') {
-				// 优先从 uidToParentId 映射获取父节点 ID
-				// 如果没有，则尝试从 data.parent 获取（备用）
-				let parentId = uidToParentId.get(uid) ?? null
-				if (parentId === null && data.parent?.data?.id) {
-					parentId = data.parent.data.id
+		if (action === 'create') {
+			// 将 create 操作加入 Promise 链，确保串行执行
+			createPromiseChain = createPromiseChain.then(async () => {
+				try {
+					console.log(`[TodoTree] Processing create for uid ${uid}`)
+					let parentId = null
+					
+					const parentInfo = batchUidToParent.get(uid)
+					if (parentInfo) {
+						if (parentInfo.parentId) {
+							parentId = parentInfo.parentId
+						} else if (parentInfo.parentUid) {
+							// 此时前一个 Promise 已执行完，如果是刚刚创建的父节点，这里应该能取到了
+							// 此时前一个 Promise 已执行完，如果是刚刚创建的父节点，这里应该能取到了
+							parentId = uidToIdMap.value.get(parentInfo.parentUid)
+							console.log(`[TodoTree] Found parentId ${parentId} for uid ${parentInfo.parentUid} from Map`)
+						}
+					} else if (data.parent?.data) {
+						if (data.parent.data.id) {
+							parentId = data.parent.data.id
+						} else if (data.parent.data.uid) {
+							parentId = uidToIdMap.value.get(data.parent.data.uid)
+							console.log(`[TodoTree] Found parentId ${parentId} for uid ${data.parent.data.uid} from data.parent.data`)
+						}
+					}
+
+					console.log(`[TodoTree] Creating todo: text="${text}", parentId=${parentId}, uid=${uid}`)
+					const res = await todoStore.addTodo(text, { parent_id: parentId || null, status: 'todo' })
+					
+					if (res.success) {
+						uidToIdMap.value.set(uid, res.data.id)
+						console.log(`[TodoTree] Mapped uid ${uid} -> todoId ${res.data.id}`)
+					}
+				} catch (err) {
+					console.error(`Create failed for uid ${uid}:`, err)
 				}
-				
-				// 检查是否已存在该 uid 对应的 todo（避免重复创建）
-				const existingTodo = todos.value.find(t => t.id.toString() === uid)
-				if (existingTodo) {
-					console.log(`[TodoTree] Skip create: todo with uid ${uid} already exists`)
-					continue
-				}
-				
-				console.log(`[TodoTree] Creating todo: text="${text}", parentId=${parentId}`)
-				await todoStore.addTodo(text, { parent_id: parentId, status: 'todo' }) // 创建新任务
-			} else if (action === 'update') {
-				// 只有当 id 是有效的 todo ID 时才更新
-				if (id && !isNaN(id)) {
-					await todoStore.updateTodo(id, { title: text }) // 更新任务
-				}
-			} else if (action === 'delete') {
-				if (id && !isNaN(id)) {
-					await todoStore.deleteTodo(id) // 删除任务
-				}
+			})
+		} else if (action === 'update') {
+			if (id && !isNaN(id)) {
+				// Update 和 Delete 操作通常不需要严格串行化（相对于 Create 而言），
+				// 或者是针对已有 ID 的操作。如果这里也需要严格顺序，也可以放进链里。
+				// 目前保持并发以提高响应速度。
+				todoStore.updateTodo(id, { title: text }).catch(e => console.error(e))
 			}
-		} catch (err) {
-			console.error(`Sync ${action} failed for id ${id}:`, err) // 记录同步失败的错误
+		} else if (action === 'delete') {
+			if (id && !isNaN(id)) {
+				todoStore.deleteTodo(id).catch(e => console.error(e))
+			}
 		}
 	}
 }
