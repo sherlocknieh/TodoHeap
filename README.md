@@ -14,7 +14,7 @@
 
 - **应用首页**: https://sherlocknieh.github.io/TodoHeap/
 - **在线文档**: https://sherlocknieh.github.io/TodoHeap/docs/
-- **PPT报告文档** : https://docs.qq.com/slide/DRnZnRGdKQ2ZQT1By
+- **报告文档(PPT)** : https://docs.qq.com/slide/DRnZnRGdKQ2ZQT1By
 
 ## 开发指南
 
