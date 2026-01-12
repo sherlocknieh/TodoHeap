@@ -12,7 +12,7 @@
       // 移动端：底部弹出面板
       'fixed inset-x-0 bottom-0 h-[70vh] bg-white shadow-2xl flex flex-col z-20 rounded-t-2xl',
       // 桌面端：右侧常驻面板
-      'lg:absolute lg:inset-x-auto lg:top-0 lg:right-0 lg:bottom-0 lg:h-auto lg:w-96 lg:rounded-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
+      'lg:static lg:inset-x-auto lg:top-0 lg:right-0 lg:bottom-0 lg:h-auto lg:w-96 lg:rounded-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
       // 已删除任务时整个面板显示禁用光标
       isDeleted ? 'cursor-not-allowed' : ''
     ]">
