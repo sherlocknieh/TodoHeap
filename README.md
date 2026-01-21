@@ -52,6 +52,10 @@
     npx supabase
     ```
   - 本地编写SQL脚本: supabase/migrations/;
+    ```bash
+    # 创建新的SQL变更脚本
+    npx supabase migration new your_migration_name
+    ```
   - 本地编写边缘函数: supabase/functions/;
   - 推送到远程:
     ```bash
@@ -60,9 +64,11 @@
     # 连接到项目
     npx supabase link --project-ref nxzvisuvwtsnlrugqghx
     # 推送数据库更改
-    supabase db push
+    npx supabase db push
+    # 创建边缘函数
+    npx supabase functions new hello-world
     # 部署边缘函数
-    supabase functions deploy
+    npx supabase functions deploy hello-world
     ```
   - 参考 [supabase-cli 官方文档](https://supabase.com/docs/reference/cli/supabase-login);
   - 参考 [边缘函数官方教程](https://supabase.com/docs/guides/functions/quickstart);
