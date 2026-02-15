@@ -1,7 +1,7 @@
 # TodoHeap 任务堆
 
 
-![TodoHeap 主页面截图](docs/images/main-page.png)
+![TodoHeap 主页面截图](docs/src/main-page.png)
 
 - **核心功能**: 在 TodoList 上增加 AI 自动分解任务的功能, 减轻任务管理压力;
 
@@ -84,13 +84,17 @@
     npx supabase functions new hello-world
     # 部署边缘函数
     npx supabase functions deploy hello-world
+    # 部署所有边缘函数
+    npx supabase functions deploy
     ```
   - 参考 [supabase-cli 官方文档](https://supabase.com/docs/reference/cli/supabase-login);
   - 参考 [边缘函数官方教程](https://supabase.com/docs/guides/functions/quickstart);
-  - 要取消部署边缘函数, 需要先手动取消函数的部署, 然后删除函数文件夹
+
+  - 要取消部署某个边缘函数, 不可直接删除文件夹, 需用命令行取消部署, 然后手动删除函数文件夹;
+    如果直接手动删除函数文件夹, config.toml 中仍会残留该函数的记录, 导致github在线部署时报错;
     ```bash
-    # 取消部署函数
-    npx supabase functions delete hello-world
+     # 取消部署
+     npx supabase functions delete hello-world
     ```
 
 
