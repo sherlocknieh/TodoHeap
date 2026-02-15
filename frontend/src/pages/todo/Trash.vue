@@ -75,7 +75,7 @@
 
           <!-- 标题 -->
           <div class="flex-1 min-w-0">
-            <span class="block text-sm text-slate-500 font-normal leading-relaxed break-words line-through">
+            <span class="block text-sm text-slate-500 font-normal leading-relaxed wrap-break-word line-through">
               {{ item.title || '未命名任务' }}
             </span>
             <span v-if="item.children && item.children.length" class="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full ml-2">

@@ -32,6 +32,14 @@ export const useTodoStore = defineStore('todos', () => {
 
   // ========== 监听同步事件 ==========
   
+  // 处理登出事件：清理所有本地数据
+  const handleSignedOut = () => {
+    todos.value = []
+    trashTodos.value = []
+    isFetched.value = false
+    error.value = null
+  }
+
   // ID替换事件处理 (临时ID -> 真实ID)
   const handleIdReplaced = (event) => {
     const { tempId, realId, data } = event.detail
@@ -128,6 +136,7 @@ export const useTodoStore = defineStore('todos', () => {
 
   // 注册事件监听
   if (typeof window !== 'undefined') {
+    window.addEventListener('auth:signedOut', handleSignedOut)
     window.addEventListener('sync:id-replaced', handleIdReplaced)
     window.addEventListener('sync:update-success', handleUpdateSuccess)
     window.addEventListener('sync:rollback', handleRollback)

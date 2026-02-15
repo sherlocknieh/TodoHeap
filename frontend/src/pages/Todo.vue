@@ -90,38 +90,20 @@
 					</div>
 
 					<div class="flex-1 overflow-auto p-4" @click="onMainAreaClick">
-						<!-- 列表视图 -->
-						<div v-if="activeView === 'list'">
-							<TodoList :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
-						</div>
-
-						<!-- 树视图 -->
-						<div v-else-if="activeView === 'tree'">
-							<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
-								<div class="text-center">
-									<p class="text-lg mb-2">⏳</p>
-									<p class="text-sm">加载中...</p>
-								</div>
+						<div v-if="showViewLoading" class="flex items-center justify-center h-96 text-slate-500">
+							<div class="text-center">
+								<p class="text-lg mb-2">⏳</p>
+								<p class="text-sm">加载中...</p>
 							</div>
-							<TodoTree v-else :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
 						</div>
-
-						<!-- 堆视图 -->
-						<div v-else-if="activeView === 'heap'">
-							<div v-if="todoStore.loading" class="flex items-center justify-center h-96 text-slate-500">
-								<div class="text-center">
-									<p class="text-lg mb-2">⏳</p>
-									<p class="text-sm">加载中...</p>
-								</div>
-							</div>
-							<TodoHeap v-else :todos="todoStore.todos" :selected-task-id="selectedTaskId"
-								@task-selected="handleTaskSelected" />
-						</div>
-
-						<!-- 回收站 -->
-						<div v-else-if="activeView === 'trash'">
-							<Trash :selected-task-id="selectedTaskId" @task-selected="handleTaskSelected" />
-						</div>
+						<router-view v-else v-slot="{ Component }">
+							<component
+								:is="Component"
+								v-bind="viewProps"
+								:selected-task-id="selectedTaskId"
+								@task-selected="handleTaskSelected"
+							/>
+						</router-view>
 					</div>
 				</div>
 
@@ -172,10 +154,6 @@ import { storeToRefs } from 'pinia'
 import SyncStatusIndicator from '../components/SyncStatusIndicator.vue'
 import LeftSidebar from '../components/LeftSidebar.vue'
 import BreakdownStatusCard from '../components/BreakdownStatusCard.vue'
-import TodoList from './todo/TodoList.vue'
-import TodoTree from './todo/TodoTree.vue'
-import TodoHeap from './todo/TodoHeap.vue'
-import Trash from './todo/Trash.vue'
 import TodoDetailEditor from '../components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '../utils/detailPanelContext'
 
@@ -222,6 +200,14 @@ const leftPanelCollapsed = ref(false)
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 const showLeftSidebar = ref(false) // 侧栏显示状态
 const showMobileSidebar = ref(false) // 移动端侧栏显示状态
+
+const showViewLoading = computed(() => {
+	return (activeView.value === 'tree' || activeView.value === 'heap') && todoStore.loading
+})
+
+const viewProps = computed(() => {
+	return activeView.value === 'heap' ? { todos: todoStore.todos } : {}
+})
 
 const detailPanelRequested = ref(false)
 

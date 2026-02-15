@@ -1,0 +1,472 @@
+---
+layout: doc
+title: SDD - 设计文档
+---
+
+# 系统设计文档 (SDD)
+
+详细的技术架构和设计文档
+
+## 架构概览
+
+TodoHeap 采用前后端分离的架构：
+
+- **前端**：Vue3 + Vite，实现丰富的交互界面
+- **后端**：Supabase + Deno 函数，提供数据存储和 AI 集成
+- **AI 模块**：集成大语言模型，实现任务分解和优化
+
+## 技术栈
+
+### 前端
+- **框架**：Vue 3
+- **构建工具**：Vite
+- **路由**：Vue Router 4
+- **状态管理**：Pinia
+- **UI 组件**：Tailwind CSS
+- **编辑器**：Milkdown（Markdown 编辑）
+- **思维导图**：simple-mind-map
+- **日期选择**：vue-datepicker-next
+
+### 后端
+- **数据库**：PostgreSQL（通过 Supabase）
+- **后端函数**：Deno
+- **实时同步**：Supabase Realtime
+- **认证**：Supabase Auth
+- **API**：PostgREST
+
+## 核心模块设计
+
+### 1. 任务管理模块
+负责任务的增删改查和层级管理
+
+### 2. AI 分解模块
+使用大语言模型实现任务自动分解功能
+
+### 3. 优先级计算模块
+基于多个维度（难度、紧急度、截止日期等）计算任务优先级
+
+### 4. 视图渲染模块
+实现四种视图展示：
+- 列表视图
+- 树视图
+- 思维导图视图
+- 堆视图
+
+### 5. 数据同步模块
+实现实时的云端同步和离线编辑支持
+
+## 数据库设计
+
+### todos 表
+主要存储任务信息
+
+### user_settings 表
+存储用户偏好设置
+
+详见 Supabase 迁移文件
+
+面向开发人员的系统设计说明。
+
+## 0. 总体架构
+
+TodoHeap 应用由前端, 后端和 AI 服务三部分组成:
+
+** 前端: **
+- 框架: Vue 3（Composition API）
+- 构建工具: Vite
+- 路由: Vue Router（Hash 模式）
+- 状态管理: Pinia
+- 样式: TailwindCSS
+- UI 组件: shadcn-vue
+
+**后端: **
+- 数据库: Supabase 托管的 PostgreSQL
+- 数据库API: Supabase REST API
+- 用户认证: Supabase Auth（JWT）
+- 文件存储: Supabase Storage
+
+**AI 服务: **
+- 平台: 硅基流动
+- 访问方式: Supabase Edge Functions
+
+
+### 信息流图
+
+```mermaid
+
+flowchart LR
+
+    客户端 --> 后端
+
+    后端 --> 边缘函数节点
+
+    边缘函数节点 --> AI 服务
+
+    AI 服务 --> 后端
+
+```
+
+- 4个信息节点: 客户端(本地), 后端(云端), 边缘函数节点 , AI 服务
+- 信息流向:
+  - 用户操作触发前端事件
+  - 前端通过 Supabase API 与后端数据库交互
+  - 复杂任务分解请求发送到边缘函数
+  - 边缘函数调用 AI 服务进行任务处理
+  - 结果返回并更新前端状态
+
+
+
+
+
+
+
+
+## 1. 前端
+
+### 1.1 页面设计
+
+- 首页: 产品介绍
+- 登录/注册页: 用户认证
+- 工作页面: 任务管理
+  - 列表视图: 任务列表
+  - 树视图: 任务树（思维导图）
+  - 堆视图: 任务堆（优先级排序）
+  - 设置页: 用户设置
+- 404 错误页: 404 错误页面
+
+### 目录结构解析:
+```
+frontend/src/
+├── pages/              # 页面组件
+│   ├── Home.vue       # 首页（产品介绍）
+│   ├── Login.vue      # 登录/注册页
+│   ├── Todo.vue       # 主应用页（路由容器）
+│   ├── 404.vue        # 404 错误页
+│   └── todo/          # 工作页面
+│       ├── TodoList.vue    # 列表视图
+│       ├── TodoTree.vue    # 树视图（思维导图）
+│       ├── TodoHeap.vue    # 堆视图（优先级排序）
+│       └── Settings.vue    # 设置页
+├── components/        # 通用组件
+│   ├── NavBar.vue     # 导航栏
+│   ├── Footer.vue     # 页脚
+│   ├── SideMenu.vue   # 侧边栏菜单
+│   └── TodoListItem.vue  # 任务列表项
+├── layouts/           # 布局组件
+│   ├── DefaultLayout.vue    # 默认布局
+│   ├── AuthLayout.vue        # 认证页布局
+│   └── DashboardLayout.vue  # 仪表盘布局
+├── stores/            # 状态管理
+│   ├── auth.js        # 认证状态（用户信息、登录状态）
+│   └── todos.js       # 任务状态（CRUD、AI 分解）
+├── utils/             # 工具函数
+│   ├── priorityCalculator.js  # 优先级计算算法
+│   ├── supabaseQueries.js      # Supabase 查询封装
+│   └── supabaseQueriesExamples.js  # 查询示例
+├── router.js          # 路由配置
+├── supabase.js        # Supabase 客户端初始化
+├── main.js            # 应用入口
+└── style.css          # 全局样式
+```
+
+
+
+### 前端依赖说明:
+
+- 框架: Vue 3（Composition API）
+  - **Vue.js**: 用于构建用户界面的渐进式JavaScript框架。
+  - **Vue Router**: Vue.js的官方路由管理器，用于处理单页应用的导航。
+- **状态管理**: Pinia - Vue 3的官方状态管理库，用于管理应用状态。
+- **UI库**: shadcn-vue - 基于TailwindCSS的Vue 3 UI组件库。
+
+
+
+### 前端运行逻辑
+
+#### 页面路由与登录状态管理
+
+一、应用启动流程
+```
+main.js 启动
+    ↓
+1. 创建 Vue 应用实例
+2. 创建 Pinia 实例并注册 (app.use(pinia))
+3. 创建 Router 实例并注册 (app.use(router))
+    ↓
+router.js: createRouter()
+    ↓
+加载 routes.js 的路由配置
+    ↓
+调用 setupGuards(router) 注册守卫
+    ↓
+挂载应用到 DOM (app.mount('#app'))
+```
+二、首次访问 (未登录用户)
+
+场景 1: 访问首页 /
+code
+用户输入 URL: http://localhost:5173/#/
+    ↓
+触发 beforeEach 守卫
+    ↓
+guards.js:10 - 获取 authStore
+    ↓
+guards.js:12-13 - 检查未初始化 → 调用 initialize()
+    ↓
+auth.js:18-43 - initialize() 执行:
+    ├─ 19: 检查 initialized 为 false, 继续
+    ├─ 21: loading = true
+    ├─ 24: 调用 supabase.auth.getSession() 获取当前会话
+    ├─ 25: session = null (未登录)
+    ├─ 28-32: 注册 onAuthStateChange 监听器
+    ├─ 34: initialized = true
+    └─ 41: loading = false
+    ↓
+guards.js:15 - isAuthenticated = false
+    ↓
+guards.js:17 - 检查 requiresAuth = false, 跳过
+    ↓
+guards.js:22 - 检查 path !== '/login', 跳过
+    ↓
+guards.js:27 - next() 允许访问
+    ↓
+路由进入 Home.vue
+    ↓
+Home.vue:194 - 检查 !initialized && !loading = false, 跳过初始化
+    ↓
+Home.vue:199 - 检查 isAuthenticated = false, 不跳转
+    ↓
+显示首页 (产品介绍页)
+场景 2: 访问受保护页 /app
+code
+用户输入 URL: http://localhost:5173/#/app
+    ↓
+触发 beforeEach 守卫
+    ↓
+guards.js:10 - 获取 authStore
+    ↓
+guards.js:12-13 - 已初始化, 跳过
+    ↓
+guards.js:15 - isAuthenticated = false
+    ↓
+guards.js:17 - requiresAuth = true && !isAuthenticated
+    ↓
+guards.js:18 - next('/login') 重定向到登录页
+    ↓
+再次触发 beforeEach (目标: /login)
+    ↓
+guards.js:17 - requiresAuth = false, 跳过
+    ↓
+guards.js:22 - path === '/login' && isAuthenticated = false, 跳过
+    ↓
+guards.js:27 - next() 允许访问
+    ↓
+显示登录页
+场景 3: 在首页点击登录按钮
+code
+Home.vue:206 - openLogin() 被调用
+    ↓
+router.push('/login')
+    ↓
+触发路由导航,流程同场景 2 的第二次 beforeEach
+    ↓
+显示登录页
+三、登录流程
+code
+用户在登录页输入邮箱密码 → 点击登录
+    ↓
+Login.vue 调用 authStore.signIn(email, password)
+    ↓
+auth.js:46-63 - signIn() 执行:
+    ├─ 47: loading = true
+    ├─ 50: 调用 supabase.auth.signInWithPassword()
+    ├─ 55: session = { user, access_token, ... } (登录成功)
+    └─ 61: loading = false
+    ↓
+【关键】onAuthStateChange 监听器触发 (auth.js:29-31)
+    ↓
+session.value = 新的 session
+    ↓
+isAuthenticated 计算属性更新为 true
+    ↓
+Login.vue 调用 router.push('/app')
+    ↓
+触发 beforeEach 守卫
+    ↓
+guards.js:15 - isAuthenticated = true
+    ↓
+guards.js:17 - requiresAuth = true && isAuthenticated = true, 跳过
+    ↓
+guards.js:22 - path !== '/login', 跳过
+    ↓
+guards.js:27 - next() 允许访问
+    ↓
+afterEach 设置页面标题: document.title = 'TodoHeap - 我的清单'
+    ↓
+显示应用主页面
+四、已登录用户访问
+场景 1: 访问登录页 /login
+code
+用户手动访问: http://localhost:5173/#/login
+    ↓
+触发 beforeEach 守卫
+    ↓
+guards.js:15 - isAuthenticated = true
+    ↓
+guards.js:22 - path === '/login' && isAuthenticated = true
+    ↓
+guards.js:23 - next('/app') 重定向到应用页
+    ↓
+显示应用主页面
+场景 2: 刷新页面
+code
+用户按 F5 刷新浏览器
+    ↓
+URL 保持: http://localhost:5173/#/app
+    ↓
+应用重新启动,再次执行启动流程
+    ↓
+触发 beforeEach 守卫
+    ↓
+guards.js:12-13 - initialize()
+    ↓
+auth.js:24 - supabase.auth.getSession()
+    ↓
+Supabase 从 localStorage 读取 token,验证后返回 session
+    ↓
+session = { user, access_token, ... } (保持登录状态)
+    ↓
+isAuthenticated = true
+    ↓
+guards.js:27 - next() 允许访问
+    ↓
+直接显示应用主页面 (无需重新登录)
+五、登出流程
+code
+用户点击登出按钮
+    ↓
+调用 authStore.signOut()
+    ↓
+auth.js:96-110 - signOut() 执行:
+    ├─ 97: loading = true
+    ├─ 100: 调用 supabase.auth.signOut()
+    ├─ 102: session = null
+    └─ 108: loading = false
+    ↓
+【关键】onAuthStateChange 监听器触发 (auth.js:29-31)
+    ↓
+session.value = null
+    ↓
+isAuthenticated = false
+    ↓
+组件检测到认证状态变化,自动跳转到首页
+    ↓
+触发 beforeEach 守卫
+    ↓
+guards.js:15 - isAuthenticated = false
+    ↓
+显示首页
+六、认证状态自动同步机制
+code
+Supabase 后台事件 → onAuthStateChange 监听器
+    ↓
+可能的触发事件:
+├─ INITIAL_SESSION - 首次获取会话
+├─ SIGNED_IN - 用户登录
+├─ SIGNED_OUT - 用户登出
+├─ TOKEN_REFRESHED - token 自动刷新
+└─ USER_UPDATED - 用户信息更新
+    ↓
+auth.js:29-31 - 更新 session.value
+    ↓
+isAuthenticated 计算属性自动更新
+    ↓
+所有依赖 isAuthenticated 的组件自动重新渲染
+    ↓
+路由守卫在下一次导航时使用最新状态
+七、时序图总结
+code
+应用启动
+  └─→ Pinia 注册
+  └─→ Router 注册
+      └─→ 注册路由守卫 (beforeEach, afterEach)
+  └─→ 挂载到 DOM
+
+用户导航
+  └─→ beforeEach 触发
+      ├─→ 检查/初始化 authStore
+      ├─→ 检查认证状态
+      ├─→ 决定是否重定向
+      └─→ next() 允许/拦截导航
+  └─→ 路由组件加载
+  └─→ afterEach 设置页面标题
+
+认证操作 (登录/登出)
+  └─→ supabase.auth 调用
+  └─→ onAuthStateChange 触发
+      └─→ 更新 session
+          └─→ isAuthenticated 更新
+              └─→ 组件响应式更新
+八、关键设计点
+懒初始化: 首次导航时才初始化认证,不阻塞应用启动
+单次初始化: initialized 标志防止重复初始化
+状态同步: onAuthStateChange 监听器确保前后端状态一致
+声明式保护: meta.requiresAuth 统一标记受保护路由
+双向重定向: 自动处理已登录/未登录的页面访问逻辑
+持久化: Supabase 自动处理 token 持久化,刷新不丢失登录状态
+
+
+#### 任务清单数据管理
+
+
+
+#### 额外数据管理
+
+- AI使用额度
+- 用户数量
+- 捐赠记录
+
+
+
+
+
+
+
+
+## 2.后端
+
+
+
+### 数据库设计
+
+#### 2.3.1 核心表结构
+
+**todos 表: **
+
+
+#### 2.3.2 索引设计
+
+```sql
+-- 用户活跃任务查询索引
+CREATE INDEX idx_todos_user_active ON todos(user_id, status) 
+WHERE deleted_at IS NULL;
+
+-- 父任务查询索引
+CREATE INDEX idx_todos_user_parent ON todos(user_id, parent_id);
+
+-- 优先级和截止时间查询索引
+CREATE INDEX idx_todos_priority ON todos(user_id, priority, deadline) 
+WHERE deleted_at IS NULL;
+```
+
+
+
+### 边缘函数
+
+#### 2.4.1 任务分解函数
+
+
+
+3. AI 服务
+
+API_KEY

@@ -91,9 +91,13 @@
 
 ### 在线文档
 
-- 在 docs/ 下创建和编辑文档;
+- 在 docs/ 下创建和编辑 Markdown 文档;
 - 推送到 GitHub 后会自动部署为在线文档;
-- requirements.txt 是自动构建所需的依赖, 请勿删除;
+- 本地预览:
+  ```bash
+  pip install -r docs/requirements.txt
+  mkdocs serve
+  ```
 
 ### 提交指南
 

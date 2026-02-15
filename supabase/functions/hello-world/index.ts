@@ -3,16 +3,19 @@
 // This enables autocomplete, go to definition, etc.
 
 // Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import "@supabase/functions-js/edge-runtime.d.ts"
 
 console.log("Hello from Functions!")
 
 Deno.serve(async (req) => {
+  // 解析请求体, 提取 name 字段
   const { name } = await req.json()
+
+  // 构建响应体
   const data = {
     message: `Hello ${name}!`,
   }
-
+  // 返回 JSON 响应
   return new Response(
     JSON.stringify(data),
     { headers: { "Content-Type": "application/json" } },
@@ -25,7 +28,7 @@ Deno.serve(async (req) => {
   2. Make an HTTP request:
 
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/hello-world' \
-    --header 'Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjIwODM3MzQyNjB9.3n1Js8CkRkdtcg4dWyHF7UUQvJG_wWQUOL_gI6NCqZFWQqj0XI-qrDu-_wXpmNNS6nqFqBvnqPI1P5Y5aHOfkw' \
+    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
     --header 'Content-Type: application/json' \
     --data '{"name":"Functions"}'
 

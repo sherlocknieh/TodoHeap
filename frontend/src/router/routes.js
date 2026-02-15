@@ -20,11 +20,11 @@ export default [
     component: () => import('../pages/Todo.vue'),
     meta: { requiresAuth: true, title: 'TodoHeap - 我的清单' },
     children: [
-      { path: '', name: 'App', redirect: '/app/list', meta: { requiresAuth: true, title: 'TodoHeap - 我的清单' } },
-      { path: 'list', name: 'ListView', component: () => import('../pages/Todo.vue'), meta: { requiresAuth: true, title: 'TodoHeap - 列表视图' } },
-      { path: 'tree', name: 'TreeView', component: () => import('../pages/Todo.vue'), meta: { requiresAuth: true, title: 'TodoHeap - 树视图' } },
-      { path: 'heap', name: 'HeapView', component: () => import('../pages/Todo.vue'), meta: { requiresAuth: true, title: 'TodoHeap - 堆视图' } },
-      { path: 'trash', name: 'TrashView', component: () => import('../pages/Todo.vue'), meta: { requiresAuth: true, title: 'TodoHeap - 垃圾箱' } }
+      { path: '', name: 'App', redirect: '/app/list', meta: { title: 'TodoHeap - 我的清单' } },
+      { path: 'list', name: 'ListView', component: () => import('../pages/todo/TodoList.vue'), meta: { title: 'TodoHeap - 列表视图' } },
+      { path: 'tree', name: 'TreeView', component: () => import('../pages/todo/TodoTree.vue'), meta: { title: 'TodoHeap - 树视图' } },
+      { path: 'heap', name: 'HeapView', component: () => import('../pages/todo/TodoHeap.vue'), meta: { title: 'TodoHeap - 堆视图' } },
+      { path: 'trash', name: 'TrashView', component: () => import('../pages/todo/Trash.vue'), meta: { title: 'TodoHeap - 垃圾箱' } }
     ]
   },
   // 设置页

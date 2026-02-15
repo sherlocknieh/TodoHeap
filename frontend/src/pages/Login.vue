@@ -108,7 +108,7 @@
 
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -125,14 +125,52 @@ const successMsg = ref('')
 const isSignUp = ref(false)
 const showPassword = ref(false)
 
+/**
+ * 获取重定向路径
+ * 
+ * 如果路由查询参数中有 redirect，则返回该路径
+ * 否则返回默认路径 '/app'
+ */
+const getRedirectPath = () => {
+  const redirect = router.currentRoute.value.query.redirect
+  return (typeof redirect === 'string' && redirect.trim()) ? redirect : '/app'
+}
+
+/**
+ * 处理初始化失败，显示重试选项
+ */
+const handleInitFailed = () => {
+  if (authStore.initFailed && authStore.error) {
+    errorMsg.value = `认证初始化失败：${authStore.error}`
+  }
+}
+
+// 监听初始化失败状态
+watch(() => authStore.initFailed, (failed) => {
+  if (failed) {
+    handleInitFailed()
+  }
+}, { immediate: true })
+
 const handleAuth = async () => {
   // 清空提示信息
   errorMsg.value = ''
   successMsg.value = ''
   authStore.clearError()
 
-  // 基础验证
+  // 如果初始化失败，尝试强制重试
+  if (authStore.initFailed) {
+    loading.value = true
+    try {
+      await authStore.initialize(true)  // 强制重试
+    } catch (err) {
+      errorMsg.value = '认证初始化失败，请检查网络连接'
+      loading.value = false
+      return
+    }
+  }
 
+  // 基础验证
   if (!email.value || !password.value) {
     errorMsg.value = '请填写所有必填项'
     return
@@ -142,11 +180,13 @@ const handleAuth = async () => {
 
   if (password.value.length < 6) {
     errorMsg.value = '密码至少需要 6 个字符'
+    loading.value = false
     return
   }
 
   if (isSignUp.value && password.value !== confirmPassword.value) {
     errorMsg.value = '两次输入的密码不一致'
+    loading.value = false
     return
   }
 
@@ -162,7 +202,7 @@ const handleAuth = async () => {
           email.value = ''
           password.value = ''
           confirmPassword.value = ''
-          // 2秒后自动切换到登录
+          // 3秒后自动切换到登录
           setTimeout(() => {
             isSignUp.value = false
             successMsg.value = ''
@@ -170,7 +210,8 @@ const handleAuth = async () => {
         } else {
           successMsg.value = '注册成功！正在跳转...'
           setTimeout(() => {
-            router.push('/app')
+            const redirectPath = getRedirectPath()
+            router.push(redirectPath)
           }, 1000)
         }
       } else {
@@ -183,7 +224,8 @@ const handleAuth = async () => {
       if (result.success) {
         successMsg.value = '登录成功！正在跳转...'
         setTimeout(() => {
-          router.push('/app')
+          const redirectPath = getRedirectPath()
+          router.push(redirectPath)
         }, 1000)
       } else {
         errorMsg.value = result.error || '登录失败，请检查邮箱和密码'

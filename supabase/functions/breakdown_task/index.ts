@@ -3,7 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * 系统提示词：定义 AI 助手的角色和输出格式
- * 要求 AI 将选定的目标任务拆解为合理的子任务列表（1-10个）
+ * 要求 AI 将选定的目标任务拆解为合理的子任务列表（3-10个）
  * 强制输出格式为纯 JSON 数组，包含 title, description 和 deadline 字段
  */
 const systemPrompt = `You are an AI assistant helping with task breakdown.

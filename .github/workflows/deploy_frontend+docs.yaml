@@ -1,0 +1,57 @@
+name: 部署前端页面和文档到 GitHub Pages
+
+# 触发条件
+on:
+  push:
+    branches: [ main ]    # push 到 main 分支时触发
+    paths:
+      - 'docs/**'         # 文档源文件变动触发部署
+      - 'frontend/**'     # 前端源文件变动触发部署
+      - '.github/workflows/deploy_frontend+docs.yml' # 配置文件变动也触发部署
+
+# 权限设置
+permissions:
+  contents: read              # 读取仓库内容
+  pages: write                # 写入 Pages 发布资源
+  id-token: write             # OIDC for GitHub Pages 部署
+
+# 作业流程
+jobs:
+  deploy:
+    # 操作系统环境
+    runs-on: ubuntu-latest
+    
+    # 环境变量
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # 用于显示部署记录
+    
+    steps:
+      - name: 访问项目代码
+        uses: actions/checkout@v4
+      
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'latest'
+      
+      - name: 构建前端页面
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build -- --outDir ../dist
+      
+      - name: 构建文档页面 (Vitepress)
+        working-directory: docs
+        run: |
+          npm install
+          npm run build -- --outDir ../dist/docs
+
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist'
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

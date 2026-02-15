@@ -178,57 +178,20 @@
 </template>
 
 <script setup>
-import { onMounted, ref, onBeforeUnmount } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-const router = useRouter()
-const authStore = useAuthStore()
+// 状态变量
+const authStore = useAuthStore()  // 认证状态存储
+const router = useRouter()        // 路由实例
 
-const isDark = ref(false)
 
-// 监听系统深色模式变化的 MediaQueryList（用于初始跟随与会话内监听）
-const prefersDarkMQ = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
-let mqListener = null
-let userOverrode = false // 用户在当前会话内是否手动覆盖了系统
-
-const applyTheme = (dark) => {
-  isDark.value = !!dark
-  if (isDark.value) document.documentElement.classList.add('dark')
-  else document.documentElement.classList.remove('dark')
-}
-
-const handleSystemChange = (e) => {
-  // 仅当用户未手动切换时，才随系统变化
-  if (!userOverrode) applyTheme(e.matches)
-}
-
-const addSystemListener = () => {
-  if (!prefersDarkMQ) return
-  mqListener = handleSystemChange
-  if (typeof prefersDarkMQ.addEventListener === 'function') {
-    prefersDarkMQ.addEventListener('change', mqListener)
-  }
-}
-
-const removeSystemListener = () => {
-  if (!prefersDarkMQ || !mqListener) return
-  if (typeof prefersDarkMQ.removeEventListener === 'function') {
-    prefersDarkMQ.removeEventListener('change', mqListener)
-  } else if (typeof prefersDarkMQ.removeListener === 'function') {
-    prefersDarkMQ.removeListener(mqListener)
-  }
-  mqListener = null
-}
-
+// 主函数
 onMounted(async () => {
-  // 初始化主题
-  const systemDark = prefersDarkMQ ? prefersDarkMQ.matches : false
-  applyTheme(systemDark)  // 初始跟随系统
-  addSystemListener()     // 监听系统主题变化
 
   // 如果 store 未初始化，先初始化
-  if (authStore.session === null && !authStore.loading) {
+  if (!authStore.initialized && !authStore.loading) {
     await authStore.initialize()
   }
 
@@ -238,15 +201,8 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => {
-  removeSystemListener()
-})
 
-const toggleDark = () => {
-  userOverrode = true
-  applyTheme(!isDark.value)
-}
-
+// 响应函数
 const openLogin = () => {
   router.push('/login')
 }
@@ -260,6 +216,7 @@ const scrollToFeatures = () => {
 </script>
 
 <style scoped>
+/* 动画 */
 @keyframes fadeInLeft {
   from {
     opacity: 0;
