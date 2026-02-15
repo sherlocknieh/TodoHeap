@@ -5,14 +5,19 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [tailwindcss(), vue()],
-  base: process.env.NODE_ENV === 'production' ? '/TodoHeap/' : '/', // 生产环境下, 需设置基础路径
+  plugins: [tailwindcss(), vue()], // Vite 支持管理不同的技术栈, 需要在此注册以明确使用了哪种组合
+  base: process.env.NODE_ENV === 'production' ? '/TodoHeap/' : '/', // 构建静态网页时添加基础路径
+  // 静态网页中资源(CSS/JS/图片文件等)的引用路径默认相对于服务器域名的根目录,
+  // 本项目部署在 https://sherlocknieh.github.io/TodoHeap/ 路径下,
+  // 直接访问 /assets/style.css 相当于访问 https://sherlocknieh.github.io/assets/style.css
+  // 需要把 /assets/style.css 改为 /TodoHeap/assets/style.css 才能正确访问,
+  // Vite 构建时会根据 base 配置给资源链接添加前缀, 并处理多余的双斜杠, 解决资源路径问题
   build: {
-    outDir: '../dist', // 与文档混合部署的输出目录
-    emptyOutDir: true
+    outDir: '../dist',    // 指定构建输出目录, 用于与文档混合部署
+    emptyOutDir: true     // 构建前清空该目录, 防止旧版本文件残留
   },
   server: { open: true }, // 调试时自动打开浏览器
   resolve: {
-    alias: { '@': path.resolve(__dirname, 'src') } // 设置 @ 指向 src 目录
-  }
+    alias: { '@': path.resolve(__dirname, 'src') } // 用 @ 代替 src 目录路径, 解决相对路径不可靠的问题
+  },
 })

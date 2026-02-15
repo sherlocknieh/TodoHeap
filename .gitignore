@@ -1,35 +1,12 @@
-.venv
-uv.lock
-__pycache__
-.env
+# Node.js
 node_modules
-
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# VitePress
-docs/.vitepress/cache
-docs/.vitepress/dist
-
-# IDE
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
 # Build
 dist/
 build/
 
-# OS
-.DS_Store
-Thumbs.db
+# VitePress
+docs/.vitepress/cache
+docs/.vitepress/dist
+
 

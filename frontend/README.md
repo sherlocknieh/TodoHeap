@@ -4,17 +4,18 @@
 
 - 安装 Node.js
     ```powershell
-    # 非 Win11 用户请访问官网 https://nodejs.org/ 下载安装;
-    # Win11 可用 winget 命令一键安装
     winget install OpenJS.NodeJS
+    # 或者访问官网 https://nodejs.org/ 下载安装
 
-    # 安装完成后配置 npm 源为国内镜像
+    # 配置 npm 源为国内镜像, 提高第三方库的下载速度
     npm config set registry https://registry.npmmirror.com
     ```
-- 安装项目依赖(在 frontend 目录下运行)
+
+- 安装项目依赖 (在 frontend 目录下运行)
     ```bash
     npm install
     ```
+
 - 运行 (在 frontend 目录下运行)
     ```bash
     npm run dev

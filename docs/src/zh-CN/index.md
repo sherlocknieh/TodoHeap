@@ -7,7 +7,7 @@ hero:
   tagline: 用智能分解和优先级排序，帮你解决多任务管理压力
   image:
     src: /logo.png
-    alt: TodoHeap
+    alt: Logo
   actions:
     - theme: brand
       text: 用户指南

@@ -97,17 +97,6 @@
      npx supabase functions delete hello-world
     ```
 
-
-### 在线文档
-
-- 在 docs/ 下创建和编辑 Markdown 文档;
-- 推送到 GitHub 后会自动部署为在线文档;
-- 本地预览:
-  ```bash
-  pip install -r docs/requirements.txt
-  mkdocs serve
-  ```
-
 ### 提交指南
 
 1. 先到 Issue 页面查看/创建/认领任务: https://github.com/sherlocknieh/TodoHeap/issues
