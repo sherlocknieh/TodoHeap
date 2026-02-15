@@ -87,6 +87,11 @@
     ```
   - 参考 [supabase-cli 官方文档](https://supabase.com/docs/reference/cli/supabase-login);
   - 参考 [边缘函数官方教程](https://supabase.com/docs/guides/functions/quickstart);
+  - 要取消部署边缘函数, 需要先手动取消函数的部署, 然后删除函数文件夹
+    ```bash
+    # 取消部署函数
+    npx supabase functions delete hello-world
+    ```
 
 
 ### 在线文档

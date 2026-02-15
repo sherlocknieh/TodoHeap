@@ -2,7 +2,7 @@
 
 This page demonstrates some of the built-in markdown extensions provided by VitePress.
 
-![图片](../../../public/main-page.png)
+![图片](../../main-page.png)
 
 ## Syntax Highlighting
 

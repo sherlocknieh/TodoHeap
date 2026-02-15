@@ -6,6 +6,7 @@ export default defineConfig({
   srcDir: "src",
   // 调试时自动打开浏览器
   vite: {
+    base: '/docs/', // 与前端混合部署, 需设置基础路径
     server: {
       open: true
     }
