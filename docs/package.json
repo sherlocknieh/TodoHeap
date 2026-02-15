@@ -5,6 +5,7 @@
     "preview": "vitepress preview"
   },
   "devDependencies": {
+    "@types/node": "^25.2.3",
     "vitepress": "2.0.0-alpha.16",
     "vitepress-sidebar": "^1.33.1"
   }

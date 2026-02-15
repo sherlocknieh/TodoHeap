@@ -7,13 +7,12 @@ import path from 'path'
 export default defineConfig({
   plugins: [tailwindcss(), vue()],
   base: process.env.NODE_ENV === 'production' ? '/TodoHeap/' : '/', // 生产环境下, 需设置基础路径
-  outDir: '../dist',
-  server: {
-    open: true, // 调试时自动打开浏览器
+  build: {
+    outDir: '../dist', // 与文档混合部署的输出目录
+    emptyOutDir: true
   },
+  server: { open: true }, // 调试时自动打开浏览器
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src') // 设置 @ 指向 src 目录
-    }
+    alias: { '@': path.resolve(__dirname, 'src') } // 设置 @ 指向 src 目录
   }
 })

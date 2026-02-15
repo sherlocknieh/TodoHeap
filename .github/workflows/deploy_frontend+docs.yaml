@@ -39,13 +39,13 @@ jobs:
         working-directory: frontend
         run: |
           npm install
-          npm run build -- --outDir ../dist
+          npm run build
       
       - name: 构建文档页面 (Vitepress)
         working-directory: docs
         run: |
           npm install
-          npm run build -- --outDir ../dist/docs
+          npm run build
 
       - name: 上传构建产物
         uses: actions/upload-pages-artifact@v3
