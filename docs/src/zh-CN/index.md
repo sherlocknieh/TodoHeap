@@ -6,15 +6,15 @@ hero:
   text: "AI 驱动的任务分解工具"
   tagline: 用智能分解和优先级排序，帮你解决多任务管理压力
   image:
-    src: /logo.png
+    src: /logo0.png
     alt: Logo
   actions:
     - theme: brand
       text: 用户指南
-      link: /zh-CN/用户指南/
+      link: /zh-CN/user-guide/
     - theme: alt
       text: 开发文档
-      link: /zh-CN/开发文档/
+      link: /zh-CN/dev-guide/
 
 features:
   - icon: 🤖

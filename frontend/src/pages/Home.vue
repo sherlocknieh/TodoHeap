@@ -1,25 +1,25 @@
 <template>
   <!-- 产品主页 -->
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col transition-colors duration-300">
+  <div
+    class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col transition-colors duration-300">
 
     <!-- 导航栏 -->
-    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
+    <nav
+      class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm border-b border-gray-200 dark:border-gray-800 transition-colors duration-300">
       <!-- 内容居中与限制宽度 -->
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 内容布局管理 -->
         <div class="flex justify-between items-center h-16">
           <!-- 左侧内容 -->
           <div class="flex items-center gap-3 group cursor-pointer min-w-0">
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight truncate max-w-35 sm:max-w-none">
-              TodoHeap 任务堆
+            <h1
+              class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2 min-w-0">
+              <img src="/logo0.png" alt="TodoHeap 任务堆" class="w-6 h-6 sm:w-10 sm:h-10 rounded-full shrink-0">
+              <span class="truncate">TodoHeap 任务堆</span>
             </h1>
           </div>
           <!-- 右侧内容 -->
           <div class="flex items-center gap-3 sm:gap-6 shrink-0">
-            <!-- 文档链接 -->
-            <a href="/TodoHeap/docs" class="hidden sm:inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
-              📄在线文档
-            </a>
             <!-- 登录按钮 -->
             <button @click="openLogin"
               class="px-3 sm:px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap">
@@ -38,7 +38,7 @@
           <div class="space-y-8 animate-fadeInLeft">
             <div>
               <h2 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6 text-gray-900 dark:text-white">
-                AI 驱动的 <br/>
+                AI 驱动的 <br />
                 <span class="text-indigo-600 dark:text-indigo-400">智能任务管理</span>
               </h2>
             </div>
@@ -50,9 +50,12 @@
                 class="px-8 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 text-lg transform hover:-translate-y-1">
                 立即开始
               </button>
-              <button @click="scrollToFeatures"
+              <button
                 class="px-8 py-3.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 text-lg">
-                了解更多
+                <a href="/TodoHeap/docs/"
+                  class="hidden sm:inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
+                  在线文档
+                </a>
               </button>
             </div>
           </div>
@@ -60,26 +63,30 @@
           <!-- Hero 图片/动画 -->
           <div class="text-center animate-fadeInRight">
             <div class="relative h-96 flex items-center justify-center">
-              <div class="absolute inset-0 bg-linear-to-tr from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-3xl transform rotate-3"></div>
-              <div class="relative bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-sm w-full mx-auto transform -rotate-2 hover:rotate-0 transition-transform duration-500">
-                 <!-- 模拟 UI -->
-                 <div class="space-y-4">
-                    <div class="h-4 bg-gray-100 dark:bg-gray-700 rounded w-3/4"></div>
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800/30">
-                            <div class="w-5 h-5 rounded-full border-2 border-indigo-500"></div>
-                            <div class="h-3 bg-indigo-200 dark:bg-indigo-800 rounded w-1/2"></div>
-                        </div>
-                        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                            <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
-                            <div class="h-3 bg-gray-200 dark:bg-gray-600 rounded w-2/3"></div>
-                        </div>
-                        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                            <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
-                            <div class="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/3"></div>
-                        </div>
+              <div
+                class="absolute inset-0 bg-linear-to-tr from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-3xl transform rotate-3">
+              </div>
+              <div
+                class="relative bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-w-sm w-full mx-auto transform -rotate-2 hover:rotate-0 transition-transform duration-500">
+                <!-- 模拟 UI -->
+                <div class="space-y-4">
+                  <div class="h-4 bg-gray-100 dark:bg-gray-700 rounded w-3/4"></div>
+                  <div class="space-y-2">
+                    <div
+                      class="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800/30">
+                      <div class="w-5 h-5 rounded-full border-2 border-indigo-500"></div>
+                      <div class="h-3 bg-indigo-200 dark:bg-indigo-800 rounded w-1/2"></div>
                     </div>
-                 </div>
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                      <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
+                      <div class="h-3 bg-gray-200 dark:bg-gray-600 rounded w-2/3"></div>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                      <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
+                      <div class="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/3"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -88,7 +95,8 @@
     </section>
 
     <!-- 功能特色 -->
-    <section id="features" class="bg-white dark:bg-gray-900 py-24 border-y border-gray-100 dark:border-gray-800 relative z-10 transition-colors duration-300">
+    <section id="features"
+      class="bg-white dark:bg-gray-900 py-24 border-y border-gray-100 dark:border-gray-800 relative z-10 transition-colors duration-300">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-20 animate-fadeInUp">
           <h2 class="text-4xl font-bold text-gray-900 dark:text-white mb-6">
@@ -134,7 +142,8 @@
     </section>
 
     <!-- 页脚 -->
-    <footer class="bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 py-12 relative z-10 transition-colors duration-300">
+    <footer
+      class="bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 py-12 relative z-10 transition-colors duration-300">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid md:grid-cols-3 gap-12 mb-8">
           <!-- 品牌信息 -->
@@ -152,9 +161,15 @@
           <div>
             <h4 class="text-gray-900 dark:text-white font-semibold mb-4">产品</h4>
             <ul class="space-y-2 text-sm">
-              <li><a href="#features" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">功能特色</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">定价</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">博客</a></li>
+              <li><a href="#"
+                  class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">功能特色</a>
+              </li>
+              <li><a href="#"
+                  class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">定价</a>
+              </li>
+              <li><a href="#"
+                  class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">博客</a>
+              </li>
             </ul>
           </div>
 
@@ -162,15 +177,21 @@
           <div>
             <h4 class="text-gray-900 dark:text-white font-semibold mb-4">关于</h4>
             <ul class="space-y-2 text-sm">
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">关于我们</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">联系方式</a></li>
-              <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">隐私政策</a></li>
+              <li><a href="#"
+                  class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">关于我们</a>
+              </li>
+              <li><a href="#"
+                  class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">联系方式</a>
+              </li>
+              <li><a href="#"
+                  class="text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">隐私政策</a>
+              </li>
             </ul>
           </div>
         </div>
 
         <div class="border-t border-gray-200 dark:border-gray-800 pt-8 text-center">
-          <p class="text-gray-500 dark:text-gray-500 text-sm">&copy; 2024 TodoHeap. 保留所有权利。</p>
+          <p class="text-gray-500 dark:text-gray-500 text-sm">&copy; 2026 TodoHeap. 保留所有权利。</p>
         </div>
       </div>
     </footer>
@@ -207,12 +228,6 @@ const openLogin = () => {
   router.push('/login')
 }
 
-const scrollToFeatures = () => {
-  const featuresSection = document.getElementById('features')
-  if (featuresSection) {
-    featuresSection.scrollIntoView({ behavior: 'smooth' })
-  }
-}
 </script>
 
 <style scoped>
@@ -222,6 +237,7 @@ const scrollToFeatures = () => {
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -233,6 +249,7 @@ const scrollToFeatures = () => {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -244,6 +261,7 @@ const scrollToFeatures = () => {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

@@ -11,9 +11,6 @@ export default defineConfig({
   // 需要把 /assets/style.css 改为 /TodoHeap/docs/assets/style.css 才能正确访问
   // Vite 构建时会根据 base 配置给资源链接添加前缀, 并处理多余的双斜杠, 解决资源路径问题
   
-
-
-
   outDir: '../dist/docs', // 与前端混合部署的输出目录
   // 调试时自动打开浏览器
   vite: {
@@ -33,7 +30,7 @@ export default defineConfig({
   rewrites: {
     'en/:rest*': ':rest*',  // 构建时会把 en/ 目录下的文件移动到根目录
     // 效果: 浏览器访问 / 时，实际展示 en/index.md 内容
-    // 效果: 浏览器访问 /en/ 时，自动重定向到 /
+    // 效果2: 浏览器访问 /en/ 时，自动重定向到 /
   },
   // 多语言配置
   locales: {
@@ -46,7 +43,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'User Guide', link: '/user-guide/' },
-          { text: 'Developer Guide', link: '/developer-guide/' }
+          { text: 'Developer Guide', link: '/dev-guide/' }
         ],
         sidebar: []
       }
@@ -62,8 +59,8 @@ export default defineConfig({
       themeConfig: {
         // https://vitepress.dev/reference/default-theme-config
         nav: [
-          { text: '用户指南', link: '/用户指南/' },
-          { text: '开发文档', link: '/开发文档/' }
+          { text: '用户指南', link: '/zh-CN/user-guide/' },
+          { text: '开发文档', link: '/zh-CN/dev-guide/' }
         ],
 
         sidebar: [],

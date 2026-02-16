@@ -12,7 +12,7 @@ hero:
       link: /user-guide/
     - theme: alt
       text: Developer Guide
-      link: /developer-guide/
+      link: /dev-guide/
 
 features:
   - icon: 🤖
