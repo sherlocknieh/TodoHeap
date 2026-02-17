@@ -14,7 +14,7 @@
           <div class="flex items-center gap-3 group cursor-pointer min-w-0">
             <h1
               class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2 min-w-0">
-              <img src="/logo0.png" alt="TodoHeap 任务堆" class="w-6 h-6 sm:w-10 sm:h-10 rounded-full shrink-0">
+              <img src="/logo.png" alt="TodoHeap 任务堆" class="w-6 h-6 sm:w-10 sm:h-10 rounded-full shrink-0">
               <span class="truncate">TodoHeap 任务堆</span>
             </h1>
           </div>
@@ -52,7 +52,7 @@
               </button>
               <button
                 class="px-8 py-3.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 text-lg">
-                <a href="/TodoHeap/docs/zh-CN/"
+                <a href="/TodoHeap/docs/zh/"
                   class="inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
                   在线文档
                 </a>
