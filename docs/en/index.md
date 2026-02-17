@@ -1,11 +1,14 @@
 ---
-# https://vitepress.dev/reference/default-theme-home-page
+# Home Page
 layout: home
 
 hero:
   name: "TodoHeap"
   text: "AI-driven Smart Task Management Tool"
   tagline: "AI-driven tool for smart task management with automatic decomposition, priority sorting, and visualization."
+  image:
+    src: /logo.png
+    alt: Logo
   actions:
     - theme: brand
       text: User Guide

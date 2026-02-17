@@ -1,7 +1,7 @@
 # TodoHeap 任务堆
 
 
-![TodoHeap 主页面截图](docs/src/main-page.png)
+![TodoHeap 主页面截图](docs/screenshot.png)
 
 - **核心功能**: 在 TodoList 上增加 AI 自动分解任务的功能, 减轻任务管理压力;
 

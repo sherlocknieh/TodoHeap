@@ -1,4 +1,5 @@
 ---
+# 首页
 layout: home
 
 hero:
@@ -6,15 +7,15 @@ hero:
   text: "AI 驱动的任务分解工具"
   tagline: 用智能分解和优先级排序，帮你解决多任务管理压力
   image:
-    src: /logo0.png
+    src: /logo.png
     alt: Logo
   actions:
     - theme: brand
       text: 用户指南
-      link: /zh-CN/user-guide/
+      link: /zh/user-guide/
     - theme: alt
       text: 开发文档
-      link: /zh-CN/dev-guide/
+      link: /zh/dev-guide/
 
 features:
   - icon: 🤖

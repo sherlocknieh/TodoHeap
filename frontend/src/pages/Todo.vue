@@ -73,7 +73,6 @@
 					@breakdown-task="handleBreakdownTask"
 				/>
 
-
 				<!-- 中栏：主要视图内容 -->
 				<div class="flex-1 flex flex-col min-w-0" @click="onMainAreaClick">
 					<!-- AI 分解状态区域 -->
@@ -107,7 +106,7 @@
 					</div>
 				</div>
 
-				<!-- 右栏：详情面板（由组件内部处理过渡与响应式布局） -->
+				<!-- 右栏：详情面板 -->
 				<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel" />
 			</div>
 		</main>

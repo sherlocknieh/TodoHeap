@@ -52,8 +52,8 @@
               </button>
               <button
                 class="px-8 py-3.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 text-lg">
-                <a href="/TodoHeap/docs/"
-                  class="hidden sm:inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
+                <a href="/TodoHeap/docs/zh-CN/"
+                  class="inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
                   在线文档
                 </a>
               </button>
