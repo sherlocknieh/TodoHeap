@@ -7,7 +7,6 @@ on:
     paths:
       - 'docs/**'         # 文档源文件变动触发部署
       - 'frontend/**'     # 前端源文件变动触发部署
-      - '.github/workflows/deploy_frontend+docs.yml' # 配置文件变动也触发部署
 
 # 权限设置
 permissions:
@@ -17,7 +16,7 @@ permissions:
 
 # 作业流程
 jobs:
-  deploy:
+  build:
     # 操作系统环境
     runs-on: ubuntu-latest
     
@@ -47,6 +46,7 @@ jobs:
           npm install
           npm run build
 
+  deploy:
       - name: 上传构建产物
         uses: actions/upload-pages-artifact@v3
         with:

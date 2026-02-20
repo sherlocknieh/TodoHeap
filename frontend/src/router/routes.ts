@@ -1,5 +1,7 @@
+import type { RouteRecordRaw } from 'vue-router'
+
 // 路由配置
-export default [
+const routes: Array<RouteRecordRaw> = [
   // 首页
   {
     path: '/',
@@ -42,3 +44,5 @@ export default [
     meta: { requiresAuth: false, title: 'TodoHeap - 页面未找到' }
   }
 ]
+
+export default routes

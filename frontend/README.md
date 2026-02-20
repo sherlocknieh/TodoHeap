@@ -2,6 +2,8 @@
 
 ## 开发指南
 
+### 环境搭建
+
 - 安装 Node.js
     ```powershell
     winget install OpenJS.NodeJS
@@ -21,12 +23,15 @@
     npm run dev
     ```
 
-## 目录结构
-
-- `src/`            - 源代码目录
+### 前端项目结构
+- `public/`         - 静态资源
+- `src/`            - 主要代码
+  - `api/`          - 后端API封装
   - `components/`   - 可复用组件
-  - `libs/`         - 第三方库
+  - `composables/`  - 可复用逻辑
   - `pages/`        - 主要页面
   - `router/`       - 路由配置
   - `store/`        - 状态管理
-  - `utils/`        - 工具函数
+  - `utils/`        - 逻辑无关的工具函数
+- `index.html`      - 应用入口
+- `其它`            - 配置文件

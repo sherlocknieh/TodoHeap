@@ -1,22 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { supabase } from '../libs/supabase'
+import { supabase } from '@/api/supabase'
 
-/**
- * 认证状态管理 Store
- * 
- * 功能说明：
- * - 管理用户登录状态、会话信息
- * - 提供登录、注册、登出等认证方法
- * - 监听 Supabase 认证状态变化，实现跨标签页同步
- * - 登出时触发全局清理事件，通知其他 Store 清理数据
- * 
- * 设计要点：
- * - 懒初始化：首次导航时才初始化，不阻塞应用启动
- * - 防并发：通过 loading 标志防止并发初始化
- * - 防重复：通过 initialized 标志防止重复初始化
- * - 监听器去重：确保 onAuthStateChange 只绑定一次
- */
+// 登录状态管理
 export const useAuthStore = defineStore('auth', () => {
   // ========== 内部控制（防并发 / 防重复 / 防泄漏） ==========
 
@@ -208,6 +194,26 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * 使用第三方提供商进行 OAuth 登录（例如 GitHub）
+   * @param {string} provider - 提供商标识，例如 'github'
+   */
+  const signInWithProvider = async (provider) => {
+    await ensureInitialized()
+
+    return runAuthAction(async () => {
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({ provider })
+      if (oauthError) throw oauthError
+
+      // supabase 可能返回一个重定向 url，若存在则跳转
+      if (data && data.url) {
+        window.location.href = data.url
+      }
+
+      return { success: true }
+    })
+  }
+
+  /**
    * 用户登出
    * 
    * 执行流程：
@@ -241,8 +247,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // ========== 导出 ==========
-
+  // 导出
   return {
     // 状态
     session,
@@ -250,13 +255,13 @@ export const useAuthStore = defineStore('auth', () => {
     error,
     initialized,
     initFailed,
-    // 计算属性
     user,
     isAuthenticated,
     // 方法
     initialize,
     signIn,
     signUp,
+    signInWithProvider,
     signOut,
     clearError,
     cleanup

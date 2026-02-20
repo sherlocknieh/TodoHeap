@@ -7,14 +7,14 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         返回主页
       </router-link>
-      <!-- 品牌区域 -->
+      <!-- Logo -->
       <div class="text-center mb-8">
         <div class="text-5xl mb-2">📝</div>
         <h1 class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1">TodoHeap</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400">简洁高效的待办清单</p>
       </div>
 
-      <!-- 标签切换 -->
+      <!-- 切换登录/注册 -->
       <div class="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
         <button :class="['flex-1 py-3 font-semibold transition-colors', !isSignUp ? 'text-indigo-600 border-b-2 border-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500']" @click="isSignUp = false">
           登录
@@ -73,6 +73,17 @@
           <span>{{ successMsg }}</span>
         </div>
 
+        <!-- 第三方登录（GitHub） -->
+        <div class="mt-4">
+          <button type="button" @click="handleOAuth('github')" :disabled="loading"
+            class="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-lg bg-gray-800 text-white hover:bg-gray-900 transition disabled:opacity-60 disabled:cursor-not-allowed">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 .297a12 12 0 00-3.79 23.4c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.35-1.77-1.35-1.77-1.1-.75.08-.74.08-.74 1.22.09 1.86 1.26 1.86 1.26 1.08 1.85 2.83 1.32 3.52 1.01.11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.16 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 016 0c2.28-1.55 3.29-1.23 3.29-1.23.67 1.64.26 2.86.13 3.16.77.84 1.23 1.9 1.23 3.22 0 4.62-2.8 5.64-5.47 5.94.43.37.82 1.1.82 2.22v3.29c0 .32.22.7.83.58A12 12 0 0012 .297"/>
+            </svg>
+            使用 GitHub 登录
+          </button>
+        </div>
+
         <!-- 提交按钮 -->
         <button type="submit" :disabled="loading"
           class="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-lg bg-linear-to-r from-indigo-500 to-purple-500 dark:from-indigo-700 dark:to-purple-800 text-white shadow-md hover:from-indigo-600 hover:to-purple-600 dark:hover:from-indigo-600 dark:hover:to-purple-700 transition disabled:opacity-60 disabled:cursor-not-allowed">
@@ -81,7 +92,7 @@
         </button>
       </form>
 
-      <!-- 底部链接 -->
+      <!-- 底部提示 -->
       <div class="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
         <p v-if="!isSignUp">
           还没有账号?
@@ -234,6 +245,24 @@ const handleAuth = async () => {
   } catch (error) {
     errorMsg.value = '发生了一个错误，请重试'
     console.error(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleOAuth = async (provider) => {
+  // 清空提示信息
+  errorMsg.value = ''
+  successMsg.value = ''
+
+  try {
+    loading.value = true
+    await authStore.signInWithProvider(provider)
+    // 大多数情况下会发生重定向；若没有，显示提示
+    successMsg.value = '正在跳转到第三方授权页面...'
+  } catch (err) {
+    errorMsg.value = err?.message || '第三方登录失败，请重试'
+    console.error(err)
   } finally {
     loading.value = false
   }
