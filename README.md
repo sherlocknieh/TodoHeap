@@ -1,20 +1,22 @@
 # TodoHeap 任务堆
 
 
-![TodoHeap 主页面截图](docs/screenshot.png)
-
-- **核心功能**: 在 TodoList 上增加 AI 自动分解任务的功能, 减轻任务管理压力;
-
-- **特色功能**: 以思维导图方式展示和管理任务树, 帮助你理清思路;
-
-- **特色功能**: 以堆视图可视化展示最优先的任务, 破解你的选择困难症;
-
-
 ## 快速链接
 
 - **应用首页**: https://sherlocknieh.github.io/TodoHeap/
-- **在线文档**: https://sherlocknieh.github.io/TodoHeap/docs/
+- **在线文档**: https://sherlocknieh.github.io/TodoHeap/docs/zh/
 
+
+## 项目简介
+
+![TodoHeap 主页面截图](docs/public/screenshot.png)
+
+
+- **核心功能**: 在传统 TodoList 上增加 AI 任务分解的功能, 减轻人脑在任务管理上耗费的精力;
+
+- **特色功能**: 以思维导图方式展示和管理任务树, 帮助你高效地整理思路;
+
+- **特色功能**: 以堆视图可视化展示最优先的任务, 破解你的选择困难症;
 
 ## 项目目标
 
@@ -23,9 +25,9 @@
 - 核心思路: 
   - 用AI接管多任务管理的复杂性, 让用户能更专注于任务执行本身;
 - 终极效果: 
-  - 输入过程: 用户只需用自然语言输入任务, 等待系统自动优化和安排, 本人极少需要介入任务管理过程;
+  - 输入过程: 用户只需用自然语言输入任务, 等待系统自动整理优化和安排, 本人极少需要介入任务管理过程;
   - 执行过程: 用户只需每天按系统推荐的优先级顺序消除当日任务, 夜间即可不受未完成感的困扰, 安然入睡;
-  - 输入过程只需一股脑地把任务扔进堆里, 执行过程只需无脑地从堆顶取任务, 因此命名为 TodoHeap 任务堆;
+- 由于输入过程只需一股脑地把任务扔进堆里, 执行过程只需无脑地从堆顶取任务, 因此取名为 TodoHeap 任务堆;
 
 
 
@@ -34,79 +36,66 @@
 
 ### 前端开发
 
-- 安装 Node.js
-  ```powershell
-  winget install OpenJS.NodeJS
-  ```
-- 进入前端项目目录
-  ```bash
-  cd frontend
-  ```
-- 安装前端项目依赖
-  ```bash
-  # 使用国内镜像加速下载
-  npm config set registry https://registry.npmmirror.com
-  # 安装依赖
-  npm install
-  ```
-- 本地调试运行
-  ```bash
-  npm run dev
-  ```
+- 以 frontend/ 为工作目录
+- 开发指南: [frontend/README.md](frontend/README.md)
+
+### 文档开发
+
+- 以 docs/ 为工作目录
+- 开发指南: [docs/README.md](docs/README.md)
 
 
 ### 后端开发
 
-- 注册登录 [Supabase](https://supabase.com/);
-- 联系我获取此项目的管理权限: sherlocknieh@gmail.com
-- 在线开发:
-    - https://supabase.com/dashboard/project/nxzvisuvwtsnlrugqghx
-- 本地开发:
-  - 安装supabase-cli:
-    ```bash
-    npx supabase
-    ```
-  - 本地编写SQL脚本: supabase/migrations/;
-    ```bash
-    # 创建新的SQL变更脚本
-    npx supabase migration new your_migration_name
-    ```
-  - 本地编写边缘函数: supabase/functions/;
-  - 推送到远程:
-    ```bash
-    # 登录
-    npx supabase login
-    # 连接到项目
-    npx supabase link --project-ref nxzvisuvwtsnlrugqghx
-    # 推送数据库更改
-    npx supabase db push
-    # 创建边缘函数
-    npx supabase functions new hello-world
-    # 部署边缘函数
-    npx supabase functions deploy hello-world
-    # 部署所有边缘函数
-    npx supabase functions deploy
-    ```
-  - 参考 [supabase-cli 官方文档](https://supabase.com/docs/reference/cli/supabase-login);
-  - 参考 [边缘函数官方教程](https://supabase.com/docs/guides/functions/quickstart);
+#### 在线开发:
 
-  - 要取消部署某个边缘函数, 不可直接删除文件夹, 需用命令行取消部署, 然后手动删除函数文件夹;
-    如果直接手动删除函数文件夹, config.toml 中仍会残留该函数的记录, 导致github在线部署时报错;
+- 项目地址: https://supabase.com/dashboard/project/nxzvisuvwtsnlrugqghx
+
+- 获取项目管理权限: 用你的注册邮箱联系我 sherlocknieh@gmail.com
+
+#### 本地开发:
+  - 安装 Node.js;
+  - 以当前目录为工作目录;
+
+  - 连接到 Supabase 账户:
     ```bash
-     # 取消部署
-     npx supabase functions delete hello-world
+    npx supabase login --no-browser
+    # --no-browser 是可选参数, 不想用默认浏览器登录时使用
+    ```
+  - 连接到项目
+    ```bash
+    npx supabase link
+    # 会有交互式提示, 选择对应的项目即可
+    ```
+
+  - 数据库开发 [(官方教程)](https://supabase.com/docs/guides/local-development/overview#database-migrations):
+    ```bash
+    # 创建数据库管理脚本:
+      npx supabase migration new your_migration_name
+    # 编辑 PostgreSQL 脚本: supabase/migrations/**your_migration_name.sql;
+    # 推送到远程:
+      npx supabase db push
+    # https://supabase.com/docs/reference/cli/supabase-db
+    ```
+
+  - 边缘函数开发 [(官方教程)](https://supabase.com/docs/guides/functions/quickstart);
+    ```bash
+    # 创建边缘函数:
+    npx supabase functions new hello-world
+    # 编辑边缘函数: supabase/functions/hello-world/index.ts
+    # 部署边缘函数:
+    npx supabase functions deploy hello-world
+    # 取消部署:
+    npx supabase functions delete hello-world
     ```
 
 ### 提交指南
 
-1. 先到 Issue 页面查看/创建/认领任务: https://github.com/sherlocknieh/TodoHeap/issues
 
-2. 本地创建新分支并开始工作:
-   ```bash
-   git checkout -b <分支名>
-   ```
+1. 到 Issue 页面查看/创建/认领任务;
 
-3. 发布分支后到仓库分支页面提 Pull Request:
-   https://github.com/sherlocknieh/TodoHeap/branches/yours
+2. Fork 项目到自己的仓库, 创建新分支开始开发;
 
-4. 代码被合并后可删除分支;
+4. 发布分支后, 向主仓库提 Pull Request;
+
+5. 代码被合并后可删除分支, 关闭对应的 Issue;

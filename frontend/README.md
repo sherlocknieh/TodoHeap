@@ -1,11 +1,10 @@
-# TodoHeap 前端
-
-## 开发指南
+# TodoHeap 前端开发指南
 
 ### 环境搭建
 
 - 安装 Node.js
     ```powershell
+    # Win11
     winget install OpenJS.NodeJS
     # 或者访问官网 https://nodejs.org/ 下载安装
 
