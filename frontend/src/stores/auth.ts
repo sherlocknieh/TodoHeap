@@ -202,18 +202,21 @@ export const useAuthStore = defineStore('auth', () => {
 
     return runAuthAction(async () => {
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({ 
-        provider,
+        provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/#/auth/callback`,
-          // 跳过浏览器重定向，手动处理
-          skipBrowserRedirect: false
+          redirectTo: import.meta.env.VITE_OAUTH_REDIRECT_URI,
+          // 本地开发时使用 localhost，生产环境使用实际域名
+          // redirectTo: window.location.origin + '/#/auth/callback'
         }
       })
       if (oauthError) throw oauthError
 
-      // supabase 可能返回一个重定向 url，若存在则跳转
       if (data && data.url) {
         window.location.href = data.url
+        // 此处获得的 data.url ( https://nxzvisuvwtsnlrugqghx.supabase.co/auth/v1/authorize?provider=github&redirect_to=<redirectTo 的回调地址>
+        // 用户会被重定向到 GitHub 授权页面 (https://github.com/login/oauth/authorize?...)
+        // 授权成功后，GitHub 会重定向回 Supabase 的授权回调地址（例如：https://nxzvisuvwtsnlrugqghx.supabase.co/auth/v1/callback?provider=github&code=...）
+        // 授权后再重定向回 redirectTo 的回调地址（例如：http://localhost:5173/#/auth/callback?provider=github&code=...）
       }
 
       return { success: true }
