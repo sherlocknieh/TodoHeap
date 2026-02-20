@@ -201,7 +201,14 @@ export const useAuthStore = defineStore('auth', () => {
     await ensureInitialized()
 
     return runAuthAction(async () => {
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({ provider })
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({ 
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/#/auth/callback`,
+          // 跳过浏览器重定向，手动处理
+          skipBrowserRedirect: false
+        }
+      })
       if (oauthError) throw oauthError
 
       // supabase 可能返回一个重定向 url，若存在则跳转

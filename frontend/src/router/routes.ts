@@ -36,6 +36,13 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('../pages/todo/Settings.vue'),
     meta: { requiresAuth: true, title: 'TodoHeap - 设置' }
   },
+  // OAuth 回调页
+  {
+    path: '/auth/callback',
+    name: 'AuthCallback',
+    component: () => import('../pages/AuthCallback.vue'),
+    meta: { requiresAuth: false, title: 'TodoHeap - 授权中' }
+  },
   // 404 页
   {
     path: '/:pathMatch(.*)*', // 除上述之外的所有路径

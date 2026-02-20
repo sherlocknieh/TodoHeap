@@ -5,4 +5,11 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // 初始化 Supabase 客户端
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // 设置OAuth回调URL，使用查询参数而不是哈希
+    redirectTo: `${window.location.origin}/#/auth/callback`,
+    // 禁用自动刷新令牌，手动处理
+    detectSessionInUrl: true
+  }
+})
