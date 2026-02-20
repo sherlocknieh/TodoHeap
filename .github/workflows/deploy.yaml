@@ -21,10 +21,10 @@ jobs:
     # 操作系统环境
     runs-on: ubuntu-latest
     
-    # 环境变量
-    # environment:
-    #   name: github-pages
-    #   url: ${{ steps.deployment.outputs.page_url }} # 用于显示部署记录
+    # 部署环境设置
+    environment:
+      name: github-pages
+      #url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
       - name: 访问项目代码
@@ -37,6 +37,9 @@ jobs:
       
       - name: 构建前端页面
         working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           npm install
           npm run build
