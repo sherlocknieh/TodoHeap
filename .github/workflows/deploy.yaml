@@ -22,9 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     
     # 部署环境设置
+    # 在仓库主页右下角显示部署记录
     environment:
       name: github-pages
-      #url: ${{ steps.deployment.outputs.page_url }}
+      # 在部署结果中显示 GitHub Pages 链接
+      url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
       - name: 访问项目代码
