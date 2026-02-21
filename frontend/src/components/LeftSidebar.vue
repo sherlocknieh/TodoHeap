@@ -162,7 +162,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useTodoStore } from '../stores/todos'
+import { useTodoStore } from '@/stores/todos'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps({

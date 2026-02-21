@@ -29,7 +29,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { supabase } from '@/api/supabase'
+import { supabase } from '@/utils/supabase'
 
 const router = useRouter()
 const route = useRoute()

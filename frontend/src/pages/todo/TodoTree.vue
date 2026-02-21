@@ -16,8 +16,8 @@
 
 <script setup>
 import { onMounted, computed, ref } from 'vue'
-import { useTodoStore } from '../../stores/todos'
-import MindMapWrapper from '../../components/MindMapWrapper.vue'
+import { useTodoStore } from '@/stores/todos'
+import MindMapWrapper from '@/components/MindMapWrapper.vue'
 
 // 定义组件接收的属性
 const props = defineProps({

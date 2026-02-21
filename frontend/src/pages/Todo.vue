@@ -145,16 +145,16 @@ const onMainAreaClick = (e) => {
 
 import { ref, onMounted, computed, watch, onUnmounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import { useTodoStore } from '../stores/todos'
-import { useSyncQueueStore } from '../stores/syncQueue'
-import { useSettingsStore } from '../stores/settings'
+import { useAuthStore } from '@/stores/auth'
+import { useTodoStore } from '@/stores/todos'
+import { useSyncQueueStore } from '@/stores/syncQueue'
+import { useSettingsStore } from '@/stores/settings'
 import { storeToRefs } from 'pinia'
-import SyncStatusIndicator from '../components/SyncStatusIndicator.vue'
-import LeftSidebar from '../components/LeftSidebar.vue'
-import BreakdownStatusCard from '../components/BreakdownStatusCard.vue'
-import TodoDetailEditor from '../components/TodoDetailEditor.vue'
-import { TODO_DETAIL_PANEL_CONTEXT } from '../utils/detailPanelContext'
+import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
+import LeftSidebar from '@/components/LeftSidebar.vue'
+import BreakdownStatusCard from '@/components/BreakdownStatusCard.vue'
+import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
+import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 
 const router = useRouter()
 const route = useRoute()

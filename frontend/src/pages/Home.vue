@@ -201,7 +201,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth'
 
 // 状态变量
 const authStore = useAuthStore()  // 认证状态存储

@@ -99,9 +99,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside)
 })
-import { useTodoStore } from '../../stores/todos'
-import { useAuthStore } from '../../stores/auth'
-import TodoListItem from '../../components/TodoListItem.vue'
+import { useTodoStore } from '@/stores/todos'
+import { useAuthStore } from '@/stores/auth'
+import TodoListItem from '@/components/TodoListItem.vue'
 
 const props = defineProps({
   selectedTaskId: {

@@ -67,7 +67,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useSyncQueueStore, SyncStatus } from '../stores/syncQueue'
+import { useSyncQueueStore, SyncStatus } from '@/stores/syncQueue'
 import { storeToRefs } from 'pinia'
 
 const syncQueueStore = useSyncQueueStore()

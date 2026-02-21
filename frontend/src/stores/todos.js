@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { supabase } from '../api/supabase'
+import { supabase } from '@/utils/supabase'
 import { useAuthStore } from './auth'
 import { useSyncQueueStore, OperationType } from './syncQueue'
 

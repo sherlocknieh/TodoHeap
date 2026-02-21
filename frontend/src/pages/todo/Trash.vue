@@ -159,7 +159,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useTodoStore } from '../../stores/todos'
+import { useTodoStore } from '@/stores/todos'
 
 const props = defineProps({
   selectedTaskId: {

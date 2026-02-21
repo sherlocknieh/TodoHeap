@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import { supabase } from '../api/supabase'
+import { supabase } from '@/utils/supabase'
 
 const STORAGE_KEY = 'todoheap_settings'
 

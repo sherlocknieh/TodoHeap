@@ -209,8 +209,8 @@
 
 <script setup>
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { useTodoStore } from '../stores/todos'
-import { useSyncQueueStore } from '../stores/syncQueue'
+import { useTodoStore } from '@/stores/todos'
+import { useSyncQueueStore } from '@/stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
 
 // 响应式窗口宽度检测

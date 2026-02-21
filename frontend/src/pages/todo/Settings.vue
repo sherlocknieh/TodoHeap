@@ -179,7 +179,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
-import { supabase } from '@/api/supabase'
+import { supabase } from '@/utils/supabase'
 import { storeToRefs } from 'pinia'
 
 const router = useRouter()

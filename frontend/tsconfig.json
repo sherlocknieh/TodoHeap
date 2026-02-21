@@ -1,17 +1,84 @@
 {
+  // TypeScript 编译器设置
   "compilerOptions": {
+    // 目标 JavaScript 版本，ES2020 能在较新的浏览器中运行
     "target": "ES2020",
+    
+    // 让类的属性写法更符合最新标准
     "useDefineForClassFields": true,
+    
+    // 代码模块的写法，ESNext 是最新的模块写法
     "module": "ESNext",
-    "moduleResolution": "Node",
+    
+    // 如何找到导入的文件，bundler 模式适合 Vite 这种现代工具
+    "moduleResolution": "bundler",
+    
+    // 开启严格模式，帮你发现更多潜在的错误
     "strict": true,
+    
+    // 如何处理 JSX（类似 HTML 的代码），preserve 表示保持原样让其他工具处理
     "jsx": "preserve",
+    
+    // 生成调试用的映射文件，出错时能定位到原始代码
     "sourceMap": true,
+    
+    // 允许直接导入 JSON 文件
     "resolveJsonModule": true,
+    
+    // 让不同模块系统的代码能互相兼容
     "esModuleInterop": true,
-    "lib": ["ESNext", "DOM"],
+    
+    // 允许使用 import xxx from 'xxx' 的写法，即使原文件不是这样导出的
+    "allowSyntheticDefaultImports": true,
+    
+    // 确保每个文件都能独立编译，提高编译速度
+    "isolatedModules": true,
+    
+    // 导入文件时可以不写 .ts 扩展名
+    "allowImportingTsExtensions": true,
+    
+    // 可以使用的 JavaScript 功能集合，包含最新的语法和浏览器 API
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    
+    // 跳过检查第三方库的类型，加快编译速度
     "skipLibCheck": true,
-    "types": ["vite/client", "node"]
+    
+    // 提供一些额外的类型提示，比如 Vite 特有的功能
+    "types": ["vite/client", "node"],
+    
+    // 如果定义了变量但没有使用，会提示错误
+    "noUnusedLocals": true,
+    
+    // 如果函数参数定义了但没有使用，会提示错误
+    "noUnusedParameters": true,
+    
+    // 确保函数所有分支都有返回值，避免忘记返回
+    "noImplicitReturns": true,
+    
+    // switch 语句每个 case 都要有 break 或 return，防止意外执行下一个 case
+    "noFallthroughCasesInSwitch": true,
+    
+    // 设置查找文件的起点，'.' 表示当前目录
+    "baseUrl": ".",
+    
+    // 设置路径别名，@ 代表 src 文件夹，这样写 @/xxx 就等于 src/xxx
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    
+    // 生成类型声明文件（.d.ts），供其他项目使用
+    "declaration": true,
+    
+    // 为类型声明文件生成调试信息
+    "declarationMap": true,
+    
+    // tsc 手动编译后输出的 js 文件放在哪里
+    "outDir": "dist"
   },
-  "include": ["src/**/*", "src/**/*.vue"]
+  
+  // 哪些文件需要被 TypeScript 处理
+  "include": ["src/**/*", "src/**/*.vue"],
+  
+  // 哪些文件不需要被 TypeScript 处理
+  "exclude": ["node_modules", "dist"]
 }

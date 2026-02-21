@@ -1,16 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { supabase } from '@/api/supabase'
+import { supabase } from '@/utils/supabase'
 
 // 登录状态管理
 export const useAuthStore = defineStore('auth', () => {
   // ========== 内部控制（防并发 / 防重复 / 防泄漏） ==========
 
   // Supabase 认证状态监听器（用于清理）
-  let authSubscription = null
+  let authSubscription: { unsubscribe: () => void } | null = null
 
   // 初始化 Promise 缓存（并发去重）
-  let initPromise = null
+  let initPromise: Promise<void> | null = null
 
   // ========== 初始化状态（是否完成尝试 / 是否失败 / 重试节流） ==========
 
@@ -37,7 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
   // 最近一次认证相关错误
   const error = ref(null)
 
-  const setError = (err) => {
+  const setError = (err: unknown) => {
     error.value = err?.message ?? String(err)
   }
 
@@ -49,7 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
     window.dispatchEvent(new CustomEvent('auth:signedOut'))
   }
 
-  const runAuthAction = async (action) => {
+  const runAuthAction = async (action: { (): Promise<{ success: boolean }>; (): Promise<{ success: boolean; needsVerification: boolean; message: string } | { success: boolean; needsVerification?: undefined; message?: undefined }>; (): Promise<{ success: boolean }>; (): Promise<{ success: boolean }>; (): any }) => {
     loading.value = true
     clearError()
 
@@ -99,7 +99,7 @@ export const useAuthStore = defineStore('auth', () => {
         session.value = data.session ?? null
 
         if (!authSubscription) {
-          const { data: { subscription } } = supabase.auth.onAuthStateChange((event, _session) => {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, _session: null) => {
             session.value = _session
 
             if (event === 'SIGNED_OUT') {
@@ -140,7 +140,7 @@ export const useAuthStore = defineStore('auth', () => {
    * @param {string} password - 用户密码
    * @returns {Promise<{success: boolean, error?: string}>} 登录结果
    */
-  const signIn = async (email, password) => {
+  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     await ensureInitialized()
 
     return runAuthAction(async () => {
@@ -156,20 +156,8 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  /**
-   * 用户注册
-   * 
-   * 执行流程：
-   * 1. 确保认证已初始化（绑定监听器）
-   * 2. 调用 Supabase 注册
-   * 3. 如果需要邮箱验证，返回提示信息
-   * 4. 否则自动登录
-   * 
-   * @param {string} email - 用户邮箱
-   * @param {string} password - 用户密码
-   * @returns {Promise<{success: boolean, needsVerification?: boolean, message?: string, error?: string}>} 注册结果
-   */
-  const signUp = async (email, password) => {
+
+  const signUp = async (email: string, password: string): Promise<{ success: boolean; needsVerification?: boolean; message?: string; error?: string }> => {
     await ensureInitialized()
 
     return runAuthAction(async () => {
@@ -193,26 +181,25 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  /**
-   * 使用第三方提供商进行 OAuth 登录（例如 GitHub）
-   * @param {string} provider - 提供商标识，例如 'github'
-   */
-  const signInWithProvider = async (provider) => {
+
+  const signInWithProvider = async (provider: string) => {
     await ensureInitialized()
 
     return runAuthAction(async () => {
+      const isLocal = window.location.hostname === 'localhost';
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({ 
-        provider: 'github',
+        provider: provider,
         options: {
-          redirectTo: import.meta.env.VITE_OAUTH_REDIRECT_URI,
-          // 本地开发时使用 localhost，生产环境使用实际域名
-          // redirectTo: window.location.origin + '/#/auth/callback'
+          redirectTo: isLocal
+            ? window.location.origin + '/#/auth/callback'
+            : window.location.origin + '/TodoHeap/#/auth/callback'
         }
       })
       if (oauthError) throw oauthError
 
       if (data && data.url) {
         window.location.href = data.url
+        console.log('重定向到 OAuth 提供商授权页面:', data.url)
         // 此处获得的 data.url ( https://nxzvisuvwtsnlrugqghx.supabase.co/auth/v1/authorize?provider=github&redirect_to=<redirectTo 的回调地址>
         // 用户会被重定向到 GitHub 授权页面 (https://github.com/login/oauth/authorize?...)
         // 授权成功后，GitHub 会重定向回 Supabase 的授权回调地址（例如：https://nxzvisuvwtsnlrugqghx.supabase.co/auth/v1/callback?provider=github&code=...）
@@ -223,17 +210,8 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  /**
-   * 用户登出
-   * 
-   * 执行流程：
-   * 1. 调用 Supabase 登出
-   * 2. 清空本地 session（监听器也会自动更新）
-   * 3. 触发全局 auth:signedOut 事件，通知其他 Store 清理数据
-   * 
-   * @returns {Promise<{success: boolean, error?: string}>} 登出结果
-   */
-  const signOut = async () => {
+  // 登出
+  const signOut = async (): Promise<{ success: boolean; error?: string }> => {
     return runAuthAction(async () => {
       const { error: signOutError } = await supabase.auth.signOut()
       if (signOutError) throw signOutError

@@ -93,7 +93,7 @@ const getNodeRadius = (level) => {
 	return r > min ? r : min;
 }
 import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
-import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor, getUrgencyLevelName } from '../../utils/priorityCalculator'
+import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor, getUrgencyLevelName } from '@/utils/priorityCalculator'
 
 const props = defineProps({
 	todos: { type: Array, default: () => [] },
