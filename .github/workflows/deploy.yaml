@@ -24,7 +24,7 @@ jobs:
     # 部署环境设置
     # 在仓库主页右下角显示部署记录
     environment:
-      name: github-pages
+      name: TodoHeap-Frontend-Deployment
       # 在部署结果中显示 GitHub Pages 链接
       url: ${{ steps.deployment.outputs.page_url }}
     
@@ -41,6 +41,7 @@ jobs:
         working-directory: frontend
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUB_KEY: ${{ vars.VITE_SUPABASE_PUB_KEY }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_OAUTH_REDIRECT_URI: ${{ vars.VITE_OAUTH_REDIRECT_URI }}
         run: |

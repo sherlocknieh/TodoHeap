@@ -21,6 +21,7 @@ export function setupGuards(router: Router) {
   router.beforeEach(async (to, _from, next) => {
     const authStore = useAuthStore()
 
+    // 获取认证状态
     if (!authStore.initialized) {
       try {
         await authStore.initialize()
@@ -28,19 +29,18 @@ export function setupGuards(router: Router) {
         console.error('认证初始化失败:', error)
       }
     }
-
     const isAuthenticated = authStore.isAuthenticated
-
+    // 如果目标路由需要认证但用户未认证，重定向到登录页
     if (to.meta.requiresAuth && !isAuthenticated) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
       return
     }
-
+    // 如果用户已认证但访问登录页，重定向到应用主页
     if (to.name === 'Login' && isAuthenticated) {
       next({ name: 'App' })
       return
     }
-
+    // 其他情况正常导航
     next()
   })
 

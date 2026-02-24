@@ -571,8 +571,8 @@ export const useTodoStore = defineStore('todos', () => {
     try {
       // 获取 Supabase 配置
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      //const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      
       // 直接使用 fetch 调用边缘函数以支持流式响应
       const response = await fetch(`${supabaseUrl}/functions/v1/breakdown_task`, {
         method: 'POST',

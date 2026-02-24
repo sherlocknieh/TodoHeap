@@ -33,6 +33,9 @@
     
     // 确保每个文件都能独立编译，提高编译速度
     "isolatedModules": true,
+
+    // 不生成 JavaScript 输出文件，只进行类型检查，Vite 会处理实际的构建
+    "noEmit": true,
     
     // 导入文件时可以不写 .ts 扩展名
     "allowImportingTsExtensions": true,

@@ -1,3 +1,5 @@
+import { createRouter, createWebHashHistory } from 'vue-router'
+import { setupGuards } from './guards'
 import type { RouteRecordRaw } from 'vue-router'
 
 // 路由配置
@@ -52,4 +54,11 @@ const routes: Array<RouteRecordRaw> = [
   }
 ]
 
-export default routes
+const router = createRouter({
+  history: createWebHashHistory(import.meta.env.BASE_URL),
+  routes
+})
+
+setupGuards(router)
+
+export default router
