@@ -3,7 +3,7 @@ import { withSidebar } from 'vitepress-sidebar';
 
 const vitePressOptions = {
   // https://vitepress.dev/reference/site-config
-  base: process.env.NODE_ENV === 'production' ? '/TodoHeap/docs/' : '/', // 构建静态网页时添加基础路径
+  base: '/TodoHeap/docs/',
   // 本文档部署在 https://sherlocknieh.github.io/TodoHeap/docs/ 路径下,
   // 静态网页中资源(CSS/JS/图片文件等)的引用路径默认相对于服务器域名的根目录,
   // 访问 /assets/style.css 相当于访问 https://sherlocknieh.github.io/assets/style.css
@@ -17,7 +17,8 @@ const vitePressOptions = {
   outDir: '../dist/docs', // 与前端混合部署的输出目录
   vite: {
     server: {
-      open: true,  // 调试时自动打开浏览器
+      // open: true,  // 调试时自动打开浏览器
+      port: 5201,     // 文档开发服务器端口
     },
   },
     ignoreDeadLinks: true,  // 即使有死链也不中断构建

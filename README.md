@@ -31,18 +31,37 @@
 
 
 
-
 ## 开发指南
+
+### 依赖环境
+
+  ```powershell
+  # 安装 Node.js
+  # 访问官网 https://nodejs.org/ 下载安装;
+  # 如果是 Win11 可用 winget 命令快速安装:
+  winget install OpenJS.NodeJS
+
+  # 配置国内镜像源, 提高第三方库的下载速度
+  npm config set registry https://registry.npmmirror.com
+
+  # 安装 pnpm 包管理器替代 npm
+  npm install -g pnpm
+  ```
+
 
 ### 前端开发
 
-- 以 frontend/ 为工作目录
+- 以 frontend 为工作目录
 - 开发指南: [frontend/README.md](frontend/README.md)
 
 ### 文档开发
 
-- 以 docs/ 为工作目录
+- 以 docs 为工作目录
 - 开发指南: [docs/README.md](docs/README.md)
+
+### 前端和文档联合开发:
+
+- 在项目根目录运行 `pnpm dev` 同时预览前端和文档;
 
 
 ### 后端开发
