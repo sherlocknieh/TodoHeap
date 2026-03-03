@@ -12,8 +12,7 @@
     // --- 类/JSX/扩展支持 ---
     "useDefineForClassFields": true,
     "jsx": "preserve",
-    "allowImportingTsExtensions": true,
-
+    "allowImportingTsExtensions": true, // 允许导入 .ts 扩展
     // --- 语法严格性 ---
     "strict": true,
     "noUnusedLocals": true,

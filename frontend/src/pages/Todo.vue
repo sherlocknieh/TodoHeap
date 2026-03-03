@@ -62,30 +62,19 @@
 		<main class="flex-1 overflow-hidden bg-slate-50 relative">
 			<div class="h-full flex relative">
 				<!-- 左栏：任务导航面板（统一在 LeftSidebar 内部处理移动/桌面渲染与动画） -->
-				<LeftSidebar
-					:show="showLeftSidebar"
-					:active-view="activeView"
-					:selected-task-id="selectedTaskId"
+				<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
 					:is-breaking-down="isBreakingDown"
-					@close="() => { showLeftSidebar = false; showMobileSidebar = false }"
-					@switch-view="switchView"
-					@create-task="createNewTask"
-					@breakdown-task="handleBreakdownTask"
-				/>
+					@close="() => { showLeftSidebar = false; showMobileSidebar = false }" @switch-view="switchView"
+					@create-task="createNewTask" @breakdown-task="handleBreakdownTask" />
 
 				<!-- 中栏：主要视图内容 -->
 				<div class="flex-1 flex flex-col min-w-0" @click="onMainAreaClick">
 					<!-- AI 分解状态区域 -->
 					<div class="mx-4 mt-4 mb-2">
-						<BreakdownStatusCard
-							:is-processing="isBreakingDown"
-							:message="breakdownMessage"
-							:status="breakdownMessageType"
-							:task-count="breakdownProgress.count"
-							:tasks="breakdownProgress.tasks"
-							@confirm="handleConfirmTasks"
-							@cancel="handleCancelTasks"
-						/>
+						<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
+							:status="breakdownMessageType" :task-count="breakdownProgress.count"
+							:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks"
+							@cancel="handleCancelTasks" />
 					</div>
 
 					<div class="flex-1 overflow-auto p-4" @click="onMainAreaClick">
@@ -96,12 +85,8 @@
 							</div>
 						</div>
 						<router-view v-else v-slot="{ Component }">
-							<component
-								:is="Component"
-								v-bind="viewProps"
-								:selected-task-id="selectedTaskId"
-								@task-selected="handleTaskSelected"
-							/>
+							<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
+								@task-selected="handleTaskSelected" />
 						</router-view>
 					</div>
 				</div>
@@ -133,7 +118,7 @@ const onMainAreaClick = (e) => {
 	const clickedTaskItem = e.target.closest('[data-task-item]')
 	// 检查是否点击了详情面板
 	const clickedDetailPanel = e.target.closest('[data-detail-panel]')
-	
+
 	// 如果没有点击任务项也没有点击详情面板，则关闭详情面板
 	if (!clickedTaskItem && !clickedDetailPanel) {
 		closeDetailPanel()
@@ -252,47 +237,53 @@ const handleBeforeUnload = (e) => {
 }
 
 onMounted(async () => {
-	// 初始化认证
-	if (authStore.session === null && !authStore.loading) {
-		await authStore.initialize()
-	}
-
+	// 确保认证初始化完成
+	await authStore.initAuth()
+	
 	// 如果已登录，获取待办事项
 	if (authStore.isAuthenticated) {
 		await todoStore.fetchTodos()
 		// 初始化 Realtime 订阅
 		todoStore.setupRealtimeSubscription()
 	}
-
-	// 添加页面离开警告
+	// 添加事件监听器
+	document.addEventListener('click', handleClickOutside)
 	window.addEventListener('beforeunload', handleBeforeUnload)
+	window.addEventListener('resize', updateWindowWidth)
+	// 初始化窗口宽度
+	updateWindowWidth()
+	// 初始化侧栏显示（大屏默认显示，窄屏默认隐藏）
+	showLeftSidebar.value = window.innerWidth >= 1024
 })
 
 // 监听路由变化，确保数据总是最新的
 watch(
 	() => route.name,
 	async (newRouteName) => {
-		console.log('Route changed to:', newRouteName)
-		if (authStore.isAuthenticated && newRouteName?.includes('View')) {
-			console.log('Checking todos - isFetched:', todoStore.isFetched, 'loading:', todoStore.loading)
+		// 检查是否是 Todo 相关页面（包括子路由）
+		const isTodoPage = newRouteName && (
+			newRouteName === 'app' || 
+			newRouteName === 'App' || 
+			String(newRouteName).includes('View')
+		)
+		
+		if (authStore.isAuthenticated && isTodoPage) {
 			// 确保数据已经获取过
 			if (!todoStore.isFetched && !todoStore.loading) {
-				console.log('Fetching todos...')
 				await todoStore.fetchTodos()
 			}
 		}
-	}
+	},
+	{ immediate: true } // 立即执行一次，确保首次进入页面也会触发
 )
 
 const handleSignOut = async () => {
 	const result = await authStore.signOut()
-	if (result.success) {
-		router.push('/login')
-	}
+	router.push({ name: 'login' })
 }
 
 const openSettings = () => {
-	router.push('/settings')
+	router.push({ name: 'settings' })
 	showUserMenu.value = false
 }
 
@@ -348,13 +339,13 @@ const handleBreakdownTask = async () => {
 	try {
 		const query = '继续分解'
 		const autoApply = settingsStore.autoApplyAITasks
-		
+
 		// 使用流式接收，每收到一个子任务就更新进度
 		const onTaskReceived = ({ task, index, totalSoFar }) => {
 			breakdownProgress.value.count = totalSoFar
 			breakdownProgress.value.tasks.push(task)
 		}
-		
+
 		const result = await todoStore.invokeBreakdown(
 			todoStore.treeNodes,
 			selectedTaskId.value,
@@ -390,15 +381,15 @@ const handleBreakdownTask = async () => {
 // 确认保存待确认的任务
 const handleConfirmTasks = async () => {
 	if (pendingTasks.value.length === 0) return
-	
+
 	const result = await todoStore.applyPendingTasks(pendingTasks.value)
-	
+
 	if (result.success) {
 		showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
 	} else {
 		showBreakdownMessage('保存任务失败', 'error')
 	}
-	
+
 	// 清空状态
 	pendingTasks.value = []
 	breakdownProgress.value = { count: 0, tasks: [] }
@@ -431,16 +422,6 @@ const handleClickOutside = (event) => {
 		}
 	}
 }
-
-onMounted(() => {
-	document.addEventListener('click', handleClickOutside)
-	// 添加窗口大小变化监听
-	window.addEventListener('resize', updateWindowWidth)
-	// 初始化窗口宽度
-	updateWindowWidth()
-	// 初始化侧栏显示（大屏默认显示，窄屏默认隐藏）
-	showLeftSidebar.value = window.innerWidth >= 1024
-})
 
 onUnmounted(() => {
 	document.removeEventListener('click', handleClickOutside)

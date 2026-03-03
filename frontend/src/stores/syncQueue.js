@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useOnline } from '@vueuse/core'
 import localforage from 'localforage'
 import { v4 as uuidv4 } from 'uuid'
-import { supabase } from '@/utils/supabase'
+import { supabase } from '@/lib/supabase'
 
 // 初始化 localforage 实例
 const syncStorage = localforage.createInstance({

@@ -1,3 +1,60 @@
+<script setup>
+import { computed } from 'vue'
+import { useTodoStore } from '@/stores/todos'
+import { storeToRefs } from 'pinia'
+
+const props = defineProps({
+  show: { type: Boolean, default: false },
+  activeView: { type: String, default: 'list' },
+  selectedTaskId: { type: Number, default: null },
+  isBreakingDown: { type: Boolean, default: false }
+})
+
+const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task'])
+
+// 为模板提供 `show` 绑定
+const show = computed(() => props.show)
+
+const todoStore = useTodoStore()
+
+// 统计信息
+const stats = computed(() => ({
+  total: todoStore.todos.length,
+  completed: todoStore.todos.filter(todo => todo.completed).length,
+  pending: todoStore.todos.filter(todo => !todo.completed).length,
+  trashed: todoStore.trashTodos.length
+}))
+
+// 切换视图
+const switchView = (view) => {
+  emit('switch-view', view)
+  // 小屏下切换视图后自动关闭侧栏
+  if (window.innerWidth < 1024) {
+    emit('close')
+  }
+}
+
+// 创建新任务
+const createNewTask = () => {
+  emit('create-task')
+  // 小屏下创建任务后自动关闭侧栏
+  if (window.innerWidth < 1024) {
+    emit('close')
+  }
+}
+
+// 分解任务
+const breakdownTask = () => {
+  if (props.selectedTaskId) {
+    emit('breakdown-task')
+    // 小屏下分解任务后自动关闭侧栏
+    if (window.innerWidth < 1024) {
+      emit('close')
+    }
+  }
+}
+</script>
+
 <template>
   <!-- 小屏：浮层动画，v-if 控制 -->
   <Transition
@@ -159,63 +216,6 @@
     </div>
   </Transition>
 </template>
-
-<script setup>
-import { computed } from 'vue'
-import { useTodoStore } from '@/stores/todos'
-import { storeToRefs } from 'pinia'
-
-const props = defineProps({
-  show: { type: Boolean, default: false },
-  activeView: { type: String, default: 'list' },
-  selectedTaskId: { type: Number, default: null },
-  isBreakingDown: { type: Boolean, default: false }
-})
-
-const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task'])
-
-// 为模板提供 `show` 绑定
-const show = computed(() => props.show)
-
-const todoStore = useTodoStore()
-
-// 统计信息
-const stats = computed(() => ({
-  total: todoStore.todos.length,
-  completed: todoStore.todos.filter(todo => todo.completed).length,
-  pending: todoStore.todos.filter(todo => !todo.completed).length,
-  trashed: todoStore.trashTodos.length
-}))
-
-// 切换视图
-const switchView = (view) => {
-  emit('switch-view', view)
-  // 小屏下切换视图后自动关闭侧栏
-  if (window.innerWidth < 1024) {
-    emit('close')
-  }
-}
-
-// 创建新任务
-const createNewTask = () => {
-  emit('create-task')
-  // 小屏下创建任务后自动关闭侧栏
-  if (window.innerWidth < 1024) {
-    emit('close')
-  }
-}
-
-// 分解任务
-const breakdownTask = () => {
-  if (props.selectedTaskId) {
-    emit('breakdown-task')
-    // 小屏下分解任务后自动关闭侧栏
-    if (window.innerWidth < 1024) {
-      emit('close')
-    }
-  }
-}
-</script>
 
 <style scoped>
 /* AI 分解按钮动画 */

@@ -1,7 +1,3 @@
-<template>
-  <div ref="editorRef" class="milkdown-editor h-full"></div>
-</template>
-
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx } from '@milkdown/kit/core'
@@ -105,6 +101,10 @@ defineExpose({
   getEditor: () => editor
 })
 </script>
+
+<template>
+  <div ref="editorRef" class="milkdown-editor h-full"></div>
+</template>
 
 <style>
 /* Milkdown 编辑器基础样式 */

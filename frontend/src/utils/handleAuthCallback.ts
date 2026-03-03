@@ -28,7 +28,7 @@
 // https://your-app.com/#/access_token=...&expires_at=1772025904&expires_in=3600&refresh_token=...&token_type=bearer&type=signup
 // https://your-app.com/#/error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&sb=
 
-import { supabase } from '@/utils/supabase'
+import { supabase } from '@/lib/supabase'
 
 // 👇 直接解析
 export async function handleAuthCallback() {

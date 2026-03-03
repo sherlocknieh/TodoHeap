@@ -179,7 +179,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
-import { supabase } from '@/utils/supabase'
+import { supabase } from '@/lib/supabase'
 import { storeToRefs } from 'pinia'
 
 const router = useRouter()
@@ -299,7 +299,7 @@ const handleSignOut = async () => {
   if (window.confirm('确定要退出登录吗？')) {
     const result = await authStore.signOut()
     if (result.success) {
-      router.push('/login')
+      router.push({ name: 'home' })
     }
   }
 }

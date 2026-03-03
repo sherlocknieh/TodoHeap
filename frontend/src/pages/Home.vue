@@ -1,3 +1,21 @@
+<script setup>
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+// 状态变量
+const auth = useAuthStore()  // 认证状态存储
+const router = useRouter()        // 路由实例
+
+
+// 响应函数
+const openLogin = () => {
+  router.push({ name: 'login' })
+}
+
+</script>
+
+
 <template>
   <!-- 产品主页 -->
   <div
@@ -198,37 +216,6 @@
   </div>
 </template>
 
-<script setup>
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-
-// 状态变量
-const authStore = useAuthStore()  // 认证状态存储
-const router = useRouter()        // 路由实例
-
-
-// 主函数
-onMounted(async () => {
-
-  // 如果 store 未初始化，先初始化
-  if (!authStore.initialized && !authStore.loading) {
-    await authStore.initialize()
-  }
-
-  // 如果已登录，自动跳转到应用页
-  if (authStore.isAuthenticated) {
-    router.push('/app')
-  }
-})
-
-
-// 响应函数
-const openLogin = () => {
-  router.push('/login')
-}
-
-</script>
 
 <style scoped>
 /* 动画 */

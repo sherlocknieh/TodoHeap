@@ -36,7 +36,7 @@
   const router = useRouter()
 
   const goHome = () => {
-    router.push('/')
+    router.push({ name: 'home' })
   }
 
   const goBack = () => {

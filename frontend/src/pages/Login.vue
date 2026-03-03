@@ -1,3 +1,140 @@
+<script setup>
+import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+
+const loading = ref(false)
+const email = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+const errorMsg = ref('')
+const successMsg = ref('')
+const isSignUp = ref(false)
+const showPassword = ref(false)
+
+/**
+ * 获取重定向路径
+ * 
+ * 如果路由查询参数中有 redirect，则返回该路径
+ * 否则返回默认路径 '/app'
+ */
+const getRedirectPath = () => {
+  const redirect = router.currentRoute.value.query.redirect
+  return (typeof redirect === 'string' && redirect.trim()) ? redirect : '/app'
+}
+
+
+const handleAuth = async () => {
+  // 清空提示信息
+  errorMsg.value = ''
+  successMsg.value = ''
+  auth.clearError()
+
+  // 如果初始化失败，尝试强制重试
+  if (auth.initFailed) {
+    loading.value = true
+    try {
+      await auth.initialize(true)  // 强制重试
+    } catch (err) {
+      errorMsg.value = '认证初始化失败，请检查网络连接'
+      loading.value = false
+      return
+    }
+  }
+
+  // 基础验证
+  if (!email.value || !password.value) {
+    errorMsg.value = '请填写所有必填项'
+    return
+  }
+
+  loading.value = true
+
+  if (password.value.length < 6) {
+    errorMsg.value = '密码至少需要 6 个字符'
+    loading.value = false
+    return
+  }
+
+  if (isSignUp.value && password.value !== confirmPassword.value) {
+    errorMsg.value = '两次输入的密码不一致'
+    loading.value = false
+    return
+  }
+
+  try {
+    if (isSignUp.value) {
+      // 注册
+      const result = await auth.signUp(email.value, password.value)
+
+      if (result.success) {
+        if (result.needsVerification) {
+          successMsg.value = result.message || '注册成功！请检查邮箱进行验证。'
+          // 清空表单
+          email.value = ''
+          password.value = ''
+          confirmPassword.value = ''
+          // 3秒后自动切换到登录
+          setTimeout(() => {
+            isSignUp.value = false
+            successMsg.value = ''
+          }, 3000)
+        } else {
+          successMsg.value = '注册成功！正在跳转...'
+          setTimeout(() => {
+            const redirectPath = getRedirectPath()
+            router.push(redirectPath)
+          }, 1000)
+        }
+      } else {
+        errorMsg.value = result.error || '注册失败，请重试'
+      }
+    } else {
+      // 登录
+      const result = await auth.signIn(email.value, password.value)
+
+      if (result.success) {
+        successMsg.value = '登录成功！正在跳转...'
+        setTimeout(() => {
+          const redirectPath = getRedirectPath()
+          router.push(redirectPath)
+        }, 1000)
+      } else {
+        errorMsg.value = result.error || '登录失败，请检查邮箱和密码'
+      }
+    }
+  } catch (error) {
+    errorMsg.value = '发生了一个错误，请重试'
+    console.error(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleOAuth = async (provider) => {
+  // 清空提示信息
+  errorMsg.value = ''
+  successMsg.value = ''
+
+  try {
+    loading.value = true
+    await auth.signInWithOAuth(provider)
+    // 大多数情况下会发生重定向；若没有，显示提示
+    successMsg.value = '正在跳转到第三方授权页面...'
+  } catch (err) {
+    errorMsg.value = err?.message || '第三方登录失败，请重试'
+    console.error(err)
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
+
 <template>
   <!-- 登录/注册页面 -->
   <div class="min-h-screen flex items-center justify-center bg-linear-to-br from-indigo-400 to-purple-500 dark:from-gray-900 dark:to-gray-800 p-4 relative">
@@ -111,161 +248,3 @@
 
   </div>
 </template>
-
-
-<style>
-
-</style>
-
-
-<script setup>
-import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-
-const router = useRouter()
-const authStore = useAuthStore()
-
-
-const loading = ref(false)
-const email = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const errorMsg = ref('')
-const successMsg = ref('')
-const isSignUp = ref(false)
-const showPassword = ref(false)
-
-/**
- * 获取重定向路径
- * 
- * 如果路由查询参数中有 redirect，则返回该路径
- * 否则返回默认路径 '/app'
- */
-const getRedirectPath = () => {
-  const redirect = router.currentRoute.value.query.redirect
-  return (typeof redirect === 'string' && redirect.trim()) ? redirect : '/app'
-}
-
-/**
- * 处理初始化失败，显示重试选项
- */
-const handleInitFailed = () => {
-  if (authStore.initFailed && authStore.error) {
-    errorMsg.value = `认证初始化失败：${authStore.error}`
-  }
-}
-
-// 监听初始化失败状态
-watch(() => authStore.initFailed, (failed) => {
-  if (failed) {
-    handleInitFailed()
-  }
-}, { immediate: true })
-
-const handleAuth = async () => {
-  // 清空提示信息
-  errorMsg.value = ''
-  successMsg.value = ''
-  authStore.clearError()
-
-  // 如果初始化失败，尝试强制重试
-  if (authStore.initFailed) {
-    loading.value = true
-    try {
-      await authStore.initialize(true)  // 强制重试
-    } catch (err) {
-      errorMsg.value = '认证初始化失败，请检查网络连接'
-      loading.value = false
-      return
-    }
-  }
-
-  // 基础验证
-  if (!email.value || !password.value) {
-    errorMsg.value = '请填写所有必填项'
-    return
-  }
-
-  loading.value = true
-
-  if (password.value.length < 6) {
-    errorMsg.value = '密码至少需要 6 个字符'
-    loading.value = false
-    return
-  }
-
-  if (isSignUp.value && password.value !== confirmPassword.value) {
-    errorMsg.value = '两次输入的密码不一致'
-    loading.value = false
-    return
-  }
-
-  try {
-    if (isSignUp.value) {
-      // 注册
-      const result = await authStore.signUp(email.value, password.value)
-
-      if (result.success) {
-        if (result.needsVerification) {
-          successMsg.value = result.message || '注册成功！请检查邮箱进行验证。'
-          // 清空表单
-          email.value = ''
-          password.value = ''
-          confirmPassword.value = ''
-          // 3秒后自动切换到登录
-          setTimeout(() => {
-            isSignUp.value = false
-            successMsg.value = ''
-          }, 3000)
-        } else {
-          successMsg.value = '注册成功！正在跳转...'
-          setTimeout(() => {
-            const redirectPath = getRedirectPath()
-            router.push(redirectPath)
-          }, 1000)
-        }
-      } else {
-        errorMsg.value = result.error || '注册失败，请重试'
-      }
-    } else {
-      // 登录
-      const result = await authStore.signIn(email.value, password.value)
-
-      if (result.success) {
-        successMsg.value = '登录成功！正在跳转...'
-        setTimeout(() => {
-          const redirectPath = getRedirectPath()
-          router.push(redirectPath)
-        }, 1000)
-      } else {
-        errorMsg.value = result.error || '登录失败，请检查邮箱和密码'
-      }
-    }
-  } catch (error) {
-    errorMsg.value = '发生了一个错误，请重试'
-    console.error(error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleOAuth = async (provider) => {
-  // 清空提示信息
-  errorMsg.value = ''
-  successMsg.value = ''
-
-  try {
-    loading.value = true
-    await authStore.signInWithProvider(provider)
-    // 大多数情况下会发生重定向；若没有，显示提示
-    successMsg.value = '正在跳转到第三方授权页面...'
-  } catch (err) {
-    errorMsg.value = err?.message || '第三方登录失败，请重试'
-    console.error(err)
-  } finally {
-    loading.value = false
-  }
-}
-</script>
-

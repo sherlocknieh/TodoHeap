@@ -16,9 +16,18 @@
       // 已删除任务时整个面板显示禁用光标
       isDeleted ? 'cursor-not-allowed' : ''
     ]">
-      <!-- 移动端拖动条 -->
-      <div class="lg:hidden shrink-0 flex justify-center py-2">
-        <div class="w-10 h-1 bg-slate-300 rounded-full"></div>
+      <!-- 移动端关闭按钮 -->
+      <div class="lg:hidden shrink-0 flex justify-end px-4 py-2">
+        <button
+          type="button"
+          class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          title="关闭"
+          @click="emit('close')"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
       <section class="h-full flex flex-col min-h-0">
         <!-- 空状态显示 -->
