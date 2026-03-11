@@ -30,4 +30,8 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, 'src') } // 设置 @ 为 src 目录的别名
     // 能用的地方: 在模块导入语句中，如 import Component from '@/components/Component.vue'
   },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js']
+  }
 })
