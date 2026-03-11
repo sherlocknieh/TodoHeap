@@ -6,6 +6,7 @@ import { useSyncQueueStore, OperationType } from './syncQueue'
 import { createBreakdownActions } from './todos.breakdown'
 import { createTodosRealtimeManager } from './todos.realtime'
 import { createTodoOptimisticActions } from './todos.optimistic'
+import { createTodoRollbackHandler } from './todos.rollback'
 
 export const useTodoStore = defineStore('todos', () => {
   // 状态
@@ -51,6 +52,15 @@ export const useTodoStore = defineStore('todos', () => {
     setError: (message) => {
       error.value = message
     },
+    OperationType
+  })
+
+  const { handleRollback } = createTodoRollbackHandler({
+    todosRef: todos,
+    trashTodosRef: trashTodos,
+    errorRef: error,
+    getSyncQueue,
+    findTodoIndexById,
     OperationType
   })
 
@@ -115,80 +125,6 @@ export const useTodoStore = defineStore('todos', () => {
       // 使用服务器返回的数据更新本地
       todos.value[index] = data
     }
-  }
-
-  // 回滚事件处理
-  const handleRollback = (event) => {
-    const { item, snapshot } = event.detail
-    
-    switch (item.type) {
-      case OperationType.ADD:
-        // 回滚添加：移除该项
-        todos.value = todos.value.filter(t => t.id !== item.targetId)
-        error.value = `添加任务失败: ${item.payload?.title || '未知'}`
-        break
-      
-      case OperationType.UPDATE:
-        // 回滚更新：恢复快照
-        if (snapshot) {
-          const index = findTodoIndexById(item.targetId)
-          if (index !== -1) {
-            todos.value[index] = snapshot
-          }
-        }
-        error.value = '更新任务失败，已恢复'
-        break
-      
-      case OperationType.DELETE:
-        // 回滚删除：恢复快照（包含父任务和后代任务）
-        if (snapshot) {
-          todos.value.push(snapshot)
-          // 检查是否有后代任务快照
-          const descendantSnapshot = getSyncQueue().getSnapshot(`${item.targetId}-descendants`)
-          if (descendantSnapshot && Array.isArray(descendantSnapshot)) {
-            todos.value.push(...descendantSnapshot)
-            getSyncQueue().clearSnapshot(`${item.targetId}-descendants`)
-          }
-        }
-        error.value = '删除任务失败，已恢复'
-        break
-      
-      case OperationType.RESTORE:
-        // 回滚恢复：移回垃圾箱
-        if (snapshot) {
-          const index = findTodoIndexById(item.targetId)
-          if (index !== -1) {
-            todos.value.splice(index, 1)
-          }
-          trashTodos.value.push(snapshot)
-        }
-        error.value = '恢复任务失败'
-        break
-      
-      case OperationType.BATCH_PERMANENT_DELETE:
-        // 回滚清空垃圾箱：恢复快照
-        if (snapshot && Array.isArray(snapshot)) {
-          trashTodos.value = snapshot
-        }
-        error.value = '清空垃圾箱失败，已恢复'
-        break
-      
-      case OperationType.BATCH_RESTORE:
-        // 回滚批量恢复：恢复快照
-        if (snapshot) {
-          trashTodos.value = snapshot.trash || []
-          todos.value = snapshot.todos || []
-        }
-        error.value = '恢复全部任务失败，已恢复'
-        break
-    }
-    
-    // 3秒后清除错误
-    setTimeout(() => {
-      if (error.value?.includes('失败')) {
-        error.value = null
-      }
-    }, 3000)
   }
 
   let windowListenersBound = false
