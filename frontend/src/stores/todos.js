@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from './auth'
 import { useSyncQueueStore, OperationType } from './syncQueue'
@@ -66,6 +66,35 @@ export const useTodoStore = defineStore('todos', () => {
         targetRef.value.unshift(item)
       }
     })
+  }
+
+  // 级联操作上下文：根任务、后代、快照与移除集合
+  const buildCascadeContext = (sourceTodos, rootId, findDescendants) => {
+    const rootIndex = sourceTodos.findIndex(t => t.id === rootId)
+    if (rootIndex === -1) {
+      return null
+    }
+
+    const rootTodo = sourceTodos[rootIndex]
+    const descendantIds = findDescendants(rootId)
+    const descendantSnapshots = collectTodosByIds(sourceTodos, descendantIds)
+    const idsToRemove = new Set([rootId, ...descendantIds])
+
+    return {
+      rootIndex,
+      rootTodo,
+      descendantIds,
+      descendantSnapshots,
+      idsToRemove
+    }
+  }
+
+  // 保存父任务与后代快照
+  const saveCascadeSnapshots = (syncQueue, rootKey, rootTodo, descendantSnapshots, descendantKey) => {
+    syncQueue.saveSnapshot(rootKey, { ...rootTodo })
+    if (descendantSnapshots.length > 0) {
+      syncQueue.saveSnapshot(descendantKey, descendantSnapshots)
+    }
   }
 
   // 通用树构建器
@@ -205,13 +234,31 @@ export const useTodoStore = defineStore('todos', () => {
     }, 3000)
   }
 
-  // 注册事件监听
-  if (typeof window !== 'undefined') {
+  let windowListenersBound = false
+
+  const bindWindowListeners = () => {
+    if (typeof window === 'undefined' || windowListenersBound) return
     window.addEventListener('auth:signedOut', handleSignedOut)
     window.addEventListener('sync:id-replaced', handleIdReplaced)
     window.addEventListener('sync:update-success', handleUpdateSuccess)
     window.addEventListener('sync:rollback', handleRollback)
+    windowListenersBound = true
   }
+
+  const unbindWindowListeners = () => {
+    if (typeof window === 'undefined' || !windowListenersBound) return
+    window.removeEventListener('auth:signedOut', handleSignedOut)
+    window.removeEventListener('sync:id-replaced', handleIdReplaced)
+    window.removeEventListener('sync:update-success', handleUpdateSuccess)
+    window.removeEventListener('sync:rollback', handleRollback)
+    windowListenersBound = false
+  }
+
+  // 注册事件监听
+  bindWindowListeners()
+  onScopeDispose(() => {
+    unbindWindowListeners()
+  })
 
   // 获取所有未被删除 Todo (从服务器)
   const fetchTodos = async () => {
@@ -308,33 +355,28 @@ export const useTodoStore = defineStore('todos', () => {
   const deleteTodo = async (id) => {
     const syncQueue = getSyncQueue()
     const realId = syncQueue.getRealId(id)
-    
-    // 1. 找到要删除的todo
-    const index = findTodoIndexById(id)
-    if (index === -1) {
+
+    // 1. 生成级联上下文
+    const context = buildCascadeContext(todos.value, realId, findDescendantIds)
+    if (!context) {
       return { success: false, error: '任务不存在' }
     }
+
+    // 2. 保存快照用于回滚（包含父任务与后代）
+    saveCascadeSnapshots(
+      syncQueue,
+      realId,
+      context.rootTodo,
+      context.descendantSnapshots,
+      `${realId}-descendants`
+    )
     
-    // 2. 保存快照用于回滚（包含父任务）
-    const todoToDelete = todos.value[index]
-    syncQueue.saveSnapshot(realId, todoToDelete)
+    // 3. 乐观更新：立即从列表移除父任务及所有后代
+    removeTodosByIds(todos, context.idsToRemove)
     
-    // 3. 找到所有后代任务（用于乐观更新）
-    const descendantIds = findDescendantIds(realId)
-    
-    // 4. 保存后代任务快照（用于回滚）
-    const descendantSnapshots = collectTodosByIds(todos.value, descendantIds)
-    if (descendantSnapshots.length > 0) {
-      syncQueue.saveSnapshot(`${realId}-descendants`, descendantSnapshots)
-    }
-    
-    // 5. 乐观更新：立即从列表移除父任务及所有后代
-    const idsToRemove = new Set([realId, ...descendantIds])
-    removeTodosByIds(todos, idsToRemove)
-    
-    // 6. 乐观更新垃圾箱：将删除的任务添加到垃圾箱
+    // 4. 乐观更新垃圾箱：将删除的任务添加到垃圾箱
     const deletedAt = new Date().toISOString()
-    const deletedTodo = { ...todoToDelete, deleted_at: deletedAt }
+    const deletedTodo = { ...context.rootTodo, deleted_at: deletedAt }
     
     // 检查垃圾箱是否已加载（避免重复添加）
     if (trashTodos.value.length > 0 || !trashLoading.value) {
@@ -343,11 +385,11 @@ export const useTodoStore = defineStore('todos', () => {
       // 同时添加后代任务到垃圾箱
       prependUniqueTodos(
         trashTodos,
-        descendantSnapshots.map(descTodo => ({ ...descTodo, deleted_at: deletedAt }))
+        context.descendantSnapshots.map(descTodo => ({ ...descTodo, deleted_at: deletedAt }))
       )
     }
     
-    // 7. 如果是临时ID且还未同步，直接从队列移除相关操作
+    // 5. 如果是临时ID且还未同步，直接从队列移除相关操作
     if (syncQueue.isTempId(id)) {
       // 临时任务还没同步到服务器，不需要发请求
       syncQueue.clearSnapshot(realId)
@@ -355,7 +397,7 @@ export const useTodoStore = defineStore('todos', () => {
       return { success: true }
     }
     
-    // 8. 将删除操作加入同步队列（数据库触发器会级联删除子任务）
+    // 6. 将删除操作加入同步队列（数据库触发器会级联删除子任务）
     await syncQueue.enqueue({
       type: OperationType.DELETE,
       targetId: realId,
@@ -457,37 +499,27 @@ export const useTodoStore = defineStore('todos', () => {
   // 恢复任务 (乐观更新) - 包含后代任务
   const restoreTodo = async (id) => {
     const syncQueue = getSyncQueue()
-    
-    // 1. 找到要恢复的todo
-    const index = trashTodos.value.findIndex(t => t.id === id)
-    if (index === -1) {
+
+    // 1. 生成级联上下文
+    const context = buildCascadeContext(trashTodos.value, id, findTrashDescendantIds)
+    if (!context) {
       return { success: false, error: '任务不存在' }
     }
+
+    // 2. 保存快照用于回滚（包含父任务与后代）
+    saveCascadeSnapshots(syncQueue, id, context.rootTodo, context.descendantSnapshots, `${id}-trash-descendants`)
     
-    // 2. 找到所有后代任务
-    const descendantIds = findTrashDescendantIds(id)
+    // 3. 乐观更新：移除父任务及所有后代
+    removeTodosByIds(trashTodos, context.idsToRemove)
     
-    // 3. 保存快照用于回滚（包含父任务和后代）
-    const todoToRestore = trashTodos.value[index]
-    syncQueue.saveSnapshot(id, { ...todoToRestore })
-    
-    const descendantSnapshots = collectTodosByIds(trashTodos.value, descendantIds)
-    if (descendantSnapshots.length > 0) {
-      syncQueue.saveSnapshot(`${id}-trash-descendants`, descendantSnapshots)
-    }
-    
-    // 4. 乐观更新：移除父任务及所有后代
-    const idsToRemove = new Set([id, ...descendantIds])
-    removeTodosByIds(trashTodos, idsToRemove)
-    
-    // 5. 添加到正常列表
-    const restoredTodo = { ...todoToRestore, deleted_at: null }
+    // 4. 添加到正常列表
+    const restoredTodo = { ...context.rootTodo, deleted_at: null }
     todos.value.push(restoredTodo)
-    descendantSnapshots.forEach(descTodo => {
+    context.descendantSnapshots.forEach(descTodo => {
       todos.value.push({ ...descTodo, deleted_at: null })
     })
     
-    // 6. 将恢复操作加入同步队列（数据库触发器会级联恢复子任务）
+    // 5. 将恢复操作加入同步队列（数据库触发器会级联恢复子任务）
     await syncQueue.enqueue({
       type: OperationType.RESTORE,
       targetId: id,
@@ -500,30 +532,20 @@ export const useTodoStore = defineStore('todos', () => {
   // 永久删除任务 (乐观更新) - 包含后代任务
   const permanentDeleteTodo = async (id) => {
     const syncQueue = getSyncQueue()
-    
-    // 1. 找到要删除的todo
-    const index = trashTodos.value.findIndex(t => t.id === id)
-    if (index === -1) {
+
+    // 1. 生成级联上下文
+    const context = buildCascadeContext(trashTodos.value, id, findTrashDescendantIds)
+    if (!context) {
       return { success: false, error: '任务不存在' }
     }
+
+    // 2. 保存快照用于回滚（包含父任务与后代）
+    saveCascadeSnapshots(syncQueue, id, context.rootTodo, context.descendantSnapshots, `${id}-trash-descendants`)
     
-    // 2. 找到所有后代任务
-    const descendantIds = findTrashDescendantIds(id)
+    // 3. 乐观更新：移除父任务及所有后代
+    removeTodosByIds(trashTodos, context.idsToRemove)
     
-    // 3. 保存快照用于回滚（包含父任务和后代）
-    const todoToDelete = trashTodos.value[index]
-    syncQueue.saveSnapshot(id, todoToDelete)
-    
-    const descendantSnapshots = collectTodosByIds(trashTodos.value, descendantIds)
-    if (descendantSnapshots.length > 0) {
-      syncQueue.saveSnapshot(`${id}-trash-descendants`, descendantSnapshots)
-    }
-    
-    // 4. 乐观更新：移除父任务及所有后代
-    const idsToRemove = new Set([id, ...descendantIds])
-    removeTodosByIds(trashTodos, idsToRemove)
-    
-    // 5. 将永久删除操作加入同步队列（数据库级联删除子任务）
+    // 4. 将永久删除操作加入同步队列（数据库级联删除子任务）
     await syncQueue.enqueue({
       type: OperationType.PERMANENT_DELETE,
       targetId: id,
