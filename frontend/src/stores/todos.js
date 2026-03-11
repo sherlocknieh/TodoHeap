@@ -5,6 +5,7 @@ import { useAuthStore } from './auth'
 import { useSyncQueueStore, OperationType } from './syncQueue'
 import { createBreakdownActions } from './todos.breakdown'
 import { createTodosRealtimeManager } from './todos.realtime'
+import { createTodoOptimisticActions } from './todos.optimistic'
 
 export const useTodoStore = defineStore('todos', () => {
   // 状态
@@ -12,6 +13,8 @@ export const useTodoStore = defineStore('todos', () => {
   const loading = ref(false)
   const error = ref(null)
   const isFetched = ref(false)  // 记录是否已经成功获取过一次数据
+  const trashTodos = ref([])
+  const trashLoading = ref(false)
 
   // 获取同步队列 store
   const getSyncQueue = () => useSyncQueueStore()
@@ -25,88 +28,31 @@ export const useTodoStore = defineStore('todos', () => {
     return { ok: true, user: authStore.user }
   }
 
-  // ========== 乐观更新辅助函数 ==========
-
-  // 根据ID查找todo (支持临时ID映射)
-  const findTodoById = (id) => {
-    const syncQueue = getSyncQueue()
-    const realId = syncQueue.getRealId(id)
-    return todos.value.find(t => t.id === id || t.id === realId)
-  }
-
-  // 根据ID查找todo索引
-  const findTodoIndexById = (id) => {
-    const syncQueue = getSyncQueue()
-    const realId = syncQueue.getRealId(id)
-    return todos.value.findIndex(t => t.id === id || t.id === realId)
-  }
-
-  // 递归查找给定列表中的所有后代ID
-  const collectDescendantIds = (sourceTodos, parentId) => {
-    const descendants = []
-    const findChildren = (pid) => {
-      sourceTodos.forEach(t => {
-        if (t.parent_id === pid) {
-          descendants.push(t.id)
-          findChildren(t.id)
-        }
-      })
-    }
-    findChildren(parentId)
-    return descendants
-  }
-
-  // 根据ID列表收集任务快照
-  const collectTodosByIds = (sourceTodos, ids) => {
-    if (!ids.length) return []
-    return ids
-      .map(id => sourceTodos.find(t => t.id === id))
-      .filter(Boolean)
-      .map(todo => ({ ...todo }))
-  }
-
-  // 从列表中批量移除任务
-  const removeTodosByIds = (targetRef, idsToRemove) => {
-    targetRef.value = targetRef.value.filter(t => !idsToRemove.has(t.id))
-  }
-
-  // 批量插入（不重复）到列表头部
-  const prependUniqueTodos = (targetRef, items) => {
-    items.forEach(item => {
-      if (!targetRef.value.find(t => t.id === item.id)) {
-        targetRef.value.unshift(item)
-      }
-    })
-  }
-
-  // 级联操作上下文：根任务、后代、快照与移除集合
-  const buildCascadeContext = (sourceTodos, rootId, findDescendants) => {
-    const rootIndex = sourceTodos.findIndex(t => t.id === rootId)
-    if (rootIndex === -1) {
-      return null
-    }
-
-    const rootTodo = sourceTodos[rootIndex]
-    const descendantIds = findDescendants(rootId)
-    const descendantSnapshots = collectTodosByIds(sourceTodos, descendantIds)
-    const idsToRemove = new Set([rootId, ...descendantIds])
-
-    return {
-      rootIndex,
-      rootTodo,
-      descendantIds,
-      descendantSnapshots,
-      idsToRemove
-    }
-  }
-
-  // 保存父任务与后代快照
-  const saveCascadeSnapshots = (syncQueue, rootKey, rootTodo, descendantSnapshots, descendantKey) => {
-    syncQueue.saveSnapshot(rootKey, { ...rootTodo })
-    if (descendantSnapshots.length > 0) {
-      syncQueue.saveSnapshot(descendantKey, descendantSnapshots)
-    }
-  }
+  const {
+    findTodoById,
+    findTodoIndexById,
+    addTodo,
+    updateTodo,
+    toggleDone,
+    deleteTodo,
+    restoreTodo,
+    permanentDeleteTodo,
+    emptyTrash,
+    restoreAllTrash,
+    canRestoreTodo,
+    findTrashDescendantIds,
+    countRestoreTodos
+  } = createTodoOptimisticActions({
+    todosRef: todos,
+    trashTodosRef: trashTodos,
+    trashLoadingRef: trashLoading,
+    getSyncQueue,
+    requireAuthUser,
+    setError: (message) => {
+      error.value = message
+    },
+    OperationType
+  })
 
   // 通用树构建器
   const buildTreeNodes = (items, mapItem, sortFn, setNodeMeta) => {
@@ -309,178 +255,12 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
-  // 添加 (乐观更新)
-  const addTodo = async (title, options = {}) => {
-    const auth = requireAuthUser()
-    if (!auth.ok) {
-      error.value = '请先登录'
-      return auth.result
-    }
-
-    const syncQueue = getSyncQueue()
-    
-    // 1. 生成临时ID
-    const tempId = syncQueue.generateTempId()
-    
-    // 2. 构建新任务数据
-    const newTodo = {
-      id: tempId,
-      title: title.trim(),
-      user_id: auth.user.id,
-      status: options.status || 'todo',
-      priority: options.priority ?? 0,
-      parent_id: options.parent_id || null,
-      deadline: options.deadline || null,
-      description: options.description || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      deleted_at: null,
-      difficulty: null
-    }
-    
-    // 3. 乐观更新：立即添加到本地
-    todos.value.push(newTodo)
-    
-    // 4. 将操作加入同步队列
-    await syncQueue.enqueue({
-      type: OperationType.ADD,
-      targetId: tempId,
-      payload: {
-        title: newTodo.title,
-        user_id: newTodo.user_id,
-        status: newTodo.status,
-        priority: newTodo.priority,
-        parent_id: newTodo.parent_id,
-        deadline: newTodo.deadline,
-        description: newTodo.description
-      }
-    })
-    
-    return { success: true, data: newTodo }
-  }
-
-  // 递归查找所有后代任务ID
-  const findDescendantIds = (parentId) => collectDescendantIds(todos.value, parentId)
-
-  // 删除 (乐观更新 - 软删除)
-  const deleteTodo = async (id) => {
-    const syncQueue = getSyncQueue()
-    const realId = syncQueue.getRealId(id)
-
-    // 1. 生成级联上下文
-    const context = buildCascadeContext(todos.value, realId, findDescendantIds)
-    if (!context) {
-      return { success: false, error: '任务不存在' }
-    }
-
-    // 2. 保存快照用于回滚（包含父任务与后代）
-    saveCascadeSnapshots(
-      syncQueue,
-      realId,
-      context.rootTodo,
-      context.descendantSnapshots,
-      `${realId}-descendants`
-    )
-    
-    // 3. 乐观更新：立即从列表移除父任务及所有后代
-    removeTodosByIds(todos, context.idsToRemove)
-    
-    // 4. 乐观更新垃圾箱：将删除的任务添加到垃圾箱
-    const deletedAt = new Date().toISOString()
-    const deletedTodo = { ...context.rootTodo, deleted_at: deletedAt }
-    
-    // 检查垃圾箱是否已加载（避免重复添加）
-    if (trashTodos.value.length > 0 || !trashLoading.value) {
-      // 检查是否已存在
-      prependUniqueTodos(trashTodos, [deletedTodo])
-      // 同时添加后代任务到垃圾箱
-      prependUniqueTodos(
-        trashTodos,
-        context.descendantSnapshots.map(descTodo => ({ ...descTodo, deleted_at: deletedAt }))
-      )
-    }
-    
-    // 5. 如果是临时ID且还未同步，直接从队列移除相关操作
-    if (syncQueue.isTempId(id)) {
-      // 临时任务还没同步到服务器，不需要发请求
-      syncQueue.clearSnapshot(realId)
-      syncQueue.clearSnapshot(`${realId}-descendants`)
-      return { success: true }
-    }
-    
-    // 6. 将删除操作加入同步队列（数据库触发器会级联删除子任务）
-    await syncQueue.enqueue({
-      type: OperationType.DELETE,
-      targetId: realId,
-      payload: { deleted_at: deletedAt }
-    })
-    
-    return { success: true }
-  }
-
-  // 修改 (乐观更新)
-  const updateTodo = async (id, updates) => {
-    const syncQueue = getSyncQueue()
-    const realId = syncQueue.getRealId(id)
-    
-    // 1. 找到要更新的todo
-    const index = findTodoIndexById(id)
-    if (index === -1) {
-      return { success: false, error: '任务不存在' }
-    }
-    
-    // 2. 保存快照用于回滚
-    const originalTodo = todos.value[index]
-    syncQueue.saveSnapshot(realId, { ...originalTodo })
-    
-    // 3. 乐观更新：立即更新本地数据
-    todos.value[index] = {
-      ...originalTodo,
-      ...updates,
-      updated_at: new Date().toISOString()
-    }
-    
-    // 4. 如果是临时ID，更新队列中的ADD操作的payload
-    if (syncQueue.isTempId(id)) {
-      const queueItem = syncQueue.queue.find(
-        item => item.type === OperationType.ADD && item.targetId === id
-      )
-      if (queueItem) {
-        Object.assign(queueItem.payload, updates)
-        await syncQueue.persistQueue()
-        return { success: true, data: todos.value[index] }
-      }
-    }
-    
-    // 5. 将更新操作加入同步队列
-    await syncQueue.enqueue({
-      type: OperationType.UPDATE,
-      targetId: realId,
-      payload: updates
-    })
-    
-    return { success: true, data: todos.value[index] }
-  }
-
-  // 切换状态 (乐观更新)
-  const toggleDone = async (id) => {
-    const todo = findTodoById(id)
-    if (!todo) return { success: false, error: '任务不存在' }
-
-    const nextStatus = todo.status === 'done' ? 'todo' : 'done'
-    return await updateTodo(id, { status: nextStatus })
-  }
-
   // 清除错误
   const clearError = () => {
     error.value = null
   }
 
   // ========== 垃圾箱功能 ==========
-  
-  // 垃圾箱任务列表
-  const trashTodos = ref([])
-  const trashLoading = ref(false)
 
   // 获取已删除的 Todo
   const fetchTrash = async () => {
@@ -507,115 +287,6 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
-  // 恢复任务 (乐观更新) - 包含后代任务
-  const restoreTodo = async (id) => {
-    const syncQueue = getSyncQueue()
-
-    // 1. 生成级联上下文
-    const context = buildCascadeContext(trashTodos.value, id, findTrashDescendantIds)
-    if (!context) {
-      return { success: false, error: '任务不存在' }
-    }
-
-    // 2. 保存快照用于回滚（包含父任务与后代）
-    saveCascadeSnapshots(syncQueue, id, context.rootTodo, context.descendantSnapshots, `${id}-trash-descendants`)
-    
-    // 3. 乐观更新：移除父任务及所有后代
-    removeTodosByIds(trashTodos, context.idsToRemove)
-    
-    // 4. 添加到正常列表
-    const restoredTodo = { ...context.rootTodo, deleted_at: null }
-    todos.value.push(restoredTodo)
-    context.descendantSnapshots.forEach(descTodo => {
-      todos.value.push({ ...descTodo, deleted_at: null })
-    })
-    
-    // 5. 将恢复操作加入同步队列（数据库触发器会级联恢复子任务）
-    await syncQueue.enqueue({
-      type: OperationType.RESTORE,
-      targetId: id,
-      payload: { deleted_at: null }
-    })
-    
-    return { success: true, data: restoredTodo }
-  }
-
-  // 永久删除任务 (乐观更新) - 包含后代任务
-  const permanentDeleteTodo = async (id) => {
-    const syncQueue = getSyncQueue()
-
-    // 1. 生成级联上下文
-    const context = buildCascadeContext(trashTodos.value, id, findTrashDescendantIds)
-    if (!context) {
-      return { success: false, error: '任务不存在' }
-    }
-
-    // 2. 保存快照用于回滚（包含父任务与后代）
-    saveCascadeSnapshots(syncQueue, id, context.rootTodo, context.descendantSnapshots, `${id}-trash-descendants`)
-    
-    // 3. 乐观更新：移除父任务及所有后代
-    removeTodosByIds(trashTodos, context.idsToRemove)
-    
-    // 4. 将永久删除操作加入同步队列（数据库级联删除子任务）
-    await syncQueue.enqueue({
-      type: OperationType.PERMANENT_DELETE,
-      targetId: id,
-      payload: {}
-    })
-    
-    return { success: true }
-  }
-
-  // 清空垃圾箱 (乐观更新)
-  const emptyTrash = async () => {
-    const auth = requireAuthUser()
-    if (!auth.ok) return auth.result
-
-    const syncQueue = getSyncQueue()
-    
-    // 1. 保存快照用于回滚
-    const trashSnapshot = [...trashTodos.value]
-    syncQueue.saveSnapshot('batch-empty-trash', trashSnapshot)
-    
-    // 2. 乐观更新：立即清空垃圾箱
-    trashTodos.value = []
-    
-    // 3. 将批量删除操作加入同步队列
-    await syncQueue.enqueue({
-      type: OperationType.BATCH_PERMANENT_DELETE,
-      targetId: 'batch-empty-trash',
-      payload: { user_id: auth.user.id }
-    })
-    
-    return { success: true }
-  }
-
-  // 恢复所有任务 (乐观更新)
-  const restoreAllTrash = async () => {
-    const auth = requireAuthUser()
-    if (!auth.ok) return auth.result
-
-    const syncQueue = getSyncQueue()
-    
-    // 1. 保存快照用于回滚
-    const trashSnapshot = [...trashTodos.value]
-    const todosSnapshot = [...todos.value]
-    syncQueue.saveSnapshot('batch-restore-all', { trash: trashSnapshot, todos: todosSnapshot })
-    
-    // 2. 乐观更新：立即移动所有任务到正常列表
-    const restoredTodos = trashTodos.value.map(t => ({ ...t, deleted_at: null }))
-    todos.value.push(...restoredTodos)
-    trashTodos.value = []
-    
-    // 3. 将批量恢复操作加入同步队列
-    await syncQueue.enqueue({
-      type: OperationType.BATCH_RESTORE,
-      targetId: 'batch-restore-all',
-      payload: { user_id: auth.user.id }
-    })
-    
-    return { success: true }
-  }
 
   const { invokeBreakdown, applyPendingTasks } = createBreakdownActions({
     getSyncQueue,
@@ -696,40 +367,6 @@ export const useTodoStore = defineStore('todos', () => {
       }
     )
   })
-
-  // 检查任务是否可以直接恢复（父任务不在垃圾箱中）
-  const canRestoreTodo = (id) => {
-    const todo = trashTodos.value.find(t => t.id === id)
-    if (!todo) return { canRestore: false, reason: '任务不存在' }
-    
-    // 如果没有父任务，可以直接恢复
-    if (!todo.parent_id) {
-      return { canRestore: true }
-    }
-    
-    // 检查父任务是否也在垃圾箱中
-    const parentInTrash = trashTodos.value.find(t => t.id === todo.parent_id)
-    if (parentInTrash) {
-      return {
-        canRestore: false,
-        reason: '请先恢复父任务',
-        parentId: parentInTrash.id,
-        parentTitle: parentInTrash.title
-      }
-    }
-    
-    // 父任务不在垃圾箱中（可能已恢复或不存在），可以恢复
-    return { canRestore: true }
-  }
-
-  // 递归查找垃圾箱中所有后代任务ID
-  const findTrashDescendantIds = (parentId) => collectDescendantIds(trashTodos.value, parentId)
-
-  // 统计将要恢复的任务数量（包括后代）
-  const countRestoreTodos = (id) => {
-    const descendantIds = findTrashDescendantIds(id)
-    return 1 + descendantIds.length
-  }
 
   // Getters - 堆视图分组
   const columns = computed(() => {
