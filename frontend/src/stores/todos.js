@@ -30,6 +30,77 @@ export const useTodoStore = defineStore('todos', () => {
     return todos.value.findIndex(t => t.id === id || t.id === realId)
   }
 
+  // 递归查找给定列表中的所有后代ID
+  const collectDescendantIds = (sourceTodos, parentId) => {
+    const descendants = []
+    const findChildren = (pid) => {
+      sourceTodos.forEach(t => {
+        if (t.parent_id === pid) {
+          descendants.push(t.id)
+          findChildren(t.id)
+        }
+      })
+    }
+    findChildren(parentId)
+    return descendants
+  }
+
+  // 根据ID列表收集任务快照
+  const collectTodosByIds = (sourceTodos, ids) => {
+    if (!ids.length) return []
+    return ids
+      .map(id => sourceTodos.find(t => t.id === id))
+      .filter(Boolean)
+      .map(todo => ({ ...todo }))
+  }
+
+  // 从列表中批量移除任务
+  const removeTodosByIds = (targetRef, idsToRemove) => {
+    targetRef.value = targetRef.value.filter(t => !idsToRemove.has(t.id))
+  }
+
+  // 批量插入（不重复）到列表头部
+  const prependUniqueTodos = (targetRef, items) => {
+    items.forEach(item => {
+      if (!targetRef.value.find(t => t.id === item.id)) {
+        targetRef.value.unshift(item)
+      }
+    })
+  }
+
+  // 通用树构建器
+  const buildTreeNodes = (items, mapItem, sortFn, setNodeMeta) => {
+    const nodes = items.map((item) => ({ ...mapItem(item), children: [] }))
+    const map = new Map()
+    nodes.forEach((n) => map.set(n.id, n))
+
+    const roots = []
+    nodes.forEach((n) => {
+      if (n.parent_id && map.has(n.parent_id)) {
+        map.get(n.parent_id).children.push(n)
+      } else {
+        roots.push(n)
+      }
+    })
+
+    if (setNodeMeta) {
+      const walk = (arr, depth = 0) => {
+        arr.forEach(node => {
+          setNodeMeta(node, depth)
+          walk(node.children, depth + 1)
+        })
+      }
+      walk(roots, 0)
+    }
+
+    const sortTree = (arr) => {
+      arr.sort(sortFn)
+      arr.forEach((child) => sortTree(child.children))
+    }
+    sortTree(roots)
+    return roots
+  }
+
   // ========== 监听同步事件 ==========
   
   // 处理登出事件：清理所有本地数据
@@ -231,19 +302,7 @@ export const useTodoStore = defineStore('todos', () => {
   }
 
   // 递归查找所有后代任务ID
-  const findDescendantIds = (parentId) => {
-    const descendants = []
-    const findChildren = (pid) => {
-      todos.value.forEach(t => {
-        if (t.parent_id === pid) {
-          descendants.push(t.id)
-          findChildren(t.id)
-        }
-      })
-    }
-    findChildren(parentId)
-    return descendants
-  }
+  const findDescendantIds = (parentId) => collectDescendantIds(todos.value, parentId)
 
   // 删除 (乐观更新 - 软删除)
   const deleteTodo = async (id) => {
@@ -264,20 +323,14 @@ export const useTodoStore = defineStore('todos', () => {
     const descendantIds = findDescendantIds(realId)
     
     // 4. 保存后代任务快照（用于回滚）
-    const descendantSnapshots = []
-    descendantIds.forEach(descId => {
-      const descTodo = todos.value.find(t => t.id === descId)
-      if (descTodo) {
-        descendantSnapshots.push({ ...descTodo })
-      }
-    })
+    const descendantSnapshots = collectTodosByIds(todos.value, descendantIds)
     if (descendantSnapshots.length > 0) {
       syncQueue.saveSnapshot(`${realId}-descendants`, descendantSnapshots)
     }
     
     // 5. 乐观更新：立即从列表移除父任务及所有后代
     const idsToRemove = new Set([realId, ...descendantIds])
-    todos.value = todos.value.filter(t => !idsToRemove.has(t.id))
+    removeTodosByIds(todos, idsToRemove)
     
     // 6. 乐观更新垃圾箱：将删除的任务添加到垃圾箱
     const deletedAt = new Date().toISOString()
@@ -286,15 +339,12 @@ export const useTodoStore = defineStore('todos', () => {
     // 检查垃圾箱是否已加载（避免重复添加）
     if (trashTodos.value.length > 0 || !trashLoading.value) {
       // 检查是否已存在
-      if (!trashTodos.value.find(t => t.id === realId)) {
-        trashTodos.value.unshift(deletedTodo)
-      }
+      prependUniqueTodos(trashTodos, [deletedTodo])
       // 同时添加后代任务到垃圾箱
-      descendantSnapshots.forEach(descTodo => {
-        if (!trashTodos.value.find(t => t.id === descTodo.id)) {
-          trashTodos.value.unshift({ ...descTodo, deleted_at: deletedAt })
-        }
-      })
+      prependUniqueTodos(
+        trashTodos,
+        descendantSnapshots.map(descTodo => ({ ...descTodo, deleted_at: deletedAt }))
+      )
     }
     
     // 7. 如果是临时ID且还未同步，直接从队列移除相关操作
@@ -421,20 +471,14 @@ export const useTodoStore = defineStore('todos', () => {
     const todoToRestore = trashTodos.value[index]
     syncQueue.saveSnapshot(id, { ...todoToRestore })
     
-    const descendantSnapshots = []
-    descendantIds.forEach(descId => {
-      const descTodo = trashTodos.value.find(t => t.id === descId)
-      if (descTodo) {
-        descendantSnapshots.push({ ...descTodo })
-      }
-    })
+    const descendantSnapshots = collectTodosByIds(trashTodos.value, descendantIds)
     if (descendantSnapshots.length > 0) {
       syncQueue.saveSnapshot(`${id}-trash-descendants`, descendantSnapshots)
     }
     
     // 4. 乐观更新：移除父任务及所有后代
     const idsToRemove = new Set([id, ...descendantIds])
-    trashTodos.value = trashTodos.value.filter(t => !idsToRemove.has(t.id))
+    removeTodosByIds(trashTodos, idsToRemove)
     
     // 5. 添加到正常列表
     const restoredTodo = { ...todoToRestore, deleted_at: null }
@@ -470,20 +514,14 @@ export const useTodoStore = defineStore('todos', () => {
     const todoToDelete = trashTodos.value[index]
     syncQueue.saveSnapshot(id, todoToDelete)
     
-    const descendantSnapshots = []
-    descendantIds.forEach(descId => {
-      const descTodo = trashTodos.value.find(t => t.id === descId)
-      if (descTodo) {
-        descendantSnapshots.push({ ...descTodo })
-      }
-    })
+    const descendantSnapshots = collectTodosByIds(trashTodos.value, descendantIds)
     if (descendantSnapshots.length > 0) {
       syncQueue.saveSnapshot(`${id}-trash-descendants`, descendantSnapshots)
     }
     
     // 4. 乐观更新：移除父任务及所有后代
     const idsToRemove = new Set([id, ...descendantIds])
-    trashTodos.value = trashTodos.value.filter(t => !idsToRemove.has(t.id))
+    removeTodosByIds(trashTodos, idsToRemove)
     
     // 5. 将永久删除操作加入同步队列（数据库级联删除子任务）
     await syncQueue.enqueue({
@@ -845,30 +883,6 @@ export const useTodoStore = defineStore('todos', () => {
   // Getters - 树形结构
   const treeNodes = computed(() => {
     const syncQueue = getSyncQueue()
-    
-    const nodes = todos.value.map((item) => ({
-      id: item.id,
-      title: item.title,
-      status: item.status || 'todo',
-      priority: item.priority ?? 0,
-      parent_id: item.parent_id,
-      deadline: item.deadline || null,
-      children: [],
-      // 标记是否是临时ID (用于UI显示同步状态)
-      _isSyncing: syncQueue.isTempId(item.id)
-    }))
-
-    const map = new Map()
-    nodes.forEach((n) => map.set(n.id, n))
-
-    const roots = []
-    nodes.forEach((n) => {
-      if (n.parent_id && map.has(n.parent_id)) {
-        map.get(n.parent_id).children.push(n)
-      } else {
-        roots.push(n)
-      }
-    })
 
     // 排序：优先级降序，然后按ID排序（临时ID负数排在末尾）
     const sortFn = (a, b) => {
@@ -883,50 +897,25 @@ export const useTodoStore = defineStore('todos', () => {
       // 同类型按ID排序
       return a.id - b.id
     }
-    const sortTree = (arr) => {
-      arr.sort(sortFn)
-      arr.forEach((child) => sortTree(child.children))
-    }
-    sortTree(roots)
-    return roots
+
+    return buildTreeNodes(
+      todos.value,
+      (item) => ({
+        id: item.id,
+        title: item.title,
+        status: item.status || 'todo',
+        priority: item.priority ?? 0,
+        parent_id: item.parent_id,
+        deadline: item.deadline || null,
+        // 标记是否是临时ID (用于UI显示同步状态)
+        _isSyncing: syncQueue.isTempId(item.id)
+      }),
+      sortFn
+    )
   })
 
   // Getters - 垃圾箱树形结构
   const trashTreeNodes = computed(() => {
-    const nodes = trashTodos.value.map((item) => ({
-      id: item.id,
-      title: item.title,
-      status: item.status || 'todo',
-      priority: item.priority ?? 0,
-      parent_id: item.parent_id,
-      deadline: item.deadline || null,
-      deleted_at: item.deleted_at,
-      children: [],
-      // 标记层级深度
-      _depth: 0
-    }))
-
-    const map = new Map()
-    nodes.forEach((n) => map.set(n.id, n))
-
-    const roots = []
-    nodes.forEach((n) => {
-      if (n.parent_id && map.has(n.parent_id)) {
-        map.get(n.parent_id).children.push(n)
-      } else {
-        roots.push(n)
-      }
-    })
-
-    // 计算每个节点的深度
-    const setDepth = (arr, depth = 0) => {
-      arr.forEach(node => {
-        node._depth = depth
-        setDepth(node.children, depth + 1)
-      })
-    }
-    setDepth(roots, 0)
-
     // 排序：删除时间降序，然后按ID排序
     const sortFn = (a, b) => {
       // 先按删除时间降序
@@ -936,12 +925,25 @@ export const useTodoStore = defineStore('todos', () => {
       // 同时间按ID排序
       return a.id - b.id
     }
-    const sortTree = (arr) => {
-      arr.sort(sortFn)
-      arr.forEach((child) => sortTree(child.children))
-    }
-    sortTree(roots)
-    return roots
+
+    return buildTreeNodes(
+      trashTodos.value,
+      (item) => ({
+        id: item.id,
+        title: item.title,
+        status: item.status || 'todo',
+        priority: item.priority ?? 0,
+        parent_id: item.parent_id,
+        deadline: item.deadline || null,
+        deleted_at: item.deleted_at,
+        // 标记层级深度
+        _depth: 0
+      }),
+      sortFn,
+      (node, depth) => {
+        node._depth = depth
+      }
+    )
   })
 
   // 检查任务是否可以直接恢复（父任务不在垃圾箱中）
@@ -970,19 +972,7 @@ export const useTodoStore = defineStore('todos', () => {
   }
 
   // 递归查找垃圾箱中所有后代任务ID
-  const findTrashDescendantIds = (parentId) => {
-    const descendants = []
-    const findChildren = (pid) => {
-      trashTodos.value.forEach(t => {
-        if (t.parent_id === pid) {
-          descendants.push(t.id)
-          findChildren(t.id)
-        }
-      })
-    }
-    findChildren(parentId)
-    return descendants
-  }
+  const findTrashDescendantIds = (parentId) => collectDescendantIds(trashTodos.value, parentId)
 
   // 统计将要恢复的任务数量（包括后代）
   const countRestoreTodos = (id) => {
