@@ -213,6 +213,15 @@ const updateWindowWidth = () => {
 	}
 }
 
+const handleSelectedIdReplaced = (event) => {
+	const { tempId, realId } = event.detail || {}
+	if (tempId == null || realId == null) return
+
+	if (selectedTaskId.value == tempId) {
+		selectedTaskId.value = realId
+	}
+}
+
 const openDetailPanel = () => {
 	detailPanelRequested.value = true
 	showDetailPanel.value = true // 确保详情面板打开
@@ -250,6 +259,7 @@ onMounted(async () => {
 	document.addEventListener('click', handleClickOutside)
 	window.addEventListener('beforeunload', handleBeforeUnload)
 	window.addEventListener('resize', updateWindowWidth)
+	window.addEventListener('sync:id-replaced', handleSelectedIdReplaced)
 	// 初始化窗口宽度
 	updateWindowWidth()
 	// 初始化侧栏显示（大屏默认显示，窄屏默认隐藏）
@@ -431,6 +441,7 @@ onUnmounted(() => {
 	todoStore.cleanupRealtimeSubscription()
 	// 移除页面离开警告
 	window.removeEventListener('beforeunload', handleBeforeUnload)
+	window.removeEventListener('sync:id-replaced', handleSelectedIdReplaced)
 })
 </script>
 

@@ -15,7 +15,7 @@
             type="date"
             class="date-input border-none bg-transparent text-slate-500 text-sm focus:ring-0 focus:outline-none cursor-pointer"
           />
-          <button @click="showMore = !showMore" class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition flex-shrink-0" type="button">
+          <button @click="showMore = !showMore" class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition shrink-0" type="button">
             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="1.5"/>
               <circle cx="19" cy="12" r="1.5"/>
@@ -35,7 +35,7 @@
         </div>
       </div>
       <button
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition flex-shrink-0"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition shrink-0"
         @click="addTodo"
       >
         添加任务
@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 const showMore = ref(false)
 const moreMenuRef = ref(null)
 
@@ -117,94 +117,17 @@ const emit = defineEmits(['task-selected'])
 const newTaskTitle = ref('')
 const newTaskDate = ref('')
 const newTaskPriority = ref(1)
-const shellRef = ref(null)
-const dateInputRef = ref(null)
-
-const onDateChange = (e) => {
-  newTaskDate.value = e.target.value
-}
-
-
-const todos = computed(() => todoStore.todos)
 const loading = computed(() => todoStore.loading)
 const isFetched = computed(() => todoStore.isFetched)
 const errorText = computed(() => todoStore.error)
 
 onMounted(async () => {
-  if (authStore.isAuthenticated && todos.value.length === 0) {
+  if (authStore.isAuthenticated && todoStore.todos.length === 0) {
     await todoStore.fetchTodos()
   }
 })
 
-
-// 以滴答清单的分组方式进行树构建与过滤
-const taskTree = computed(() => {
-  const nodes = todos.value.map((item) => ({
-    id: item.id,
-    title: item.title,
-    status: item.status || 'todo',
-    priority: item.priority ?? 0,
-    deadline: item.deadline || null,
-    parent_id: item.parent_id,
-    children: []
-  }))
-
-  const map = new Map()
-  nodes.forEach((n) => map.set(n.id, n))
-
-  const roots = []
-  nodes.forEach((n) => {
-    if (n.parent_id && map.has(n.parent_id)) {
-      map.get(n.parent_id).children.push(n)
-    } else {
-      roots.push(n)
-    }
-  })
-
-  const sortFn = (a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.id - b.id
-  const sortTree = (arr) => {
-    arr.sort(sortFn)
-    arr.forEach((child) => sortTree(child.children))
-  }
-  sortTree(roots)
-  return roots
-})
-
-const isToday = (deadline) => {
-  if (!deadline) return false
-  const d = new Date(deadline)
-  const now = new Date()
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-}
-
-const isUpcoming = (deadline) => {
-  if (!deadline) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const target = new Date(deadline)
-  target.setHours(0, 0, 0, 0)
-  return target > today
-}
-
-const matchesFilters = (node) => {
-  // 过滤功能已移除：默认展示所有节点
-  return true
-}
-
-const filterTree = (list) => {
-  return list
-    .map((n) => {
-      const children = filterTree(n.children || [])
-      const match = matchesFilters(n)
-      if (match || children.length) {
-        return { ...n, children }
-      }
-      return null
-    })
-    .filter(Boolean)
-}
-
-const filteredTree = computed(() => filterTree(taskTree.value))
+const filteredTree = computed(() => todoStore.treeNodes)
 const countNodes = (list) => list.reduce((acc, n) => acc + 1 + countNodes(n.children || []), 0)
 const visibleCount = computed(() => countNodes(filteredTree.value))
 
@@ -227,7 +150,11 @@ const addTodo = async () => {
 }
 
 const addSubtask = async (parentId, startEditCb) => {
-  const result = await todoStore.addTodo('新子任务', { parent_id: parentId, priority: 0 })
+  const result = await todoStore.addTodo('新子任务', {
+    parent_id: parentId,
+    priority: 0,
+    deferSync: true
+  })
   if (result.success && result.data) {
     startEditCb(result.data.id, result.data.title)
   }

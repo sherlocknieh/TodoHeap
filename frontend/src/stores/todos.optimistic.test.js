@@ -140,4 +140,25 @@ describe('createTodoOptimisticActions', () => {
     expect(setError).toHaveBeenCalledWith('请先登录')
     expect(syncQueue.enqueue).not.toHaveBeenCalled()
   })
+
+  it('deferSync 创建的临时任务应在首次编辑后才入队 ADD', async () => {
+    const addResult = await actions.addTodo('新子任务', { parent_id: 1, deferSync: true })
+
+    expect(addResult.success).toBe(true)
+    expect(syncQueue.enqueue).not.toHaveBeenCalled()
+
+    const updateResult = await actions.updateTodo(addResult.data.id, { title: '已编辑子任务' })
+
+    expect(updateResult.success).toBe(true)
+    expect(syncQueue.enqueue).toHaveBeenCalledTimes(1)
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.ADD,
+      targetId: addResult.data.id,
+      payload: expect.objectContaining({
+        title: '已编辑子任务',
+        parent_id: 1,
+        user_id: 'user-1'
+      })
+    }))
+  })
 })

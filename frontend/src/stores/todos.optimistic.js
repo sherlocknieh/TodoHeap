@@ -109,6 +109,11 @@ export const createTodoOptimisticActions = ({
 
     todosRef.value.push(newTodo)
 
+    // 延迟同步：先仅本地创建，待首次编辑后再入队 ADD
+    if (options.deferSync) {
+      return { success: true, data: newTodo }
+    }
+
     await syncQueue.enqueue({
       type: OperationType.ADD,
       targetId: tempId,
@@ -153,6 +158,23 @@ export const createTodoOptimisticActions = ({
         await syncQueue.persistQueue()
         return { success: true, data: todosRef.value[index] }
       }
+
+      // 延迟同步创建的临时任务：首次编辑时补入 ADD
+      const current = todosRef.value[index]
+      await syncQueue.enqueue({
+        type: OperationType.ADD,
+        targetId: id,
+        payload: {
+          title: current.title,
+          user_id: current.user_id,
+          status: current.status,
+          priority: current.priority,
+          parent_id: current.parent_id,
+          deadline: current.deadline,
+          description: current.description
+        }
+      })
+      return { success: true, data: current }
     }
 
     await syncQueue.enqueue({

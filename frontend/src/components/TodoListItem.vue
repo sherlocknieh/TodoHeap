@@ -1,7 +1,7 @@
 <template>
   <ul class="list-none p-0 m-0">
     <template v-for="item in flatList">
-      <li v-if="!item.parent_id || expandedMap[item.parent_id]" :key="item.id" data-task-item :class="[
+      <li v-if="isItemVisible(item)" :key="item.id" data-task-item :class="[
         'flex items-center gap-2.5 p-2.5 px-3 bg-white border-b border-slate-100 transition-colors duration-150 cursor-pointer',
         {
           'bg-blue-50 border-l-3 border-l-blue-600': selectedTaskId === item.id,
@@ -41,7 +41,7 @@
             {{ item.title || '未命名任务' }}
           </span>
           <input v-else :id="'edit-input-' + item.id" v-model="editingText" class="w-full px-2 py-1 text-sm border border-blue-600 rounded outline-none bg-white"
-            @blur="finishEdit(item.id)" @keyup.enter="finishEdit(item.id)" @keyup.esc="editingId = null" />
+            @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')" @keyup.esc="editingId = null" />
           <!-- 同步状态指示器 -->
           <span v-if="item._isSyncing" class="inline-flex items-center ml-1.5 text-slate-500" title="正在同步...">
             <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -62,7 +62,7 @@
               </button>
             </template>
           </div>
-          <button class="inline-flex items-center justify-center w-7 h-7 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 hover:bg-slate-200" @click.stop="emitAddSubtask(item.id, startEdit)"
+          <button class="inline-flex items-center justify-center w-7 h-7 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 hover:bg-slate-200" @click.stop="emitAddSubtask(item.id)"
             title="添加子任务">
             <span class="text-lg leading-none font-light">+</span>
           </button>
@@ -75,7 +75,7 @@
             </button>
             <div v-if="showMoreMenuId === item.id" class="absolute right-0 mt-2 w-36 bg-white border border-slate-200 rounded shadow-lg" ref="moreMenuRef">
               <ul class="py-1 text-sm text-slate-700">
-                <li><button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click.stop="emitAddSubtask(item.id, startEdit); closeMoreMenu()">添加子任务</button></li>
+                <li><button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click.stop="emitAddSubtask(item.id); closeMoreMenu()">添加子任务</button></li>
                 <li><button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click.stop="emitDeleteTodo(item.id); closeMoreMenu()">删除任务</button></li>
                 <li><button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click.stop="copyTitle(item)">复制任务标题</button></li>
                 <li><button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click.stop="markToday(item)">标记为今日</button></li>
@@ -98,7 +98,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['toggle-done', 'delete-todo', 'add-subtask', 'edit-subtask', 'task-selected', 'set-status'])
-const emitToggleDone = (node) => emit('toggle-done', node)
 // 将组件内三态映射到后端状态: unchecked -> 'todo', indeterminate -> 'doing', checked -> 'done'
 const mapToBackendStatus = (state) => {
   if (state === 'checked') return 'done'
@@ -107,8 +106,11 @@ const mapToBackendStatus = (state) => {
 }
 const emitSetStatus = (id, state) => emit('set-status', id, mapToBackendStatus(state))
 const emitDeleteTodo = (id) => emit('delete-todo', id)
-const emitAddSubtask = (parentId, cb) => emit('add-subtask', parentId, cb)
-const emitEditSubtask = (id) => emit('edit-subtask', id, editingText.value)
+const emitAddSubtask = (parentId) => {
+  expandedMap.value[parentId] = true
+  emit('add-subtask', parentId, startEdit)
+}
+const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
 const emitTaskSelected = (id) => emit('task-selected', id)
 
 
@@ -122,6 +124,27 @@ function flattenTree(node, level = 0, arr = [], parent_id = null) {
   return arr
 }
 const flatList = computed(() => flattenTree(props.node))
+const flatMap = computed(() => {
+  const map = new Map()
+  flatList.value.forEach(item => map.set(item.id, item))
+  return map
+})
+
+const isItemVisible = (item) => {
+  if (!item.parent_id) return true
+
+  // 祖先链任一节点折叠时隐藏，避免祖先折叠但后代仍显示
+  let currentParentId = item.parent_id
+  while (currentParentId) {
+    if (expandedMap.value[currentParentId] === false) {
+      return false
+    }
+    const parent = flatMap.value.get(currentParentId)
+    currentParentId = parent?.parent_id || null
+  }
+
+  return true
+}
 
 // 折叠/展开状态
 const expandedMap = ref({})
@@ -138,6 +161,7 @@ const toggleExpand = (id) => {
 
 const editingId = ref(null)
 const editingText = ref('')
+const suppressBlurOnceForId = ref(null)
 
 // 三状态复选框状态映射：'unchecked' | 'indeterminate' | 'checked'
 const statusMap = ref({})
@@ -153,11 +177,28 @@ function initStatusMap() {
 initStatusMap()
 
 watch(flatList, (newList) => {
+  const idSet = new Set(newList.map(item => item.id))
+
+  // 同步已有节点状态，避免远程更新后 UI 状态滞后
   newList.forEach(item => {
-    if (!(item.id in statusMap.value)) {
-      if (item.status === 'done') statusMap.value[item.id] = 'checked'
-      else if (item.status === 'doing') statusMap.value[item.id] = 'indeterminate'
-      else statusMap.value[item.id] = 'unchecked'
+    if (item.status === 'done') statusMap.value[item.id] = 'checked'
+    else if (item.status === 'doing') statusMap.value[item.id] = 'indeterminate'
+    else statusMap.value[item.id] = 'unchecked'
+
+    if (item.children && item.children.length && !(item.id in expandedMap.value)) {
+      expandedMap.value[item.id] = false
+    }
+  })
+
+  // 清理已不存在节点，避免状态对象无限增长
+  Object.keys(statusMap.value).forEach((id) => {
+    if (!idSet.has(Number(id))) {
+      delete statusMap.value[id]
+    }
+  })
+  Object.keys(expandedMap.value).forEach((id) => {
+    if (!idSet.has(Number(id))) {
+      delete expandedMap.value[id]
     }
   })
 })
@@ -170,16 +211,6 @@ function cycleStatus(item) {
   else next = 'unchecked'
   statusMap.value[item.id] = next
   emitSetStatus(item.id, next)
-}
-
-// 截止时间编辑相关
-const editingDeadlineId = ref(null)
-const editingDeadlineValue = ref('')
-const saveDeadline = (item) => {
-  if (editingDeadlineValue.value && editingDeadlineValue.value !== item.deadline) {
-    emit('edit-subtask', item.id, { deadline: editingDeadlineValue.value })
-  }
-  editingDeadlineId.value = null
 }
 
 // 更多菜单相关（记录当前打开面板的 DOM 元素，避免 v-for ref 冲突）
@@ -212,20 +243,53 @@ function handleClickOutside(event) {
 }
 onMounted(() => {
   document.addEventListener('mousedown', handleClickOutside)
+  window.addEventListener('sync:id-replaced', handleIdReplaced)
 })
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside)
+  window.removeEventListener('sync:id-replaced', handleIdReplaced)
 })
 
-// 设置优先级示例
-const setPriority = (item) => {
-  // 可弹窗或直接 emit('edit-subtask', item.id, { priority: 新值 })
+const copyTitle = async (item) => {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(item.title || '')
+    }
+  } catch (e) {
+    console.warn('复制任务标题失败:', e)
+  }
   closeMoreMenu()
+}
+
+const markToday = (item) => {
+  const today = new Date()
+  today.setHours(23, 59, 59, 999)
+  emit('edit-subtask', item.id, { deadline: today.toISOString() })
+  closeMoreMenu()
+}
+
+const handleIdReplaced = (event) => {
+  const { tempId, realId } = event.detail || {}
+  if (tempId == null || realId == null) return
+
+  // 新建任务同步后，保持编辑态随 ID 迁移
+  if (editingId.value == tempId) {
+    suppressBlurOnceForId.value = realId
+    editingId.value = realId
+    nextTick(() => {
+      const input = document.getElementById('edit-input-' + realId)
+      if (input) {
+        input.focus()
+        input.select()
+      }
+    })
+  }
 }
 
 function startEdit(id, title) {
   editingId.value = id
   editingText.value = title
+
   nextTick(() => {
     const input = document.getElementById('edit-input-' + id)
     if (input) {
@@ -235,9 +299,27 @@ function startEdit(id, title) {
   })
 }
 
-function finishEdit(id) {
-  console.log('finishEdit', id, editingText.value)
-  emitEditSubtask(id, editingText.value)
+function finishEdit(id, source = 'enter') {
+  // 忽略过期输入框触发的 blur（例如 tempId -> realId 切换后）
+  if (editingId.value != id) {
+    return
+  }
+
+  // 仅忽略一次由 ID 替换引发的 blur，回车提交不应被吞掉
+  if (source === 'blur' && suppressBlurOnceForId.value == id) {
+    suppressBlurOnceForId.value = null
+    return
+  }
+
+  const nextTitle = editingText.value.trim()
+  const current = flatMap.value.get(id)
+  if (!nextTitle || nextTitle === current?.title) {
+    editingId.value = null
+    editingText.value = ''
+    return
+  }
+
+  emitEditSubtask(id, nextTitle)
   editingId.value = null
   editingText.value = ''
 }
