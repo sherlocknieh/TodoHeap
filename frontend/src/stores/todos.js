@@ -14,6 +14,15 @@ export const useTodoStore = defineStore('todos', () => {
   // 获取同步队列 store
   const getSyncQueue = () => useSyncQueueStore()
 
+  // 统一登录校验
+  const requireAuthUser = () => {
+    const authStore = useAuthStore()
+    if (!authStore.user) {
+      return { ok: false, result: { success: false, error: '请先登录' } }
+    }
+    return { ok: true, user: authStore.user }
+  }
+
   // ========== 乐观更新辅助函数 ==========
 
   // 根据ID查找todo (支持临时ID映射)
@@ -57,6 +66,28 @@ export const useTodoStore = defineStore('todos', () => {
   // 从列表中批量移除任务
   const removeTodosByIds = (targetRef, idsToRemove) => {
     targetRef.value = targetRef.value.filter(t => !idsToRemove.has(t.id))
+  }
+
+  // upsert 到 ref 列表（按 id）
+  const upsertTodoById = (targetRef, todo, prepend = false) => {
+    const index = targetRef.value.findIndex(t => t.id === todo.id)
+    if (index !== -1) {
+      targetRef.value[index] = todo
+      return
+    }
+    if (prepend) {
+      targetRef.value.unshift(todo)
+    } else {
+      targetRef.value.push(todo)
+    }
+  }
+
+  // 根据 id 从 ref 列表中移除
+  const removeTodoById = (targetRef, id) => {
+    const index = targetRef.value.findIndex(t => t.id === id)
+    if (index !== -1) {
+      targetRef.value.splice(index, 1)
+    }
   }
 
   // 批量插入（不重复）到列表头部
@@ -300,10 +331,10 @@ export const useTodoStore = defineStore('todos', () => {
 
   // 添加 (乐观更新)
   const addTodo = async (title, options = {}) => {
-    const authStore = useAuthStore()
-    if (!authStore.user) {
+    const auth = requireAuthUser()
+    if (!auth.ok) {
       error.value = '请先登录'
-      return { success: false, error: '请先登录' }
+      return auth.result
     }
 
     const syncQueue = getSyncQueue()
@@ -315,7 +346,7 @@ export const useTodoStore = defineStore('todos', () => {
     const newTodo = {
       id: tempId,
       title: title.trim(),
-      user_id: authStore.user.id,
+      user_id: auth.user.id,
       status: options.status || 'todo',
       priority: options.priority ?? 0,
       parent_id: options.parent_id || null,
@@ -557,10 +588,8 @@ export const useTodoStore = defineStore('todos', () => {
 
   // 清空垃圾箱 (乐观更新)
   const emptyTrash = async () => {
-    const authStore = useAuthStore()
-    if (!authStore.user) {
-      return { success: false, error: '请先登录' }
-    }
+    const auth = requireAuthUser()
+    if (!auth.ok) return auth.result
 
     const syncQueue = getSyncQueue()
     
@@ -575,7 +604,7 @@ export const useTodoStore = defineStore('todos', () => {
     await syncQueue.enqueue({
       type: OperationType.BATCH_PERMANENT_DELETE,
       targetId: 'batch-empty-trash',
-      payload: { user_id: authStore.user.id }
+      payload: { user_id: auth.user.id }
     })
     
     return { success: true }
@@ -583,10 +612,8 @@ export const useTodoStore = defineStore('todos', () => {
 
   // 恢复所有任务 (乐观更新)
   const restoreAllTrash = async () => {
-    const authStore = useAuthStore()
-    if (!authStore.user) {
-      return { success: false, error: '请先登录' }
-    }
+    const auth = requireAuthUser()
+    if (!auth.ok) return auth.result
 
     const syncQueue = getSyncQueue()
     
@@ -604,7 +631,7 @@ export const useTodoStore = defineStore('todos', () => {
     await syncQueue.enqueue({
       type: OperationType.BATCH_RESTORE,
       targetId: 'batch-restore-all',
-      payload: { user_id: authStore.user.id }
+      payload: { user_id: auth.user.id }
     })
     
     return { success: true }
@@ -657,6 +684,24 @@ export const useTodoStore = defineStore('todos', () => {
       let successCount = 0
       let totalCount = 0
       let buffer = ''
+
+      const toBreakdownTask = (taskPayload) => ({
+        title: taskPayload.title,
+        status: taskPayload.status || 'todo',
+        priority: taskPayload.priority ?? 1,
+        parent_id: realParentId,
+        deadline: taskPayload.deadline || null
+      })
+
+      const emitReceivedTask = (task, index) => {
+        if (onTaskReceived) {
+          onTaskReceived({
+            task,
+            index,
+            totalSoFar: totalCount
+          })
+        }
+      }
       
       while (true) {
         const { done, value } = await reader.read()
@@ -684,14 +729,8 @@ export const useTodoStore = defineStore('todos', () => {
               if (event.type === 'task') {
                 totalCount++
                 console.log(`收到子任务 ${event.index}:`, event.data)
-                
-                const taskData = {
-                  title: event.data.title,
-                  status: event.data.status || 'todo',
-                  priority: event.data.priority ?? 1,
-                  parent_id: realParentId,
-                  deadline: event.data.deadline || null
-                }
+
+                const taskData = toBreakdownTask(event.data)
                 
                 if (autoApply) {
                   // 立即添加任务
@@ -705,13 +744,7 @@ export const useTodoStore = defineStore('todos', () => {
                   if (result.success) {
                     successCount++
                     // 回调通知前端
-                    if (onTaskReceived) {
-                      onTaskReceived({
-                        task: result.data,
-                        index: event.index,
-                        totalSoFar: totalCount
-                      })
-                    }
+                    emitReceivedTask(result.data, event.index)
                   }
                 } else {
                   // 仅收集任务数据，不实际添加
@@ -722,13 +755,7 @@ export const useTodoStore = defineStore('todos', () => {
                   })
                   successCount++
                   // 回调通知前端
-                  if (onTaskReceived) {
-                    onTaskReceived({
-                      task: collectedTasks[collectedTasks.length - 1],
-                      index: event.index,
-                      totalSoFar: totalCount
-                    })
-                  }
+                  emitReceivedTask(collectedTasks[collectedTasks.length - 1], event.index)
                 }
               } else if (event.type === 'done') {
                 console.log(`任务分解完成，共 ${event.totalCount} 个子任务`)
@@ -840,57 +867,43 @@ export const useTodoStore = defineStore('todos', () => {
     // 标记正在接收远程更新（短暂显示同步中状态）
     syncQueue.markRemoteUpdate()
 
+    const shouldMaintainTrash = () => trashTodos.value.length > 0 || trashLoading.value === false
+
+    const handleRealtimeInsert = (record) => {
+      if (record.deleted_at === null) {
+        upsertTodoById(todos, record)
+      }
+    }
+
+    const handleRealtimeDeletedState = (record) => {
+      removeTodoById(todos, record.id)
+      if (shouldMaintainTrash()) {
+        upsertTodoById(trashTodos, record, true)
+      }
+    }
+
+    const handleRealtimeActiveState = (record) => {
+      removeTodoById(trashTodos, record.id)
+      upsertTodoById(todos, record)
+    }
+
     switch (eventType) {
       case 'INSERT':
-        // 检查是否已存在 (避免重复)
-        if (!todos.value.find(t => t.id === newRecord.id)) {
-          if (newRecord.deleted_at === null) {
-            todos.value.push(newRecord)
-          }
-        }
+        handleRealtimeInsert(newRecord)
         break
 
       case 'UPDATE':
         if (newRecord.deleted_at !== null) {
-          // 变成已删除状态
-          const index = todos.value.findIndex(t => t.id === newRecord.id)
-          if (index !== -1) {
-            // 从正常列表移除
-            todos.value.splice(index, 1)
-          }
-          
-          // 处理垃圾箱更新
-          if (trashTodos.value.length > 0 || trashLoading.value === false) {
-            const trashIndex = trashTodos.value.findIndex(t => t.id === newRecord.id)
-            if (trashIndex !== -1) {
-              // 已存在于垃圾箱，更新数据
-              trashTodos.value[trashIndex] = newRecord
-            } else {
-              // 不存在，添加到垃圾箱
-              trashTodos.value.unshift(newRecord)
-            }
-          }
+          handleRealtimeDeletedState(newRecord)
         } else {
-          // 正常更新或恢复
-          const trashIndex = trashTodos.value.findIndex(t => t.id === newRecord.id)
-          if (trashIndex !== -1) {
-            // 从垃圾箱恢复
-            trashTodos.value.splice(trashIndex, 1)
-          }
-          
-          const index = todos.value.findIndex(t => t.id === newRecord.id)
-          if (index !== -1) {
-            todos.value[index] = newRecord
-          } else {
-            todos.value.push(newRecord)
-          }
+          handleRealtimeActiveState(newRecord)
         }
         break
 
       case 'DELETE':
         // 永久删除
-        todos.value = todos.value.filter(t => t.id !== oldRecord.id)
-        trashTodos.value = trashTodos.value.filter(t => t.id !== oldRecord.id)
+        removeTodoById(todos, oldRecord.id)
+        removeTodoById(trashTodos, oldRecord.id)
         break
     }
   }
