@@ -100,8 +100,9 @@
 
 <script setup>
 // 切换左栏显示状态
+const isWideScreen = ref(window.innerWidth >= 768) // 以 768px 为宽屏/窄屏分界
 const toggleLeftPanel = () => {
-	if (window.innerWidth >= 1024) {
+	if (isWideScreen.value) {
 		// 大屏模式下切换左栏折叠状态
 		leftPanelCollapsed.value = !leftPanelCollapsed.value
 		showLeftSidebar.value = !leftPanelCollapsed.value
@@ -121,7 +122,7 @@ const onMainAreaClick = (e) => {
 
 	// 如果没有点击任务项也没有点击详情面板，则关闭详情面板
 	if (!clickedTaskItem && !clickedDetailPanel) {
-		closeDetailPanel()
+		//closeDetailPanel()
 		selectedTaskId.value = null
 	}
 }
@@ -201,13 +202,13 @@ const windowWidth = ref(window.innerWidth)
 const updateWindowWidth = () => {
 	windowWidth.value = window.innerWidth
 	// 当窗口从窄屏变为宽屏时，自动显示详情面板和侧栏
-	if (windowWidth.value >= 1024) {
+	if (isWideScreen.value) {
 		showDetailPanel.value = true
 		showLeftSidebar.value = true
 		showMobileSidebar.value = false
 	}
 	// 当窗口从宽屏变为窄屏时，如果没有选中任务，隐藏详情面板和侧栏
-	if (windowWidth.value < 1024) {
+	if (!isWideScreen.value) {
 		if (!selectedTaskId.value) showDetailPanel.value = false
 		showLeftSidebar.value = false
 	}
@@ -263,7 +264,7 @@ onMounted(async () => {
 	// 初始化窗口宽度
 	updateWindowWidth()
 	// 初始化侧栏显示（大屏默认显示，窄屏默认隐藏）
-	showLeftSidebar.value = window.innerWidth >= 1024
+	showLeftSidebar.value = isWideScreen.value
 })
 
 // 监听路由变化，确保数据总是最新的
@@ -303,8 +304,8 @@ const switchView = (view) => {
 
 const handleTaskSelected = (taskId) => {
 	if (taskId === null) {
-		// 取消选中任务
-		closeDetailPanel()
+		// 取消选中任务时关闭详情面板
+		// closeDetailPanel()
 		selectedTaskId.value = null
 	} else if (selectedTaskId.value === taskId) {
 		// 如果点击的是已选中的任务，不做任何操作（保持详情面板打开）

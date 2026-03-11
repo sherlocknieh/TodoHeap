@@ -87,18 +87,6 @@ const handleMoreOption = (option) => {
   }
 }
 
-// 点击菜单外自动关闭
-function handleClickOutside(event) {
-  if (showMore.value && moreMenuRef.value && !moreMenuRef.value.contains(event.target)) {
-    showMore.value = false
-  }
-}
-onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside)
-})
-onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', handleClickOutside)
-})
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import TodoListItem from '@/components/TodoListItem.vue'
