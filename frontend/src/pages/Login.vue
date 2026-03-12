@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -32,18 +32,10 @@ const handleAuth = async () => {
   // 清空提示信息
   errorMsg.value = ''
   successMsg.value = ''
-  auth.clearError()
 
-  // 如果初始化失败，尝试强制重试
-  if (auth.initFailed) {
-    loading.value = true
-    try {
-      await auth.initialize(true)  // 强制重试
-    } catch (err) {
-      errorMsg.value = '认证初始化失败，请检查网络连接'
-      loading.value = false
-      return
-    }
+  // 确保认证状态已初始化
+  if (!auth._initialized) {
+    await auth.initAuth()
   }
 
   // 基础验证
@@ -71,44 +63,34 @@ const handleAuth = async () => {
       // 注册
       const result = await auth.signUp(email.value, password.value)
 
-      if (result.success) {
-        if (result.needsVerification) {
-          successMsg.value = result.message || '注册成功！请检查邮箱进行验证。'
-          // 清空表单
-          email.value = ''
-          password.value = ''
-          confirmPassword.value = ''
-          // 3秒后自动切换到登录
-          setTimeout(() => {
-            isSignUp.value = false
-            successMsg.value = ''
-          }, 3000)
-        } else {
-          successMsg.value = '注册成功！正在跳转...'
-          setTimeout(() => {
-            const redirectPath = getRedirectPath()
-            router.push(redirectPath)
-          }, 1000)
-        }
+      // Supabase 开启邮箱验证时通常返回 session = null
+      if (!result.session) {
+        successMsg.value = '注册成功！请检查邮箱进行验证。'
+        email.value = ''
+        password.value = ''
+        confirmPassword.value = ''
+        setTimeout(() => {
+          isSignUp.value = false
+          successMsg.value = ''
+        }, 3000)
       } else {
-        errorMsg.value = result.error || '注册失败，请重试'
-      }
-    } else {
-      // 登录
-      const result = await auth.signIn(email.value, password.value)
-
-      if (result.success) {
-        successMsg.value = '登录成功！正在跳转...'
+        successMsg.value = '注册成功！正在跳转...'
         setTimeout(() => {
           const redirectPath = getRedirectPath()
           router.push(redirectPath)
         }, 1000)
-      } else {
-        errorMsg.value = result.error || '登录失败，请检查邮箱和密码'
       }
+    } else {
+      // 登录
+      await auth.signInWithPassword(email.value, password.value)
+      successMsg.value = '登录成功！正在跳转...'
+      setTimeout(() => {
+        const redirectPath = getRedirectPath()
+        router.push(redirectPath)
+      }, 1000)
     }
   } catch (error) {
-    errorMsg.value = '发生了一个错误，请重试'
+    errorMsg.value = error?.message || '发生了一个错误，请重试'
     console.error(error)
   } finally {
     loading.value = false
