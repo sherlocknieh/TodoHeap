@@ -96,13 +96,13 @@
 
           <h2 class="text-lg font-bold text-gray-800 mt-6 mb-4">账户操作</h2>
           <div class="flex flex-col gap-3">
-            <button class="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600" @click="handleSignOut">
-              <span>🚪</span>
-              <span class="ml-2">退出登录</span>
-            </button>
-            <button class="border-2 border-red-500 text-red-500 px-4 py-2 rounded-md hover:bg-red-50" @click="handleDeleteAccount">
+            <button
+              class="border-2 border-red-500 text-red-500 px-4 py-2 rounded-md hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
+              @click="handleDeleteAccount"
+              :disabled="isDeletingAccount"
+            >
               <span>🗑️</span>
-              <span class="ml-2">删除账户</span>
+              <span class="ml-2">{{ isDeletingAccount ? '删除中...' : '删除账户' }}</span>
             </button>
           </div>
         </div>
@@ -211,6 +211,7 @@ const confirmPassword = ref('')
 const passwordError = ref('')
 const passwordSuccess = ref('')
 const isChangingPassword = ref(false)
+const isDeletingAccount = ref(false)
 
 // 主题/通知/隐私 设置已移除
 
@@ -296,16 +297,24 @@ const handleChangePassword = async () => {
 
 // 退出登录
 const handleSignOut = async () => {
-  if (window.confirm('确定要退出登录吗？')) {
-    const result = await authStore.signOut()
-    if (result.success) {
-      router.push({ name: 'home' })
-    }
+  if (!window.confirm('确定要退出登录吗？')) {
+    return
+  }
+
+  try {
+    await authStore.signOut()
+    router.push({ name: 'home' })
+  } catch (err) {
+    alert('退出登录失败，请稍后重试')
   }
 }
 
 // 删除账户
 const handleDeleteAccount = async () => {
+  if (isDeletingAccount.value) {
+    return
+  }
+
   if (!window.confirm('确定要删除账户吗？此操作无法撤销！')) {
     return
   }
@@ -313,9 +322,19 @@ const handleDeleteAccount = async () => {
   if (!window.confirm('再次确认：删除账户后，所有数据将被永久删除')) {
     return
   }
-  
-  // 删除账户功能需要后端支持
-  alert('账户删除功能开发中，请联系管理员')
+
+  isDeletingAccount.value = true
+  try {
+    await authStore.deleteAccount()
+    await authStore.signOut()
+    alert('账户已删除')
+    router.replace({ name: 'home' })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '删除账户失败，请稍后重试'
+    alert(message)
+  } finally {
+    isDeletingAccount.value = false
+  }
 }
 </script>
 

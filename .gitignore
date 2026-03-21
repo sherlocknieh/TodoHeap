@@ -12,3 +12,5 @@ docs/.vitepress/dist
 # env
 .env.local
 
+# Supabase
+.temp/

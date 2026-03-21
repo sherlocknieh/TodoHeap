@@ -61,8 +61,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function deleteAccount() {
-    const { error } = await supabase.rpc('delete_account')
+    const { data, error } = await supabase.rpc('delete_user_account')
     if (error) throw error
+    if (data !== true) {
+      throw new Error('删除账户失败，请稍后重试')
+    }
+    return data
   }
 
   const isAuthenticated = computed(() => !!_session.value?.user)
