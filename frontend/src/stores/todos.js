@@ -1,12 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed, onScopeDispose } from 'vue'
 import { supabase } from '@/lib/supabase'
+
 import { useAuthStore } from './auth'
+
 import { useSyncQueueStore, OperationType } from './syncQueue'
 import { createBreakdownActions } from './todos.breakdown'
 import { createTodosRealtimeManager } from './todos.realtime'
 import { createTodoOptimisticActions } from './todos.optimistic'
 import { createTodoRollbackHandler } from './todos.rollback'
+
 
 export const useTodoStore = defineStore('todos', () => {
   // 状态
