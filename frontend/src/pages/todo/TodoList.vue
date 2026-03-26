@@ -54,7 +54,7 @@
         @add-subtask="addSubtask"
         @edit-subtask="editSubtask"
         @task-selected="handleTaskSelected"
-        @breakdown-task="(id) => emit('breakdown-task', id)"
+        @breakdown-task="$emit('breakdown-task', $event)"
       />
       </ul>
     </div>
@@ -130,10 +130,9 @@ const addTodo = async () => {
 }
 
 const addSubtask = async (parentId, startEditCb) => {
-  const result = await todoStore.addTodo('新子任务', {
+  const result = await todoStore.addTodo('(新任务)', {
     parent_id: parentId,
-    priority: 0,
-    deferSync: true
+    priority: 0
   })
   if (result.success && result.data) {
     startEditCb(result.data.id, result.data.title)

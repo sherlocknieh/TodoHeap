@@ -92,22 +92,17 @@
             <div v-if="showMoreMenuId === item.id"
               class="absolute right-0 mt-2 w-36 bg-white border border-slate-200 rounded shadow-lg" ref="moreMenuRef">
               <ul class="py-1 text-sm text-slate-700">
+                <!-- AI 任务分解按钮 -->
+                <li>
+                  <button @click="breakdownTask(item.id)" :disabled="isBreakingDown"
+                    class="w-full text-left px-3 py-2 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-500 text-white hover:bg-emerald-600">
+                    <span>🤖 AI智能分解</span>
+                  </button>
+                </li>
                 <li><button class="w-full text-left px-4 py-2 hover:bg-slate-100"
                     @click.stop="emitAddSubtask(item.id); closeMoreMenu()">添加子任务</button></li>
                 <li><button class="w-full text-left px-4 py-2 hover:bg-slate-100"
                     @click.stop="emitDeleteTodo(item.id); closeMoreMenu()">删除任务</button></li>
-                <!-- AI 任务分解按钮 -->
-                <li>
-                  <button @click="breakdownTask(item.id)" :disabled="isBreakingDown" :class="[
-                    'w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed',
-                    'bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-sm hover:shadow-md',
-                    !isBreakingDown && 'animate-pulse-glow'
-                  ]">
-                    <span v-if="isBreakingDown" class="animate-spin">⚡</span>
-                    <span v-else>🤖</span>
-                    <span class="flex-1">{{ isBreakingDown ? 'AI正在分解...' : 'AI 智能分解' }}</span>
-                  </button>
-                </li>
                 <!-- 可继续添加更多功能项 -->
               </ul>
             </div>
