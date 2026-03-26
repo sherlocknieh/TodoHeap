@@ -1,42 +1,14 @@
 <template>
   <!-- 思维导图容器 -->
-  <div ref="mindMapContainer" class="min-h-100 w-full border border-gray-300 rounded-lg relative" @click.stop>
+  <div ref="mindMapContainer" class="min-h-100 h-full w-full border border-gray-300 rounded-lg relative" @click.stop>
     <!-- 控件层 -->
-    <div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
-      <button
-        @click="centerView"
-        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
-        title="居中视图"
-      >
-        🎯
-      </button>
-      <button
-        @click="leftView"
-        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
-        title="居左视图"
-      >
-        ⬅️
-      </button>
-      <button
-        @click="zoomIn"
-        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
-        title="放大"
-      >
-        ➕
-      </button>
-      <button
-        @click="zoomOut"
-        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
-        title="缩小"
-      >
-        ➖
-      </button>
+    <div class="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
       <button
         @click="fitView"
         class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
         title="适应视图"
       >
-        📐
+        🔄️
       </button>
     </div>
   </div>
@@ -55,8 +27,6 @@ const props = defineProps({
 
 // 标记是否由内部操作引起的变化（避免反向同步循环）
 let isInternalChange = false
-// 标记是否已完成首次初始化
-let isInitialized = false
 
 // 组件事件：task-selected, node-content-change, node-insert, node-delete, data-change, data-change-detail
 const emit = defineEmits(['task-selected', 'node-content-change', 'node-insert', 'node-delete', 'data-change', 'data-change-detail'])
@@ -88,6 +58,11 @@ const moveToCenter = () => {
   const relX = forkViewX - canvasCenterX
   const relY = forkViewY - canvasCenterY
   mindMapInstance.view.translateXY(-relX, -relY)
+}
+
+const fitView = () => {
+  if (!mindMapInstance) return
+  mindMapInstance.view.fit()
 }
 
 // 初始化思维导图实例
@@ -151,13 +126,7 @@ const initMindMap = () => {
     })
   }
 
-  // 初次挂载后自动居中
-  setTimeout(() => {
-    moveToCenter()
-    isInitialized = true
-  }, 0)
-
-  // 节点树渲染完成事件 - 不再自动居中，只处理节点选中
+  // 节点树渲染完成事件
   mindMapInstance.on('node_tree_render_end', () => {
     // 渲染完成后，如果有选中的任务，选中对应节点
     if (props.selectedTaskId) {
@@ -167,6 +136,8 @@ const initMindMap = () => {
         node.active()
       }
     }
+    // 渲染完成后调用 fitView，确保节点已渲染且布局已计算
+    fitView()
   })
   
   // 监听内部数据变化，标记为内部操作
@@ -232,25 +203,4 @@ watch(() => props.mindData, (newVal, oldVal) => {
   // MindMap 已经更新了视图，无需再次 setData
 
 }, { deep: true })
-
-// 控件方法
-const centerView = () => {
-  if (!mindMapInstance) return
-  moveToCenter()
-}
-
-const zoomIn = () => {
-  if (!mindMapInstance) return
-  mindMapInstance.view.scale(1.2)
-}
-
-const zoomOut = () => {
-  if (!mindMapInstance) return
-  mindMapInstance.view.scale(0.8)
-}
-
-const fitView = () => {
-  if (!mindMapInstance) return
-  mindMapInstance.view.fit()
-}
 </script>
