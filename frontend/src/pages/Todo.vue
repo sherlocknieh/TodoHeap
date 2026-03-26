@@ -89,6 +89,10 @@
 								@task-selected="handleTaskSelected" />
 						</router-view>
 					</div>
+
+					<!-- 自然语言任务输入组件 -->
+					 <AITaskInput v-if="!isBreakingDown" />
+
 				</div>
 
 				<!-- 右栏：详情面板 -->
@@ -141,6 +145,7 @@ import LeftSidebar from '@/components/LeftSidebar.vue'
 import BreakdownStatusCard from '@/components/BreakdownStatusCard.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
+import AITaskInput from '@/components/AITaskInput.vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -9,20 +9,6 @@
           placeholder="快速添加：输入任务，回车添加"
           class="w-full border bg-white border-slate-200 rounded-md pl-3 pr-44 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         />
-        <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          <input
-            v-model="newTaskDate"
-            type="date"
-            class="date-input border-none bg-transparent text-slate-500 text-sm focus:ring-0 focus:outline-none cursor-pointer"
-          />
-          <button @click="showMore = !showMore" class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 transition shrink-0" type="button">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="1.5"/>
-              <circle cx="19" cy="12" r="1.5"/>
-              <circle cx="5" cy="12" r="1.5"/>
-            </svg>
-          </button>
-        </div>
         <div v-if="showMore" class="absolute right-2 top-full mt-2 w-40 bg-white border border-slate-200 rounded shadow-lg z-10" ref="moreMenuRef">
           <ul class="py-1 text-sm text-slate-700">
             <li>
