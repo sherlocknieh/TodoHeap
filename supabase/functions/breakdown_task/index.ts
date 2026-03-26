@@ -243,8 +243,9 @@ function tryParseIncrementalTasks(content: string, startIndex: number): ParsedRe
   return { tasks, newIndex: currentIndex };
 }
 
-// 边缘函数主处理器
-async function handler(req: Request) {
+
+// 启动 Deno 服务器
+Deno.serve((req: Request) => {
   // 1. 处理 CORS 跨域请求
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -360,7 +361,4 @@ async function handler(req: Request) {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
-}
-
-// 启动 Deno 服务器监听请求
-Deno.serve(handler);
+});
