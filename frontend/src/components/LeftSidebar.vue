@@ -34,25 +34,7 @@ const switchView = (view) => {
   }
 }
 
-// 创建新任务
-const createNewTask = () => {
-  emit('create-task')
-  // 小屏下创建任务后自动关闭侧栏
-  if (window.innerWidth < 1024) {
-    emit('close')
-  }
-}
 
-// 分解任务
-const breakdownTask = () => {
-  if (props.selectedTaskId) {
-    emit('breakdown-task')
-    // 小屏下分解任务后自动关闭侧栏
-    if (window.innerWidth < 1024) {
-      emit('close')
-    }
-  }
-}
 </script>
 
 <template>
@@ -122,7 +104,7 @@ const breakdownTask = () => {
                 <span>🌳</span>
                 <span>树视图</span>
               </button>
-              <button
+              <!-- <button
                 @click="switchView('heap')"
                 :class="[
                   'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2',
@@ -133,19 +115,7 @@ const breakdownTask = () => {
               >
                 <span>🏔️</span>
                 <span>堆视图</span>
-              </button>
-              <button
-                @click="switchView('trash')"
-                :class="[
-                  'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2',
-                  activeView === 'trash' 
-                    ? 'bg-red-50 text-red-700 font-medium' 
-                    : 'text-slate-600 hover:bg-slate-50'
-                ]"
-              >
-                <span>🗑️</span>
-                <span>回收站</span>
-              </button>
+              </button> -->
             </div>
           </div>
 
@@ -170,38 +140,19 @@ const breakdownTask = () => {
                 <span class="font-medium text-red-600">{{ stats.trashed }}</span>
               </div>
             </div>
-          </div>
-
-          <!-- AI 任务分解 -->
-          <div class="space-y-2">
-            <h3 class="text-xs font-medium text-slate-600 uppercase tracking-wider">AI 智能助手</h3>
-            <div class="space-y-1">
-              <!-- AI 分解按钮 -->
-              <button
-                v-if="selectedTaskId"
-                @click="breakdownTask"
-                :disabled="isBreakingDown"
-                :class="[
-                  'w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed',
-                  'bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-sm hover:shadow-md',
-                  !isBreakingDown && 'animate-pulse-glow'
-                ]"
-              >
-                <span class="flex items-center justify-center">
-                  <span v-if="isBreakingDown" class="animate-spin">⚡</span>
-                  <span v-else class="text-base">🤖</span>
-                </span>
-                <span class="flex-1">{{ isBreakingDown ? 'AI正在分解...' : 'AI 智能分解' }}</span>
-                <span v-if="!isBreakingDown" class="text-xs opacity-75 bg-white/20 px-2 py-0.5 rounded-full">AI</span>
-              </button>
-              
-              <!-- 无选中任务时的提示 -->
-              <div v-else class="text-center px-3 py-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div class="text-2xl mb-1">🤖</div>
-                <p class="text-xs text-slate-500">请先选择一个任务</p>
-                <p class="text-xs text-slate-400 mt-1">AI 将帮助分解复杂任务</p>
-              </div>
-            </div>
+            <!-- 回收站 -->
+            <button
+              @click="switchView('trash')"
+              :class="[
+                'w-full text-left mt-2 px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2',
+                activeView === 'trash' 
+                  ? 'bg-red-50 text-red-700 font-medium' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <span>🗑️</span>
+              <span>回收站</span>
+            </button>
           </div>
 
         </div>
