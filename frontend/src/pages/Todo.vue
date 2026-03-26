@@ -86,7 +86,9 @@
 						</div>
 						<router-view v-else v-slot="{ Component }">
 							<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
-								@task-selected="handleTaskSelected" />
+								:is-breaking-down="isBreakingDown"
+								@task-selected="handleTaskSelected"
+								@breakdown-task="handleBreakdownTask" />
 						</router-view>
 					</div>
 
@@ -340,8 +342,8 @@ const createNewTask = async () => {
 	}
 }
 
-const handleBreakdownTask = async () => {
-	if (!selectedTaskId.value) {
+const handleBreakdownTask = async (taskId) => {
+	if (!taskId) {
 		showBreakdownMessage('请先选择一个任务', 'error')
 		return
 	}
@@ -364,7 +366,7 @@ const handleBreakdownTask = async () => {
 
 		const result = await todoStore.invokeBreakdown(
 			todoStore.treeNodes,
-			selectedTaskId.value,
+			taskId,
 			query,
 			onTaskReceived,
 			autoApply

@@ -48,11 +48,13 @@
         :key="node.id"
         :node="node"
         :selected-task-id="props.selectedTaskId"
+        :is-breaking-down="props.isBreakingDown"
         @toggle-done="toggleDone"
         @delete-todo="deleteTodo"
         @add-subtask="addSubtask"
         @edit-subtask="editSubtask"
         @task-selected="handleTaskSelected"
+        @breakdown-task="(id) => emit('breakdown-task', id)"
       />
       </ul>
     </div>
@@ -81,12 +83,16 @@ const props = defineProps({
   selectedTaskId: {
     type: Number,
     default: null
+  },
+  isBreakingDown: {
+    type: Boolean,
+    default: false
   }
 })
 
 const todoStore = useTodoStore()
 const authStore = useAuthStore()
-const emit = defineEmits(['task-selected'])
+const emit = defineEmits(['task-selected', 'breakdown-task'])
 
 const newTaskTitle = ref('')
 const newTaskDate = ref('')
@@ -161,4 +167,3 @@ const handleTaskSelected = (taskId) => {
   cursor: pointer;
 }
 </style>
-
