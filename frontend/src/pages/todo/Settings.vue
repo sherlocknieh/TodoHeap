@@ -135,11 +135,6 @@
 
                 <div class="p-6">
                   <div class="mb-4">
-                    <label for="current-password" class="block mb-2 text-sm font-medium text-gray-700">当前密码</label>
-                    <input id="current-password" v-model="currentPassword" type="password" placeholder="请输入当前密码" autocomplete="current-password" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-                  </div>
-
-                  <div class="mb-4">
                     <label for="new-password" class="block mb-2 text-sm font-medium text-gray-700">新密码</label>
                     <input id="new-password" v-model="newPassword" type="password" placeholder="请输入新密码（至少6个字符）" autocomplete="new-password" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300" />
                     <div class="mt-2 text-xs text-gray-500">密码长度至少6个字符</div>
@@ -205,7 +200,6 @@ const activeTab = ref('userinfo')
 
 // 账户设置
 const showPasswordModal = ref(false)
-const currentPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
 const passwordError = ref('')
@@ -239,7 +233,6 @@ const closePasswordModal = () => {
   showPasswordModal.value = false
   passwordError.value = ''
   passwordSuccess.value = ''
-  currentPassword.value = ''
   newPassword.value = ''
   confirmPassword.value = ''
 }
@@ -250,8 +243,8 @@ const handleChangePassword = async () => {
   passwordSuccess.value = ''
 
   // 验证
-  if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
-    passwordError.value = '请填写所有字段'
+  if (!newPassword.value || !confirmPassword.value) {
+    passwordError.value = '请填写新密码和确认密码'
     return
   }
 
@@ -262,11 +255,6 @@ const handleChangePassword = async () => {
 
   if (newPassword.value !== confirmPassword.value) {
     passwordError.value = '两次输入的密码不一致'
-    return
-  }
-
-  if (newPassword.value === currentPassword.value) {
-    passwordError.value = '新密码不能与旧密码相同'
     return
   }
 
