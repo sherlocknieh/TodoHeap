@@ -57,7 +57,7 @@ const createTodoTool = {
 } as const;
 
 function createOpenAIClient(): OpenAI {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  const apiKey = Deno.env.get("OPENAI_API_KEY2");
   const baseUrl = Deno.env.get("OPENAI_BASE_URL");
   return new OpenAI({ apiKey, baseURL: baseUrl });
 }

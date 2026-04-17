@@ -63,17 +63,8 @@ interface OpenAIMessage {
   content: string;
 }
 
-// 清理文本：移除可能的 Markdown 代码块标记（虽然 systemPrompt 已经要求不带这些，但仍做防御性处理）
-function cleanText(text: string): string {
-  // 清理 AI 响应中的 JSON 块标记
-  let cleaned = text.replace(/```json\n/g, "");
-  cleaned = cleaned.replace(/```/g, "");
-  cleaned = cleaned.replace(/\n/g, "");
-  return cleaned;
-}
 
-// 将任务树结构序列化为易于 AI 理解的文本字符串
-包含层级缩进、状态、优先级等信息
+// 将任务树结构序列化为易于 AI 理解的文本字符串包含层级缩进、状态、优先级等信息
 function dumpTree(tree: treeNode | treeNode[] | null | undefined): string {
   if (!tree) {
     return "Empty tree";
@@ -120,8 +111,7 @@ function dumpTree(tree: treeNode | treeNode[] | null | undefined): string {
   return result;
 }
 
-// 在任务树中查找指定 ID 的目标任务
-返回一个包含该节点的数组（仅供 dumpTree 使用以展示目标上下文）
+// 在任务树中查找指定 ID 的目标任务返回一个包含该节点的数组（仅供 dumpTree 使用以展示目标上下文）
 function getGoalTask(tree: treeNode | treeNode[] | null | undefined, selectedNodeId: number): treeNode[] {
   if (!tree) {
     return [];
@@ -158,7 +148,7 @@ function getGoalTask(tree: treeNode | treeNode[] | null | undefined, selectedNod
 
 // 根据环境变量初始化 OpenAI 客户端
 function createOpenAIClient(): OpenAI {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  const apiKey = Deno.env.get("OPENAI_API_KEY2");
   const baseUrl = Deno.env.get("OPENAI_BASE_URL");
 
   return new OpenAI({
@@ -243,9 +233,8 @@ function tryParseIncrementalTasks(content: string, startIndex: number): ParsedRe
   return { tasks, newIndex: currentIndex };
 }
 
-
-// 启动 Deno 服务器
-Deno.serve((req: Request) => {
+// 边缘函数主处理器
+async function handler(req: Request) {
   // 1. 处理 CORS 跨域请求
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -361,4 +350,7 @@ Deno.serve((req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
-});
+}
+
+// 启动 Deno 服务器监听请求
+Deno.serve(handler);
