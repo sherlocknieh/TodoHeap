@@ -227,7 +227,7 @@ export const useTodoStore = defineStore('todos', () => {
   }
 
 
-  const { invokeBreakdown, applyPendingTasks, invokeAnalyzeAndCreate } = createBreakdownActions({
+  const { invokeBreakdown, applyPendingTasks, invokeAnalyzeAndCreate, invokeOptimizeTasks } = createBreakdownActions({
     getSyncQueue,
     addTodo
   })
@@ -351,6 +351,7 @@ export const useTodoStore = defineStore('todos', () => {
     clearError,
     invokeBreakdown,
     invokeAnalyzeAndCreate,
+    invokeOptimizeTasks,
     applyPendingTasks,
     // 垃圾箱方法
     fetchTrash,

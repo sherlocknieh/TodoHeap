@@ -64,8 +64,10 @@
 				<!-- 左栏：任务导航面板（统一在 LeftSidebar 内部处理移动/桌面渲染与动画） -->
 				<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
 					:is-breaking-down="isBreakingDown"
+					:is-optimizing="isOptimizingTasks"
 					@close="() => { showLeftSidebar = false; showMobileSidebar = false }" @switch-view="switchView"
-					@create-task="createNewTask" @breakdown-task="handleBreakdownTask" />
+					@create-task="createNewTask" @breakdown-task="handleBreakdownTask"
+					@optimize-tasks="handleOptimizeTasks" />
 
 				<!-- 中栏：主要视图内容 -->
 				<div class="flex-1 flex flex-col min-w-0" @click="onMainAreaClick">
@@ -189,6 +191,7 @@ const showUserMenu = ref(false)
 const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
 const isAnalyzingTask = ref(false)
+const isOptimizingTasks = ref(false)
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
@@ -415,6 +418,23 @@ const handleAnalyzeTaskInput = async (taskText) => {
 		}
 	} finally {
 		isAnalyzingTask.value = false
+	}
+}
+
+const handleOptimizeTasks = async () => {
+	if (isOptimizingTasks.value) return
+
+	isOptimizingTasks.value = true
+	try {
+		const result = await todoStore.invokeOptimizeTasks('请执行任务优化：日期调整、任务分解、任务聚合、并创建一条执行建议任务。')
+		if (result.success) {
+			await todoStore.fetchTodos()
+			showBreakdownMessage(result.summary || '任务优化已完成', 'success')
+		} else {
+			showBreakdownMessage(`任务优化失败: ${result.error || '未知错误'}`, 'error')
+		}
+	} finally {
+		isOptimizingTasks.value = false
 	}
 }
 

@@ -7,10 +7,11 @@ const props = defineProps({
   show: { type: Boolean, default: false },
   activeView: { type: String, default: 'list' },
   selectedTaskId: { type: Number, default: null },
-  isBreakingDown: { type: Boolean, default: false }
+  isBreakingDown: { type: Boolean, default: false },
+  isOptimizing: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task'])
+const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task', 'optimize-tasks'])
 
 // 为模板提供 `show` 绑定
 const show = computed(() => props.show)
@@ -152,6 +153,19 @@ const switchView = (view) => {
             >
               <span>🗑️</span>
               <span>回收站</span>
+            </button>
+          </div>
+
+          <!-- AI 操作 -->
+          <div class="space-y-2">
+            <h3 class="text-xs font-medium text-slate-600 uppercase tracking-wider">AI 操作</h3>
+            <button
+              class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
+              :disabled="isOptimizing"
+              @click="$emit('optimize-tasks')"
+            >
+              <span>✨</span>
+              <span>{{ isOptimizing ? '任务优化中...' : '任务优化' }}</span>
             </button>
           </div>
 

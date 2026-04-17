@@ -232,9 +232,60 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
     }
   }
 
+  // 全局任务优化：后端读取全量任务并通过工具调用执行优化
+  const invokeOptimizeTasks = async (query = '') => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const apikey = supabasePubKey || supabaseAnonKey
+
+      const { data: sessionResult, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionResult?.session?.access_token) {
+        return { success: false, error: '用户未登录或会话已失效' }
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/optimize_tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionResult.session.access_token}`,
+          apikey
+        },
+        body: JSON.stringify({ query })
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok || !payload?.success) {
+        return {
+          success: false,
+          error: payload?.error || `HTTP ${response.status}`,
+          summary: payload?.summary || ''
+        }
+      }
+
+      return {
+        success: true,
+        summary: payload?.summary || '',
+        changes: payload?.changes || {
+          dateAdjusted: [],
+          breakdowns: [],
+          aggregations: [],
+          recommendationTaskId: null
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.message || '任务优化失败'
+      }
+    }
+  }
+
   return {
     invokeBreakdown,
     applyPendingTasks,
-    invokeAnalyzeAndCreate
+    invokeAnalyzeAndCreate,
+    invokeOptimizeTasks
   }
 }
