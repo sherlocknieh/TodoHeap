@@ -22,6 +22,10 @@ outline: deep
 
 [breakdown_task 逻辑梳理](03.breakdown_task_edge_function.md)
 
+[new_task_ai 任务分析与直写入库](04.new_task_ai.md)
+
+[任务优化命令设计（文档先行）](05.task_optimization_command.md)
+
 
 
 

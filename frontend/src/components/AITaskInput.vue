@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+const props = defineProps<{
+  loading?: boolean
+}>()
+
 const taskInput = ref('')
 const isComposing = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -18,6 +22,7 @@ const adjustHeight = () => {
 }
 
 const handleSubmit = () => {
+  if (props.loading) return
   const trimmed = taskInput.value.trim()
   if (!trimmed) return
   
@@ -52,6 +57,7 @@ const handleCompositionEnd = () => {
       class="flex-1 min-h-10 px-3 py-2 text-sm border border-slate-300 rounded-md resize-none outline-none transition-colors duration-150 text-slate-800 placeholder:text-slate-400 focus:border-blue-500"
       placeholder="输入任务描述，按 Ctrl+Enter 提交，Enter 换行..."
       rows="1"
+      :disabled="props.loading"
       @keydown="handleKeydown"
       @compositionstart="handleCompositionStart"
       @compositionend="handleCompositionEnd"
@@ -59,10 +65,10 @@ const handleCompositionEnd = () => {
     />
     <button
       class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border-none rounded-md cursor-pointer transition-colors duration-150 whitespace-nowrap hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-      :disabled="!taskInput.trim()"
+      :disabled="props.loading || !taskInput.trim()"
       @click="handleSubmit"
     >
-      智能添加
+      {{ props.loading ? '分析中...' : '智能添加' }}
     </button>
   </div>
 </template>

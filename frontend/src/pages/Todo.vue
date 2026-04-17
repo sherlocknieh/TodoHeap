@@ -93,7 +93,11 @@
 					</div>
 
 					<!-- 自然语言任务输入组件 -->
-					 <AITaskInput v-if="!isBreakingDown" />
+					<AITaskInput
+						v-if="!isBreakingDown"
+						:loading="isAnalyzingTask"
+						@submit-task="handleAnalyzeTaskInput"
+					/>
 
 				</div>
 
@@ -184,6 +188,7 @@ const activeView = computed({
 const showUserMenu = ref(false)
 const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
+const isAnalyzingTask = ref(false)
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
@@ -393,6 +398,23 @@ const handleBreakdownTask = async (taskId) => {
 				breakdownProgress.value = { count: 0, tasks: [] }
 			}, 300)
 		}
+	}
+}
+
+const handleAnalyzeTaskInput = async (taskText) => {
+	if (!taskText || isAnalyzingTask.value) return
+
+	isAnalyzingTask.value = true
+	try {
+		const result = await todoStore.invokeAnalyzeAndCreate(taskText, null)
+		if (result.success) {
+			await todoStore.fetchTodos()
+			showBreakdownMessage(`已创建 ${result.createdCount} 个任务`, 'success')
+		} else {
+			showBreakdownMessage(`任务分析失败: ${result.error || '未知错误'}`, 'error')
+		}
+	} finally {
+		isAnalyzingTask.value = false
 	}
 }
 

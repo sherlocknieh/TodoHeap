@@ -1,4 +1,6 @@
 // AI 任务分解相关动作
+import { supabase } from '@/lib/supabase'
+
 export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
   // AI 任务分解 - 流式版本
   // autoApply: true = 立即添加任务, false = 仅收集任务数据供确认
@@ -177,8 +179,62 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
     }
   }
 
+  // 自然语言任务分析并由后端直接入库
+  const invokeAnalyzeAndCreate = async (query, parentId = null) => {
+    const trimmedQuery = typeof query === 'string' ? query.trim() : ''
+    if (!trimmedQuery) {
+      return { success: false, error: '任务描述不能为空' }
+    }
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const apikey = supabasePubKey || supabaseAnonKey
+
+      const { data: sessionResult, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionResult?.session?.access_token) {
+        return { success: false, error: '用户未登录或会话已失效' }
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/new_task_ai`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionResult.session.access_token}`,
+          apikey
+        },
+        body: JSON.stringify({
+          query: trimmedQuery,
+          parentId
+        })
+      })
+
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok || !payload?.success) {
+        return {
+          success: false,
+          error: payload?.error || `HTTP ${response.status}`
+        }
+      }
+
+      return {
+        success: true,
+        createdCount: payload.createdCount || 0,
+        tasks: payload.tasks || []
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error?.message || '任务分析失败'
+      }
+    }
+  }
+
   return {
     invokeBreakdown,
-    applyPendingTasks
+    applyPendingTasks,
+    invokeAnalyzeAndCreate
   }
 }
