@@ -43,9 +43,9 @@
       <template v-for="item in flatTrashList" :key="item.id">
         <li v-if="shouldShowItem(item)"
           :class="[
-            'flex items-center gap-2.5 p-2.5 px-3 bg-white border-b border-slate-100 transition-colors duration-150 cursor-pointer',
+            'flex items-center gap-2.5 p-2.5 px-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors duration-150 cursor-pointer',
             {
-              'bg-blue-50 border-l-3 border-l-blue-600': selectedTaskId === item.id,
+              'bg-indigo-50 dark:bg-indigo-900/40 border-l-3 border-l-indigo-600 dark:border-l-indigo-400': selectedTaskId === item.id,
               'opacity-60': true
             }
           ]"
@@ -55,7 +55,7 @@
           <!-- 展开/折叠按钮 -->
           <div class="flex items-center mr-1 w-6 justify-center">
             <button v-if="item.children && item.children.length"
-              class="inline-flex items-center justify-center w-5 h-5 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 hover:bg-slate-200"
+              class="inline-flex items-center justify-center w-5 h-5 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
               @click.stop="toggleExpand(item.id)"
             >
               <svg v-if="expandedMap[item.id]" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>
@@ -66,7 +66,7 @@
 
           <!-- 删除标记图标 -->
           <div class="shrink-0">
-            <div class="inline-flex items-center justify-center w-4 h-4 rounded border bg-slate-100 border-slate-300 text-slate-400">
+            <div class="inline-flex items-center justify-center w-4 h-4 rounded border bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -75,25 +75,25 @@
 
           <!-- 标题 -->
           <div class="flex-1 min-w-0">
-            <span class="block text-sm text-slate-500 font-normal leading-relaxed wrap-break-word line-through">
+            <span class="block text-sm text-slate-500 dark:text-slate-400 font-normal leading-relaxed wrap-break-word line-through">
               {{ item.title || '未命名任务' }}
             </span>
-            <span v-if="item.children && item.children.length" class="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full ml-2">
+            <span v-if="item.children && item.children.length" class="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full ml-2">
               {{ item.children.length }} 个子任务
             </span>
           </div>
 
           <!-- 元信息 -->
           <div class="flex items-center gap-2 shrink-0">
-            <span class="text-xs text-slate-400 px-2 py-0.5 bg-slate-100 rounded">
+            <span class="text-xs text-slate-400 dark:text-slate-500 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
               删除于 {{ formatDate(item.deleted_at) }}
             </span>
             <span v-if="item.priority > 0" :class="[
               'text-xs font-semibold px-1.5 py-0.5 rounded',
               {
-                'bg-amber-100 text-amber-800': item.priority === 1,
-                'bg-orange-100 text-orange-800': item.priority === 2,
-                'bg-red-100 text-red-800': item.priority === 3
+                'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300': item.priority === 1,
+                'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300': item.priority === 2,
+                'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300': item.priority === 3
               }
             ]">
               P{{ item.priority }}
@@ -424,7 +424,15 @@ async function confirmAction() {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: white;
+  color: #1e293b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .trash-container {
+    background: #0f172a;
+    color: #e2e8f0;
+  }
 }
 
 .trash-header {
@@ -436,16 +444,35 @@ async function confirmAction() {
   border-bottom: 1px solid #f1f5f9;
 }
 
+@media (prefers-color-scheme: dark) {
+  .trash-header {
+    background: #1e293b;
+    border-bottom-color: #334155;
+  }
+}
+
 .header-info h2 {
   margin: 0;
   font-size: 1.25rem;
   color: #1e293b;
 }
 
+@media (prefers-color-scheme: dark) {
+  .header-info h2 {
+    color: #f1f5f9;
+  }
+}
+
 .header-info p {
   margin: 0.25rem 0 0;
   font-size: 0.875rem;
   color: #64748b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .header-info p {
+    color: #94a3b8;
+  }
 }
 
 .header-actions {
@@ -480,13 +507,34 @@ async function confirmAction() {
   background: #e2e8f0;
 }
 
+@media (prefers-color-scheme: dark) {
+  .btn-secondary {
+    background: #334155;
+    color: #cbd5e1;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: #475569;
+  }
+}
+
 .btn-primary {
-  background: #2563eb;
+  background: #4f46e5;
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #4338ca;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-primary {
+    background: #4f46e5;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #6366f1;
+  }
 }
 
 .btn-danger {
@@ -496,6 +544,17 @@ async function confirmAction() {
 
 .btn-danger:hover:not(:disabled) {
   background: #fecaca;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-danger {
+    background: #7f1d1d;
+    color: #fca5a5;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: #991b1b;
+  }
 }
 
 .loading-state,
@@ -530,15 +589,22 @@ async function confirmAction() {
   margin: 0;
 }
 
+@media (prefers-color-scheme: dark) {
+  .empty-title {
+    color: #f1f5f9;
+  }
+}
+
 .empty-desc {
   font-size: 0.875rem;
   color: #64748b;
   margin: 0.5rem 0 0;
 }
 
-/* 悬停显示操作按钮 */
-li:hover .hover-show {
-  opacity: 1 !important;
+@media (prefers-color-scheme: dark) {
+  .empty-desc {
+    color: #94a3b8;
+  }
 }
 
 /* 弹窗样式 */
@@ -561,10 +627,23 @@ li:hover .hover-show {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
+@media (prefers-color-scheme: dark) {
+  .modal-content {
+    background: #1e293b;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  }
+}
+
 .modal-content h3 {
   margin: 0 0 0.5rem;
   font-size: 1.125rem;
   color: #1e293b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal-content h3 {
+    color: #f1f5f9;
+  }
 }
 
 .modal-content p {
@@ -573,10 +652,22 @@ li:hover .hover-show {
   font-size: 0.875rem;
 }
 
+@media (prefers-color-scheme: dark) {
+  .modal-content p {
+    color: #cbd5e1;
+  }
+}
+
 .modal-sub-message {
   margin: 0 0 1rem !important;
   color: #94a3b8;
   font-size: 0.8rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal-sub-message {
+    color: #64748b;
+  }
 }
 
 .modal-content p:last-of-type {
@@ -585,6 +676,12 @@ li:hover .hover-show {
 
 .modal-warning h3 {
   color: #d97706;
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal-warning h3 {
+    color: #fbbf24;
+  }
 }
 
 .modal-actions {

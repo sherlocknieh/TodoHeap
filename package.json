@@ -2,9 +2,9 @@
   "name": "todoheap",
   "private": true,
   "scripts": {
-    "dev": "pnpm i && concurrently \"pnpm dev:frontend\" \"pnpm dev:docs\"",
-    "dev:frontend": "cd frontend && pnpm i && pnpm dev",
-    "dev:docs": "cd docs && pnpm i && pnpm dev"
+    "dev": "cd frontend && pnpm dev",
+    "dev:docs": "cd docs && pnpm dev",
+    "dev:all": "concurrently \"pnpm dev:frontend\" \"pnpm dev:docs\""
   },
   "devDependencies": {
     "concurrently": "^8.2.0"

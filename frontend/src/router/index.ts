@@ -30,15 +30,9 @@ const router = createRouter({
         { path: 'list', name: 'ListView', component: () => import('@/pages/todo/TodoList.vue'), meta: { title: 'TodoHeap - 列表视图' } },
         { path: 'tree', name: 'TreeView', component: () => import('@/pages/todo/TodoTree.vue'), meta: { title: 'TodoHeap - 树视图' } },
         { path: 'heap', name: 'HeapView', component: () => import('@/pages/todo/TodoHeap.vue'), meta: { title: 'TodoHeap - 堆视图' } },
-        { path: 'trash', name: 'TrashView', component: () => import('@/pages/todo/Trash.vue'), meta: { title: 'TodoHeap - 垃圾箱' } }
+        { path: 'trash', name: 'TrashView', component: () => import('@/pages/todo/Trash.vue'), meta: { title: 'TodoHeap - 垃圾箱' } },
+        { path: 'settings', name: 'settings', component: () => import('@/pages/todo/Settings.vue'), meta: { title: 'TodoHeap - 设置' } }
       ]
-    },
-    // 设置页
-    {
-      path: '/app/settings',
-      name: 'settings',
-      component: () => import('@/pages/todo/Settings.vue'),
-      meta: { requiresAuth: true, title: 'TodoHeap - 设置' }
     },
     // 404 页
     {

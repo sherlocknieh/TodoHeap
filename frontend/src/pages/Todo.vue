@@ -1,152 +1,10 @@
-<template>
-	<!-- 主界面 -->
-	<div class="h-screen bg-slate-50 flex flex-col">
-		<!-- 顶栏 -->
-		<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-			<!-- 顶栏布局容器 -->
-			<div class="flex items-center justify-between h-16 gap-4 px-6">
-				<!-- 左侧标题 -->
-				<div class="flex items-center gap-3">
-					<!-- 侧栏切换按钮 -->
-					<button @click="toggleLeftPanel"
-						class="flex items-center justify-center w-10 h-10 rounded-md border border-slate-200 bg-white shadow hover:bg-slate-100 transition"
-						title="切换侧栏">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-							<rect x="4" y="6" width="16" height="2" rx="1" fill="#6366F1" />
-							<rect x="4" y="11" width="16" height="2" rx="1" fill="#6366F1" />
-							<rect x="4" y="16" width="16" height="2" rx="1" fill="#6366F1" />
-						</svg>
-					</button>
-					<h1 class="text-xl sm:text-2xl font-bold text-slate-900">TodoHeap</h1>
-					<span class="hidden sm:inline text-sm text-slate-500">智能任务管理</span>
-				</div>
-				<!-- 右侧用户信息和同步状态 -->
-				<div class="flex items-center gap-4">
-					<!-- 同步状态指示器 -->
-					<SyncStatusIndicator />
-
-					<!-- 用户菜单 -->
-					<div class="relative">
-						<button @click="showUserMenu = !showUserMenu"
-							class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-200 transition-colors">
-							<span>👤</span>
-							<span class="hidden sm:inline">{{ authStore.user?.email?.split('@')[0] || '用户' }}</span>
-						</button>
-
-						<!-- 下拉菜单 -->
-						<Transition enter-active-class="transition ease-out duration-100"
-							enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
-							leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
-							leave-to-class="opacity-0 scale-95">
-							<div v-if="showUserMenu" ref="userMenuRef"
-								class="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-50">
-								<button @click="openSettings"
-									class="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm">
-									<span>⚙️</span>
-									<span>设置</span>
-								</button>
-								<div class="border-t border-slate-200"></div>
-								<button @click="handleSignOut"
-									class="w-full px-4 py-2.5 text-left text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 text-sm font-medium">
-									<span>🚪</span>
-									<span>退出登录</span>
-								</button>
-							</div>
-						</Transition>
-					</div>
-				</div>
-			</div>
-		</header>
-
-		<!-- 内容区域 - 左中右三栏布局 -->
-		<main class="flex-1 overflow-hidden bg-slate-50 relative">
-			<div class="h-full flex relative">
-				<!-- 左栏：任务导航面板（统一在 LeftSidebar 内部处理移动/桌面渲染与动画） -->
-				<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
-					:is-breaking-down="isBreakingDown"
-					:is-optimizing="isOptimizingTasks"
-					@close="() => { showLeftSidebar = false; showMobileSidebar = false }" @switch-view="switchView"
-					@create-task="createNewTask" @breakdown-task="handleBreakdownTask"
-					@optimize-tasks="handleOptimizeTasks" />
-
-				<!-- 中栏：主要视图内容 -->
-				<div class="flex-1 flex flex-col min-w-0" @click="onMainAreaClick">
-					<!-- AI 分解状态区域 -->
-					<div class="mx-4 mt-4 mb-2">
-						<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
-							:status="breakdownMessageType" :task-count="breakdownProgress.count"
-							:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks"
-							@cancel="handleCancelTasks" />
-					</div>
-
-					<div class="flex-1 overflow-auto p-4" @click="onMainAreaClick">
-						<div v-if="showViewLoading" class="flex items-center justify-center h-96 text-slate-500">
-							<div class="text-center">
-								<p class="text-lg mb-2">⏳</p>
-								<p class="text-sm">加载中...</p>
-							</div>
-						</div>
-						<router-view v-else v-slot="{ Component }">
-							<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
-								:is-breaking-down="isBreakingDown"
-								@task-selected="handleTaskSelected"
-								@breakdown-task="handleBreakdownTask" />
-						</router-view>
-					</div>
-
-					<!-- 自然语言任务输入组件 -->
-					<AITaskInput
-						v-if="!isBreakingDown"
-						:loading="isAnalyzingTask"
-						@submit-task="handleAnalyzeTaskInput"
-					/>
-
-				</div>
-
-				<!-- 右栏：详情面板 -->
-				<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel" />
-			</div>
-		</main>
-	</div>
-</template>
-
 <script setup>
-// 切换左栏显示状态
-const isWideScreen = ref(window.innerWidth >= 768) // 以 768px 为宽屏/窄屏分界
-const toggleLeftPanel = () => {
-	if (isWideScreen.value) {
-		// 大屏模式下切换左栏折叠状态
-		leftPanelCollapsed.value = !leftPanelCollapsed.value
-		showLeftSidebar.value = !leftPanelCollapsed.value
-	} else {
-		// 小屏模式下切换移动端侧栏
-		showMobileSidebar.value = !showMobileSidebar.value
-		showLeftSidebar.value = showMobileSidebar.value
-	}
-}
-
-// 点击中栏区域时关闭详情面板（如果点击的不是任务项）
-const onMainAreaClick = (e) => {
-	// 检查是否点击了任务项（带有 data-task-item 属性的元素）
-	const clickedTaskItem = e.target.closest('[data-task-item]')
-	// 检查是否点击了详情面板
-	const clickedDetailPanel = e.target.closest('[data-detail-panel]')
-
-	// 如果没有点击任务项也没有点击详情面板，则关闭详情面板
-	if (!clickedTaskItem && !clickedDetailPanel) {
-		//closeDetailPanel()
-		selectedTaskId.value = null
-	}
-}
-
-
 
 import { ref, onMounted, computed, watch, onUnmounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
 import { useSyncQueueStore } from '@/stores/syncQueue'
-import { useSettingsStore } from '@/stores/settings'
 import { storeToRefs } from 'pinia'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import LeftSidebar from '@/components/LeftSidebar.vue'
@@ -160,7 +18,6 @@ const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
-const settingsStore = useSettingsStore()
 
 // 获取同步队列状态
 const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
@@ -192,42 +49,72 @@ const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
 const isAnalyzingTask = ref(false)
 const isOptimizingTasks = ref(false)
+const analyzeProgress = ref({
+	visible: false,
+	stage: '',
+	message: '',
+	elapsedSec: 0,
+	createdCount: 0
+})
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
 const pendingTasks = ref([]) // 待确认的任务列表（用于预览模式）
-const leftPanelCollapsed = ref(false)
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
-const showLeftSidebar = ref(false) // 侧栏显示状态
-const showMobileSidebar = ref(false) // 移动端侧栏显示状态
+const showLeftSidebar = ref(true) // 侧栏显示状态
 
 const showViewLoading = computed(() => {
 	return (activeView.value === 'tree' || activeView.value === 'heap') && todoStore.loading
 })
 
+const activeViewLabel = computed(() => {
+	if (activeView.value === 'tree') return '树视图'
+	if (activeView.value === 'heap') return '堆视图'
+	if (activeView.value === 'trash') return '回收站'
+	return '列表'
+})
+
+const syncStatusLabel = computed(() => hasUnsyncedChanges.value ? '有待同步更改' : '已同步')
+
+const realtimeStatusLabel = computed(() => {
+	const status = String(todoStore.realtimeStatus || 'UNKNOWN').toUpperCase()
+	if (status === 'SUBSCRIBED') return '已连接'
+	if (status === 'CONNECTING') return '连接中'
+	if (status === 'RECONNECTING') return '重连中'
+	if (status === 'CHANNEL_ERROR') return '连接错误'
+	if (status === 'TIMED_OUT') return '连接超时'
+	if (status === 'CLOSED') return '已断开'
+	if (status === 'NO_USER') return '未登录'
+	return status
+})
+
+const realtimeStatusClass = computed(() => {
+	const status = String(todoStore.realtimeStatus || 'UNKNOWN').toUpperCase()
+	if (status === 'SUBSCRIBED') return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+	if (status === 'CONNECTING') return 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300'
+	if (status === 'RECONNECTING') return 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+	if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
+	if (status === 'CLOSED' || status === 'NO_USER') return 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
+	return 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
+})
+
+const aiStatusLabel = computed(() => {
+	if (isOptimizingTasks.value) return '任务优化中...'
+	if (isBreakingDown.value) return '任务分解中...'
+	if (isAnalyzingTask.value) return analyzeProgress.value.message || 'AI 分析中...'
+	return '空闲'
+})
+
+const analyzeStageLabel = computed(() => {
+	if (!isAnalyzingTask.value) return '阶段: -'
+	const stage = analyzeProgress.value.stage || 'unknown'
+	const sec = analyzeProgress.value.elapsedSec || 0
+	return `阶段: ${stage} | ${sec}s`
+})
+
 const viewProps = computed(() => {
 	return activeView.value === 'heap' ? { todos: todoStore.todos } : {}
 })
-
-const detailPanelRequested = ref(false)
-
-// 窗口大小响应式处理
-const windowWidth = ref(window.innerWidth)
-
-const updateWindowWidth = () => {
-	windowWidth.value = window.innerWidth
-	// 当窗口从窄屏变为宽屏时，自动显示详情面板和侧栏
-	if (isWideScreen.value) {
-		showDetailPanel.value = true
-		showLeftSidebar.value = true
-		showMobileSidebar.value = false
-	}
-	// 当窗口从宽屏变为窄屏时，如果没有选中任务，隐藏详情面板和侧栏
-	if (!isWideScreen.value) {
-		if (!selectedTaskId.value) showDetailPanel.value = false
-		showLeftSidebar.value = false
-	}
-}
 
 const handleSelectedIdReplaced = (event) => {
 	const { tempId, realId } = event.detail || {}
@@ -239,14 +126,19 @@ const handleSelectedIdReplaced = (event) => {
 }
 
 const openDetailPanel = () => {
-	detailPanelRequested.value = true
-	showDetailPanel.value = true // 确保详情面板打开
+	showDetailPanel.value = true
 }
 
 // 关闭详情面板（大屏/小屏通用）
 const closeDetailPanel = () => {
 	showDetailPanel.value = false
 }
+
+const toggleDetailPanel = () => {
+	showDetailPanel.value = !showDetailPanel.value
+}
+
+const detailPanelToggleLabel = computed(() => showDetailPanel.value ? '隐藏详情面板' : '显示详情面板')
 
 provide(TODO_DETAIL_PANEL_CONTEXT, {
 	openDetailPanel
@@ -264,7 +156,7 @@ const handleBeforeUnload = (e) => {
 onMounted(async () => {
 	// 确保认证初始化完成
 	await authStore.initAuth()
-	
+
 	// 如果已登录，获取待办事项
 	if (authStore.isAuthenticated) {
 		await todoStore.fetchTodos()
@@ -274,12 +166,7 @@ onMounted(async () => {
 	// 添加事件监听器
 	document.addEventListener('click', handleClickOutside)
 	window.addEventListener('beforeunload', handleBeforeUnload)
-	window.addEventListener('resize', updateWindowWidth)
 	window.addEventListener('sync:id-replaced', handleSelectedIdReplaced)
-	// 初始化窗口宽度
-	updateWindowWidth()
-	// 初始化侧栏显示（大屏默认显示，窄屏默认隐藏）
-	showLeftSidebar.value = isWideScreen.value
 })
 
 // 监听路由变化，确保数据总是最新的
@@ -288,11 +175,11 @@ watch(
 	async (newRouteName) => {
 		// 检查是否是 Todo 相关页面（包括子路由）
 		const isTodoPage = newRouteName && (
-			newRouteName === 'app' || 
-			newRouteName === 'App' || 
+			newRouteName === 'app' ||
+			newRouteName === 'App' ||
 			String(newRouteName).includes('View')
 		)
-		
+
 		if (authStore.isAuthenticated && isTodoPage) {
 			// 确保数据已经获取过
 			if (!todoStore.isFetched && !todoStore.loading) {
@@ -364,7 +251,6 @@ const handleBreakdownTask = async (taskId) => {
 
 	try {
 		const query = '继续分解'
-		const autoApply = settingsStore.autoApplyAITasks
 
 		// 使用流式接收，每收到一个子任务就更新进度
 		const onTaskReceived = ({ task, index, totalSoFar }) => {
@@ -377,30 +263,19 @@ const handleBreakdownTask = async (taskId) => {
 			taskId,
 			query,
 			onTaskReceived,
-			autoApply
+			false
 		)
 
 		if (result.success) {
-			if (autoApply) {
-				// 自动应用模式：显示成功消息
-				showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
-			} else {
-				// 预览模式：保存待确认的任务，显示确认界面
-				pendingTasks.value = result.pendingTasks || []
-				breakdownMessageType.value = 'pending'
-				// 不清空进度，保持显示任务列表供用户确认
-			}
+			// 预览模式：保存待确认的任务，显示确认界面
+			pendingTasks.value = result.pendingTasks || []
+			breakdownMessageType.value = 'pending'
+			// 不清空进度，保持显示任务列表供用户确认
 		} else {
 			showBreakdownMessage(`任务分解失败: ${result.error}`, 'error')
 		}
 	} finally {
 		isBreakingDown.value = false
-		// 只有在非预览模式下才清空进度
-		if (settingsStore.autoApplyAITasks) {
-			setTimeout(() => {
-				breakdownProgress.value = { count: 0, tasks: [] }
-			}, 300)
-		}
 	}
 }
 
@@ -408,8 +283,20 @@ const handleAnalyzeTaskInput = async (taskText) => {
 	if (!taskText || isAnalyzingTask.value) return
 
 	isAnalyzingTask.value = true
+	analyzeProgress.value.visible = true
+	analyzeProgress.value.stage = 'prepare'
+	analyzeProgress.value.message = '准备分析任务...'
+	analyzeProgress.value.elapsedSec = 0
+	analyzeProgress.value.createdCount = 0
+	startAnalyzeTimer()
 	try {
-		const result = await todoStore.invokeAnalyzeAndCreate(taskText, null)
+		const result = await todoStore.invokeAnalyzeAndCreate(taskText, null, (progress) => {
+			analyzeProgress.value.stage = progress?.stage || ''
+			analyzeProgress.value.message = progress?.message || ''
+			if (typeof progress?.createdCount === 'number') {
+				analyzeProgress.value.createdCount = progress.createdCount
+			}
+		})
 		if (result.success) {
 			await todoStore.fetchTodos()
 			showBreakdownMessage(`已创建 ${result.createdCount} 个任务`, 'success')
@@ -417,7 +304,11 @@ const handleAnalyzeTaskInput = async (taskText) => {
 			showBreakdownMessage(`任务分析失败: ${result.error || '未知错误'}`, 'error')
 		}
 	} finally {
+		stopAnalyzeTimer()
 		isAnalyzingTask.value = false
+		setTimeout(() => {
+			resetAnalyzeProgress()
+		}, 1200)
 	}
 }
 
@@ -473,6 +364,41 @@ const showBreakdownMessage = (message, type) => {
 	}, 3000)
 }
 
+let analyzeTimer = null
+
+const resetAnalyzeProgress = () => {
+	analyzeProgress.value = {
+		visible: false,
+		stage: '',
+		message: '',
+		elapsedSec: 0,
+		createdCount: 0
+	}
+}
+
+const startAnalyzeTimer = () => {
+	if (analyzeTimer) {
+		clearInterval(analyzeTimer)
+	}
+	analyzeTimer = setInterval(() => {
+		analyzeProgress.value.elapsedSec += 1
+
+		if (analyzeProgress.value.stage === 'prepare' && analyzeProgress.value.elapsedSec >= 6) {
+			analyzeProgress.value.message = '正在初始化会话与请求参数...'
+		}
+
+		if (analyzeProgress.value.stage === 'request' && analyzeProgress.value.elapsedSec >= 20) {
+			analyzeProgress.value.message = '边缘函数执行中，正在等待返回...'
+		}
+	}, 1000)
+}
+
+const stopAnalyzeTimer = () => {
+	if (!analyzeTimer) return
+	clearInterval(analyzeTimer)
+	analyzeTimer = null
+}
+
 // 点击外部关闭用户菜单
 const handleClickOutside = (event) => {
 	if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
@@ -483,10 +409,28 @@ const handleClickOutside = (event) => {
 	}
 }
 
+const toggleLeftPanel = () => {
+	showLeftSidebar.value = !showLeftSidebar.value
+}
+
+// 点击中栏区域时关闭详情面板（如果点击的不是任务项）
+const onMainAreaClick = (e) => {
+	// 检查是否点击了任务项（带有 data-task-item 属性的元素）
+	const clickedTaskItem = e.target.closest('[data-task-item]')
+	// 检查是否点击了详情面板
+	const clickedDetailPanel = e.target.closest('[data-detail-panel]')
+
+	// 如果没有点击任务项也没有点击详情面板，则关闭详情面板
+	if (!clickedTaskItem && !clickedDetailPanel) {
+		//closeDetailPanel()
+		selectedTaskId.value = null
+	}
+}
+
+
 onUnmounted(() => {
+	stopAnalyzeTimer()
 	document.removeEventListener('click', handleClickOutside)
-	// 移除窗口大小变化监听
-	window.removeEventListener('resize', updateWindowWidth)
 	// 清理 Realtime 订阅
 	todoStore.cleanupRealtimeSubscription()
 	// 移除页面离开警告
@@ -495,6 +439,169 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-/* 无需额外样式，状态卡片样式已移至 BreakdownStatusCard 组件 */
-</style>
+
+<template>
+	<!-- 主界面 -->
+	<div class="h-screen flex flex-col overflow-hidden">
+		<!-- 主内容区 -->
+		<div class="flex-1 min-w-0 min-h-0 flex overflow-hidden">
+			<!-- 左侧活动栏（仿 VSCode） -->
+			<aside
+				class="w-14 shrink-0 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700/70 text-slate-700 dark:text-slate-200 flex flex-col items-center justify-between py-2">
+				<!-- 上方按钮 -->
+				<div class="w-full flex flex-col items-center gap-1">
+
+					<!-- 用户头像 -->
+					<div class="relative">
+						<!-- 用户菜单按钮 -->
+						<button @click="showUserMenu = !showUserMenu"
+						class="h-9 w-9 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 text-xs font-medium hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center justify-center"
+							title="用户菜单">
+							<span>👤</span>
+						</button>
+						<!-- 用户菜单内容 -->
+						<Transition enter-active-class="transition ease-out duration-100"
+							enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
+							leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
+							leave-to-class="opacity-0 scale-95">
+							<div v-if="showUserMenu" ref="userMenuRef"
+							class="absolute left-full bottom-0 ml-2 w-48 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+								<button @click="handleSignOut"
+								class="w-full px-4 py-2.5 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center gap-2 text-sm font-medium">
+									<span>🚪</span>
+									<span>退出登录</span>
+								</button>
+							</div>
+						</Transition>
+					</div>
+
+					<!-- 左侧栏切换按钮 -->
+					<button @click="toggleLeftPanel"
+						class="h-10 w-10 rounded-md flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-white transition"
+						title="切换侧栏">
+						<span class="text-base">≡</span>
+					</button>
+
+					<!-- 分隔线 -->
+					<div class="my-1 h-px w-8 bg-slate-300 dark:bg-slate-600"></div>
+
+					<!-- 视图切换按钮 -->
+					<button @click="switchView('list')"
+						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
+						:class="activeView === 'list' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
+						title="列表视图">
+						<span class="text-sm font-semibold">L</span>
+					</button>
+					<button @click="switchView('tree')"
+						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
+						:class="activeView === 'tree' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
+						title="树视图">
+						<span class="text-sm font-semibold">T</span>
+					</button>
+					<button @click="switchView('heap')"
+						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
+						:class="activeView === 'heap' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
+						title="堆视图">
+						<span class="text-sm font-semibold">H</span>
+					</button>
+					<button @click="switchView('trash')"
+						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
+						:class="activeView === 'trash' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
+						title="回收站">
+						<span class="text-sm font-semibold">R</span>
+					</button>
+				</div>
+
+				<!-- 下方按钮 -->
+				<div class="w-full flex flex-col items-center gap-2">
+					<!-- 设置按钮 -->
+					<button @click="openSettings"
+					class="h-9 w-9 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center justify-center">
+						<span>⚙️</span>
+					</button>
+				</div>
+			</aside>
+			<!-- 左栏：任务导航面板（统一在 LeftSidebar 内部处理移动/桌面渲染与动画） -->
+			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
+				:is-breaking-down="isBreakingDown" :is-optimizing="isOptimizingTasks"
+					@close="() => { showLeftSidebar = false }" @switch-view="switchView"
+				@create-task="createNewTask" @breakdown-task="handleBreakdownTask"
+				@optimize-tasks="handleOptimizeTasks" />
+
+			<!-- 中栏：主要视图内容 -->
+			<div class="flex-1 flex flex-col min-w-0 min-h-0" @click="onMainAreaClick">
+				<!-- AI 分解状态区域 -->
+				<div class="mx-4 mt-4 mb-2">
+					<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
+						:status="breakdownMessageType" :task-count="breakdownProgress.count"
+						:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks" @cancel="handleCancelTasks" />
+				</div>
+
+			<div class="flex-1 min-h-0 overflow-auto p-4 bg-white dark:bg-slate-950" @click="onMainAreaClick">
+				<div v-if="showViewLoading" class="flex items-center justify-center h-96 text-slate-500 dark:text-slate-400">
+						<div class="text-center">
+							<p class="text-lg mb-2">⏳</p>
+							<p class="text-sm">加载中...</p>
+						</div>
+					</div>
+					<router-view v-else v-slot="{ Component }">
+						<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
+							:is-breaking-down="isBreakingDown" @task-selected="handleTaskSelected"
+							@breakdown-task="handleBreakdownTask" />
+					</router-view>
+				</div>
+
+				<!-- 自然语言任务输入组件 -->
+				<div v-if="!isBreakingDown"
+				class="mx-4 mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 shadow-sm transition-all duration-200 focus-within:border-indigo-300 dark:focus-within:border-indigo-600 focus-within:shadow-md dark:focus-within:shadow-indigo-900/30">
+					<AITaskInput :loading="isAnalyzingTask" :progress="analyzeProgress"
+						@submit-task="handleAnalyzeTaskInput" />
+				</div>
+
+			</div>
+
+			<!-- 右栏：详情面板 -->
+			<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel" />
+
+		</div>
+		<!-- 状态栏 -->
+		<div
+			class="h-5 shrink-0 bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white border-t border-slate-200 dark:border-slate-600 px-3 flex items-center justify-between text-xs select-none">
+			<!-- 左侧信息区 -->
+			<div class="flex items-center min-w-0">
+				<div class="lg:block ml-2 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-sm">
+					用户: {{ authStore.user?.email || '未登录' }}
+				</div>
+				<div class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-sm font-medium">
+					视图: {{ activeViewLabel }}
+				</div>
+
+				<div class="hidden sm:block ml-2 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm truncate">
+					选中任务: {{ selectedTaskId ?? '无' }}
+				</div>
+				<div class="px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm truncate max-w-[42vw] sm:max-w-none">
+					AI: {{ aiStatusLabel }}
+				</div>
+			</div>
+			<!-- 右侧信息区 -->
+			<div class="flex items-center min-w-0">
+				<div class="ml-2 px-2 py-0.5 rounded-sm" :class="realtimeStatusClass">
+					Realtime: {{ realtimeStatusLabel }}
+				</div>
+				<div class="ml-2 px-2 py-0.5 rounded-sm"
+					:class="hasUnsyncedChanges ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'">
+					同步: {{ syncStatusLabel }}
+				</div>
+				<div class="hidden md:block ml-2 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm">
+					{{ analyzeStageLabel }}
+				</div>
+				<button type="button" class="ml-2 px-2 py-0.5 rounded-sm transition-colors"
+					:class="showDetailPanel ? 'bg-indigo-200 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-500'"
+					:title="detailPanelToggleLabel" @click="toggleDetailPanel">
+					详情面板: {{ showDetailPanel ? '开' : '关' }}
+				</button>
+			</div>
+		</div>
+	</div>
+</template>
+

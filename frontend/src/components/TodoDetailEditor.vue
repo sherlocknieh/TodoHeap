@@ -1,26 +1,22 @@
 <template>
-  <!-- 移动端：底部滑出；桌面端：右侧滑出 -->
   <Transition
-    :enter-active-class="isMobile ? 'transition-all duration-300 ease-out' : 'transition-all duration-300 ease-out'"
-    :enter-from-class="isMobile ? 'translate-y-full' : 'translate-x-full'"
-    :enter-to-class="isMobile ? 'translate-y-0' : 'translate-x-0'"
-    :leave-active-class="isMobile ? 'transition-all duration-200 ease-in' : 'transition-all duration-200 ease-in'"
-    :leave-from-class="isMobile ? 'translate-y-0' : 'translate-x-0'"
-    :leave-to-class="isMobile ? 'translate-y-full' : 'translate-x-full'"
+    enter-active-class="transition-all duration-300 ease-out"
+    enter-from-class="translate-x-full"
+    enter-to-class="translate-x-0"
+    leave-active-class="transition-all duration-200 ease-in"
+    leave-from-class="translate-x-0"
+    leave-to-class="translate-x-full"
   >
     <div v-if="show" data-detail-panel :class="[
-      // 移动端：底部弹出面板
-      'fixed inset-x-0 bottom-0 h-[70vh] bg-white shadow-2xl flex flex-col z-20 rounded-t-2xl',
-      // 桌面端：右侧常驻面板
-      'lg:static lg:inset-x-auto lg:top-0 lg:right-0 lg:bottom-0 lg:h-auto lg:w-96 lg:rounded-none lg:shadow-none lg:border-l lg:border-slate-200 lg:z-10',
+      'fixed inset-y-0 right-0 w-80 max-w-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col z-20 border-l border-slate-200 dark:border-slate-700',
       // 已删除任务时整个面板显示禁用光标
       isDeleted ? 'cursor-not-allowed' : ''
     ]">
-      <!-- 移动端关闭按钮 -->
-      <div class="lg:hidden shrink-0 flex justify-end px-4 py-2">
+      <!-- 面板关闭按钮（移动端/桌面端通用） -->
+      <div class="shrink-0 flex justify-end px-4 py-2">
         <button
           type="button"
-          class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           title="关闭"
           @click="emit('close')"
         >
@@ -31,7 +27,7 @@
       </div>
       <section class="h-full flex flex-col min-h-0">
         <!-- 空状态显示 -->
-        <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400">
+        <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
           <div class="text-center">
             <p class="text-4xl mb-2">📝</p>
             <p class="text-sm">选择一个任务查看详情</p>
@@ -46,8 +42,8 @@
               type="text"
               :disabled="isDeleted"
               :class="[
-                'w-full px-0 py-1 text-xl font-bold placeholder:text-slate-300 bg-transparent border-none focus:outline-none focus:ring-0',
-                isDeleted ? 'cursor-not-allowed text-slate-400' : 'text-slate-800'
+                'w-full px-0 py-1 text-xl font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600 bg-transparent border-none focus:outline-none focus:ring-0',
+                isDeleted ? 'cursor-not-allowed text-slate-400 dark:text-slate-600' : 'text-slate-800 dark:text-white'
               ]"
               placeholder="任务标题"
               @input="markDirty('title')"
@@ -56,36 +52,36 @@
           </div>
           
           <!-- 分割线 -->
-          <div class="shrink-0 border-t border-slate-200"></div>
+          <div class="shrink-0 border-t border-slate-200 dark:border-slate-700"></div>
           
           <!-- 区块2: 功能键区 -->
           <div class="shrink-0 px-4 py-2.5 flex items-center justify-between">
-            <div class="flex items-center gap-3 text-xs text-slate-500">
-              <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1 text-slate-400">
+            <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <span v-if="isDeleted && todo.deleted_at" class="flex items-center gap-1 text-slate-400 dark:text-slate-500">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
                 删除于 {{ formatDate(todo.deleted_at) }}
               </span>
-              <span v-else-if="isDirty" class="flex items-center gap-1 text-slate-500">
+              <span v-else-if="isDirty" class="flex items-center gap-1 text-slate-500 dark:text-slate-400">
                 <!-- <svg class="w-3.5 h-3.5 animate-pulse" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" />
                 </svg> -->
                 编辑中...
               </span>
-              <span v-else-if="lastSavedAt" class="flex items-center gap-1 text-slate-500">
+              <span v-else-if="lastSavedAt" class="flex items-center gap-1 text-slate-500 dark:text-slate-400">
                 <!-- <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg> -->
                 已保存
               </span>
-              <span v-else class="text-slate-400">就绪</span>
+              <span v-else class="text-slate-400 dark:text-slate-600">就绪</span>
             </div>
             <div class="flex items-center gap-1">
               <!-- 放大编辑按钮 -->
               <button
                 @click="openExpandedEditor"
-                class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition-colors"
+                class="p-1.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
                 title="放大编辑"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -96,13 +92,13 @@
           </div>
           
           <!-- 分割线 -->
-          <div class="shrink-0 border-t border-slate-200"></div>
+          <div class="shrink-0 border-t border-slate-200 dark:border-slate-700"></div>
           
           <!-- 区块3: 任务描述 - Milkdown 编辑器（占满剩余空间） -->
           <div class="flex-1 min-h-0 overflow-hidden">
             <div
               :class="[
-                'h-full bg-white',
+                'h-full bg-white dark:bg-slate-900',
                 isDeleted ? 'pointer-events-none deleted-content' : ''
               ]"
             >
@@ -147,7 +143,7 @@
         >
           <div
             v-if="showExpandedEditor"
-            class="bg-white shadow-2xl flex flex-col overflow-hidden w-full max-w-4xl h-[85vh] lg:h-[80vh] rounded-xl"
+            class="bg-white dark:bg-slate-900 shadow-2xl flex flex-col overflow-hidden w-full max-w-4xl h-[85vh] lg:h-[80vh] rounded-xl"
           >
             <!-- 模态框头部 -->
             <div class="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
@@ -217,22 +213,10 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useSyncQueueStore } from '@/stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
-
-// 响应式窗口宽度检测
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
-const isMobile = computed(() => windowWidth.value < 1024)
-
-const handleResize = () => {
-  windowWidth.value = window.innerWidth
-}
-
-onMounted(() => {
-  window.addEventListener('resize', handleResize)
-})
 
 // 防抖函数
 function debounce(fn, delay) {
@@ -353,14 +337,11 @@ onUnmounted(() => {
   if (clearSavedTimer) {
     clearTimeout(clearSavedTimer)
   }
-  window.removeEventListener('resize', handleResize)
 })
 
 // 乐观更新的保存方法
 const savePayload = async (payload) => {
   if (!todo.value) return
-
-
 
   try {
     // 使用 todoStore 的乐观更新方法

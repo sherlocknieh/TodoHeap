@@ -5,9 +5,31 @@ export const createTodosRealtimeManager = ({
   getUserId,
   todosRef,
   trashTodosRef,
-  trashLoadingRef
+  trashLoadingRef,
+  setRealtimeStatus
 }) => {
   let realtimeChannel = null
+  let reconnectTimer = null
+  let reconnectAttempts = 0
+  let isDisposed = false
+  let subscriptionVersion = 0
+
+  const BASE_RETRY_DELAY_MS = 1000
+  const MAX_RETRY_DELAY_MS = 30000
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+  }
+
+  const removeCurrentChannel = () => {
+    if (realtimeChannel) {
+      supabaseClient.removeChannel(realtimeChannel)
+      realtimeChannel = null
+    }
+  }
 
   const upsertTodoById = (targetRef, todo, prepend = false) => {
     const index = targetRef.value.findIndex(t => t.id === todo.id)
@@ -87,14 +109,43 @@ export const createTodosRealtimeManager = ({
     }
   }
 
-  const setupRealtimeSubscription = () => {
+  const scheduleReconnect = (reason = 'UNKNOWN') => {
+    if (isDisposed) return
+
     const userId = getUserId()
-    if (!userId) return
+    if (!userId) {
+      setRealtimeStatus?.('NO_USER')
+      return
+    }
+
+    clearReconnectTimer()
+    const delay = Math.min(BASE_RETRY_DELAY_MS * Math.pow(2, reconnectAttempts), MAX_RETRY_DELAY_MS)
+    reconnectAttempts += 1
+    setRealtimeStatus?.('RECONNECTING')
+
+    reconnectTimer = setTimeout(() => {
+      if (isDisposed) return
+      console.log(`Realtime 尝试重连，原因: ${reason}, 延迟: ${delay}ms`)
+      setupRealtimeSubscription(true)
+    }, delay)
+  }
+
+  const setupRealtimeSubscription = (isReconnect = false) => {
+    const userId = getUserId()
+    if (!userId) {
+      setRealtimeStatus?.('NO_USER')
+      return
+    }
+
+    isDisposed = false
+    clearReconnectTimer()
+
+    setRealtimeStatus?.(isReconnect ? 'RECONNECTING' : 'CONNECTING')
+    subscriptionVersion += 1
+    const currentVersion = subscriptionVersion
 
     // 清理之前的订阅
-    if (realtimeChannel) {
-      supabaseClient.removeChannel(realtimeChannel)
-    }
+    removeCurrentChannel()
 
     realtimeChannel = supabaseClient
       .channel('todos-changes')
@@ -112,15 +163,33 @@ export const createTodosRealtimeManager = ({
         }
       )
       .subscribe((status) => {
+        if (currentVersion !== subscriptionVersion) return
         console.log('Realtime 订阅状态:', status)
+        setRealtimeStatus?.(status)
+
+        if (status === 'SUBSCRIBED') {
+          reconnectAttempts = 0
+          return
+        }
+
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          scheduleReconnect(status)
+        }
+
+        // 某些网络波动会触发 CLOSED，这里仅在非主动清理时尝试重连
+        if (status === 'CLOSED' && !isDisposed) {
+          scheduleReconnect(status)
+        }
       })
   }
 
   const cleanupRealtimeSubscription = () => {
-    if (realtimeChannel) {
-      supabaseClient.removeChannel(realtimeChannel)
-      realtimeChannel = null
-    }
+    isDisposed = true
+    clearReconnectTimer()
+    reconnectAttempts = 0
+    subscriptionVersion += 1
+    setRealtimeStatus?.('CLOSED')
+    removeCurrentChannel()
   }
 
   return {

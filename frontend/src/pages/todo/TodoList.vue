@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-4xl mx-auto text-slate-900" ref="shellRef">
+  <div class="max-w-4xl mx-auto text-slate-900 dark:text-white" ref="shellRef">
     <!-- 快速添加任务 -->
     <section class="flex items-center rounded-lg gap-2">
       <div class="flex-1 relative flex items-center">
@@ -7,15 +7,15 @@
           v-model.trim="newTaskTitle"
           @keyup.enter="addTodo"
           placeholder="快速添加：输入任务，回车添加"
-          class="w-full border bg-white border-slate-200 rounded-md pl-3 pr-44 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          class="w-full border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-md pl-3 pr-44 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:outline-none"
         />
-        <div v-if="showMore" class="absolute right-2 top-full mt-2 w-40 bg-white border border-slate-200 rounded shadow-lg z-10" ref="moreMenuRef">
-          <ul class="py-1 text-sm text-slate-700">
+        <div v-if="showMore" class="absolute right-2 top-full mt-2 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-lg z-10" ref="moreMenuRef">
+          <ul class="py-1 text-sm text-slate-700 dark:text-slate-300">
             <li>
-              <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('优先级')">设置优先级</button>
+              <button class="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" @click="handleMoreOption('优先级')">设置优先级</button>
             </li>
             <li>
-              <button class="w-full text-left px-4 py-2 hover:bg-slate-100" @click="handleMoreOption('标签')">添加标签</button>
+              <button class="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" @click="handleMoreOption('标签')">添加标签</button>
             </li>
           </ul>
         </div>
@@ -28,21 +28,21 @@
       </button>
     </section>
 
-    <section v-if="errorText" class="mt-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 font-semibold">
+    <section v-if="errorText" class="mt-4 flex items-center gap-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg px-4 py-3 font-semibold">
       <span>⚠</span>
       <span>{{ errorText }}</span>
     </section>
 
-    <section v-if="loading && !isFetched" class="mt-4 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg px-4 py-3">加载中，请稍候...</section>
+    <section v-if="loading && !isFetched" class="mt-4 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded-lg px-4 py-3">加载中，请稍候...</section>
 
-    <section v-if="!loading && visibleCount === 0" class="mt-8 text-center border border-dashed border-slate-200 rounded-lg bg-slate-50 py-12 text-slate-500">
+    <section v-if="!loading && visibleCount === 0" class="mt-8 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 py-12 text-slate-500 dark:text-slate-400">
       <div class="text-4xl mb-3 opacity-60">📋</div>
-      <p class="text-lg font-semibold text-slate-700 mb-1">暂无任务</p>
+      <p class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">暂无任务</p>
       <p class="text-sm">点击上方输入框快速添加任务</p>
     </section>
 
-    <div v-else class="mt-6 bg-white rounded-lg border border-slate-200">
-      <ul class="divide-y divide-slate-100">
+    <div v-else class="mt-6 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+      <ul class="divide-y divide-slate-100 dark:divide-slate-700">
       <TodoListItem
         v-for="node in filteredTree"
         :key="node.id"

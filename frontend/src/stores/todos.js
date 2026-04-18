@@ -19,6 +19,7 @@ export const useTodoStore = defineStore('todos', () => {
   const isFetched = ref(false)  // 记录是否已经成功获取过一次数据
   const trashTodos = ref([])
   const trashLoading = ref(false)
+  const realtimeStatus = ref('IDLE')
 
   // 获取同步队列 store
   const getSyncQueue = () => useSyncQueueStore()
@@ -108,6 +109,7 @@ export const useTodoStore = defineStore('todos', () => {
     trashTodos.value = []
     isFetched.value = false
     error.value = null
+    realtimeStatus.value = 'NO_USER'
   }
 
   // ID替换事件处理 (临时ID -> 真实ID)
@@ -238,7 +240,10 @@ export const useTodoStore = defineStore('todos', () => {
     getUserId: () => useAuthStore().user?.id,
     todosRef: todos,
     trashTodosRef: trashTodos,
-    trashLoadingRef: trashLoading
+    trashLoadingRef: trashLoading,
+    setRealtimeStatus: (status) => {
+      realtimeStatus.value = status || 'UNKNOWN'
+    }
   })
 
   // Getters - 树形结构
@@ -335,6 +340,7 @@ export const useTodoStore = defineStore('todos', () => {
     loading,
     error,
     isFetched,
+    realtimeStatus,
     // 垃圾箱状态
     trashTodos,
     trashLoading,

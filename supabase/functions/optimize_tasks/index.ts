@@ -164,8 +164,19 @@ Deno.serve(async (req: Request) => {
       recommendationTaskId: null,
     };
 
+    const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("OPENAI_API_KEY2") || "";
+    if (!apiKey) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "缺少 OPENAI_API_KEY/OPENAI_API_KEY2",
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const openai = createOpenAI({
-      apiKey: Deno.env.get("OPENAI_API_KEY") || Deno.env.get("OPENAI_API_KEY2") || "",
+      apiKey,
       baseURL: Deno.env.get("OPENAI_BASE_URL") || undefined,
     });
 
@@ -184,10 +195,10 @@ Deno.serve(async (req: Request) => {
       tools: {
         update_task_schedule: tool({
           description: "调整任务的 deadline/start_date",
-          inputSchema: z.object({
+          parameters: z.object({
             task_id: z.number().int(),
-            deadline: z.string().datetime().nullable().optional(),
-            start_date: z.string().datetime().nullable().optional(),
+            deadline: z.string().nullable().optional(),
+            start_date: z.string().nullable().optional(),
             reason: z.string().max(300).optional(),
           }),
           execute: async (input) => {
@@ -231,13 +242,13 @@ Deno.serve(async (req: Request) => {
 
         breakdown_task: tool({
           description: "将父任务拆解成多个子任务",
-          inputSchema: z.object({
+          parameters: z.object({
             parent_task_id: z.number().int(),
             children: z.array(z.object({
               title: z.string().min(1).max(200),
               description: z.string().max(500).nullable().optional(),
-              deadline: z.string().datetime().nullable().optional(),
-              start_date: z.string().datetime().nullable().optional(),
+              deadline: z.string().nullable().optional(),
+              start_date: z.string().nullable().optional(),
               priority: z.number().int().min(0).max(4).optional(),
               status: z.enum(["todo", "doing", "done"]).optional(),
             })).min(1).max(10),
@@ -287,7 +298,7 @@ Deno.serve(async (req: Request) => {
 
         aggregate_tasks_under_parent: tool({
           description: "把多个任务收拢到同一父任务下",
-          inputSchema: z.object({
+          parameters: z.object({
             target_parent_id: z.number().int(),
             task_ids: z.array(z.number().int()).min(1).max(30),
             reason: z.string().max(300).optional(),
@@ -350,11 +361,11 @@ Deno.serve(async (req: Request) => {
 
         create_recommendation_task: tool({
           description: "创建一条建议型任务（需详述执行建议）",
-          inputSchema: z.object({
+          parameters: z.object({
             title: z.string().min(1).max(200),
             description: z.string().min(10).max(1200),
-            deadline: z.string().datetime().nullable().optional(),
-            start_date: z.string().datetime().nullable().optional(),
+            deadline: z.string().nullable().optional(),
+            start_date: z.string().nullable().optional(),
             priority: z.number().int().min(0).max(4).optional(),
             parent_id: z.number().int().nullable().optional(),
           }),
@@ -431,7 +442,7 @@ Deno.serve(async (req: Request) => {
     const message = error instanceof Error ? error.message : String(error);
     return new Response(JSON.stringify({
       success: false,
-      error: "Internal server error",
+      error: message,
       message,
     }), {
       status: 500,

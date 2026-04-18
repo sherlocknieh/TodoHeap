@@ -1,9 +1,9 @@
 <template>
   <!-- 设置界面 -->
-  <div class="min-h-screen bg-linear-to-br from-gray-100 via-gray-200 to-blue-100 p-6 relative">
+  <div class="min-h-screen bg-linear-to-br from-gray-100 via-gray-200 to-blue-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6 relative transition-colors duration-300">
     <!-- 右上角关闭按钮 -->
     <button
-      class="absolute top-6 right-6 z-20 bg-white rounded-full shadow hover:bg-gray-100 transition-colors border border-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center"
+      class="absolute top-6 right-6 z-20 bg-white dark:bg-slate-800 rounded-full shadow hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 flex items-center justify-center"
       style="width: 40px; height: 40px; min-width: 40px; min-height: 40px; padding: 0;"
       @click="handleClose"
       aria-label="关闭设置"
@@ -11,20 +11,20 @@
       <span style="font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">×</span>
     </button>
     <div class="max-w-5xl mx-auto mb-8 text-left">
-      <h1 class="text-3xl font-extrabold text-gray-800">设置</h1>
+      <h1 class="text-3xl font-extrabold text-gray-800 dark:text-white">设置</h1>
     </div>
 
-    <div class="max-w-5xl mx-auto grid md:grid-cols-[200px_1fr] grid-cols-1 gap-6 bg-white rounded-lg overflow-hidden shadow-lg">
+    <div class="max-w-5xl mx-auto grid md:grid-cols-[200px_1fr] grid-cols-1 gap-6 bg-white dark:bg-slate-900 rounded-lg overflow-hidden shadow-lg border border-gray-100 dark:border-slate-800">
       <!-- 左侧标签栏（Tailwind 改写） -->
-      <nav class="bg-gray-50 p-4 border-r border-gray-200" role="tablist">
+      <nav class="bg-gray-50 dark:bg-slate-800 p-4 border-r border-gray-200 dark:border-slate-700" role="tablist">
         <button
           v-for="tab in tabs"
           :key="tab.id"
           :class="[
             'flex items-center gap-3 w-full p-3 text-sm transition-colors rounded-sm',
             activeTab === tab.id
-              ? 'bg-white text-indigo-600 border-r-4 border-indigo-600 font-semibold'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 border-r-4 border-indigo-600 dark:border-indigo-400 font-semibold' 
+              : 'text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-800 dark:hover:text-slate-300'
           ]"
           role="tab"
           :aria-selected="activeTab === tab.id"
@@ -37,67 +37,42 @@
 
       <!-- 右侧内容区 -->
       <div class="p-8">
-        <!-- 用户信息/偏好设置 -->
-        <div v-if="activeTab === 'userinfo'">
-          <h2 class="text-lg font-bold text-gray-800 mt-0 mb-4">AI 智能助手</h2>
-          <div class="grid gap-3">
-            <div class="p-4 bg-gray-50 rounded-md border border-gray-200">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-sm font-medium text-gray-800">立即应用 AI 生成的子任务</div>
-                  <div class="text-xs text-gray-500 mt-1">
-                    开启后，AI 分解的子任务将自动添加到任务列表。关闭后，需要手动确认是否保存。
-                  </div>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    v-model="autoApplyAITasks"
-                    class="sr-only peer"
-                  >
-                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- 账户设置 -->
         <div v-if="activeTab === 'account'">
-          <h2 class="text-lg font-bold text-gray-800 mt-0 mb-4">账户信息</h2>
+          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-0 mb-4">账户信息</h2>
           <div class="grid gap-3">
-            <div class="p-4 bg-gray-50 rounded-md border border-gray-200">
-              <div class="text-xs text-gray-500 uppercase mb-1">邮箱地址</div>
-              <div class="text-sm text-gray-800 wrap-break-word">{{ userEmail }}</div>
+            <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700">
+              <div class="text-xs text-gray-500 dark:text-slate-400 uppercase mb-1">邮箱地址</div>
+              <div class="text-sm text-gray-800 dark:text-white wrap-break-word">{{ userEmail }}</div>
             </div>
 
-            <div class="p-4 bg-gray-50 rounded-md border border-gray-200">
-              <div class="text-xs text-gray-500 uppercase mb-1">账户创建时间</div>
-              <div class="text-sm text-gray-800">{{ userCreatedAt }}</div>
+            <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700">
+              <div class="text-xs text-gray-500 dark:text-slate-400 uppercase mb-1">账户创建时间</div>
+              <div class="text-sm text-gray-800 dark:text-white">{{ userCreatedAt }}</div>
             </div>
 
-            <div v-if="userEmailVerified" class="p-4 bg-gray-50 rounded-md border border-gray-200">
-              <div class="text-xs text-gray-500 uppercase mb-1">邮箱验证状态</div>
-              <div class="text-sm text-green-600 flex items-center gap-2"> <span class="text-lg">✓</span> 已验证</div>
+            <div v-if="userEmailVerified" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700">
+              <div class="text-xs text-gray-500 dark:text-slate-400 uppercase mb-1">邮箱验证状态</div>
+              <div class="text-sm text-green-600 dark:text-green-400 flex items-center gap-2"> <span class="text-lg">✓</span> 已验证</div>
             </div>
           </div>
 
-          <div class="border-t border-gray-200 my-6"></div>
+          <div class="border-t border-gray-200 dark:border-slate-700 my-6"></div>
 
-          <h2 class="text-lg font-bold text-gray-800 mt-6 mb-4">安全</h2>
+          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-6 mb-4">安全</h2>
           <div class="flex gap-3">
-            <button class="bg-gray-100 text-gray-800 border border-gray-200 px-4 py-2 rounded-md font-semibold hover:bg-gray-200" @click="showPasswordModal = true">
+            <button class="bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-white border border-gray-200 dark:border-slate-700 px-4 py-2 rounded-md font-semibold hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors" @click="showPasswordModal = true">
               <span>🔒</span>
               <span class="ml-2">修改密码</span>
             </button>
           </div>
 
-          <div class="border-t border-gray-200 my-6"></div>
+          <div class="border-t border-gray-200 dark:border-slate-700 my-6"></div>
 
-          <h2 class="text-lg font-bold text-gray-800 mt-6 mb-4">账户操作</h2>
+          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-6 mb-4">账户操作</h2>
           <div class="flex flex-col gap-3">
             <button
-              class="border-2 border-red-500 text-red-500 px-4 py-2 rounded-md hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
+              class="border-2 border-red-500 dark:border-red-600 text-red-500 dark:text-red-400 px-4 py-2 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               @click="handleDeleteAccount"
               :disabled="isDeletingAccount"
             >
@@ -127,25 +102,25 @@
           leave-from-class="opacity-100 scale-100"
           leave-to-class="opacity-0 scale-95"
         >
-              <div class="bg-white rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden" v-if="showPasswordModal">
-                <div class="flex justify-between items-center p-6 border-b">
-                  <h2 class="text-lg font-semibold">修改密码</h2>
-                  <button class="text-gray-400 hover:text-gray-700" @click="closePasswordModal" aria-label="关闭">×</button>
+              <div class="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden border border-gray-100 dark:border-slate-800" v-if="showPasswordModal">
+                <div class="flex justify-between items-center p-6 border-b border-gray-100 dark:border-slate-800">
+                  <h2 class="text-lg font-semibold text-gray-800 dark:text-white">修改密码</h2>
+                  <button class="text-gray-400 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300" @click="closePasswordModal" aria-label="关闭">×</button>
                 </div>
 
                 <div class="p-6">
                   <div class="mb-4">
-                    <label for="new-password" class="block mb-2 text-sm font-medium text-gray-700">新密码</label>
-                    <input id="new-password" v-model="newPassword" type="password" placeholder="请输入新密码（至少6个字符）" autocomplete="new-password" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-                    <div class="mt-2 text-xs text-gray-500">密码长度至少6个字符</div>
+                    <label for="new-password" class="block mb-2 text-sm font-medium text-gray-700 dark:text-slate-300">新密码</label>
+                    <input id="new-password" v-model="newPassword" type="password" placeholder="请输入新密码（至少6个字符）" autocomplete="new-password" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700" />
+                    <div class="mt-2 text-xs text-gray-500 dark:text-slate-400">密码长度至少6个字符</div>
                   </div>
 
                   <div class="mb-4">
-                    <label for="confirm-password" class="block mb-2 text-sm font-medium text-gray-700">确认新密码</label>
-                    <input id="confirm-password" v-model="confirmPassword" type="password" placeholder="请再次输入新密码" autocomplete="new-password" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                    <label for="confirm-password" class="block mb-2 text-sm font-medium text-gray-700 dark:text-slate-300">确认新密码</label>
+                    <input id="confirm-password" v-model="confirmPassword" type="password" placeholder="请再次输入新密码" autocomplete="new-password" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700" />
                   </div>
 
-                  <div v-if="passwordError" class="mt-4 p-3 bg-red-50 text-red-700 border border-red-100 rounded-md text-sm flex items-center gap-2">
+                  <div v-if="passwordError" class="mt-4 p-3 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-800 rounded-md text-sm flex items-center gap-2">
                     <span>⚠️</span>
                     <span>{{ passwordError }}</span>
                   </div>
@@ -170,19 +145,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useSettingsStore } from '@/stores/settings'
 import { supabase } from '@/lib/supabase'
-import { storeToRefs } from 'pinia'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const settingsStore = useSettingsStore()
-
-// 设置项
-const { autoApplyAITasks } = storeToRefs(settingsStore)
 
 // 关闭设置页，返回上一页
 const handleClose = () => {
@@ -191,12 +160,11 @@ const handleClose = () => {
 
 // 标签配置
 const tabs = [
-  { id: 'userinfo', label: '用户信息', icon: '👤' },
   { id: 'account', label: '账户安全', icon: '🔒' }
 ]
 
 // 标签切换
-const activeTab = ref('userinfo')
+const activeTab = ref('account')
 
 // 账户设置
 const showPasswordModal = ref(false)
@@ -206,8 +174,6 @@ const passwordError = ref('')
 const passwordSuccess = ref('')
 const isChangingPassword = ref(false)
 const isDeletingAccount = ref(false)
-
-// 主题/通知/隐私 设置已移除
 
 // 用户信息
 const userEmail = computed(() => authStore.user?.email || '未知')
@@ -222,10 +188,6 @@ const userCreatedAt = computed(() => {
     })
   }
   return '未知'
-})
-
-onMounted(() => {
-  // 以前用于恢复本地设置的逻辑已移除
 })
 
 // 关闭密码修改弹窗

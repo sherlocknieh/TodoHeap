@@ -184,11 +184,27 @@ const visible = computed(() => {
   color: #4338ca;
 }
 
+@media (prefers-color-scheme: dark) {
+  .breakdown-card--processing {
+    background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
+    border-color: #4c1d95;
+    color: #c7d2fe;
+  }
+}
+
 /* 成功状态 */
 .breakdown-card--success {
   background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
   border-color: #a7f3d0;
   color: #047857;
+}
+
+@media (prefers-color-scheme: dark) {
+  .breakdown-card--success {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    border-color: #10b981;
+    color: #d1fae5;
+  }
 }
 
 /* 错误状态 */
@@ -198,11 +214,27 @@ const visible = computed(() => {
   color: #b91c1c;
 }
 
+@media (prefers-color-scheme: dark) {
+  .breakdown-card--error {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border-color: #f87171;
+    color: #fecaca;
+  }
+}
+
 /* 待确认状态 */
 .breakdown-card--pending {
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   border-color: #fcd34d;
   color: #92400e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .breakdown-card--pending {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    border-color: #fbbf24;
+    color: #fef3c7;
+  }
 }
 
 /* 头部 */
@@ -286,6 +318,14 @@ const visible = computed(() => {
   color: #1e1b4b;
   backdrop-filter: blur(4px);
   border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .breakdown-task-item {
+    background: rgba(15, 23, 42, 0.7);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.1);
+  }
 }
 
 .breakdown-task-check {
@@ -393,6 +433,19 @@ const visible = computed(() => {
 .breakdown-btn--cancel:hover {
   background: #f3f4f6;
   color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  .breakdown-btn--cancel {
+    background: rgba(30, 41, 59, 0.8);
+    color: #cbd5e1;
+    border-color: #475569;
+  }
+
+  .breakdown-btn--cancel:hover {
+    background: #334155;
+    color: #f1f5f9;
+  }
 }
 
 .breakdown-btn--confirm {

@@ -39,36 +39,28 @@ const switchView = (view) => {
 </script>
 
 <template>
-  <!-- 小屏：浮层动画，v-if 控制 -->
-  <Transition
-    enter-active-class="transition-all duration-300 ease-out"
-    enter-from-class="-translate-x-full"
-    enter-to-class="translate-x-0"
-    leave-active-class="transition-all duration-200 ease-in"
-    leave-from-class="translate-x-0"
-    leave-to-class="-translate-x-full"
-  >
+  <!-- 小屏：即时显示/隐藏（无切换动画），v-if 控制 -->
     <div
       v-if="show"
       :class="[
         // 小屏浮层样式
-        'absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col z-30',
+        'absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] bg-white dark:bg-slate-900 shadow-2xl flex flex-col z-30',
         // 大屏常驻左栏样式
-        'lg:static lg:flex lg:w-64 lg:max-w-none lg:shadow-none lg:border-r lg:border-slate-200 lg:z-10',
+        'lg:static lg:flex lg:w-64 lg:max-w-none lg:shadow-none lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:z-10',
         // 大屏显示
         'lg:block'
       ]"
     >
       <section class="h-full flex flex-col min-h-0">
         <!-- 头部 -->
-        <header class="shrink-0 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
+        <header class="shrink-0 px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
           <div class="flex items-center gap-2">
-            <h2 class="text-lg font-semibold text-slate-900">📁 任务导航</h2>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">📁 任务导航</h2>
           </div>
           <!-- 关闭按钮 -->
           <button
             @click="$emit('close')"
-            class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors lg:hidden"
+            class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors lg:hidden"
             title="关闭侧栏"
           >
             <span class="text-lg">✕</span>
@@ -79,15 +71,15 @@ const switchView = (view) => {
         <div class="flex-1 min-h-0 overflow-auto px-4 py-4 space-y-6">
           <!-- 视图切换 -->
           <div class="space-y-2">
-            <h3 class="text-xs font-medium text-slate-600 uppercase tracking-wider">视图</h3>
+            <h3 class="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">视图</h3>
             <div class="space-y-1">
               <button
                 @click="switchView('list')"
                 :class="[
                   'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2',
                   activeView === 'list' 
-                    ? 'bg-indigo-50 text-indigo-700 font-medium' 
-                    : 'text-slate-600 hover:bg-slate-50'
+                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 font-medium' 
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 ]"
               >
                 <span>📋</span>
@@ -98,8 +90,8 @@ const switchView = (view) => {
                 :class="[
                   'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2',
                   activeView === 'tree' 
-                    ? 'bg-indigo-50 text-indigo-700 font-medium' 
-                    : 'text-slate-600 hover:bg-slate-50'
+                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 font-medium' 
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 ]"
               >
                 <span>🌳</span>
@@ -122,23 +114,23 @@ const switchView = (view) => {
 
           <!-- 统计信息 -->
           <div class="space-y-2">
-            <h3 class="text-xs font-medium text-slate-600 uppercase tracking-wider">统计</h3>
-            <div class="bg-slate-50 rounded-lg p-3 space-y-2">
+            <h3 class="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">统计</h3>
+            <div class="bg-slate-100 dark:bg-slate-800 rounded-lg p-3 space-y-2">
               <div class="flex justify-between text-sm">
-                <span class="text-slate-600">总任务数</span>
-                <span class="font-medium text-slate-900">{{ stats.total }}</span>
+                <span class="text-slate-600 dark:text-slate-400">总任务数</span>
+                <span class="font-medium text-slate-900 dark:text-white">{{ stats.total }}</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-slate-600">已完成</span>
-                <span class="font-medium text-green-600">{{ stats.completed }}</span>
+                <span class="text-slate-600 dark:text-slate-400">已完成</span>
+                <span class="font-medium text-green-600 dark:text-green-400">{{ stats.completed }}</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-slate-600">进行中</span>
-                <span class="font-medium text-blue-600">{{ stats.pending }}</span>
+                <span class="text-slate-600 dark:text-slate-400">进行中</span>
+                <span class="font-medium text-blue-600 dark:text-blue-400">{{ stats.pending }}</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-slate-600">已删除</span>
-                <span class="font-medium text-red-600">{{ stats.trashed }}</span>
+                <span class="text-slate-600 dark:text-slate-400">已删除</span>
+                <span class="font-medium text-red-600 dark:text-red-400">{{ stats.trashed }}</span>
               </div>
             </div>
             <!-- 回收站 -->
@@ -147,8 +139,8 @@ const switchView = (view) => {
               :class="[
                 'w-full text-left mt-2 px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2',
                 activeView === 'trash' 
-                  ? 'bg-red-50 text-red-700 font-medium' 
-                  : 'text-slate-600 hover:bg-slate-50'
+                  ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 font-medium' 
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               ]"
             >
               <span>🗑️</span>
@@ -158,9 +150,9 @@ const switchView = (view) => {
 
           <!-- AI 操作 -->
           <div class="space-y-2">
-            <h3 class="text-xs font-medium text-slate-600 uppercase tracking-wider">AI 操作</h3>
+            <h3 class="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">AI 操作</h3>
             <button
-              class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
+              class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200 font-medium hover:bg-emerald-200 dark:hover:bg-emerald-800 disabled:opacity-60 disabled:cursor-not-allowed"
               :disabled="isOptimizing"
               @click="$emit('optimize-tasks')"
             >
@@ -172,14 +164,13 @@ const switchView = (view) => {
         </div>
 
         <!-- 底部信息 -->
-        <footer class="shrink-0 px-4 py-3 border-t border-slate-200">
-          <div class="text-xs text-slate-500 text-center">
+        <footer class="shrink-0 px-4 py-3 border-t border-slate-200 dark:border-slate-700">
+          <div class="text-xs text-slate-500 dark:text-slate-400 text-center">
             TodoHeap v1.0
           </div>
         </footer>
       </section>
     </div>
-  </Transition>
 </template>
 
 <style scoped>

@@ -5,6 +5,12 @@ html {
   color-scheme: light dark;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
+
 /* 使应用程序占满视口高度 */
 html, body, #app {
   height: 100%;

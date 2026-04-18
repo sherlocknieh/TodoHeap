@@ -1,6 +1,8 @@
 // AI 任务分解相关动作
 import { supabase } from '@/lib/supabase'
 
+const ANALYZE_TIMEOUT_MS = 90000
+
 export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
   // AI 任务分解 - 流式版本
   // autoApply: true = 立即添加任务, false = 仅收集任务数据供确认
@@ -180,54 +182,86 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
   }
 
   // 自然语言任务分析并由后端直接入库
-  const invokeAnalyzeAndCreate = async (query, parentId = null) => {
+  const invokeAnalyzeAndCreate = async (query, parentId = null, onProgress) => {
     const trimmedQuery = typeof query === 'string' ? query.trim() : ''
     if (!trimmedQuery) {
       return { success: false, error: '任务描述不能为空' }
     }
 
     try {
+      onProgress?.({ stage: 'prepare', message: '准备请求参数...' })
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
       const apikey = supabasePubKey || supabaseAnonKey
 
+      onProgress?.({ stage: 'auth', message: '校验用户会话...' })
       const { data: sessionResult, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !sessionResult?.session?.access_token) {
+        onProgress?.({ stage: 'error', message: '用户未登录或会话已失效' })
         return { success: false, error: '用户未登录或会话已失效' }
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/new_task_ai`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionResult.session.access_token}`,
-          apikey
-        },
-        body: JSON.stringify({
-          query: trimmedQuery,
-          parentId
-        })
-      })
+      onProgress?.({ stage: 'request', message: '请求边缘函数中...' })
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort(new Error('ANALYZE_TIMEOUT'))
+      }, ANALYZE_TIMEOUT_MS)
 
+      let response
+      try {
+        response = await fetch(`${supabaseUrl}/functions/v1/new_task_ai`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${sessionResult.session.access_token}`,
+            apikey
+          },
+          body: JSON.stringify({
+            query: trimmedQuery,
+            parentId
+          }),
+          signal: controller.signal
+        })
+      } finally {
+        clearTimeout(timeoutId)
+      }
+
+      onProgress?.({ stage: 'response', message: '已收到响应，正在解析...' })
       const payload = await response.json().catch(() => ({}))
 
       if (!response.ok || !payload?.success) {
+        onProgress?.({
+          stage: 'error',
+          message: payload?.error || `HTTP ${response.status}`
+        })
         return {
           success: false,
           error: payload?.error || `HTTP ${response.status}`
         }
       }
 
+      onProgress?.({
+        stage: 'done',
+        message: `已创建 ${payload.createdCount || 0} 个任务`,
+        createdCount: payload.createdCount || 0
+      })
       return {
         success: true,
         createdCount: payload.createdCount || 0,
         tasks: payload.tasks || []
       }
     } catch (error) {
+      const isAbort = error?.name === 'AbortError' || error?.message === 'ANALYZE_TIMEOUT'
+      const errorMessage = isAbort
+        ? `请求超时（>${Math.round(ANALYZE_TIMEOUT_MS / 1000)}s），请重试或拆分更短的输入`
+        : (error?.message || '任务分析失败')
+
+      onProgress?.({ stage: 'error', message: errorMessage })
       return {
         success: false,
-        error: error?.message || '任务分析失败'
+        error: errorMessage
       }
     }
   }
@@ -259,7 +293,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
       if (!response.ok || !payload?.success) {
         return {
           success: false,
-          error: payload?.error || `HTTP ${response.status}`,
+          error: payload?.message || payload?.error || `HTTP ${response.status}`,
           summary: payload?.summary || ''
         }
       }

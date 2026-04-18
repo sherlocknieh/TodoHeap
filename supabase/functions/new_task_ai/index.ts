@@ -13,7 +13,9 @@ Rules:
 5) deadline must be ISO 8601 datetime string or null.
 6) status can be one of: todo, doing, done. Prefer todo.
 7) priority must be an integer 0-4.
-8) parent_id should be null unless user explicitly requires nesting under a parent.
+8) Keep all generated tasks under the same root parent.
+9) Multi-level nesting is allowed: parent_id may point to the root or any descendant under that root.
+10) Use the same language as the user's input for title, description, and final summary. Do not switch language unless user asks.
 
 After all needed tool calls, provide a short final summary.`;
 
@@ -31,6 +33,11 @@ interface CreateTodoArgs {
   status?: TodoStatus;
   priority?: number;
   parent_id?: number | null;
+}
+
+interface TodoParentNode {
+  id: number;
+  parent_id: number | null;
 }
 
 const createTodoTool = {
@@ -112,6 +119,31 @@ function sanitizeDescription(value: unknown): string | null {
   return text.slice(0, 500);
 }
 
+function detectUserLanguage(text: string): string {
+  if (/[\u3040-\u30ff]/.test(text)) return "Japanese";
+  if (/[\uac00-\ud7af]/.test(text)) return "Korean";
+  if (/[\u4e00-\u9fff]/.test(text)) return "Chinese";
+  if (/[\u0400-\u04ff]/.test(text)) return "Russian";
+  return "English";
+}
+
+async function getTodoParentNode(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  userId: string,
+  todoId: number,
+): Promise<TodoParentNode | null> {
+  const { data, error } = await supabase
+    .from("todos")
+    .select("id, parent_id")
+    .eq("id", todoId)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as TodoParentNode;
+}
+
 async function ensureParentBelongsToUser(
   supabase: ReturnType<typeof createSupabaseClient>,
   userId: string,
@@ -132,6 +164,35 @@ async function ensureParentBelongsToUser(
   }
 
   return data.id;
+}
+
+async function ensureParentWithinRoot(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  userId: string,
+  requestedParentId: number | null,
+  rootParentId: number | null,
+): Promise<number | null> {
+  if (rootParentId == null) {
+    return ensureParentBelongsToUser(supabase, userId, requestedParentId);
+  }
+
+  if (requestedParentId == null) return rootParentId;
+
+  const candidate = await getTodoParentNode(supabase, userId, requestedParentId);
+  if (!candidate) return rootParentId;
+  if (candidate.id === rootParentId) return rootParentId;
+
+  let cursor: number | null = candidate.parent_id;
+  let depth = 0;
+  while (cursor != null && depth < 50) {
+    if (cursor === rootParentId) return requestedParentId;
+    const parent = await getTodoParentNode(supabase, userId, cursor);
+    if (!parent) return rootParentId;
+    cursor = parent.parent_id;
+    depth += 1;
+  }
+
+  return rootParentId;
 }
 
 Deno.serve(async (req: Request) => {
@@ -164,6 +225,7 @@ Deno.serve(async (req: Request) => {
 
     const openai = createOpenAIClient();
     const model = Deno.env.get("OPENAI_MODEL") || "deepseek-chat";
+    const preferredLanguage = detectUserLanguage(body.query);
 
     const rootParentId = await ensureParentBelongsToUser(
       supabase,
@@ -177,10 +239,15 @@ Deno.serve(async (req: Request) => {
         role: "system",
         content: `Current user id: ${user.id}. Preferred parent_id: ${rootParentId ?? "null"}.`,
       },
+      {
+        role: "system",
+        content: `Use ${preferredLanguage}. Keep every generated task under one root tree. If preferred parent_id is null, first create a root task (parent_id null), then put other tasks under that root.`,
+      },
       { role: "user", content: body.query.trim() },
     ];
 
     const createdTasks: Record<string, unknown>[] = [];
+    let sessionRootId: number | null = rootParentId;
 
     for (let round = 0; round < 6; round++) {
       const completion = await openai.chat.completions.create({
@@ -222,7 +289,14 @@ Deno.serve(async (req: Request) => {
         const parentId = await ensureParentBelongsToUser(
           supabase,
           user.id,
-          typeof parsedArgs.parent_id === "number" ? parsedArgs.parent_id : rootParentId,
+          typeof parsedArgs.parent_id === "number" ? parsedArgs.parent_id : null,
+        );
+
+        const finalParentId = await ensureParentWithinRoot(
+          supabase,
+          user.id,
+          parentId,
+          sessionRootId,
         );
 
         const payload = {
@@ -232,7 +306,7 @@ Deno.serve(async (req: Request) => {
           deadline: sanitizeDeadline(parsedArgs.deadline),
           status: sanitizeStatus(parsedArgs.status),
           priority: sanitizePriority(parsedArgs.priority),
-          parent_id: parentId,
+          parent_id: finalParentId,
         };
 
         const { data, error } = await supabase
@@ -251,6 +325,9 @@ Deno.serve(async (req: Request) => {
         }
 
         createdTasks.push(data as Record<string, unknown>);
+        if (sessionRootId == null && typeof data?.id === "number") {
+          sessionRootId = data.id;
+        }
         messages.push({
           role: "tool",
           tool_call_id: toolCall.id,
