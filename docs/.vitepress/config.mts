@@ -1,5 +1,6 @@
 import { defineConfig, type HeadConfig } from 'vitepress'
 import { withSidebar } from 'vitepress-sidebar';
+import katex from 'markdown-it-katex'
 
 const vitePressOptions = {
   // https://vitepress.dev/reference/site-config
@@ -11,9 +12,18 @@ const vitePressOptions = {
   // Vite 构建时会根据 base 配置给资源链接添加前缀, 并处理多余的双斜杠, 解决资源路径问题
   head: [
     // 设置浏览器标签栏图标
-    ['link', { rel: 'icon', href: '/logo.png' }]
+    ['link', { rel: 'icon', href: '/logo.png' }],
+    // 引入 KaTeX CSS 文件
+    ['link', { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css' }],
   ] as HeadConfig[],
 
+  // 配置 Markdown 插件
+  // 开启 KaTeX 公式渲染
+  markdown: {
+    config: (md: any, options: any) => {
+      md.use(katex)
+    }
+  },
   outDir: '../dist/docs', // 与前端混合部署的输出目录
   vite: {
     server: {
