@@ -4,7 +4,7 @@
 本目录是 TodoHeap 的文档子项目，基于 VitePress 构建，提供中英文文档站点。
 
 - 在线文档: https://sherlocknieh.github.io/TodoHeap/docs/zh/
-- 技术栈: VitePress 2 + vitepress-sidebar + Mermaid + KaTeX
+- 技术栈: VitePress 1.6 + vitepress-sidebar + Mermaid + KaTeX
 - 部署路径: `/TodoHeap/docs/`
 
 ## 目录结构
