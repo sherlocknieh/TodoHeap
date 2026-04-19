@@ -1,3 +1,16 @@
+
+# 公式显示
+
+## 块级公式
+$$
+E = mc^2
+$$
+
+## 行内公式
+This is an inline formula: $E = mc^2$.
+
+# Mermaid 图表
+
 ```mermaid
 graph TD
     A[用户输入模糊任务] --> B{Prompt 模板注入}
