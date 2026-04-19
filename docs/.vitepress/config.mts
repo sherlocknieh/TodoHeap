@@ -1,7 +1,7 @@
 import { defineConfig, type HeadConfig } from 'vitepress'
 import { withSidebar } from 'vitepress-sidebar';
 import katex from 'markdown-it-katex'
-
+import { withMermaid } from 'vitepress-plugin-mermaid'
 const vitePressOptions = {
   // https://vitepress.dev/reference/site-config
   base: '/TodoHeap/docs/',
@@ -20,15 +20,20 @@ const vitePressOptions = {
   // 配置 Markdown 插件
   // 开启 KaTeX 公式渲染
   markdown: {
-    config: (md: any, options: any) => {
+    config: (md: any) => {
       md.use(katex)
     }
   },
+  
   outDir: '../dist/docs', // 与前端混合部署的输出目录
   vite: {
     server: {
       // open: true,  // 调试时自动打开浏览器
       port: 5201,     // 文档开发服务器端口
+    },
+    optimizeDeps: {
+      include: ['mermaid', 'dayjs', 'debug', '@braintree/sanitize-url', 'cytoscape', 'cytoscape-cose-bilkent'],
+      exclude: ['vitepress'],
     },
   },
     ignoreDeadLinks: true,  // 即使有死链也不中断构建
@@ -110,4 +115,4 @@ const vitePressOptions = {
     }))
   );
 
-  export default defineConfig(withSidebar(vitePressOptions, sidebarConfigs));
+  export default defineConfig(withSidebar(withMermaid(vitePressOptions), sidebarConfigs));
