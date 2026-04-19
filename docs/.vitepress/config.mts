@@ -61,7 +61,8 @@ const vitePressOptions = {
         themeConfig: {
           nav: [
             { text: 'User Guide', link: '/user-guide/' },
-            { text: 'Developer Guide', link: '/dev-guide/' }
+            { text: 'Developer Guide', link: '/dev-guide/' },
+            { text: 'Test Guide', link: '/test/' }
           ],
           footer: {
             message: 'Documentation built with <a href="https://vitepress.dev/">VuePress</a>',
@@ -81,7 +82,8 @@ const vitePressOptions = {
           // https://vitepress.dev/reference/default-theme-config
           nav: [
             { text: '用户指南', link: '/zh/user-guide/' },
-            { text: '开发文档', link: '/zh/dev-guide/' }
+            { text: '开发文档', link: '/zh/dev-guide/' },
+            { text: '测试文档', link: '/zh/test/' }
           ],
 
           footer: {
@@ -95,7 +97,7 @@ const vitePressOptions = {
 
   // 生成多语言×多文件夹侧边栏
   const languages = ['zh', 'en'];
-  const folders = ['user-guide', 'dev-guide'];
+  const folders = ['user-guide', 'dev-guide', 'test'];
   const sidebarConfigs = languages.flatMap(lang =>
     folders.map(mod => ({
       scanStartPath: `${lang}/${mod}`,  // 当前侧栏扫描的目录
@@ -111,6 +113,7 @@ const vitePressOptions = {
         'index.md',
         'user-guide',
         'dev-guide',
+        'test',
       ]
     }))
   );
