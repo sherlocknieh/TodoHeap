@@ -15,6 +15,9 @@ const vitePressOptions = {
     ['link', { rel: 'icon', href: '/logo.png' }],
     // 引入 KaTeX CSS 文件
     ['link', { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css' }],
+    // 引入 copy-tex 扩展的 JS 和 CSS
+    ['link', { rel: 'stylesheet', href: 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/copy-tex.min.css' }],
+    ['script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/copy-tex.min.js' }]
   ] as HeadConfig[],
 
   // 配置 Markdown 插件
