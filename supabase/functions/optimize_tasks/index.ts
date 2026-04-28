@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
       recommendationTaskId: null,
     };
 
-    const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("OPENAI_API_KEY2") || "";
+    const apiKey = Deno.env.get("OPENAI_API_KEY2") || Deno.env.get("OPENAI_API_KEY") || "";
     if (!apiKey) {
       return new Response(JSON.stringify({
         success: false,

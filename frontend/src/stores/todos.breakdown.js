@@ -22,6 +22,18 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
     // 收集的任务数据（用于非自动应用模式）
     const collectedTasks = []
 
+      const sortBreakdownTasks = (tasks) => {
+        return [...tasks].sort((a, b) => {
+          const aOrder = Number.isFinite(a.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY
+          const bOrder = Number.isFinite(b.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY
+          if (aOrder !== bOrder) return aOrder - bOrder
+          const aIndex = Number.isFinite(a.index) ? a.index : Number.POSITIVE_INFINITY
+          const bIndex = Number.isFinite(b.index) ? b.index : Number.POSITIVE_INFINITY
+          if (aIndex !== bIndex) return aIndex - bIndex
+          return String(a.title || '').localeCompare(String(b.title || ''))
+        })
+      }
+
     try {
       // 获取 Supabase 配置
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -57,7 +69,8 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
         status: taskPayload.status || 'todo',
         priority: taskPayload.priority ?? 1,
         parent_id: realParentId,
-        deadline: taskPayload.deadline || null
+        deadline: taskPayload.deadline || null,
+        sort_order: taskPayload.sort_order
       })
 
       const emitReceivedTask = (task, index) => {
@@ -118,7 +131,8 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
                 collectedTasks.push({
                   ...taskData,
                   // 生成临时ID用于UI显示
-                  id: `preview-${Date.now()}-${event.index}`
+                  id: `preview-${Date.now()}-${event.index}`,
+                  index: event.index
                 })
                 successCount++
                 emitReceivedTask(collectedTasks[collectedTasks.length - 1], event.index)
@@ -142,7 +156,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
         addedCount: successCount,
         totalCount,
         // 返回收集的任务数据（用于确认后批量添加）
-        pendingTasks: autoApply ? [] : collectedTasks
+        pendingTasks: autoApply ? [] : sortBreakdownTasks(collectedTasks)
       }
     } catch (error) {
       console.error('流式任务分解失败:', error)

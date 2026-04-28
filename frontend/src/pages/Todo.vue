@@ -216,16 +216,14 @@ const switchView = (view) => {
 
 const handleTaskSelected = (taskId) => {
 	if (taskId === null) {
-		// 取消选中任务时关闭详情面板
-		// closeDetailPanel()
+		closeDetailPanel()
 		selectedTaskId.value = null
 	} else if (selectedTaskId.value === taskId) {
-		// 如果点击的是已选中的任务，不做任何操作（保持详情面板打开）
-		// 这样可以避免在编辑时误触导致面板关闭
 	} else {
-		// 如果选择的是新任务，更新选中ID并自动显示详情面板
 		selectedTaskId.value = taskId
-		showDetailPanel.value = true
+		if (window.innerWidth < 1024) {
+			showDetailPanel.value = true
+		}
 	}
 	console.log('选中任务ID:', taskId)
 }
@@ -238,9 +236,10 @@ const createNewTask = async () => {
 			completed: false
 		})
 		if (result) {
-			// 选中新创建的任务
 			selectedTaskId.value = result.id
-			showDetailPanel.value = true
+			if (window.innerWidth < 1024) {
+				showDetailPanel.value = true
+			}
 		}
 	} catch (error) {
 		console.error('创建任务失败:', error)
@@ -265,7 +264,15 @@ const handleBreakdownTask = async (taskId) => {
 		// 使用流式接收，每收到一个子任务就更新进度
 		const onTaskReceived = ({ task, index, totalSoFar }) => {
 			breakdownProgress.value.count = totalSoFar
-			breakdownProgress.value.tasks.push(task)
+			breakdownProgress.value.tasks = [...breakdownProgress.value.tasks, task].sort((a, b) => {
+				const aOrder = Number.isFinite(a.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY
+				const bOrder = Number.isFinite(b.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY
+				if (aOrder !== bOrder) return aOrder - bOrder
+				const aIndex = Number.isFinite(a.index) ? a.index : Number.POSITIVE_INFINITY
+				const bIndex = Number.isFinite(b.index) ? b.index : Number.POSITIVE_INFINITY
+				if (aIndex !== bIndex) return aIndex - bIndex
+				return String(a.title || '').localeCompare(String(b.title || ''))
+			})
 		}
 
 		const result = await todoStore.invokeBreakdown(

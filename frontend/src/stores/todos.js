@@ -101,6 +101,30 @@ export const useTodoStore = defineStore('todos', () => {
     return roots
   }
 
+  const todoTitleCollator = new Intl.Collator('zh-Hans-CN', {
+    sensitivity: 'base',
+    numeric: true
+  })
+
+  const compareTodos = (a, b) => {
+    const titleDiff = todoTitleCollator.compare(String(a.title || ''), String(b.title || ''))
+    if (titleDiff !== 0) return titleDiff
+
+    const priorityDiff = (b.priority ?? 0) - (a.priority ?? 0)
+    if (priorityDiff !== 0) return priorityDiff
+
+    const aIsTemp = a.id < 0
+    const bIsTemp = b.id < 0
+    if (aIsTemp && !bIsTemp) return 1
+    if (!aIsTemp && bIsTemp) return -1
+
+    const aCreatedAt = new Date(a.created_at || 0).getTime()
+    const bCreatedAt = new Date(b.created_at || 0).getTime()
+    if (aCreatedAt !== bCreatedAt) return aCreatedAt - bCreatedAt
+
+    return a.id - b.id
+  }
+
   // ========== 监听同步事件 ==========
   
   // 处理登出事件：清理所有本地数据
@@ -171,6 +195,7 @@ export const useTodoStore = defineStore('todos', () => {
         .select('*')
         .is('deleted_at', null)
         .order('priority', { ascending: false })
+        .order('created_at', { ascending: true })
         .order('id', { ascending: true })
 
       if (fetchError) throw fetchError
@@ -250,20 +275,6 @@ export const useTodoStore = defineStore('todos', () => {
   const treeNodes = computed(() => {
     const syncQueue = getSyncQueue()
 
-    // 排序：优先级降序，然后按ID排序（临时ID负数排在末尾）
-    const sortFn = (a, b) => {
-      // 先按优先级降序
-      const priorityDiff = (b.priority ?? 0) - (a.priority ?? 0)
-      if (priorityDiff !== 0) return priorityDiff
-      // 临时ID（负数）排在最后
-      const aIsTemp = a.id < 0
-      const bIsTemp = b.id < 0
-      if (aIsTemp && !bIsTemp) return 1
-      if (!aIsTemp && bIsTemp) return -1
-      // 同类型按ID排序
-      return a.id - b.id
-    }
-
     return buildTreeNodes(
       todos.value,
       (item) => ({
@@ -273,10 +284,11 @@ export const useTodoStore = defineStore('todos', () => {
         priority: item.priority ?? 0,
         parent_id: item.parent_id,
         deadline: item.deadline || null,
+        created_at: item.created_at || null,
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
       }),
-      sortFn
+      compareTodos
     )
   })
 
@@ -320,17 +332,7 @@ export const useTodoStore = defineStore('todos', () => {
       grouped[status].push(item)
     })
 
-    // 排序：优先级降序，临时ID排在末尾
-    const sortFn = (a, b) => {
-      const priorityDiff = (b.priority ?? 0) - (a.priority ?? 0)
-      if (priorityDiff !== 0) return priorityDiff
-      const aIsTemp = a.id < 0
-      const bIsTemp = b.id < 0
-      if (aIsTemp && !bIsTemp) return 1
-      if (!aIsTemp && bIsTemp) return -1
-      return a.id - b.id
-    }
-    Object.values(grouped).forEach((arr) => arr.sort(sortFn))
+    Object.values(grouped).forEach((arr) => arr.sort(compareTodos))
     return grouped
   })
 

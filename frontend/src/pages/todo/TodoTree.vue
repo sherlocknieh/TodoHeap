@@ -28,8 +28,8 @@ const props = defineProps({
 const emit = defineEmits(['task-selected']) // 当任务被选中时发出事件
 
 const todoStore = useTodoStore()
-// 获取所有待办事项的计算属性
-const todos = computed(() => todoStore.todos || [])
+// 使用 store 中已排序的树结构，避免树图页面绕过统一排序规则
+const todos = computed(() => todoStore.treeNodes || [])
 
 // 维护 MindMap UID 到 Todo ID 的映射
 // 用于处理连续创建子节点时，父节点 ID 尚未回写到 MindMap 数据的情况
@@ -206,7 +206,7 @@ const mindMapData = computed(() => {
 			children: [] // 无子节点
 		}
 	}
-	// 构建节点并建立父子关系
+	// 递归构建节点并保留 treeNodes 中的排序结果
 	const buildNode = (todo) => ({
 		data: createNodeData(
 			todo.title || '未命名任务', // 任务标题
@@ -219,23 +219,17 @@ const mindMapData = computed(() => {
 		children: [] // 初始化子节点为空
 	})
 
-	const nodes = todosArray.map(buildNode) // 将所有任务转换为节点
-	const map = new Map()
-	todosArray.forEach((todo, idx) => map.set(todo.id, nodes[idx])) // 创建 ID 到节点的映射
-
-	const roots = []
-	todosArray.forEach((todo, idx) => {
-		const node = nodes[idx]
-		if (todo.parent_id && map.has(todo.parent_id)) {
-			map.get(todo.parent_id).children.push(node) // 添加到父节点的子节点
-		} else {
-			roots.push(node) // 添加到根节点列表
+	const mapTree = (items) => items.map((todo) => {
+		const node = buildNode(todo)
+		if (Array.isArray(todo.children) && todo.children.length > 0) {
+			node.children = mapTree(todo.children)
 		}
+		return node
 	})
 
 	return {
 		data: createNodeData('全部任务', 'root'), // 返回根节点
-		children: roots // 返回根子节点
+		children: mapTree(todosArray) // 返回已排序的根子节点
 	}
 })
 </script>

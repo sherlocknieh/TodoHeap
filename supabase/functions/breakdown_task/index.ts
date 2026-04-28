@@ -148,7 +148,7 @@ function getGoalTask(tree: treeNode | treeNode[] | null | undefined, selectedNod
 
 // 根据环境变量初始化 OpenAI 客户端
 function createOpenAIClient(): OpenAI {
-  const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("OPENAI_API_KEY2") || "";
+  const apiKey = Deno.env.get("OPENAI_API_KEY2") || Deno.env.get("OPENAI_API_KEY") || "";
   const baseUrl = Deno.env.get("OPENAI_BASE_URL") || undefined;
 
   if (!apiKey) {
@@ -167,6 +167,7 @@ interface ParsedResult {
   tasks: Array<{
     title: string;
     description?: string;
+    sort_order?: number;
     deadline: string | null;
   }>;
   newIndex: number; // 下一次解析应开始的位置偏移
@@ -221,6 +222,7 @@ function tryParseIncrementalTasks(content: string, startIndex: number): ParsedRe
             tasks.push({
               title: task.title,
               description: task.description,
+              sort_order: typeof task.sort_order === "number" ? task.sort_order : undefined,
               deadline: task.deadline || null
             });
             // 记录解析进度，下次从此位置之后继续
