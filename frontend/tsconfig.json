@@ -35,9 +35,8 @@
     "types": ["vite/client", "node"],
 
     // --- 模块解析别名 ---
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
 
     // --- 构建相关 ---
@@ -45,7 +44,7 @@
   },
   
   // 哪些文件需要被 TypeScript 处理
-  "include": ["src/**/*", "src/**/*.vue"],
+  "include": ["./src/**/*", "./src/**/*.vue"],
   
   // 哪些文件不需要被 TypeScript 处理
   "exclude": ["node_modules", "dist"]

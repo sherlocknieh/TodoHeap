@@ -163,12 +163,6 @@ const switchView = (view) => {
 
         </div>
 
-        <!-- 底部信息 -->
-        <footer class="shrink-0 px-4 py-3 border-t border-slate-200 dark:border-slate-700">
-          <div class="text-xs text-slate-500 dark:text-slate-400 text-center">
-            TodoHeap v1.0
-          </div>
-        </footer>
       </section>
     </div>
 </template>

@@ -23,23 +23,17 @@
           </button>
           <span v-else class="inline-block w-4 h-4"></span>
         </div>
-        <!-- 自定义三状态复选框 -->
+        <!-- 自定义两状态复选框 -->
         <div class="shrink-0">
           <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded border align-baseline"
             :class="{
               'bg-indigo-600 border-indigo-600 text-white': statusMap[item.id] === 'checked',
-              'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300': statusMap[item.id] === 'unchecked',
-              'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300': statusMap[item.id] === 'indeterminate'
+              'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300': statusMap[item.id] === 'unchecked'
             }" @click.stop="cycleStatus(item)" :aria-pressed="statusMap[item.id] === 'checked'">
             <template v-if="statusMap[item.id] === 'checked'">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
                 stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </template>
-            <template v-else-if="statusMap[item.id] === 'indeterminate'">
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                <path d="M6 12h12" stroke-linecap="round" />
               </svg>
             </template>
           </button>
@@ -122,15 +116,9 @@ const props = defineProps({
   isBreakingDown: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['toggle-done', 'delete-todo', 'add-subtask', 'edit-subtask', 'task-selected', 'set-status', 'breakdown-task'])
+const emit = defineEmits(['toggle-done', 'delete-todo', 'add-subtask', 'edit-subtask', 'task-selected', 'breakdown-task'])
 
-// 将组件内三态映射到后端状态: unchecked -> 'todo', indeterminate -> 'doing', checked -> 'done'
-const mapToBackendStatus = (state) => {
-  if (state === 'checked') return 'done'
-  if (state === 'indeterminate') return 'doing'
-  return 'todo'
-}
-const emitSetStatus = (id, state) => emit('set-status', id, mapToBackendStatus(state))
+const emitToggleDone = (item) => emit('toggle-done', item)
 const emitDeleteTodo = (id) => emit('delete-todo', id)
 const emitAddSubtask = (parentId) => {
   expandedMap.value[parentId] = true
@@ -161,6 +149,8 @@ const flatMap = computed(() => {
 })
 
 const isItemVisible = (item) => {
+  // 隐藏已完成项（优先使用本地状态映射）
+  if (statusMap.value[item.id] === 'checked' || item.status === 'done') return false
   if (!item.parent_id) return true
 
   // 祖先链任一节点折叠时隐藏，避免祖先折叠但后代仍显示
@@ -193,13 +183,12 @@ const editingId = ref(null)
 const editingText = ref('')
 const suppressBlurOnceForId = ref(null)
 
-// 三状态复选框状态映射：'unchecked' | 'indeterminate' | 'checked'
+// 两状态复选框状态映射：'unchecked' | 'checked'
 const statusMap = ref({})
 
 function initStatusMap() {
   flatList.value.forEach(item => {
     if (item.status === 'done') statusMap.value[item.id] = 'checked'
-    else if (item.status === 'doing') statusMap.value[item.id] = 'indeterminate'
     else statusMap.value[item.id] = 'unchecked'
   })
 }
@@ -212,7 +201,6 @@ watch(flatList, (newList) => {
   // 同步已有节点状态，避免远程更新后 UI 状态滞后
   newList.forEach(item => {
     if (item.status === 'done') statusMap.value[item.id] = 'checked'
-    else if (item.status === 'doing') statusMap.value[item.id] = 'indeterminate'
     else statusMap.value[item.id] = 'unchecked'
 
     if (item.children && item.children.length && !(item.id in expandedMap.value)) {
@@ -235,12 +223,9 @@ watch(flatList, (newList) => {
 
 function cycleStatus(item) {
   const cur = statusMap.value[item.id] || (item.status === 'done' ? 'checked' : 'unchecked')
-  let next
-  if (cur === 'unchecked') next = 'indeterminate'
-  else if (cur === 'indeterminate') next = 'checked'
-  else next = 'unchecked'
+  const next = cur === 'checked' ? 'unchecked' : 'checked'
   statusMap.value[item.id] = next
-  emitSetStatus(item.id, next)
+  emitToggleDone(item)
 }
 
 // 更多菜单相关（记录当前打开面板的 DOM 元素，避免 v-for ref 冲突）

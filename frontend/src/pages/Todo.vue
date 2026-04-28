@@ -47,6 +47,7 @@ const activeView = computed({
 const showUserMenu = ref(false)
 const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
+const showCompletedPanel = ref(true)
 const isAnalyzingTask = ref(false)
 const isOptimizingTasks = ref(false)
 const analyzeProgress = ref({
@@ -115,6 +116,15 @@ const analyzeStageLabel = computed(() => {
 const viewProps = computed(() => {
 	return activeView.value === 'heap' ? { todos: todoStore.todos } : {}
 })
+
+const completedTodos = computed(() => {
+  return (todoStore.todos || []).filter(t => (t.status === 'done'))
+})
+
+const toggleCompletedTodo = async (todo) => {
+	if (!todo?.id) return
+	await todoStore.toggleDone(todo.id)
+}
 
 const handleSelectedIdReplaced = (event) => {
 	const { tempId, realId } = event.detail || {}
@@ -451,30 +461,6 @@ onUnmounted(() => {
 				<!-- 上方按钮 -->
 				<div class="w-full flex flex-col items-center gap-1">
 
-					<!-- 用户头像 -->
-					<div class="relative">
-						<!-- 用户菜单按钮 -->
-						<button @click="showUserMenu = !showUserMenu"
-						class="h-9 w-9 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 text-xs font-medium hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center justify-center"
-							title="用户菜单">
-							<span>👤</span>
-						</button>
-						<!-- 用户菜单内容 -->
-						<Transition enter-active-class="transition ease-out duration-100"
-							enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
-							leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
-							leave-to-class="opacity-0 scale-95">
-							<div v-if="showUserMenu" ref="userMenuRef"
-							class="absolute left-full bottom-0 ml-2 w-48 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
-								<button @click="handleSignOut"
-								class="w-full px-4 py-2.5 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center gap-2 text-sm font-medium">
-									<span>🚪</span>
-									<span>退出登录</span>
-								</button>
-							</div>
-						</Transition>
-					</div>
-
 					<!-- 左侧栏切换按钮 -->
 					<button @click="toggleLeftPanel"
 						class="h-10 w-10 rounded-md flex items-center justify-center text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-white transition"
@@ -484,78 +470,113 @@ onUnmounted(() => {
 
 					<!-- 分隔线 -->
 					<div class="my-1 h-px w-8 bg-slate-300 dark:bg-slate-600"></div>
-
-					<!-- 视图切换按钮 -->
-					<button @click="switchView('list')"
-						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
-						:class="activeView === 'list' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
-						title="列表视图">
-						<span class="text-sm font-semibold">L</span>
-					</button>
-					<button @click="switchView('tree')"
-						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
-						:class="activeView === 'tree' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
-						title="树视图">
-						<span class="text-sm font-semibold">T</span>
-					</button>
-					<button @click="switchView('heap')"
-						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
-						:class="activeView === 'heap' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
-						title="堆视图">
-						<span class="text-sm font-semibold">H</span>
-					</button>
-					<button @click="switchView('trash')"
-						class="h-10 w-10 rounded-md flex items-center justify-center transition relative"
-						:class="activeView === 'trash' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-100'"
-						title="回收站">
-						<span class="text-sm font-semibold">R</span>
-					</button>
 				</div>
 
 				<!-- 下方按钮 -->
 				<div class="w-full flex flex-col items-center gap-2">
+					<!-- 用户头像 -->
+					<div class="relative">
+						<!-- 用户菜单按钮 -->
+						<button @click="showUserMenu = !showUserMenu"
+							class="h-9 w-9 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 text-xs font-medium hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center justify-center"
+							title="用户菜单">
+							<span>👤</span>
+						</button>
+						<!-- 用户菜单内容 -->
+						<Transition enter-active-class="transition ease-out duration-100"
+							enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
+							leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
+							leave-to-class="opacity-0 scale-95">
+							<div v-if="showUserMenu" ref="userMenuRef"
+								class="absolute left-full bottom-0 ml-2 w-48 bg-white dark:bg-slate-900 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+								<button @click="handleSignOut"
+									class="w-full px-4 py-2.5 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center gap-2 text-sm font-medium">
+									<span>🚪</span>
+									<span>退出登录</span>
+								</button>
+							</div>
+						</Transition>
+					</div>
+
 					<!-- 设置按钮 -->
 					<button @click="openSettings"
-					class="h-9 w-9 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center justify-center">
+						class="h-9 w-9 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center justify-center">
 						<span>⚙️</span>
 					</button>
+
 				</div>
 			</aside>
 			<!-- 左栏：任务导航面板（统一在 LeftSidebar 内部处理移动/桌面渲染与动画） -->
 			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
 				:is-breaking-down="isBreakingDown" :is-optimizing="isOptimizingTasks"
-					@close="() => { showLeftSidebar = false }" @switch-view="switchView"
-				@create-task="createNewTask" @breakdown-task="handleBreakdownTask"
-				@optimize-tasks="handleOptimizeTasks" />
+				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
+				@breakdown-task="handleBreakdownTask" @optimize-tasks="handleOptimizeTasks" />
 
 			<!-- 中栏：主要视图内容 -->
-			<div class="flex-1 flex flex-col min-w-0 min-h-0" @click="onMainAreaClick">
+			<div class="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-slate-950" @click="onMainAreaClick">
 				<!-- AI 分解状态区域 -->
-				<div class="mx-4 mt-4 mb-2">
+				<div class="mx-auto mt-4 mb-2 max-w-4xl w-full px-4">
 					<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
 						:status="breakdownMessageType" :task-count="breakdownProgress.count"
 						:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks" @cancel="handleCancelTasks" />
 				</div>
-
-			<div class="flex-1 min-h-0 overflow-auto p-4 bg-white dark:bg-slate-950" @click="onMainAreaClick">
-				<div v-if="showViewLoading" class="flex items-center justify-center h-96 text-slate-500 dark:text-slate-400">
-						<div class="text-center">
-							<p class="text-lg mb-2">⏳</p>
-							<p class="text-sm">加载中...</p>
+				<!-- 清单内容 -->
+				<div class="flex-1 min-h-0 overflow-auto bg-transparent" @click="onMainAreaClick">
+					<!-- 清单内容区域 -->
+					<template v-if="showViewLoading">
+						<div class="flex items-center justify-center h-96 text-slate-500 dark:text-slate-400">
+							<div class="text-center">
+								<p class="text-lg mb-2">⏳</p>
+								<p class="text-sm">加载中...</p>
+							</div>
 						</div>
+					</template>
+					<template v-else>
+						<div class="mx-auto max-w-4xl w-full px-4">
+							<router-view v-slot="{ Component }">
+								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
+									:is-breaking-down="isBreakingDown" @task-selected="handleTaskSelected"
+									@breakdown-task="handleBreakdownTask" />
+							</router-view>
+						</div>
+					</template>
 					</div>
-					<router-view v-else v-slot="{ Component }">
-						<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
-							:is-breaking-down="isBreakingDown" @task-selected="handleTaskSelected"
-							@breakdown-task="handleBreakdownTask" />
-					</router-view>
+
+				<!-- 已完成任务面板 -->
+				<div class="mx-auto max-w-4xl w-full px-4 mb-4">
+					<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 shadow-sm">
+						<div class="flex items-center justify-between">
+							<div class="font-medium text-sm">已完成 ({{ completedTodos.length }})</div>
+							<button @click="showCompletedPanel = !showCompletedPanel"
+								class="text-xs text-slate-500 hover:underline">
+								{{ showCompletedPanel ? '收起' : '展开' }}
+							</button>
+						</div>
+						<Transition name="fade">
+							<div v-if="showCompletedPanel" class="mt-2 max-h-56 overflow-auto">
+								<ul class="list-none p-0 m-0 space-y-1">
+									<li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)"
+										class="flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-sm text-slate-700 dark:text-slate-300">
+										<label class="shrink-0 inline-flex items-center justify-center">
+											<input type="checkbox" checked
+												class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+												@click.stop
+												@change="toggleCompletedTodo(t)" />
+										</label>
+										<span class="truncate block">{{ t.title || '未命名任务' }}</span>
+									</li>
+								</ul>
+							</div>
+						</Transition>
+					</div>
 				</div>
 
 				<!-- 自然语言任务输入组件 -->
-				<div v-if="!isBreakingDown"
-				class="mx-4 mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 shadow-sm transition-all duration-200 focus-within:border-indigo-300 dark:focus-within:border-indigo-600 focus-within:shadow-md dark:focus-within:shadow-indigo-900/30">
-					<AITaskInput :loading="isAnalyzingTask" :progress="analyzeProgress"
-						@submit-task="handleAnalyzeTaskInput" />
+				<div v-if="!isBreakingDown" class="mx-auto max-w-4xl w-full px-4 mb-4">
+					<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 shadow-sm transition-all duration-200 focus-within:border-indigo-300 dark:focus-within:border-indigo-600 focus-within:shadow-md dark:focus-within:shadow-indigo-900/30">
+						<AITaskInput :loading="isAnalyzingTask" :progress="analyzeProgress"
+							@submit-task="handleAnalyzeTaskInput" />
+					</div>
 				</div>
 
 			</div>
@@ -569,17 +590,21 @@ onUnmounted(() => {
 			class="h-5 shrink-0 bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white border-t border-slate-200 dark:border-slate-600 px-3 flex items-center justify-between text-xs select-none">
 			<!-- 左侧信息区 -->
 			<div class="flex items-center min-w-0">
-				<div class="lg:block ml-2 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-sm">
+				<div
+					class="lg:block ml-2 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-sm">
 					用户: {{ authStore.user?.email || '未登录' }}
 				</div>
-				<div class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-sm font-medium">
+				<div
+					class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-sm font-medium">
 					视图: {{ activeViewLabel }}
 				</div>
 
-				<div class="hidden sm:block ml-2 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm truncate">
+				<div
+					class="hidden sm:block ml-2 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm truncate">
 					选中任务: {{ selectedTaskId ?? '无' }}
 				</div>
-				<div class="px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm truncate max-w-[42vw] sm:max-w-none">
+				<div
+					class="px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm truncate max-w-[42vw] sm:max-w-none">
 					AI: {{ aiStatusLabel }}
 				</div>
 			</div>
@@ -592,7 +617,8 @@ onUnmounted(() => {
 					:class="hasUnsyncedChanges ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'">
 					同步: {{ syncStatusLabel }}
 				</div>
-				<div class="hidden md:block ml-2 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm">
+				<div
+					class="hidden md:block ml-2 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-sm">
 					{{ analyzeStageLabel }}
 				</div>
 				<button type="button" class="ml-2 px-2 py-0.5 rounded-sm transition-colors"
@@ -604,4 +630,3 @@ onUnmounted(() => {
 		</div>
 	</div>
 </template>
-
