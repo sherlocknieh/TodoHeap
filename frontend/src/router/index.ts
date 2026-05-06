@@ -19,6 +19,12 @@ const router = createRouter({
       component: () => import('@/pages/Login.vue'),
       meta: { requiresAuth: false, title: 'TodoHeap - 登录/注册' }
     },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/pages/ResetPassword.vue'),
+      meta: { requiresAuth: false, title: 'TodoHeap - 重置密码' }
+    },
     // 应用页
     {
       component: () => import('@/pages/Todo.vue'),

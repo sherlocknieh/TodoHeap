@@ -97,6 +97,28 @@ const handleAuth = async () => {
   }
 }
 
+const handleResetPassword = async () => {
+  errorMsg.value = ''
+  successMsg.value = ''
+
+  if (!email.value) {
+    errorMsg.value = '请先输入邮箱地址'
+    return
+  }
+
+  loading.value = true
+
+  try {
+    await auth.requestPasswordReset(email.value)
+    successMsg.value = '重置链接已发送，请查收邮箱'
+  } catch (error) {
+    errorMsg.value = error?.message || '发送重置邮件失败，请重试'
+    console.error(error)
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleOAuth = async (provider) => {
   // 清空提示信息
   errorMsg.value = ''
@@ -168,6 +190,15 @@ const handleOAuth = async (provider) => {
             </button>
           </div>
           <p v-if="isSignUp" class="text-xs text-gray-400 dark:text-gray-500 mt-2">密码至少需要 6 个字符</p>
+          <button
+            v-if="!isSignUp"
+            type="button"
+            class="mt-2 text-xs text-indigo-500 dark:text-indigo-400 hover:underline"
+            @click="handleResetPassword"
+            :disabled="loading"
+          >
+            忘记密码？发送重置邮件
+          </button>
         </div>
 
         <!-- 确认密码 (仅注册) -->

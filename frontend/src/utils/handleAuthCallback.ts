@@ -58,7 +58,9 @@ export async function handleAuthCallback() {
 
       if (error) {
         console.error('Error setting Supabase session:', error)
-      } else {
+      } else if (params.get('type') === 'recovery') {
+        window.location.hash = '#/reset-password'
+        return
       }
     }
   }
