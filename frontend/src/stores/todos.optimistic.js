@@ -100,11 +100,13 @@ export const createTodoOptimisticActions = ({
       priority: options.priority ?? 0,
       parent_id: options.parent_id || null,
       deadline: options.deadline || null,
+      start_date: options.start_date || null,
       description: options.description || null,
+      sort_order: Number.isFinite(options.sort_order) ? options.sort_order : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       deleted_at: null,
-      difficulty: null
+      difficulty: options.difficulty ?? null
     }
 
     todosRef.value.push(newTodo)
@@ -124,7 +126,10 @@ export const createTodoOptimisticActions = ({
         priority: newTodo.priority,
         parent_id: newTodo.parent_id,
         deadline: newTodo.deadline,
-        description: newTodo.description
+        start_date: newTodo.start_date,
+        description: newTodo.description,
+        sort_order: newTodo.sort_order,
+        difficulty: newTodo.difficulty
       }
     })
 
@@ -171,7 +176,10 @@ export const createTodoOptimisticActions = ({
           priority: current.priority,
           parent_id: current.parent_id,
           deadline: current.deadline,
-          description: current.description
+          start_date: current.start_date,
+          description: current.description,
+          sort_order: current.sort_order,
+          difficulty: current.difficulty
         }
       })
       return { success: true, data: current }

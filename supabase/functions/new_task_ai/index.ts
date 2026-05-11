@@ -2,22 +2,17 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const systemPrompt = `You are an AI assistant for task planning.
-Your job is to convert a fuzzy natural language request into concrete todos and call the tool to create them.
+const systemPrompt = `你是一个专业的任务规划助手。
+你的职责是将用户模糊的任务描述转化为清晰、结构化的任务树，并通过调用工具创建这些任务。
 
-Rules:
-1) You MUST call the tool at least once.
-2) Create 1-8 actionable tasks.
-3) Keep each task title concise and specific (5-120 chars).
-4) Description should be short and practical.
-5) deadline must be ISO 8601 datetime string or null.
-6) status can be one of: todo, doing, done. Prefer todo.
-7) priority must be an integer 0-4.
-8) Keep all generated tasks under the same root parent.
-9) Multi-level nesting is allowed: parent_id may point to the root or any descendant under that root.
-10) Use the same language as the user's input for title, description, and final summary. Do not switch language unless user asks.
-
-After all needed tool calls, provide a short final summary.`;
+关键规则：
+1) 你必须至少调用一次工具来创建任务。
+2) 仅创建一个根任务，根任务详情中写用户的原始输入。
+2) 在每个子任务标题前添加序号前缀，如 "1. "、"2. " 等，以确保正确的显示顺序。
+3) 支持多级嵌套：parent_id 可以指向根任务或任何下级任务。
+4) 使用与用户输入相同的语言来填写任务标题、描述和最终总结。
+5) 为每个任务估算 sort_order（从 1 开始的序号）和 difficulty（估算工时，如 0.5、1、2.5）。
+`;
 
 type TodoStatus = "todo" | "doing" | "done";
 
@@ -33,6 +28,8 @@ interface CreateTodoArgs {
   status?: TodoStatus;
   priority?: number;
   parent_id?: number | null;
+  sort_order?: number | null;
+  difficulty?: number | null;
 }
 
 interface TodoParentNode {
@@ -56,7 +53,9 @@ const createTodoTool = {
         },
         status: { type: "string", enum: ["todo", "doing", "done"] },
         priority: { type: "integer", minimum: 0, maximum: 4 },
-        parent_id: { type: ["integer", "null"] }
+        parent_id: { type: ["integer", "null"] },
+        sort_order: { type: ["number", "null"] },
+        difficulty: { type: ["number", "null"] }
       },
       required: ["title"]
     }
@@ -64,11 +63,11 @@ const createTodoTool = {
 } as const;
 
 function createOpenAIClient(): OpenAI {
-  const apiKey = Deno.env.get("OPENAI_API_KEY2") || Deno.env.get("OPENAI_API_KEY") || "";
-  const baseUrl = Deno.env.get("OPENAI_BASE_URL") || undefined;
+  const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
+  const baseUrl = Deno.env.get("DEEPSEEK_BASE_URL") || "https://api.deepseek.com";
 
   if (!apiKey) {
-    throw new Error("缺少 OPENAI_API_KEY/OPENAI_API_KEY2");
+    throw new Error("缺少 DEEPSEEK_API_KEY");
   }
   return new OpenAI({ apiKey, baseURL: baseUrl });
 }
@@ -97,6 +96,21 @@ function sanitizePriority(value: unknown): number {
   if (n < 0) return 0;
   if (n > 4) return 4;
   return Math.round(n);
+}
+
+function sanitizeSortOrder(value: unknown): number | null {
+  if (value == null) return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function sanitizeDifficulty(value: unknown): number | null {
+  if (value == null) return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return 0;
+  return n;
 }
 
 function sanitizeDeadline(value: unknown): string | null {
@@ -228,7 +242,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const openai = createOpenAIClient();
-    const model = Deno.env.get("OPENAI_MODEL") || "deepseek-chat";
+    const model = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-v4-flash";
     const preferredLanguage = detectUserLanguage(body.query);
 
     const rootParentId = await ensureParentBelongsToUser(
@@ -311,12 +325,14 @@ Deno.serve(async (req: Request) => {
           status: sanitizeStatus(parsedArgs.status),
           priority: sanitizePriority(parsedArgs.priority),
           parent_id: finalParentId,
+          sort_order: sanitizeSortOrder(parsedArgs.sort_order),
+          difficulty: sanitizeDifficulty(parsedArgs.difficulty),
         };
 
         const { data, error } = await supabase
           .from("todos")
           .insert(payload)
-          .select("id, title, description, deadline, status, priority, parent_id, created_at")
+          .select("id, title, description, deadline, status, priority, parent_id, sort_order, difficulty, created_at")
           .single();
 
         if (error) {

@@ -81,6 +81,43 @@
             </button>
           </div>
         </div>
+
+        <!-- 偏好设置 -->
+        <div v-else-if="activeTab === 'preferences'">
+          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-0 mb-4">AI 偏好</h2>
+          <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700 space-y-4">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="text-sm font-semibold text-gray-800 dark:text-white">AI 分解后自动添加任务</div>
+                <div class="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                  开启后，点击 AI 分解将直接落库，不再进入待确认列表。
+                </div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input
+                  v-model="settingsForm.autoApplyAITasks"
+                  type="checkbox"
+                  class="sr-only peer"
+                >
+                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:bg-indigo-600 transition-colors"></div>
+                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+              </label>
+            </div>
+
+            <div v-if="settingsError" class="text-sm text-red-600 dark:text-red-400">{{ settingsError }}</div>
+            <div v-if="settingsSuccess" class="text-sm text-green-600 dark:text-green-400">{{ settingsSuccess }}</div>
+
+            <div class="flex justify-end">
+              <button
+                class="bg-linear-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-md font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                :disabled="settingsLoading || settingsSaving"
+                @click="handleSaveSettings"
+              >
+                {{ settingsSaving ? '保存中...' : '保存偏好设置' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -145,10 +182,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { supabase } from '@/lib/supabase'
+import { DEFAULT_USER_SETTINGS, fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -160,7 +198,8 @@ const handleClose = () => {
 
 // 标签配置
 const tabs = [
-  { id: 'account', label: '账户安全', icon: '🔒' }
+  { id: 'account', label: '账户安全', icon: '🔒' },
+  { id: 'preferences', label: '偏好设置', icon: '⚙️' }
 ]
 
 // 标签切换
@@ -174,6 +213,11 @@ const passwordError = ref('')
 const passwordSuccess = ref('')
 const isChangingPassword = ref(false)
 const isDeletingAccount = ref(false)
+const settingsLoading = ref(false)
+const settingsSaving = ref(false)
+const settingsError = ref('')
+const settingsSuccess = ref('')
+const settingsForm = ref({ ...DEFAULT_USER_SETTINGS })
 
 // 用户信息
 const userEmail = computed(() => authStore.user?.email || '未知')
@@ -197,6 +241,51 @@ const closePasswordModal = () => {
   passwordSuccess.value = ''
   newPassword.value = ''
   confirmPassword.value = ''
+}
+
+const loadSettings = async () => {
+  settingsError.value = ''
+  settingsSuccess.value = ''
+  settingsLoading.value = true
+
+  try {
+    await authStore.initAuth()
+    const userId = authStore.user?.id
+    const result = await fetchUserSettings(userId)
+    if (!result.success) {
+      settingsError.value = result.error?.message || '读取设置失败'
+      return
+    }
+    settingsForm.value = { ...result.data }
+  } catch (err) {
+    settingsError.value = '读取设置失败'
+  } finally {
+    settingsLoading.value = false
+  }
+}
+
+const handleSaveSettings = async () => {
+  settingsError.value = ''
+  settingsSuccess.value = ''
+  settingsSaving.value = true
+
+  try {
+    const userId = authStore.user?.id
+    const result = await saveUserSettings(userId, settingsForm.value)
+    if (!result.success) {
+      settingsError.value = result.error?.message || '保存设置失败'
+      return
+    }
+    settingsForm.value = { ...result.data }
+    settingsSuccess.value = '设置已保存'
+    setTimeout(() => {
+      settingsSuccess.value = ''
+    }, 1800)
+  } catch (err) {
+    settingsError.value = '保存设置失败'
+  } finally {
+    settingsSaving.value = false
+  }
 }
 
 // 修改密码
@@ -286,6 +375,10 @@ const handleDeleteAccount = async () => {
     isDeletingAccount.value = false
   }
 }
+
+onMounted(() => {
+  loadSettings()
+})
 </script>
 
 <style scoped>

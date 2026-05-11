@@ -2,9 +2,10 @@
   <ul class="list-none p-0 m-0 space-y-1">
     <template v-for="item in flatList">
       <li v-if="isItemVisible(item)" :key="item.id" data-task-item :class="[
-        'flex items-center gap-2.5 p-2.5 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md transition-colors duration-150 cursor-pointer',
+        'flex items-center gap-2.5 p-2.5 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md cursor-pointer transition-all duration-150 ease-out hover:-translate-y-px hover:shadow-sm active:translate-y-0 active:scale-[0.99]',
         {
-          'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700': selectedTaskId === item.id,
+          'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-200/80 dark:ring-indigo-700/60 shadow-sm': selectedTaskId === item.id,
+          'hover:bg-slate-50 dark:hover:bg-slate-800/70 hover:border-slate-300 dark:hover:border-slate-700': selectedTaskId !== item.id,
           'opacity-60': item.status === 'done'
         }
       ]" :style="{ paddingLeft: (12 + item._level * 20) + 'px' }" @click="selectTask(item.id)">
@@ -51,13 +52,19 @@
             class="w-full px-2 py-1 text-sm border border-indigo-600 dark:border-indigo-500 rounded outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
             @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')"
             @keyup.esc="editingId = null" />
-          <!-- 同步状态指示器 -->
+          <span v-if="editingId !== item.id" class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <span v-if="item.priority > 0" class="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">P{{ item.priority }}</span>
+            <span v-if="item.start_date" class="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300">开始 {{ formatMetaDate(item.start_date) }}</span>
+            <span v-if="item.deadline" class="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">截止 {{ formatMetaDate(item.deadline) }}</span>
+            <span v-if="item.difficulty != null" class="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">难度 {{ formatDifficulty(item.difficulty) }}h</span>
+          </span>
+          <!-- 同步状态指示器
           <span v-if="item._isSyncing" class="inline-flex items-center ml-1.5 text-slate-500 dark:text-slate-400" title="正在同步...">
             <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2">
               <path d="M21 12a9 9 0 1 1-6.219-8.56" stroke-linecap="round" />
             </svg>
-          </span>
+          </span> -->
         </div>
 
         <!-- 操作按钮组 -->
@@ -342,5 +349,16 @@ function formatDeadline(deadline) {
   if (diffDays < 0 && diffDays >= -7) return `${Math.abs(diffDays)}天前`
 
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+function formatMetaDate(value) {
+  if (!value) return ''
+  return formatDeadline(value)
+}
+
+function formatDifficulty(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '-'
+  return num % 1 === 0 ? String(num) : num.toFixed(2)
 }
 </script>

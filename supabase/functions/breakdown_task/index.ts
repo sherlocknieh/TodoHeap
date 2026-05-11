@@ -2,27 +2,29 @@ import OpenAI from "openai";
 import { corsHeaders } from "../_shared/cors.ts";
 
 // 系统提示词：定义 AI 助手的角色和输出格式
-// 要求 AI 将选定的目标任务拆解为合理的子任务列表（3-10个）
-// 强制输出格式为纯 JSON 数组，包含 title, description 和 deadline 字段
-const systemPrompt = `You are an AI assistant helping with task breakdown.
-Generate an appropriate number of child tasks based on the provided Goal task and context.
-The number of child tasks should be reasonable and practical - typically between 3-10 tasks depending on the complexity and scope of the goal task.
+// 要求 AI 将选定的目标任务拆解为合理的子任务列表（3-6个）
+// 强制输出格式为纯 JSON 数组，包含 title, description, sort_order, difficulty 和 deadline 字段
+const systemPrompt = `你是一个专业的任务分解助手。
+你的职责是根据提供的目标任务和上下文信息，生成合理数量的子任务列表。
+子任务数量应该实用且合理，通常在 3-6 个之间，具体取决于目标任务的复杂度和范围。
 
-IMPORTANT: Your response MUST be a valid JSON array of child task objects (not wrapped in any object).
-Each child task must include ALL of the following fields:
-- title: A clear, actionable title (5-200 characters)
-- description: A brief description (optional, 0-500 characters)
-- sort_order: The order of the task in the list, starting from 1 for the first task.
-- deadline: An optional deadline in ISO 8601 format or null if no deadline is set.
+数组中的每个子任务对象必须包含以下所有字段：
+- title: 清晰、可执行的任务标题（5-200 字符）, 子任务标题应该以数字序号开头（如 "1. ", "2. "）以明确顺序关系
+- description: 任务的简短描述（可选，0-500 字符）
+- sort_order: 子任务在列表中的顺序，从 1 开始
+- difficulty: 完成此任务的估算工时（小数形式，如 0.5、1、2.5），或 null 如果不适用
+- deadline: ISO 8601 格式的可选截止日期，或 null 表示无截止日期
 
-Example response format:
+重要规则：你的回复必须是一个有效的 JSON 数组（不要包裹在其他对象中）。
+
+示例响应格式：
 [
-  {"title": "1.Task 1", "description": "This is the first child task", "sort_order": 1, "deadline": "2024-12-31T23:59:59Z"},
-  {"title": "2.Task 2", "description": "This is the second child task", "sort_order": 2, "deadline": "2025-01-31T23:59:59Z"},
-  {"title": "3.Task 3", "description": "This is the third child task", "sort_order": 3, "deadline": null}
+  {"title": "1.第一个子任务", "description": "这是第一个子任务的说明", "sort_order": 1, "difficulty": 1.5, "deadline": "2024-12-31T23:59:59Z"},
+  {"title": "2.第二个子任务", "description": "这是第二个子任务的说明", "sort_order": 2, "difficulty": 2, "deadline": "2025-01-31T23:59:59Z"},
+  {"title": "3.第三个子任务", "description": "这是第三个子任务的说明", "sort_order": 3, "difficulty": null, "deadline": null}
 ]
 
-Output ONLY the JSON array, no markdown, no explanation.
+只输出 JSON 数组，不要包含任何 Markdown 标记或其他解释。
 `;
 
 // 任务状态枚举
@@ -148,11 +150,11 @@ function getGoalTask(tree: treeNode | treeNode[] | null | undefined, selectedNod
 
 // 根据环境变量初始化 OpenAI 客户端
 function createOpenAIClient(): OpenAI {
-  const apiKey = Deno.env.get("OPENAI_API_KEY2") || Deno.env.get("OPENAI_API_KEY") || "";
-  const baseUrl = Deno.env.get("OPENAI_BASE_URL") || undefined;
+  const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
+  const baseUrl = "https://api.deepseek.com";
 
   if (!apiKey) {
-    throw new Error("缺少 OPENAI_API_KEY/OPENAI_API_KEY2");
+    throw new Error("缺少 DEEPSEEK_API_KEY");
   }
 
   return new OpenAI({
@@ -168,6 +170,7 @@ interface ParsedResult {
     title: string;
     description?: string;
     sort_order?: number;
+    difficulty?: number | null;
     deadline: string | null;
   }>;
   newIndex: number; // 下一次解析应开始的位置偏移
@@ -223,6 +226,7 @@ function tryParseIncrementalTasks(content: string, startIndex: number): ParsedRe
               title: task.title,
               description: task.description,
               sort_order: typeof task.sort_order === "number" ? task.sort_order : undefined,
+              difficulty: typeof task.difficulty === "number" ? task.difficulty : null,
               deadline: task.deadline || null
             });
             // 记录解析进度，下次从此位置之后继续
@@ -286,7 +290,7 @@ async function handler(req: Request) {
     ];
 
     const openai = createOpenAIClient();
-    const model = Deno.env.get("OPENAI_MODEL") || "deepseek-chat";
+    const model = "deepseek-v4-flash";
 
     // 4. 调用 AI API 并启用流式响应
     const stream = await openai.chat.completions.create({

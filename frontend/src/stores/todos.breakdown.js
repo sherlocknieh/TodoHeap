@@ -119,7 +119,8 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
                   status: taskData.status,
                   priority: taskData.priority,
                   parent_id: taskData.parent_id,
-                  deadline: taskData.deadline
+                  deadline: taskData.deadline,
+                  sort_order: taskData.sort_order
                 })
 
                 if (result.success) {
@@ -176,7 +177,8 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
         status: task.status,
         priority: task.priority,
         parent_id: task.parent_id,
-        deadline: task.deadline
+        deadline: task.deadline,
+        sort_order: task.sort_order
       })
 
       if (result.success) {

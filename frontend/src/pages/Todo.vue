@@ -9,9 +9,11 @@ import { storeToRefs } from 'pinia'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import BreakdownStatusCard from '@/components/BreakdownStatusCard.vue'
+import OptimizeProgressCard from '@/components/OptimizeProgressCard.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import AITaskInput from '@/components/AITaskInput.vue'
+import { DEFAULT_USER_SETTINGS, fetchUserSettings } from '@/lib/userSettings'
 
 const router = useRouter()
 const route = useRoute()
@@ -60,7 +62,17 @@ const analyzeProgress = ref({
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
+const optimizeProgress = ref({
+	visible: false,
+	stage: '', // 'executing' | 'complete' | 'error'
+	currentOp: '', // 当前操作描述
+	operations: [], // 已完成的操作列表
+	elapsedSec: 0,
+	summary: '',
+	changes: null
+}) // 优化进度
 const pendingTasks = ref([]) // 待确认的任务列表（用于预览模式）
+const userSettings = ref({ ...DEFAULT_USER_SETTINGS })
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 const showLeftSidebar = ref(true) // 侧栏显示状态
 
@@ -170,6 +182,10 @@ onMounted(async () => {
 	// 如果已登录，获取待办事项
 	if (authStore.isAuthenticated) {
 		await todoStore.fetchTodos()
+		const settingsResult = await fetchUserSettings(authStore.user?.id)
+		if (settingsResult.success) {
+			userSettings.value = { ...settingsResult.data }
+		}
 		// 初始化 Realtime 订阅
 		todoStore.setupRealtimeSubscription()
 	}
@@ -221,7 +237,7 @@ const handleTaskSelected = (taskId) => {
 	} else if (selectedTaskId.value === taskId) {
 	} else {
 		selectedTaskId.value = taskId
-		if (window.innerWidth < 1024) {
+		if (window.innerWidth > 1024) {
 			showDetailPanel.value = true
 		}
 	}
@@ -237,7 +253,7 @@ const createNewTask = async () => {
 		})
 		if (result) {
 			selectedTaskId.value = result.id
-			if (window.innerWidth < 1024) {
+			if (window.innerWidth > 1024) {
 				showDetailPanel.value = true
 			}
 		}
@@ -280,14 +296,20 @@ const handleBreakdownTask = async (taskId) => {
 			taskId,
 			query,
 			onTaskReceived,
-			false
+			Boolean(userSettings.value.autoApplyAITasks)
 		)
 
 		if (result.success) {
-			// 预览模式：保存待确认的任务，显示确认界面
-			pendingTasks.value = result.pendingTasks || []
-			breakdownMessageType.value = 'pending'
-			// 不清空进度，保持显示任务列表供用户确认
+			if (userSettings.value.autoApplyAITasks) {
+				showBreakdownMessage(`成功添加 ${result.addedCount || 0} 个子任务`, 'success')
+				pendingTasks.value = []
+				breakdownProgress.value = { count: 0, tasks: [] }
+			} else {
+				// 预览模式：保存待确认的任务，显示确认界面
+				pendingTasks.value = result.pendingTasks || []
+				breakdownMessageType.value = 'pending'
+				// 不清空进度，保持显示任务列表供用户确认
+			}
 		} else {
 			showBreakdownMessage(`任务分解失败: ${result.error}`, 'error')
 		}
@@ -326,23 +348,6 @@ const handleAnalyzeTaskInput = async (taskText) => {
 		setTimeout(() => {
 			resetAnalyzeProgress()
 		}, 1200)
-	}
-}
-
-const handleOptimizeTasks = async () => {
-	if (isOptimizingTasks.value) return
-
-	isOptimizingTasks.value = true
-	try {
-		const result = await todoStore.invokeOptimizeTasks('请执行任务优化：日期调整、任务分解、任务聚合、并创建一条执行建议任务。')
-		if (result.success) {
-			await todoStore.fetchTodos()
-			showBreakdownMessage(result.summary || '任务优化已完成', 'success')
-		} else {
-			showBreakdownMessage(`任务优化失败: ${result.error || '未知错误'}`, 'error')
-		}
-	} finally {
-		isOptimizingTasks.value = false
 	}
 }
 
@@ -414,6 +419,95 @@ const stopAnalyzeTimer = () => {
 	if (!analyzeTimer) return
 	clearInterval(analyzeTimer)
 	analyzeTimer = null
+}
+
+let optimizeTimer = null
+
+const resetOptimizeProgress = () => {
+	optimizeProgress.value = {
+		visible: false,
+		stage: '',
+		currentOp: '',
+		operations: [],
+		elapsedSec: 0,
+		summary: '',
+		changes: null
+	}
+}
+
+const startOptimizeTimer = () => {
+	if (optimizeTimer) clearInterval(optimizeTimer)
+	optimizeTimer = setInterval(() => {
+		optimizeProgress.value.elapsedSec += 1
+	}, 1000)
+}
+
+const stopOptimizeTimer = () => {
+	if (!optimizeTimer) return
+	clearInterval(optimizeTimer)
+	optimizeTimer = null
+}
+
+const handleOptimizeTasks = async () => {
+	if (isOptimizingTasks.value) return
+
+	isOptimizingTasks.value = true
+	resetOptimizeProgress()
+	optimizeProgress.value.visible = true
+	optimizeProgress.value.stage = 'executing'
+	optimizeProgress.value.currentOp = '初始化优化任务...'
+	startOptimizeTimer()
+
+	try {
+		// 显示初始的操作提示
+		optimizeProgress.value.operations.push('✓ 正在分析任务树结构')
+		optimizeProgress.value.currentOp = '正在执行优化操作...'
+		await new Promise(resolve => setTimeout(resolve, 500))
+
+		const result = await todoStore.invokeOptimizeTasks('请执行任务优化：日期调整、任务聚合、并创建一条执行建议任务。')
+		
+		stopOptimizeTimer()
+
+		if (result.success) {
+			optimizeProgress.value.operations.push('✓ 日期调整完成')
+			optimizeProgress.value.operations.push('✓ 任务聚合完成')
+			optimizeProgress.value.operations.push('✓ 执行建议已创建')
+			optimizeProgress.value.currentOp = '优化完成，正在加载更新...'
+			
+			await todoStore.fetchTodos()
+			
+			optimizeProgress.value.stage = 'complete'
+			optimizeProgress.value.summary = result.summary || '任务优化已完成'
+			optimizeProgress.value.changes = result.changes || {}
+			optimizeProgress.value.currentOp = ''
+			
+			showBreakdownMessage(result.summary || '任务优化已完成', 'success')
+			
+			// 3秒后隐藏进度窗口
+			setTimeout(() => {
+				optimizeProgress.value.visible = false
+			}, 3000)
+		} else {
+			optimizeProgress.value.stage = 'error'
+			optimizeProgress.value.currentOp = `错误: ${result.error || '未知错误'}`
+			showBreakdownMessage(`任务优化失败: ${result.error || '未知错误'}`, 'error')
+			
+			setTimeout(() => {
+				optimizeProgress.value.visible = false
+			}, 3000)
+		}
+	} catch (error) {
+		stopOptimizeTimer()
+		optimizeProgress.value.stage = 'error'
+		optimizeProgress.value.currentOp = `异常: ${error.message || '未知错误'}`
+		showBreakdownMessage(`任务优化异常: ${error.message || '未知错误'}`, 'error')
+		setTimeout(() => {
+			optimizeProgress.value.visible = false
+		}, 3000)
+	} finally {
+		isOptimizingTasks.value = false
+		stopOptimizeTimer()
+	}
 }
 
 // 点击外部关闭用户菜单
@@ -526,6 +620,10 @@ onUnmounted(() => {
 					<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
 						:status="breakdownMessageType" :task-count="breakdownProgress.count"
 						:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks" @cancel="handleCancelTasks" />
+					<OptimizeProgressCard :visible="optimizeProgress.visible" :stage="optimizeProgress.stage"
+						:current-op="optimizeProgress.currentOp" :operations="optimizeProgress.operations"
+						:elapsed-sec="optimizeProgress.elapsedSec" :summary="optimizeProgress.summary"
+						:changes="optimizeProgress.changes" />
 				</div>
 				<!-- 清单内容 -->
 				<div class="flex-1 min-h-0 overflow-auto bg-transparent" @click="onMainAreaClick">
@@ -563,7 +661,12 @@ onUnmounted(() => {
 							<div v-if="showCompletedPanel" class="mt-2 max-h-56 overflow-auto">
 								<ul class="list-none p-0 m-0 space-y-1">
 									<li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)"
-										class="flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-sm text-slate-700 dark:text-slate-300">
+										:class="[
+											'flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm text-slate-700 dark:text-slate-300 border transition-colors',
+											selectedTaskId === t.id
+												? 'bg-indigo-50 dark:bg-indigo-900/40 border-indigo-300 dark:border-indigo-700'
+												: 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
+										]">
 										<label class="shrink-0 inline-flex items-center justify-center">
 											<input type="checkbox" checked
 												class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"

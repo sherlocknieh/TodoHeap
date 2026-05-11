@@ -107,6 +107,10 @@ export const useTodoStore = defineStore('todos', () => {
   })
 
   const compareTodos = (a, b) => {
+    const aOrder = Number.isFinite(a.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY
+    const bOrder = Number.isFinite(b.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY
+    if (aOrder !== bOrder) return aOrder - bOrder
+
     const titleDiff = todoTitleCollator.compare(String(a.title || ''), String(b.title || ''))
     if (titleDiff !== 0) return titleDiff
 
@@ -284,6 +288,9 @@ export const useTodoStore = defineStore('todos', () => {
         priority: item.priority ?? 0,
         parent_id: item.parent_id,
         deadline: item.deadline || null,
+        start_date: item.start_date || null,
+        sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
+        difficulty: item.difficulty ?? null,
         created_at: item.created_at || null,
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
@@ -313,6 +320,9 @@ export const useTodoStore = defineStore('todos', () => {
         priority: item.priority ?? 0,
         parent_id: item.parent_id,
         deadline: item.deadline || null,
+        start_date: item.start_date || null,
+        sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
+        difficulty: item.difficulty ?? null,
         deleted_at: item.deleted_at,
         // 标记层级深度
         _depth: 0

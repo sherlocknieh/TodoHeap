@@ -157,7 +157,7 @@ const switchView = (view) => {
               @click="$emit('optimize-tasks')"
             >
               <span>✨</span>
-              <span>{{ isOptimizing ? '任务优化中...' : '任务优化' }}</span>
+              <span>{{ isOptimizing ? '任务优化中...' : '全局任务优化' }}</span>
             </button>
           </div>
 

@@ -32,22 +32,22 @@ type OptimizeChanges = {
   recommendationTaskId: number | null;
 };
 
-const optimizationSystemPrompt = `You are an AI task optimization operator.
-You must optimize an existing todo tree by calling tools.
+const optimizationSystemPrompt = `你是一个专业的任务优化操作员。
+你的职责是通过调用工具对现有的任务树进行全面优化。
 
-Required action categories:
-1) Adjust dates (deadline/start_date) for suitable tasks.
-2) Break down at least one large task into child tasks.
-3) Aggregate related tasks under one parent.
-4) Create exactly one recommendation task with detailed execution advice.
+- 调整合适任务的日期（截止日期 deadline 和开始日期 start_date）。
+- 为每个任务提供合理的优先级建议（priority，范围0-4）和难度评估（difficulty，单位工时）。
+- 父任务的工时应当为直接子任务工时的总和。
+- 将紧密相关的任务合并到同一个父任务下。
+- 最后额外创建一个根任务，标题为"优化总结"，在详情中详述你做了哪些优化。
 
-Hard rules:
-- Operate only with provided tool calls.
-- Keep statuses in todo/doing/done.
-- Priority must be 0-4.
-- Do not modify completed tasks unless absolutely necessary.
-- Keep changes practical and minimal.
-- Provide a concise Chinese summary after tools finish.`;
+硬性规则：
+- 仅使用提供的工具调用来进行操作。
+- 保持任务状态在 todo/doing/done 之间。
+- 优先级必须在 0-4 范围内。
+- 除非绝对必要，否则不要修改已完成的任务。
+- 保持更改实用且最少化。
+`;
 
 function createSupabaseClient(req: Request): SupabaseClient {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -164,11 +164,11 @@ Deno.serve(async (req: Request) => {
       recommendationTaskId: null,
     };
 
-    const apiKey = Deno.env.get("OPENAI_API_KEY2") || Deno.env.get("OPENAI_API_KEY") || "";
+    const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({
         success: false,
-        error: "缺少 OPENAI_API_KEY/OPENAI_API_KEY2",
+        error: "缺少 DEEPSEEK_API_KEY",
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -177,10 +177,15 @@ Deno.serve(async (req: Request) => {
 
     const openai = createOpenAI({
       apiKey,
-      baseURL: Deno.env.get("OPENAI_BASE_URL") || undefined,
+      baseURL: Deno.env.get("DEEPSEEK_BASE_URL") || "https://api.deepseek.com",
     });
 
-    const modelName = Deno.env.get("OPENAI_MODEL") || "deepseek-chat";
+    const modelName = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-v4-flash";
+    
+    // 检查是否使用了 thinking 模式的模型
+    if (modelName.includes("reasoner")) {
+      console.warn(`Warning: Model "${modelName}" supports thinking mode which may cause issues. Consider using "deepseek-v4-flash" instead.`);
+    }
 
     const result = await generateText({
       model: openai(modelName),
@@ -251,6 +256,8 @@ Deno.serve(async (req: Request) => {
               start_date: z.string().nullable().optional(),
               priority: z.number().int().min(0).max(4).optional(),
               status: z.enum(["todo", "doing", "done"]).optional(),
+              sort_order: z.number().optional(),
+              difficulty: z.number().nullable().optional(),
             })).min(1).max(10),
           }),
           execute: async (input) => {
@@ -275,6 +282,8 @@ Deno.serve(async (req: Request) => {
               start_date: sanitizeIsoDatetime(child.start_date),
               priority: sanitizePriority(child.priority),
               status: sanitizeStatus(child.status),
+              sort_order: typeof child.sort_order === "number" ? child.sort_order : null,
+              difficulty: typeof child.difficulty === "number" ? child.difficulty : null,
             }));
 
             const { data, error } = await supabase
@@ -367,6 +376,8 @@ Deno.serve(async (req: Request) => {
             deadline: z.string().nullable().optional(),
             start_date: z.string().nullable().optional(),
             priority: z.number().int().min(0).max(4).optional(),
+            sort_order: z.number().optional(),
+            difficulty: z.number().nullable().optional(),
             parent_id: z.number().int().nullable().optional(),
           }),
           execute: async (input) => {
@@ -394,6 +405,8 @@ Deno.serve(async (req: Request) => {
               priority: sanitizePriority(input.priority),
               status: "todo" as const,
               parent_id: parentId,
+              sort_order: typeof input.sort_order === "number" ? input.sort_order : null,
+              difficulty: typeof input.difficulty === "number" ? input.difficulty : null,
             };
 
             const { data, error } = await supabase
@@ -419,27 +432,52 @@ Deno.serve(async (req: Request) => {
       changes.aggregations.length > 0 ||
       changes.recommendationTaskId != null;
 
+    // 构建响应对象，完整处理 reasoning_content
+    const buildResponse = (data: Record<string, unknown>) => {
+      const response: Record<string, unknown> = { ...data };
+      // 如果有 reasoning_content，添加到响应中（处理 thinking 模式）
+      if (result.reasoning) {
+        response.reasoning_content = result.reasoning;
+      }
+      return response;
+    };
+
     if (!didOptimize) {
-      return new Response(JSON.stringify({
+      const errorBody = buildResponse({
         success: false,
         error: "未执行任何优化动作",
         summary: result.text,
-      }), {
+      });
+      return new Response(JSON.stringify(errorBody), {
         status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({
+    const successBody = buildResponse({
       success: true,
       summary: result.text,
       changes,
-    }), {
+    });
+    return new Response(JSON.stringify(successBody), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("optimize_tasks error:", error);
     const message = error instanceof Error ? error.message : String(error);
+    
+    // 处理 thinking_mode 相关的错误
+    if (message.includes("reasoning_content") || message.includes("thinking mode")) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "模型不支持当前配置，请检查环境变量设置",
+        message: message
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
     return new Response(JSON.stringify({
       success: false,
       error: message,
