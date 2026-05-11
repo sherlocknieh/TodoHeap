@@ -40,7 +40,7 @@ const openLogin = () => {
           <div class="flex items-center gap-3 sm:gap-6 shrink-0">
             <!-- 登录按钮 -->
             <button @click="openLogin"
-              class="px-3 sm:px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap">
+              class="px-3 sm:px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-md hover:shadow-lg transform whitespace-nowrap">
               登录 / 注册
             </button>
           </div>
@@ -65,16 +65,13 @@ const openLogin = () => {
             </p>
             <div class="flex gap-4">
               <button @click="openLogin"
-                class="px-8 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 text-lg transform hover:-translate-y-1">
+                class="px-8 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition-all duration-300 text-lg transform">
                 立即开始
               </button>
-              <button
-                class="px-8 py-3.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 text-lg">
-                <a href="/TodoHeap/docs/zh/"
-                  class="inline text-gray-600 dark:text-gray-300 font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-300">
-                  在线文档
-                </a>
-              </button>
+              <a href="/TodoHeap/docs/zh/"
+                class="px-8 py-3.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 text-lg text-center text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 block">
+                在线文档
+              </a>
             </div>
           </div>
 

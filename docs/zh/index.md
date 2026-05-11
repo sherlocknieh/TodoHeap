@@ -5,17 +5,17 @@ layout: home
 hero:
   name: "TodoHeap"
   text: "AI 驱动的任务分解工具"
-  tagline: 用智能分解和优先级排序，帮你解决多任务管理压力
+  tagline: "AI 驱动的智能任务管理：自动分解、优先排序与可视化。"
   image:
     src: /logo.png
     alt: Logo
   actions:
     - theme: brand
       text: 用户指南
-      link: /zh/user-guide/
+      link: /zh/user/
     - theme: alt
       text: 开发文档
-      link: /zh/dev-guide/
+      link: /zh/dev/
 
 features:
   - icon: 🤖
@@ -36,5 +36,4 @@ features:
   - icon: 🎯
     title: 专注执行
     details: 专注于任务执行本身，让系统处理复杂的优化和安排
-
 ---

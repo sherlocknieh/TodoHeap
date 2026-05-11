@@ -35,86 +35,109 @@
 
 ### 依赖环境
 
-  ```powershell
-  # 安装 Node.js
-  # 访问官网 https://nodejs.org/ 下载安装;
-  # 如果是 Win11 可用 winget 命令快速安装:
-  winget install OpenJS.NodeJS
+```powershell
+# 安装 Node.js（建议 16+ 或 18+ LTS）
+# 访问官网 https://nodejs.org/ 下载并安装，或使用系统包管理器
+# Windows 可用 winget 安装：
+winget install OpenJS.NodeJS
 
-  # 配置国内镜像源, 提高第三方库的下载速度
-  npm config set registry https://registry.npmmirror.com
+# 推荐使用 pnpm 管理依赖（也支持 npm/yarn）
+npm install -g pnpm
 
-  # 安装 pnpm 包管理器替代 npm
-  npm install -g pnpm
-  ```
+# （可选）配置国内镜像以加速依赖下载：
+npm config set registry https://registry.npmmirror.com
+```
 
 
 ### 前端开发
 
-- 以 frontend 为工作目录
+- 以 `frontend` 为工作目录
 - 开发指南: [frontend/README.md](frontend/README.md)
+
+快速运行（开发）：
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+如果使用 `npm`：
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+本地开发需要在 `frontend` 中配置环境变量文件 `.env.local`，示例位于 `frontend/README.md`。
 
 ### 文档开发
 
-- 以 docs 为工作目录
+- 以 `docs` 为工作目录
 - 开发指南: [docs/README.md](docs/README.md)
 
-### 前端和文档联合开发:
+快速预览文档（使用 VitePress）：
 
-- 在项目根目录运行 `pnpm dev` 同时预览前端和文档;
+```bash
+cd docs
+pnpm install
+pnpm dev
+# 打开浏览器访问 http://localhost:5173
+```
+
+### 前端和文档联合开发
+
+- 在项目根目录可以同时启动前端与文档（需分别在各目录安装依赖）：
+
+```bash
+# 启动前端（新终端）
+cd frontend && pnpm dev
+
+# 启动文档（新终端）
+cd docs && pnpm dev
+```
 
 
 ### 后端开发
 
-#### 在线开发:
+#### 在线/远程 Supabase
 
-- 项目地址: https://supabase.com/dashboard/project/nxzvisuvwtsnlrugqghx
+- 项目托管在 Supabase（限定访问），如需管理权限请使用项目维护者提供的联系方式。
 
-- 获取项目管理权限: 用你的注册邮箱联系我 sherlocknieh@gmail.com
+#### 本地 Supabase 开发
 
-#### 本地开发:
-  - 安装 Node.js;
-  - 以当前目录为工作目录;
+- 使用 Supabase CLI 进行本地或远程项目管理。示例：
 
-  - 连接到 Supabase 账户:
-    ```bash
-    npx supabase login --no-browser
-    # --no-browser 是可选参数, 不想用默认浏览器登录时使用
-    ```
-  - 连接到项目
-    ```bash
-    npx supabase link
-    # 会有交互式提示, 选择对应的项目即可
-    ```
+```bash
+# 登录到 Supabase（交互式）
+npx supabase login
 
-  - 数据库开发 [(官方教程)](https://supabase.com/docs/guides/local-development/overview#database-migrations):
-    ```bash
-    # 创建数据库管理脚本:
-      npx supabase migration new your_migration_name
-    # 编辑 PostgreSQL 脚本: supabase/migrations/**your_migration_name.sql;
-    # 推送到远程:
-      npx supabase db push
-    # https://supabase.com/docs/reference/cli/supabase-db
-    ```
+# 将本地仓库与 Supabase 项目关联（会有交互提示）
+npx supabase link
 
-  - 边缘函数开发 [(官方教程)](https://supabase.com/docs/guides/functions/quickstart);
-    ```bash
-    # 创建边缘函数:
-    npx supabase functions new hello-world
-    # 编辑边缘函数: supabase/functions/hello-world/index.ts
-    # 部署边缘函数:
-    npx supabase functions deploy hello-world
-    # 取消部署:
-    npx supabase functions delete hello-world
-    ```
+# 创建数据库迁移
+npx supabase migration new your_migration_name
+
+# 将本地迁移推送到项目（谨慎操作）
+npx supabase db push
+```
+
+边缘函数（Edge Functions）开发示例：
+
+```bash
+# 新建函数
+npx supabase functions new my-function
+
+# 部署函数
+npx supabase functions deploy my-function
+```
+
+注意：操作 Supabase CLI 可能需要你具有相应项目的权限和访问密钥，请向项目维护者获取。
 
 ### 提交指南
 
-
-1. 到 Issue 页面查看/创建/认领任务;
-
-2. Fork 项目到自己的仓库, 创建新分支开始开发;
-
-4. 发布分支后, 向主仓库提 Pull Request;
-
-5. 代码被合并后可删除分支, 关闭对应的 Issue;
+1. 到 Issue 页面查看/创建/认领任务。
+2. Fork 项目到自己的仓库并创建新分支开始开发。
+3. 完成开发后提交 PR（Pull Request）并填写变更说明。
+4. 代码合并后可删除分支并关闭对应 Issue。

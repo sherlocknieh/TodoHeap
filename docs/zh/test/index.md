@@ -1,3 +1,20 @@
+# 文档测试
+
+用于测试文档系统的功能和格式。
+
+从导航从隐藏
+
+需要在 `.vitepress/config.mts` 中注释掉相关导航链接：
+
+```ts
+const baseNav = [
+  { link: '/user/', text: { en: 'User Guide', zh: '用户指南' } },
+  { link: '/dev/', text: { en: 'Developer Guide', zh: '开发文档' } },
+  //{ link: '/test/', text: { en: 'Test Guide', zh: '[文档测试]' } },
+  // 如需更多项，可在此补充，link 采用无语言前缀形式
+]
+```
+
 
 # 公式显示
 
@@ -28,3 +45,4 @@ graph TD
     H -- 格式错误 --> J[递归重试/自修复]
     I --> K[用户确认并入库 Supabase]
 ```
+

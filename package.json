@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "cd frontend && pnpm dev",
     "dev:docs": "cd docs && pnpm dev",
-    "dev:all": "concurrently \"pnpm dev:frontend\" \"pnpm dev:docs\""
+    "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:docs\""
   },
   "devDependencies": {
     "concurrently": "^8.2.0"

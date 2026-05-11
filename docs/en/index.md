@@ -12,10 +12,10 @@ hero:
   actions:
     - theme: brand
       text: User Guide
-      link: /user-guide/
+      link: /user/
     - theme: alt
       text: Developer Guide
-      link: /dev-guide/
+      link: /dev/
 
 features:
   - icon: 🤖

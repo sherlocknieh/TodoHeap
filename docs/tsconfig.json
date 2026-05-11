@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    ".vitepress/**/*",
+    "**/*.ts",
+    "**/*.mts",
+    "**/*.js"
+  ]
+}
