@@ -108,12 +108,19 @@ defineExpose({
 
 <style>
 @layer components {
+  /*
+    说明: Milkdown 编辑器内部需要在 flex 高度边界内收缩以启用内部滚动。
+    因此 `.milkdown-editor`、`.editor` 与 `.ProseMirror` 使用 `min-height: 0` 和 `height: 100%`。
+    这能确保当父容器（详情面板的描述区）为 `flex:1` 时，编辑器不会被内容撑开，
+    内部的 `overflow-y: auto` 可以正确显示滚动条并滚动内容。
+  */
   /* 基础编辑器容器 - 使用 CSS 变量实现深色模式 */
   .milkdown-editor {
     --text-primary: rgb(30 41 59);
     --text-dark: rgb(226 232 240);
-    
-    min-height: 12rem;
+
+    min-width: 0;
+    min-height: 0;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -134,6 +141,8 @@ defineExpose({
     background: transparent !important;
     font-family: inherit;
     color: var(--text-primary) !important;
+    min-height: 0;
+    height: 100%;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -147,11 +156,14 @@ defineExpose({
   /* 编辑区域 */
   .milkdown-editor .editor {
     padding: 0.75rem;
-    min-height: 12rem;
+    min-height: 0;
+    height: 100%;
     flex: 1;
     display: flex;
     flex-direction: column;
     color: var(--text-primary);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -163,11 +175,42 @@ defineExpose({
   /* ProseMirror 编辑框 */
   .milkdown-editor .ProseMirror {
     position: relative;
-    min-height: 12rem;
+    min-height: 0;
+    height: 100%;
     flex: 1;
     overflow-y: auto;
     color: var(--text-primary);
     background: transparent;
+    scrollbar-gutter: stable;
+  }
+
+  .milkdown-editor .editor::-webkit-scrollbar,
+  .milkdown-editor .ProseMirror::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .milkdown-editor .editor::-webkit-scrollbar-track,
+  .milkdown-editor .ProseMirror::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .milkdown-editor .editor::-webkit-scrollbar-thumb,
+  .milkdown-editor .ProseMirror::-webkit-scrollbar-thumb {
+    background-color: rgb(148 163 184 / 0.5);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .milkdown-editor .editor::-webkit-scrollbar-thumb:hover,
+  .milkdown-editor .ProseMirror::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(100 116 139 / 0.7);
+  }
+
+  .milkdown-editor .editor,
+  .milkdown-editor .ProseMirror {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.6) transparent;
   }
 
   @media (prefers-color-scheme: dark) {

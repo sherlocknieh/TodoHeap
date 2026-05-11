@@ -7,20 +7,38 @@
         <p>{{ trashTodos.length }} 个已删除任务</p>
       </div>
       <div class="header-actions">
-        <button
-          v-if="trashTodos.length > 0"
-          class="btn btn-secondary"
-          @click="handleRestoreAll"
-        >
-          ↩️ 恢复全部
-        </button>
-        <button
-          v-if="trashTodos.length > 0"
-          class="btn btn-danger"
-          @click="handleEmptyTrash"
-        >
-          🗑️ 清空垃圾箱
-        </button>
+            <!-- 当有选中任务时，显示针对选中任务的恢复/删除操作 -->
+            <template v-if="props.selectedTaskId != null">
+              <button
+                class="btn btn-secondary"
+                @click="handleRestoreWithCheck(props.selectedTaskId)"
+              >
+                ↩️ 恢复任务
+              </button>
+              <button
+                class="btn btn-danger"
+                @click="handlePermanentDelete(props.selectedTaskId)"
+              >
+                🗑️ 永久删除
+              </button>
+            </template>
+            <!-- 否则显示全局操作 -->
+            <template v-else>
+              <button
+                v-if="trashTodos.length > 0"
+                class="btn btn-secondary"
+                @click="handleRestoreAll"
+              >
+                ↩️ 恢复全部
+              </button>
+              <button
+                v-if="trashTodos.length > 0"
+                class="btn btn-danger"
+                @click="handleEmptyTrash"
+              >
+                🗑️ 清空垃圾箱
+              </button>
+            </template>
       </div>
     </header>
 
@@ -42,6 +60,8 @@
     <ul v-else class="list-none p-0 m-0 flex-1 overflow-y-auto">
       <template v-for="item in flatTrashList" :key="item.id">
         <li v-if="shouldShowItem(item)"
+          :data-task-item="item.id"
+          :data-task-id="item.id"
           :class="[
             'flex items-center gap-2.5 p-2.5 px-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors duration-150 cursor-pointer',
             {

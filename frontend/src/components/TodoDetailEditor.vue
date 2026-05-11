@@ -1,6 +1,6 @@
 <template>
   <div v-if="show" data-detail-panel :class="[
-    'w-80 max-w-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col z-20 border-l border-slate-200 dark:border-slate-700',
+    'w-80 max-w-full h-full min-h-0 overflow-hidden bg-white dark:bg-slate-900 shadow-2xl flex flex-col z-20 border-l border-slate-200 dark:border-slate-700',
     // 已删除任务时整个面板显示禁用光标
     isDeleted ? 'cursor-not-allowed' : ''
   ]">
@@ -14,7 +14,7 @@
         </svg>
       </button>
     </div>
-    <section class="h-full flex flex-col min-h-0">
+    <section class="flex-1 min-h-0 flex flex-col">
       <!-- 空状态显示 -->
       <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
         <div class="text-center">
@@ -70,9 +70,15 @@
         <div class="shrink-0 border-t border-slate-200 dark:border-slate-700"></div>
 
         <!-- 区块3: 任务描述 - Milkdown 编辑器（占满剩余空间） -->
-        <div class="flex-1 min-h-0 overflow-hidden">
+        <!--
+          说明: 这里使用 `flex-1 min-h-0 flex flex-col` 来确保外层提供一个真实的高度边界。
+          在 flex 布局下，若子元素没有 `min-height: 0`，其默认的最小高度可能由内容撑开，
+          导致 overflow 无法生效（看起来像“不能滚动”）。我们把滚动责任交给编辑器内部，
+          编辑器（`.milkdown-editor`）通过 `height:100%` 与 `min-height:0` 在该边界内收缩并显示滚动条。
+        -->
+        <div class="flex-1 min-h-0 flex flex-col">
           <div :class="[
-            'h-full bg-white dark:bg-slate-900',
+            'flex-1 min-h-0 bg-white dark:bg-slate-900',
             isDeleted ? 'pointer-events-none deleted-content' : ''
           ]">
             <MilkdownEditor :key="editorKey" v-model="draftDescription" :readonly="isDeleted"

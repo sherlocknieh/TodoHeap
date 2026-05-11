@@ -32,6 +32,44 @@ type OptimizeChanges = {
   recommendationTaskId: number | null;
 };
 
+type UpdateTaskScheduleInput = {
+  task_id: number;
+  deadline?: string | null;
+  start_date?: string | null;
+  reason?: string;
+};
+
+type BreakdownTaskInput = {
+  parent_task_id: number;
+  children: Array<{
+    title: string;
+    description?: string | null;
+    deadline?: string | null;
+    start_date?: string | null;
+    priority?: number;
+    status?: TodoStatus;
+    sort_order?: number;
+    difficulty?: number | null;
+  }>;
+};
+
+type AggregateTasksInput = {
+  target_parent_id: number;
+  task_ids: number[];
+  reason?: string;
+};
+
+type RecommendationTaskInput = {
+  title: string;
+  description: string;
+  deadline?: string | null;
+  start_date?: string | null;
+  priority?: number;
+  sort_order?: number;
+  difficulty?: number | null;
+  parent_id?: number | null;
+};
+
 const optimizationSystemPrompt = `你是一个专业的任务优化操作员。
 你的职责是通过调用工具对现有的任务树进行全面优化。
 
@@ -175,14 +213,32 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const deepseekFetch: typeof globalThis.fetch = (input, init) => {
+      const body = init?.body;
+      if (typeof body === "string") {
+        try {
+          const parsed = JSON.parse(body) as Record<string, unknown>;
+          const nextBody = JSON.stringify({
+            ...parsed,
+            thinking: { type: "disabled" },
+          });
+          return globalThis.fetch(input as never, ({ ...init, body: nextBody } as never));
+        } catch {
+          return globalThis.fetch(input as never, init as never);
+        }
+      }
+
+      return globalThis.fetch(input as never, init as never);
+    };
+
     const openai = createOpenAI({
       apiKey,
       baseURL: Deno.env.get("DEEPSEEK_BASE_URL") || "https://api.deepseek.com",
+      fetch: deepseekFetch,
     });
 
     const modelName = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-v4-flash";
-    
-    // 检查是否使用了 thinking 模式的模型
+
     if (modelName.includes("reasoner")) {
       console.warn(`Warning: Model "${modelName}" supports thinking mode which may cause issues. Consider using "deepseek-v4-flash" instead.`);
     }
@@ -206,7 +262,7 @@ Deno.serve(async (req: Request) => {
             start_date: z.string().nullable().optional(),
             reason: z.string().max(300).optional(),
           }),
-          execute: async (input) => {
+          execute: async (input: UpdateTaskScheduleInput) => {
             const { data: existed, error: findError } = await supabase
               .from("todos")
               .select("id, status")
@@ -260,7 +316,7 @@ Deno.serve(async (req: Request) => {
               difficulty: z.number().nullable().optional(),
             })).min(1).max(10),
           }),
-          execute: async (input) => {
+          execute: async (input: BreakdownTaskInput) => {
             const { data: parent, error: parentError } = await supabase
               .from("todos")
               .select("id")
@@ -312,7 +368,7 @@ Deno.serve(async (req: Request) => {
             task_ids: z.array(z.number().int()).min(1).max(30),
             reason: z.string().max(300).optional(),
           }),
-          execute: async (input) => {
+          execute: async (input: AggregateTasksInput) => {
             const { data: parent, error: parentError } = await supabase
               .from("todos")
               .select("id")
@@ -380,7 +436,7 @@ Deno.serve(async (req: Request) => {
             difficulty: z.number().nullable().optional(),
             parent_id: z.number().int().nullable().optional(),
           }),
-          execute: async (input) => {
+          execute: async (input: RecommendationTaskInput) => {
             const parentId = input.parent_id ?? null;
             if (parentId != null) {
               const { data: parent, error: parentError } = await supabase
