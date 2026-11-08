@@ -7,7 +7,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 type TodoRow = {
   id: number;
   user_id: string;
-  parent_id: number | null;
+  child_ids: number[] | null;
   title: string;
   details: string | null;
   deadline: string | null;
@@ -100,7 +100,7 @@ function sanitizeIsoDatetime(value: unknown): string | null {
 async function fetchActiveTodos(supabase: SupabaseClient, userId: string): Promise<TodoRow[]> {
   const { data, error } = await supabase
     .from("todos")
-    .select("id, user_id, parent_id, title, details, deadline, difficulty, completed_at, created_at, updated_at")
+    .select("id, user_id, child_ids, title, details, deadline, difficulty, completed_at, created_at, updated_at")
     .eq("user_id", userId)
     .is("deleted_at", null)
     .order("id", { ascending: true });
@@ -110,30 +110,6 @@ async function fetchActiveTodos(supabase: SupabaseClient, userId: string): Promi
   }
 
   return (data || []) as TodoRow[];
-}
-
-function buildParentMap(todos: TodoRow[]): Map<number, number | null> {
-  const map = new Map<number, number | null>();
-  for (const t of todos) {
-    map.set(t.id, t.parent_id ?? null);
-  }
-  return map;
-}
-
-function createsCycle(parentMap: Map<number, number | null>, movingTaskId: number, targetParentId: number): boolean {
-  if (movingTaskId === targetParentId) return true;
-
-  const visited = new Set<number>();
-  let cursor: number | null = targetParentId;
-
-  while (cursor != null) {
-    if (cursor === movingTaskId) return true;
-    if (visited.has(cursor)) break;
-    visited.add(cursor);
-    cursor = parentMap.get(cursor) ?? null;
-  }
-
-  return false;
 }
 
 Deno.serve(async (req: Request) => {
@@ -300,26 +276,29 @@ Deno.serve(async (req: Request) => {
               return { ok: false, error: "parent task not found" };
             }
 
-            const rows = input.children.map((child) => ({
-              user_id: user.id,
-              parent_id: input.parent_task_id,
-              title: child.title.trim().slice(0, 200),
-              details: child.details?.trim() || null,
-              deadline: sanitizeIsoDatetime(child.deadline),
-              sort_order: typeof child.sort_order === "number" ? child.sort_order : null,
-              difficulty: typeof child.difficulty === "number" ? child.difficulty : null,
-            }));
+            // 逐个创建并挂到父节点的子列表下, 单个函数完成建与挂
+            const createdChildIds: number[] = [];
+            for (const child of input.children) {
+              const { data, error } = await supabase
+                .rpc("create_todo", {
+                  p_title: child.title.trim().slice(0, 200),
+                  p_details: child.details?.trim() || null,
+                  p_deadline: sanitizeIsoDatetime(child.deadline),
+                  p_sort_order: typeof child.sort_order === "number" ? child.sort_order : null,
+                  p_difficulty: typeof child.difficulty === "number" ? child.difficulty : null,
+                  p_completed_at: null,
+                  p_parent_id: input.parent_task_id,
+                });
 
-            const { data, error } = await supabase
-              .from("todos")
-              .insert(rows)
-              .select("id");
+              if (error) {
+                return { ok: false, error: error.message };
+              }
 
-            if (error) {
-              return { ok: false, error: error.message };
+              if (data && typeof data.id === "number") {
+                createdChildIds.push(data.id);
+              }
             }
 
-            const createdChildIds = (data || []).map((x: { id: number }) => x.id);
             changes.breakdowns.push({
               parentId: input.parent_task_id,
               createdChildIds,
@@ -351,7 +330,7 @@ Deno.serve(async (req: Request) => {
 
             const { data: tasks, error: tasksError } = await supabase
               .from("todos")
-              .select("id, parent_id")
+              .select("id")
               .eq("user_id", user.id)
               .is("deleted_at", null)
               .in("id", input.task_ids);
@@ -360,27 +339,27 @@ Deno.serve(async (req: Request) => {
               return { ok: false, error: tasksError.message };
             }
 
-            const allTodos = await fetchActiveTodos(supabase, user.id);
-            const parentMap = buildParentMap(allTodos);
-
-            const movable = (tasks || []).filter((t: { id: number; parent_id: number | null }) => {
-              return !createsCycle(parentMap, t.id, input.target_parent_id);
-            });
-
-            const movableIds = movable.map((t: { id: number }) => t.id);
+            const movableIds = (tasks || []).map((t: { id: number }) => t.id);
             if (movableIds.length === 0) {
-              return { ok: false, error: "no movable tasks after cycle check" };
+              return { ok: false, error: "no movable tasks" };
             }
 
-            const { error: updateError } = await supabase
-              .from("todos")
-              .update({ parent_id: input.target_parent_id })
-              .eq("user_id", user.id)
-              .is("deleted_at", null)
-              .in("id", movableIds);
+            // 先从所有父节点摘除, 再挂到目标父节点; 允许形成环
+            const { error: detachError } = await supabase
+              .rpc("detach_todo_children", { p_child_ids: movableIds });
 
-            if (updateError) {
-              return { ok: false, error: updateError.message };
+            if (detachError) {
+              return { ok: false, error: detachError.message };
+            }
+
+            const { error: attachError } = await supabase
+              .rpc("append_todo_children", {
+                p_parent_id: input.target_parent_id,
+                p_child_ids: movableIds,
+              });
+
+            if (attachError) {
+              return { ok: false, error: attachError.message };
             }
 
             changes.aggregations.push({
@@ -418,21 +397,16 @@ Deno.serve(async (req: Request) => {
               }
             }
 
-            const payload = {
-              user_id: user.id,
-              title: input.title.trim().slice(0, 200),
-              details: input.details.trim().slice(0, 1200),
-              deadline: sanitizeIsoDatetime(input.deadline),
-              parent_id: parentId,
-              sort_order: typeof input.sort_order === "number" ? input.sort_order : null,
-              difficulty: typeof input.difficulty === "number" ? input.difficulty : null,
-            };
-
             const { data, error } = await supabase
-              .from("todos")
-              .insert(payload)
-              .select("id, title, details")
-              .single();
+              .rpc("create_todo", {
+                p_title: input.title.trim().slice(0, 200),
+                p_details: input.details.trim().slice(0, 1200),
+                p_deadline: sanitizeIsoDatetime(input.deadline),
+                p_sort_order: typeof input.sort_order === "number" ? input.sort_order : null,
+                p_difficulty: typeof input.difficulty === "number" ? input.difficulty : null,
+                p_completed_at: null,
+                p_parent_id: parentId,
+              });
 
             if (error) {
               return { ok: false, error: error.message };

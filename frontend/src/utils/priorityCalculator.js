@@ -41,7 +41,7 @@ export function calculatePriority(todo, allTodos = []) {
     breakdown: {
       daysUntilDeadline: calculateDaysUntilDeadline(todo),
       progressPercent: calculateProgressPercent(todo, allTodos),
-      childCount: countChildren(todo.id, allTodos),
+      childCount: countChildren(todo, allTodos),
       completed: Boolean(todo.completed_at)
     }
   }
@@ -91,12 +91,19 @@ function calculateUrgencyScore(todo) {
  * 任务进度百分比: 有子任务时按直接子任务完成比例, 否则按自身完成状态
  */
 function calculateProgressPercent(todo, allTodos) {
-  const children = allTodos ? allTodos.filter(child => child.parent_id === todo.id) : []
+  const children = getChildren(todo, allTodos)
   if (children.length > 0) {
     const doneCount = children.filter(child => child.completed_at).length
     return Math.round((doneCount / children.length) * 100)
   }
   return todo.completed_at ? 100 : 0
+}
+
+// 子任务由父节点的 child_ids 声明
+function getChildren(todo, allTodos) {
+  if (!allTodos || !todo || !Array.isArray(todo.child_ids)) return []
+  const childIds = new Set(todo.child_ids)
+  return allTodos.filter(item => childIds.has(item.id))
 }
 
 /**
@@ -114,7 +121,7 @@ function calculateProgressScore(todo, allTodos) {
  * 有更多子任务的任务优先级更高（表示更复杂）
  */
 function calculateComplexityScore(todo, allTodos) {
-  const childCount = countChildren(todo.id, allTodos)
+  const childCount = countChildren(todo, allTodos)
 
   if (childCount === 0) {
     return 0.25 // 无子任务，复杂度低
@@ -147,9 +154,8 @@ function calculateDaysUntilDeadline(todo) {
 /**
  * 统计子任务数量
  */
-function countChildren(parentId, allTodos) {
-  if (!allTodos || allTodos.length === 0) return 0
-  return allTodos.filter(todo => todo.parent_id === parentId).length
+function countChildren(todo, allTodos) {
+  return getChildren(todo, allTodos).length
 }
 
 /**

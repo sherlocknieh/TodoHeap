@@ -42,8 +42,16 @@ onMounted(async () => {
 	}
 })
 
+// 回边节点只是引用, 不能当作真实任务编辑或删除
+const isBackReference = (payload) => {
+	const uid = payload?.uid || payload?.data?.uid
+	return typeof uid === 'string' && uid.startsWith('ref:')
+}
+
 // 处理节点内容变化事件
-const onNodeContentChange = async ({ id, text }) => {
+const onNodeContentChange = async (payload) => {
+	if (isBackReference(payload)) return
+	const { id, text } = payload
 	if (!id) return // 如果没有 ID，直接返回
 	try {
 		await todoStore.updateTodo(id, { title: text }) // 更新待办事项的标题
@@ -63,7 +71,9 @@ const onNodeInsert = async ({ text, parentId }) => {
 }
 
 // 处理节点删除事件
-const onNodeDelete = async ({ id }) => {
+const onNodeDelete = async (payload) => {
+	if (isBackReference(payload)) return
+	const id = payload?.id ?? payload?.data?.id
 	if (!id) return // 如果没有 ID，直接返回
 	try {
 		await todoStore.deleteTodo(id) // 删除待办事项
@@ -209,11 +219,11 @@ const mindMapData = computed(() => {
 	// 递归构建节点并保留 treeNodes 中的排序结果
 	const buildNode = (todo) => ({
 		data: createNodeData(
-			todo.title || '未命名任务', // 任务标题
-			todo.id.toString(), // 任务 ID 作为 UID
+			todo._isRef ? `↩ ${todo.title || '未命名任务'}` : (todo.title || '未命名任务'),
+			todo._isRef ? todo.id : todo.id.toString(), // 回边节点用合成 UID, 避免与目标节点冲突
 			{
 				completed_at: todo.completed_at || null, // 完成时间
-				id: todo.id // 任务 ID
+				id: todo._isRef ? todo._refTargetId : todo.id // 回边指向真实任务
 			}
 		),
 		children: [] // 初始化子节点为空

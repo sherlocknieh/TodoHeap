@@ -39,7 +39,7 @@ Double-click a task title: Enter saves, Esc cancels.
 
 ### Hierarchy
 
-Tasks support unlimited nesting through `parent_id`.
+Tasks support unlimited nesting: each task stores its `child_ids`. A task can appear under multiple parents, and cycles are allowed; the list and tree views show the first occurrence in full and mark later references as back-links.
 
 - Add a child: the `+` button on a task row
 - Change hierarchy: insert or re-parent nodes in the tree view

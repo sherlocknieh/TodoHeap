@@ -3,10 +3,10 @@
     <template v-for="item in flatList">
       <li v-if="isItemVisible(item)" :key="item.id" data-task-item :class="[
         'group flex items-center gap-2 py-1.5 pr-2 cursor-pointer border-l-2 transition-colors',
-        selectedTaskId === item.id
+        selectedTaskId === (item._isRef ? item._refTargetId : item.id)
           ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-500 dark:border-accent-400'
           : 'border-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
-      ]" :style="{ paddingLeft: (6 + item._level * 18) + 'px' }" @click="selectTask(item.id)">
+      ]" :style="{ paddingLeft: (6 + item._level * 18) + 'px' }" @click="selectTask(item)">
         <!-- 展开/折叠 -->
         <button v-if="item.children && item.children.length"
           class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
@@ -16,7 +16,7 @@
         <span v-else class="w-[17px] shrink-0"></span>
 
         <!-- 完成状态 -->
-        <button type="button"
+        <button v-if="!item._isRef" type="button"
           class="shrink-0 grid place-items-center w-[15px] h-[15px] rounded-[3px] border transition-colors"
           :class="statusMap[item.id] === 'checked'
             ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
@@ -24,14 +24,17 @@
           :aria-pressed="statusMap[item.id] === 'checked'" @click.stop="cycleStatus(item)">
           <AppIcon name="check" :size="10" />
         </button>
+        <span v-else class="w-[15px] shrink-0"></span>
 
         <!-- 标题与元信息 -->
         <div class="flex-1 min-w-0">
           <span v-if="editingId !== item.id" :class="[
             'block text-sm leading-6 text-neutral-800 dark:text-neutral-200 break-words',
-            { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at }
-          ]" @dblclick.stop="startEdit(item.id, item.title)">
-            {{ item.title || '未命名任务' }}
+            { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
+          ]" @dblclick.stop="item._isRef ? null : startEdit(item.id, item.title)">
+            <AppIcon v-if="item._isRef" name="link" :size="11"
+              class="inline-block mr-1 -mt-0.5 text-neutral-400 dark:text-neutral-500" />
+            <span :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }">{{ item.title || '未命名任务' }}</span>
           </span>
           <input v-else :id="'edit-input-' + item.id" v-model="editingText"
             class="w-full bg-transparent text-sm leading-6 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
@@ -48,7 +51,7 @@
         </div>
 
         <!-- 行内操作 -->
-        <div class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+        <div v-if="!item._isRef" class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           <button
             class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
             title="添加子任务" @click.stop="emitAddSubtask(item.id)">
@@ -175,6 +178,7 @@ const statusMap = ref({})
 
 function initStatusMap() {
   flatList.value.forEach(item => {
+    if (item._isRef) return
     if (item.completed_at) statusMap.value[item.id] = 'checked'
     else statusMap.value[item.id] = 'unchecked'
   })
@@ -187,6 +191,7 @@ watch(flatList, (newList) => {
 
   // 同步已有节点状态，避免远程更新后 UI 状态滞后
   newList.forEach(item => {
+    if (item._isRef) return
     if (item.completed_at) statusMap.value[item.id] = 'checked'
     else statusMap.value[item.id] = 'unchecked'
 
@@ -308,8 +313,8 @@ function finishEdit(id, source = 'enter') {
   editingText.value = ''
 }
 
-function selectTask(id) {
-  emitTaskSelected(id)
+function selectTask(item) {
+  emitTaskSelected(item._isRef ? item._refTargetId : item.id)
 }
 
 function formatDeadline(deadline) {

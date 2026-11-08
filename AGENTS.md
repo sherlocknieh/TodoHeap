@@ -85,7 +85,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 ## Supabase
 
-`todos` 表：`id, user_id, parent_id, title, details, deadline, difficulty(工时, DECIMAL(5,2)), sort_order, completed_at, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
+`todos` 表：`id, user_id, child_ids(BIGINT[] 子任务 ID 列表), title, details, deadline, difficulty(工时, DECIMAL(5,2)), sort_order, completed_at, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
 `user_settings` 表：用户偏好，如 `autoApplyAITasks`。
 `schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, start_at, end_at, created_at, updated_at`；已启 RLS 与 Realtime。
 

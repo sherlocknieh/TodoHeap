@@ -91,7 +91,7 @@ onMounted(async () => {
 })
 
 const filteredTree = computed(() => todoStore.treeNodes)
-const countNodes = (list) => list.reduce((acc, n) => acc + 1 + countNodes(n.children || []), 0)
+const countNodes = (list) => list.reduce((acc, n) => acc + (n._isRef ? 0 : 1) + countNodes(n.children || []), 0)
 const visibleCount = computed(() => countNodes(filteredTree.value))
 
 const addTodo = async () => {

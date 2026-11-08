@@ -109,6 +109,14 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
       if (item.payload?.parent_id == oldId) {
         item.payload.parent_id = newId
       }
+      // 子列表里也可能引用临时ID
+      if (Array.isArray(item.payload?.child_ids)) {
+        item.payload.child_ids = item.payload.child_ids.map(id => (id == oldId ? newId : id))
+      }
+      // 批量永久删除也会携带 ID 列表
+      if (Array.isArray(item.payload?.ids)) {
+        item.payload.ids = item.payload.ids.map(id => (id == oldId ? newId : id))
+      }
     })
   }
 
@@ -328,7 +336,7 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
           return await executeRestore(realTargetId)
         
         case OperationType.PERMANENT_DELETE:
-          return await executePermanentDelete(realTargetId)
+          return await executePermanentDelete(realTargetId, payload)
         
         case OperationType.BATCH_RESTORE:
           return await executeBatchRestore(payload)
@@ -358,26 +366,25 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
   // 执行添加操作
   const executeAdd = async (item) => {
     const { payload, targetId } = item
-    
-    // 构建插入数据 (排除临时ID)
-    const insertData = { ...payload }
-    delete insertData.id
-    
-    // 如果 parent_id 是临时ID，需要替换为真实ID
-    if (insertData.parent_id && isTempId(insertData.parent_id)) {
-      const realParentId = getRealId(insertData.parent_id)
-      if (isTempId(realParentId)) {
-        // 父任务还没有真实ID，等待
-        return { success: false, isNetworkError: true }
-      }
-      insertData.parent_id = realParentId
+
+    // 父任务的临时ID必须先落地, 否则子任务无法挂载
+    const parentId = payload.parent_id ?? null
+    const realParentId = parentId != null ? getRealId(parentId) : null
+    if (realParentId != null && isTempId(realParentId)) {
+      return { success: false, isNetworkError: true }
     }
 
+    // 创建与挂载在同一个函数内完成, 避免只建出孤立任务
     const { data, error } = await supabase
-      .from('todos')
-      .insert(insertData)
-      .select()
-      .single()
+      .rpc('create_todo', {
+        p_title: payload.title,
+        p_details: payload.details ?? null,
+        p_deadline: payload.deadline ?? null,
+        p_sort_order: payload.sort_order ?? null,
+        p_difficulty: payload.difficulty ?? null,
+        p_completed_at: payload.completed_at ?? null,
+        p_parent_id: realParentId
+      })
 
     if (error) {
       // 检查是否是认证错误
@@ -464,12 +471,20 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     return { success: true, data }
   }
 
-  // 执行永久删除操作
-  const executePermanentDelete = async (id) => {
+  // 执行永久删除操作 (连同级联的后代一起删, 服务端会从父节点子列表移除)
+  const executePermanentDelete = async (id, payload = {}) => {
+    const rawIds = Array.isArray(payload.ids) && payload.ids.length ? payload.ids : [id]
+    // 临时ID还没有服务端记录, 只处理已落地的 ID
+    const ids = rawIds
+      .map(tempId => getRealId(tempId))
+      .filter(realId => !isTempId(realId))
+    if (ids.length === 0) {
+      return { success: true }
+    }
     const { error } = await supabase
       .from('todos')
       .delete()
-      .eq('id', id)
+      .in('id', ids)
 
     if (error) {
       if (error.code === '401' || error.message?.includes('JWT')) {

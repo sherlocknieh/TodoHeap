@@ -83,9 +83,9 @@ describe('createTodoOptimisticActions', () => {
 
   it('deleteTodo 应级联移除后代并写入垃圾箱与同步队列', async () => {
     todosRef.value = [
-      { id: 1, title: '父任务', parent_id: null, deleted_at: null },
-      { id: 2, title: '子任务', parent_id: 1, deleted_at: null },
-      { id: 3, title: '无关任务', parent_id: null, deleted_at: null }
+      { id: 1, title: '父任务', child_ids: [2], deleted_at: null },
+      { id: 2, title: '子任务', child_ids: [], deleted_at: null },
+      { id: 3, title: '无关任务', child_ids: [], deleted_at: null }
     ]
     trashTodosRef.value = []
     trashLoadingRef.value = false
@@ -101,6 +101,19 @@ describe('createTodoOptimisticActions', () => {
       type: OperationType.DELETE,
       targetId: 1
     }))
+  })
+
+  it('deleteTodo 在环中不会无限递归', async () => {
+    todosRef.value = [
+      { id: 1, title: 'A', child_ids: [2], deleted_at: null },
+      { id: 2, title: 'B', child_ids: [1], deleted_at: null }
+    ]
+
+    const result = await actions.deleteTodo(1)
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value).toEqual([])
+    expect(trashTodosRef.value.map(item => item.id).sort()).toEqual([1, 2])
   })
 
   it('restoreAllTrash 应恢复所有任务并加入批量恢复队列', async () => {

@@ -9,6 +9,7 @@ import { createBreakdownActions } from './todos.breakdown'
 import { createTodosRealtimeManager } from './todos.realtime'
 import { createTodoOptimisticActions } from './todos.optimistic'
 import { createTodoRollbackHandler } from './todos.rollback'
+import { buildTaskForest } from '@/utils/taskGraph'
 
 
 export const useTodoStore = defineStore('todos', () => {
@@ -68,39 +69,6 @@ export const useTodoStore = defineStore('todos', () => {
     OperationType
   })
 
-  // 通用树构建器
-  const buildTreeNodes = (items, mapItem, sortFn, setNodeMeta) => {
-    const nodes = items.map((item) => ({ ...mapItem(item), children: [] }))
-    const map = new Map()
-    nodes.forEach((n) => map.set(n.id, n))
-
-    const roots = []
-    nodes.forEach((n) => {
-      if (n.parent_id && map.has(n.parent_id)) {
-        map.get(n.parent_id).children.push(n)
-      } else {
-        roots.push(n)
-      }
-    })
-
-    if (setNodeMeta) {
-      const walk = (arr, depth = 0) => {
-        arr.forEach(node => {
-          setNodeMeta(node, depth)
-          walk(node.children, depth + 1)
-        })
-      }
-      walk(roots, 0)
-    }
-
-    const sortTree = (arr) => {
-      arr.sort(sortFn)
-      arr.forEach((child) => sortTree(child.children))
-    }
-    sortTree(roots)
-    return roots
-  }
-
   const todoTitleCollator = new Intl.Collator('zh-Hans-CN', {
     sensitivity: 'base',
     numeric: true
@@ -140,10 +108,22 @@ export const useTodoStore = defineStore('todos', () => {
   // ID替换事件处理 (临时ID -> 真实ID)
   const handleIdReplaced = (event) => {
     const { tempId, realId, data } = event.detail
+
+    // 子列表中引用的临时ID也要替换, 否则父节点会指向已消失的本地ID
+    todos.value.forEach((todo) => {
+      if (Array.isArray(todo.child_ids)) {
+        todo.child_ids = todo.child_ids.map((id) => (id === tempId ? realId : id))
+      }
+    })
+
     const index = todos.value.findIndex(t => t.id === tempId)
     if (index !== -1) {
-      // 更新为服务器返回的完整数据
-      todos.value[index] = data
+      const localChildIds = todos.value[index].child_ids || []
+      // 服务器刚创建的任务还没有子节点, 合并本地已挂上的子任务
+      todos.value[index] = {
+        ...data,
+        child_ids: [...new Set([...(data.child_ids || []), ...localChildIds])]
+      }
     }
   }
 
@@ -271,18 +251,34 @@ export const useTodoStore = defineStore('todos', () => {
     }
   })
 
+  // 已同步的父节点不会知道本地尚未同步的子任务, 渲染前补上这些临时引用
+  const withLocalChildLinks = (items) => {
+    const syncQueue = getSyncQueue()
+    const pendingLinks = items.filter((item) => item.parent_id != null && syncQueue.isTempId(item.id))
+    if (pendingLinks.length === 0) return items
+
+    return items.map((item) => {
+      const pendingChildIds = pendingLinks
+        .filter((child) => child.parent_id === item.id)
+        .map((child) => child.id)
+      if (pendingChildIds.length === 0) return item
+      return {
+        ...item,
+        child_ids: [...new Set([...(item.child_ids || []), ...pendingChildIds])]
+      }
+    })
+  }
+
   // Getters - 树形结构
   const treeNodes = computed(() => {
     const syncQueue = getSyncQueue()
 
-    return buildTreeNodes(
-      todos.value,
-      (item) => ({
+    return buildTaskForest(withLocalChildLinks(todos.value), {
+      mapItem: (item) => ({
         id: item.id,
         title: item.title,
         details: item.details || '',
         completed_at: item.completed_at || null,
-        parent_id: item.parent_id,
         deadline: item.deadline || null,
         sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
         difficulty: item.difficulty ?? null,
@@ -290,8 +286,8 @@ export const useTodoStore = defineStore('todos', () => {
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
       }),
-      compareTodos
-    )
+      sortFn: compareTodos
+    })
   })
 
   // Getters - 垃圾箱树形结构
@@ -306,14 +302,12 @@ export const useTodoStore = defineStore('todos', () => {
       return a.id - b.id
     }
 
-    return buildTreeNodes(
-      trashTodos.value,
-      (item) => ({
+    return buildTaskForest(trashTodos.value, {
+      mapItem: (item) => ({
         id: item.id,
         title: item.title,
         details: item.details || '',
         completed_at: item.completed_at || null,
-        parent_id: item.parent_id,
         deadline: item.deadline || null,
         sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
         difficulty: item.difficulty ?? null,
@@ -322,10 +316,10 @@ export const useTodoStore = defineStore('todos', () => {
         _depth: 0
       }),
       sortFn,
-      (node, depth) => {
+      setNodeMeta: (node, depth) => {
         node._depth = depth
       }
-    )
+    })
   })
 
   return {

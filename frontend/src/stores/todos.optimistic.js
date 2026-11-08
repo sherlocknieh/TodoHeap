@@ -1,4 +1,6 @@
 // Todo 乐观更新与级联操作
+import { collectDescendantIds, findParentIds } from '@/utils/taskGraph'
+
 export const createTodoOptimisticActions = ({
   todosRef,
   trashTodosRef,
@@ -20,20 +22,6 @@ export const createTodoOptimisticActions = ({
     return todosRef.value.findIndex(t => t.id === id || t.id === realId)
   }
 
-  const collectDescendantIds = (sourceTodos, parentId) => {
-    const descendants = []
-    const findChildren = (pid) => {
-      sourceTodos.forEach(t => {
-        if (t.parent_id === pid) {
-          descendants.push(t.id)
-          findChildren(t.id)
-        }
-      })
-    }
-    findChildren(parentId)
-    return descendants
-  }
-
   const collectTodosByIds = (sourceTodos, ids) => {
     if (!ids.length) return []
     return ids
@@ -44,6 +32,15 @@ export const createTodoOptimisticActions = ({
 
   const removeTodosByIds = (targetRef, idsToRemove) => {
     targetRef.value = targetRef.value.filter(t => !idsToRemove.has(t.id))
+  }
+
+  // 永久删除后把 ID 从所有父节点的子列表里剔除
+  const detachChildIds = (sourceTodos, idsToRemove) => {
+    sourceTodos.forEach((todo) => {
+      if (Array.isArray(todo.child_ids)) {
+        todo.child_ids = todo.child_ids.filter((id) => !idsToRemove.has(id))
+      }
+    })
   }
 
   const prependUniqueTodos = (targetRef, items) => {
@@ -91,13 +88,16 @@ export const createTodoOptimisticActions = ({
 
     const syncQueue = getSyncQueue()
     const tempId = syncQueue.generateTempId()
+    const parentId = options.parent_id ?? null
 
     const newTodo = {
       id: tempId,
       title: title.trim(),
       user_id: auth.user.id,
       completed_at: null,
-      parent_id: options.parent_id || null,
+      child_ids: [],
+      // 仅本地保留的父引用, 用于延迟同步时补入 ADD 队列
+      parent_id: parentId,
       deadline: options.deadline || null,
       details: options.details || null,
       sort_order: Number.isFinite(options.sort_order) ? options.sort_order : null,
@@ -108,6 +108,14 @@ export const createTodoOptimisticActions = ({
     }
 
     todosRef.value.push(newTodo)
+
+    // 子列表由父节点保存, 先把临时ID挂到父节点上
+    if (parentId != null) {
+      const parent = todosRef.value.find(t => t.id === parentId)
+      if (parent) {
+        parent.child_ids = [...(parent.child_ids || []), tempId]
+      }
+    }
 
     // 延迟同步：先仅本地创建，待首次编辑后再入队 ADD
     if (options.deferSync) {
@@ -121,7 +129,7 @@ export const createTodoOptimisticActions = ({
         title: newTodo.title,
         user_id: newTodo.user_id,
         completed_at: newTodo.completed_at,
-        parent_id: newTodo.parent_id,
+        parent_id: parentId,
         deadline: newTodo.deadline,
         details: newTodo.details,
         sort_order: newTodo.sort_order,
@@ -169,7 +177,7 @@ export const createTodoOptimisticActions = ({
           title: current.title,
           user_id: current.user_id,
           completed_at: current.completed_at,
-          parent_id: current.parent_id,
+          parent_id: current.parent_id ?? null,
           deadline: current.deadline,
           details: current.details,
           sort_order: current.sort_order,
@@ -280,11 +288,13 @@ export const createTodoOptimisticActions = ({
     saveCascadeSnapshots(syncQueue, id, context.rootTodo, context.descendantSnapshots, `${id}-trash-descendants`)
 
     removeTodosByIds(trashTodosRef, context.idsToRemove)
+    detachChildIds(todosRef.value, context.idsToRemove)
+    detachChildIds(trashTodosRef.value, context.idsToRemove)
 
     await syncQueue.enqueue({
       type: OperationType.PERMANENT_DELETE,
       targetId: id,
-      payload: {}
+      payload: { ids: [...context.idsToRemove] }
     })
 
     return { success: true }
@@ -335,11 +345,20 @@ export const createTodoOptimisticActions = ({
     const todo = trashTodosRef.value.find(t => t.id === id)
     if (!todo) return { canRestore: false, reason: '任务不存在' }
 
-    if (!todo.parent_id) {
+    const parentIds = findParentIds(trashTodosRef.value, id)
+    if (parentIds.length === 0) {
       return { canRestore: true }
     }
 
-    const parentInTrash = trashTodosRef.value.find(t => t.id === todo.parent_id)
+    // 环内的父子会互相阻塞, 检测到回路时允许整体恢复
+    const inCycle = parentIds.some(
+      (parentId) => parentId === id || collectDescendantIds(trashTodosRef.value, parentId).includes(id)
+    )
+    if (inCycle) {
+      return { canRestore: true }
+    }
+
+    const parentInTrash = trashTodosRef.value.find(t => parentIds.includes(t.id))
     if (parentInTrash) {
       return {
         canRestore: false,

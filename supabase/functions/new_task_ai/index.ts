@@ -37,10 +37,10 @@ interface CreateTodoArgs {
   difficulty?: number | null;  // 估算工时
 }
 
-// 从数据库查询的任务父节点结构
-interface TodoParentNode {
-  id: number;           // 任务 ID
-  parent_id: number | null; // 父任务 ID
+// 从数据库查询的任务图节点结构
+interface TodoGraphRow {
+  id: number;               // 任务 ID
+  child_ids: number[] | null; // 子任务 ID 列表
 }
 
 // ==================== AI 工具定义 ====================
@@ -153,79 +153,48 @@ function detectUserLanguage(text: string): string {
   return "English";
 }
 
-// 获取指定任务的父节点信息（ID 和 parent_id）
-// 返回 null 表示任务不存在或属于其他用户
-async function getTodoParentNode(
+// 拉取当前用户的任务图: 父节点保存子列表
+// 内存索引避免逐层查询祖先
+async function fetchTodoGraph(
   supabase: ReturnType<typeof createSupabaseClient>,
   userId: string,
-  todoId: number,
-): Promise<TodoParentNode | null> {
+): Promise<Map<number, number[]>> {
   const { data, error } = await supabase
     .from("todos")
-    .select("id, parent_id")
-    .eq("id", todoId)
+    .select("id, child_ids")
     .eq("user_id", userId)
-    .is("deleted_at", null)
-    .maybeSingle();
+    .is("deleted_at", null);
 
-  if (error || !data) return null;
-  return data as TodoParentNode;
+  if (error || !data) return new Map();
+  return new Map(
+    (data as TodoGraphRow[]).map((row) => [row.id, row.child_ids || []]),
+  );
 }
 
-// 验证指定的父任务是否属于当前用户
-// 防止用户将任务关联到他人的任务
-async function ensureParentBelongsToUser(
-  supabase: ReturnType<typeof createSupabaseClient>,
-  userId: string,
-  parentId: number | null,
-): Promise<number | null> {
-  if (!parentId) return null;
+// 判断任务是否在根任务的子图中
+// 沿 child_ids 广度遍历, visited 保证环不会死循环
+function isWithinRoot(
+  graph: Map<number, number[]>,
+  rootId: number | null,
+  candidateId: number | null,
+): boolean {
+  if (rootId == null) return true;
+  if (candidateId == null) return false;
 
-  const { data, error } = await supabase
-    .from("todos")
-    .select("id")
-    .eq("id", parentId)
-    .eq("user_id", userId)
-    .is("deleted_at", null)
-    .maybeSingle();
+  const visited = new Set<number>([rootId]);
+  const queue: number[] = [rootId];
 
-  if (error || !data) {
-    return null;
+  while (queue.length > 0) {
+    const id = queue.shift() as number;
+    if (id === candidateId) return true;
+    for (const childId of graph.get(id) || []) {
+      if (visited.has(childId)) continue;
+      visited.add(childId);
+      queue.push(childId);
+    }
   }
 
-  return data.id;
-}
-
-// 验证任务在根节点树内
-// 如果请求的父 ID 不在指定根下，则回退到根 ID
-// 防止任务跨越到其他树结构
-async function ensureParentWithinRoot(
-  supabase: ReturnType<typeof createSupabaseClient>,
-  userId: string,
-  requestedParentId: number | null,
-  rootParentId: number | null,
-): Promise<number | null> {
-  if (rootParentId == null) {
-    return ensureParentBelongsToUser(supabase, userId, requestedParentId);
-  }
-
-  if (requestedParentId == null) return rootParentId;
-
-  const candidate = await getTodoParentNode(supabase, userId, requestedParentId);
-  if (!candidate) return rootParentId;
-  if (candidate.id === rootParentId) return rootParentId;
-
-  let cursor: number | null = candidate.parent_id;
-  let depth = 0;
-  while (cursor != null && depth < 50) {
-    if (cursor === rootParentId) return requestedParentId;
-    const parent = await getTodoParentNode(supabase, userId, cursor);
-    if (!parent) return rootParentId;
-    cursor = parent.parent_id;
-    depth += 1;
-  }
-
-  return rootParentId;
+  return false;
 }
 
 // ==================== 主处理函数 ====================
@@ -269,13 +238,14 @@ Deno.serve(async (req: Request) => {
     const model = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-v4-flash";
     const preferredLanguage = detectUserLanguage(body.query);
 
+    // 拉取任务图, 用于校验父任务归属与根内可达性
+    const todoGraph = await fetchTodoGraph(supabase, user.id);
+
     // 根据用户请求获取初始父任务 ID
     // 用于后续所有创建的任务都在同一个任务树下
-    const rootParentId = await ensureParentBelongsToUser(
-      supabase,
-      user.id,
-      body.parentId ?? null,
-    );
+    const rootParentId = body.parentId != null && todoGraph.has(body.parentId)
+      ? body.parentId
+      : null;
 
     // 构建对话消息
     // 包含系统提示、用户 ID、父 ID 信息、语言要求和用户输入
@@ -338,39 +308,33 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        // 验证父任务是否属于当前用户
-        const parentId = await ensureParentBelongsToUser(
-          supabase,
-          user.id,
-          typeof parsedArgs.parent_id === "number" ? parsedArgs.parent_id : null,
-        );
+        // 父任务必须存在且属于当前用户
+        const requestedParentId = typeof parsedArgs.parent_id === "number" ? parsedArgs.parent_id : null;
+        const parentId = requestedParentId != null && todoGraph.has(requestedParentId)
+          ? requestedParentId
+          : null;
 
-        // 验证任务在指定的根任务树下
-        // 防止跨树关联
-        const finalParentId = await ensureParentWithinRoot(
-          supabase,
-          user.id,
-          parentId,
-          sessionRootId,
-        );
+        // 校验任务在根任务图的子图内, 越界则挂回根任务
+        let finalParentId = parentId;
+        if (sessionRootId != null) {
+          if (parentId == null) {
+            finalParentId = sessionRootId;
+          } else if (!isWithinRoot(todoGraph, sessionRootId, parentId)) {
+            finalParentId = sessionRootId;
+          }
+        }
 
-        // 构建任务数据：验证和规范化所有参数
-        const payload = {
-          user_id: user.id,
-          title: sanitizeTitle(parsedArgs.title),
-          details: sanitizeDetails(parsedArgs.details),
-          deadline: sanitizeDeadline(parsedArgs.deadline),
-          parent_id: finalParentId,
-          sort_order: sanitizeSortOrder(parsedArgs.sort_order),
-          difficulty: sanitizeDifficulty(parsedArgs.difficulty),
-        };
-
-        // 保存任务到数据库
+        // 创建任务并把新 ID 追加到父节点的子列表
         const { data, error } = await supabase
-          .from("todos")
-          .insert(payload)
-          .select("id, title, details, deadline, parent_id, sort_order, difficulty, created_at")
-          .single();
+          .rpc("create_todo", {
+            p_title: sanitizeTitle(parsedArgs.title),
+            p_details: sanitizeDetails(parsedArgs.details),
+            p_deadline: sanitizeDeadline(parsedArgs.deadline),
+            p_sort_order: sanitizeSortOrder(parsedArgs.sort_order),
+            p_difficulty: sanitizeDifficulty(parsedArgs.difficulty),
+            p_completed_at: null,
+            p_parent_id: finalParentId,
+          });
 
         if (error) {
           messages.push({
@@ -379,6 +343,14 @@ Deno.serve(async (req: Request) => {
             content: JSON.stringify({ ok: false, error: error.message }),
           });
           continue;
+        }
+
+        // 把新任务同步进内存图, 供后续轮次校验
+        if (data && typeof data.id === "number") {
+          todoGraph.set(data.id, []);
+          if (finalParentId != null) {
+            todoGraph.set(finalParentId, [...(todoGraph.get(finalParentId) || []), data.id]);
+          }
         }
 
         createdTasks.push(data as Record<string, unknown>);
