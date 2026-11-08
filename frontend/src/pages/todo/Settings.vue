@@ -46,7 +46,7 @@
           </nav>
 
           <!-- 内容 -->
-          <div class="panel p-6">
+          <div class="panel min-h-[25rem] p-6">
             <!-- 账户 -->
             <section v-if="activeTab === 'account'" class="space-y-8">
               <div>
