@@ -29,8 +29,8 @@ const emit = defineEmits(['close', 'switch-view', 'create-task'])
 // 为模板提供 `show` 绑定
 const show = computed(() => props.show)
 
-// 侧栏右缘可拖拽调宽，拖过最小宽度即收起
-const { width: sidebarWidth, resizing: sidebarResizing, start: startResize } = useResizablePanel({
+// 侧栏右缘可拖拽调宽，拖过最小宽度后再拖一段即收起
+const { width: sidebarWidth, resizing: sidebarResizing, collapseArmed: sidebarCollapseArmed, start: startResize } = useResizablePanel({
   key: 'sidebar-width',
   initial: 256,
   min: 200,
@@ -495,10 +495,10 @@ const switchView = (view) => {
       </template>
     </div>
 
-    <!-- 右缘拖拽条：拖过最小宽度后收起侧栏 -->
+    <!-- 右缘拖拽条：拖过最小宽度后继续拖一段才收起侧栏；进入收起待命时加深提示 -->
     <div
-      class="absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize touch-none transition-colors hover:bg-accent-500/30"
-      :class="sidebarResizing ? 'bg-accent-500/50' : ''"
+      class="absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize touch-none transition-colors"
+      :class="sidebarCollapseArmed ? 'bg-accent-700/60' : sidebarResizing ? 'bg-accent-500/50' : 'hover:bg-accent-500/30'"
       role="separator"
       aria-orientation="vertical"
       title="拖拽调整宽度，继续拖动即收起"

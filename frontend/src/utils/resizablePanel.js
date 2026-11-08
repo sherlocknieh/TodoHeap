@@ -1,12 +1,16 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { persistedRef } from './uiState'
 
-// 面板边缘拖拽调宽：宽度本地保留，拖过最小宽度即收起面板
+// 面板边缘拖拽调宽：宽度本地保留，拖过最小宽度后再多拖一段才收起面板
+const COLLAPSE_DISTANCE = 64
+
 export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 	const width = persistedRef(key, initial, {
 		validate: (value) => Number.isFinite(value) && value >= min
 	})
 	const resizing = ref(false)
+	// 已拖到最小宽度、继续拖就会收起，用于给出即将收起的提示
+	const collapseArmed = ref(false)
 	let detach = null
 
 	// 给主内容留出空间，两侧各自拖宽也不会把中栏挤没
@@ -15,6 +19,7 @@ export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 	const stop = () => {
 		if (!resizing.value) return
 		resizing.value = false
+		collapseArmed.value = false
 		detach?.()
 		detach = null
 		document.body.classList.remove('select-none')
@@ -29,17 +34,19 @@ export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 		const move = (e) => {
 			const delta = side === 'left' ? e.clientX - startX : startX - e.clientX
 			const next = startWidth + delta
-			// 拖过最小宽度后收起，本次拖拽不改动已记住的宽度
-			if (next < min) {
+			// 越过最小宽度后先停在最小宽度，再拖够缓冲距离才收起
+			if (next < min - COLLAPSE_DISTANCE) {
 				width.value = startWidth
 				stop()
 				onCollapse()
 				return
 			}
-			width.value = Math.min(Math.round(next), maxWidth())
+			collapseArmed.value = next < min
+			width.value = Math.min(Math.max(Math.round(next), min), maxWidth())
 		}
 
 		resizing.value = true
+		collapseArmed.value = false
 		document.body.classList.add('select-none')
 		window.addEventListener('pointermove', move)
 		window.addEventListener('pointerup', stop)
@@ -53,5 +60,5 @@ export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 
 	onBeforeUnmount(stop)
 
-	return { width, resizing, start }
+	return { width, resizing, collapseArmed, start }
 }

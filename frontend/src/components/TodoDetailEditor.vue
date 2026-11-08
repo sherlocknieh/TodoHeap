@@ -4,10 +4,10 @@
     // 已删除任务时整个面板显示禁用光标
     isDeleted ? 'cursor-not-allowed' : ''
   ]" :style="{ width: panelWidth + 'px' }">
-    <!-- 左缘拖拽条：拖过最小宽度后收起详情面板 -->
+    <!-- 左缘拖拽条：拖过最小宽度后继续拖一段才收起详情面板；进入收起待命时加深提示 -->
     <div
-      class="absolute inset-y-0 left-0 z-40 w-2 cursor-col-resize touch-none transition-colors hover:bg-accent-500/30"
-      :class="panelResizing ? 'bg-accent-500/50' : ''"
+      class="absolute inset-y-0 left-0 z-40 w-2 cursor-col-resize touch-none transition-colors"
+      :class="panelCollapseArmed ? 'bg-accent-700/60' : panelResizing ? 'bg-accent-500/50' : 'hover:bg-accent-500/30'"
       role="separator"
       aria-orientation="vertical"
       title="拖拽调整宽度，继续拖动即收起"
@@ -178,8 +178,8 @@ const syncQueueStore = useSyncQueueStore()
 // 为模板提供 `show` 绑定（确保模板中的 v-if="show" 可访问）
 const show = computed(() => props.show)
 
-// 面板左缘可拖拽调宽，拖过最小宽度即收起
-const { width: panelWidth, resizing: panelResizing, start: startResize } = useResizablePanel({
+// 面板左缘可拖拽调宽，拖过最小宽度后再拖一段即收起
+const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapseArmed, start: startResize } = useResizablePanel({
   key: 'detail-width',
   initial: 320,
   min: 260,
