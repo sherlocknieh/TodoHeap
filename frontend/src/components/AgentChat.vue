@@ -186,15 +186,14 @@ onMounted(() => {
 
 <template>
   <div class="h-full flex flex-col min-h-0 w-full">
-    <header class="shrink-0 flex items-center justify-between gap-2 pb-2">
-      <!-- 会话列表在左侧栏维护，这里只显示当前会话并作为入口 -->
-      <button class="chip min-w-0 hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
+    <!-- 会话操作交给主区域顶栏承载，聊天区不再单独设置 header -->
+    <Teleport defer to="#main-topbar-actions">
+      <button class="chip max-w-[12rem] min-w-0 hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
         title="在侧栏管理会话" @click="emit('open-sidebar')">
         <AppIcon name="layers" :size="12" />
         <span class="truncate">{{ agent.activeSession?.title || '新对话' }}</span>
       </button>
-
-      <div class="flex items-center gap-1.5 shrink-0">
+      <div class="flex shrink-0 items-center gap-1.5">
         <button class="chip hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
           :title="llm.isConfigured ? '模型已接入，点击修改' : '尚未接入模型'" @click="openProviderSettings">
           <AppIcon name="key" :size="12" />
@@ -205,9 +204,9 @@ onMounted(() => {
           <AppIcon name="trash" :size="14" />
         </button>
       </div>
-    </header>
+    </Teleport>
 
-    <div ref="scrollRef" class="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+    <div ref="scrollRef" class="flex-1 min-h-0 overflow-y-auto pt-3 pr-1 space-y-4">
       <!-- 未配置模型：引导到模型接入 -->
       <section v-if="!llm.isConfigured" class="panel p-5 text-center space-y-3">
         <AppIcon name="key" :size="22" class="mx-auto text-accent-700 dark:text-accent-400" />
