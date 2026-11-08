@@ -131,10 +131,10 @@ const directionOptions = [
 ]
 
 // 布局模式与方向属于阅读偏好，刷新后沿用上次选择
-const mode = persistedRef('mindmap-mode', 'tree', {
+const mode = persistedRef('mindmap-mode', 'graph', {
   validate: (value) => modeOptions.some((option) => option.value === value)
 })
-const direction = persistedRef('mindmap-direction', 'down', {
+const direction = persistedRef('mindmap-direction', 'right', {
   validate: (value) => directionOptions.some((option) => option.value === value)
 })
 
