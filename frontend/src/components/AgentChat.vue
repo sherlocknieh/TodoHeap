@@ -186,25 +186,16 @@ onMounted(() => {
 
 <template>
   <div class="h-full flex flex-col min-h-0 w-full">
-    <header class="shrink-0 flex items-start justify-between gap-3 pb-2">
-      <div class="flex items-start gap-2.5">
-        <AppIcon name="sparkles" :size="18" class="mt-0.5 text-accent-700 dark:text-accent-400" />
-        <div>
-          <h1 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">对话 Agent</h1>
-          <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            用一句话管理任务与日程。
-          </p>
-        </div>
-      </div>
-      <div class="flex items-center gap-1.5 shrink-0">
-        <!-- 会话列表在左侧栏维护，这里只显示当前会话并作为入口 -->
-        <button class="chip max-w-[11rem] hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-          title="在侧栏管理会话" @click="emit('open-sidebar')">
-          <AppIcon name="layers" :size="12" />
-          <span class="truncate">{{ agent.activeSession?.title || '新对话' }}</span>
-        </button>
+    <header class="shrink-0 flex items-center justify-between gap-2 pb-2">
+      <!-- 会话列表在左侧栏维护，这里只显示当前会话并作为入口 -->
+      <button class="chip min-w-0 hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
+        title="在侧栏管理会话" @click="emit('open-sidebar')">
+        <AppIcon name="layers" :size="12" />
+        <span class="truncate">{{ agent.activeSession?.title || '新对话' }}</span>
+      </button>
 
-        <button class="chip hidden sm:inline-flex hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button class="chip hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
           :title="llm.isConfigured ? '模型已接入，点击修改' : '尚未接入模型'" @click="openProviderSettings">
           <AppIcon name="key" :size="12" />
           <span class="max-w-[9rem] truncate">{{ llm.isConfigured ? (llm.isBuiltin ? `内置 · ${llm.activeModel}` : llm.activeModel) : '未接入模型' }}</span>
