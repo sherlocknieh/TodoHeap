@@ -34,42 +34,6 @@ export const useTodoStore = defineStore('todos', () => {
     return { ok: true, user: authStore.user }
   }
 
-  const {
-    findTodoById,
-    findTodoIndexById,
-    addTodo,
-    updateTodo,
-    toggleDone,
-    deleteTodo,
-    deleteCompletedTodos,
-    restoreTodo,
-    permanentDeleteTodo,
-    emptyTrash,
-    restoreAllTrash,
-    canRestoreTodo,
-    findTrashDescendantIds,
-    countRestoreTodos
-  } = createTodoOptimisticActions({
-    todosRef: todos,
-    trashTodosRef: trashTodos,
-    trashLoadingRef: trashLoading,
-    getSyncQueue,
-    requireAuthUser,
-    setError: (message) => {
-      error.value = message
-    },
-    OperationType
-  })
-
-  const { handleRollback } = createTodoRollbackHandler({
-    todosRef: todos,
-    trashTodosRef: trashTodos,
-    errorRef: error,
-    getSyncQueue,
-    findTodoIndexById,
-    OperationType
-  })
-
   const todoTitleCollator = new Intl.Collator('zh-Hans-CN', {
     sensitivity: 'base',
     numeric: true
@@ -94,6 +58,44 @@ export const useTodoStore = defineStore('todos', () => {
 
     return a.id - b.id
   }
+
+  const {
+    findTodoById,
+    findTodoIndexById,
+    addTodo,
+    updateTodo,
+    toggleDone,
+    moveTodo,
+    deleteTodo,
+    deleteCompletedTodos,
+    restoreTodo,
+    permanentDeleteTodo,
+    emptyTrash,
+    restoreAllTrash,
+    canRestoreTodo,
+    findTrashDescendantIds,
+    countRestoreTodos
+  } = createTodoOptimisticActions({
+    todosRef: todos,
+    trashTodosRef: trashTodos,
+    trashLoadingRef: trashLoading,
+    getSyncQueue,
+    requireAuthUser,
+    setError: (message) => {
+      error.value = message
+    },
+    compareTodos,
+    OperationType
+  })
+
+  const { handleRollback } = createTodoRollbackHandler({
+    todosRef: todos,
+    trashTodosRef: trashTodos,
+    errorRef: error,
+    getSyncQueue,
+    findTodoIndexById,
+    OperationType
+  })
 
   // ========== 监听同步事件 ==========
   
@@ -341,6 +343,7 @@ export const useTodoStore = defineStore('todos', () => {
     addTodo,
     updateTodo,
     toggleDone,
+    moveTodo,
     deleteTodo,
     deleteCompletedTodos,
     clearError,

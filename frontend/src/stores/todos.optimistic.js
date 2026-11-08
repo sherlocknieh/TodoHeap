@@ -8,8 +8,17 @@ export const createTodoOptimisticActions = ({
   getSyncQueue,
   requireAuthUser,
   setError,
+  compareTodos: compareTodosOption,
   OperationType
 }) => {
+  // 未注入排序函数时退化为按序号比较, 保证移动操作独立可用
+  const compareTodos = compareTodosOption || ((a, b) => {
+    const aOrder = Number.isFinite(a?.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY
+    const bOrder = Number.isFinite(b?.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY
+    if (aOrder !== bOrder) return aOrder - bOrder
+    return String(a?.title || '').localeCompare(String(b?.title || ''))
+  })
+
   const findTodoById = (id) => {
     const syncQueue = getSyncQueue()
     const realId = syncQueue.getRealId(id)
@@ -205,6 +214,84 @@ export const createTodoOptimisticActions = ({
     })
   }
 
+  // 移动任务：调整父关系或同级顺序，序号按固定步长写回
+  const ORDER_STEP = 10
+
+  // 取出某一层级当前的兄弟任务；根层级没有容器，用「未被任何父引用」判定
+  const siblingIdsOf = (parentId) => {
+    const existing = new Set(todosRef.value.map(todo => todo.id))
+    if (parentId != null) {
+      const parent = todosRef.value.find(todo => todo.id === parentId)
+      return (parent?.child_ids || []).filter(childId => existing.has(childId))
+    }
+
+    const referenced = new Set()
+    todosRef.value.forEach(todo => (todo.child_ids || []).forEach(childId => referenced.add(childId)))
+    return todosRef.value.filter(todo => !referenced.has(todo.id)).map(todo => todo.id)
+  }
+
+  const sortSiblingIds = (ids) => {
+    const byId = new Map(todosRef.value.map(todo => [todo.id, todo]))
+    return [...ids].sort((a, b) => compareTodos(byId.get(a), byId.get(b)))
+  }
+
+  const moveTodo = async (id, { targetId = null, position = 'after' } = {}) => {
+    const syncQueue = getSyncQueue()
+    const realId = syncQueue.getRealId(id)
+    const moving = todosRef.value.find(todo => todo.id === realId)
+    if (!moving) return { success: false, error: '任务不存在' }
+
+    const realTargetId = targetId == null ? null : syncQueue.getRealId(targetId)
+    if (realTargetId === realId) return { success: false, error: '不能移动到自身' }
+    if (realTargetId != null && collectDescendantIds(todosRef.value, realId).includes(realTargetId)) {
+      return { success: false, error: '不能移动到自己的子任务下' }
+    }
+
+    const target = realTargetId == null ? null : todosRef.value.find(todo => todo.id === realTargetId)
+    if (realTargetId != null && !target) return { success: false, error: '目标任务不存在' }
+
+    // 拖到任务内部即成为其子任务，拖到上下方则与其同级
+    const newParentId = target
+      ? (position === 'inside' ? target.id : (findParentIds(todosRef.value, target.id)[0] ?? null))
+      : null
+
+    const oldParentIds = findParentIds(todosRef.value, realId).filter(parentId => parentId !== newParentId)
+
+    // 新层级的兄弟序列去掉自身后插到落点位置
+    const siblings = sortSiblingIds(siblingIdsOf(newParentId).filter(siblingId => siblingId !== realId))
+    let insertAt = siblings.length
+    if (target && position !== 'inside') {
+      const targetIndex = siblings.indexOf(target.id)
+      insertAt = targetIndex === -1 ? siblings.length : targetIndex + (position === 'after' ? 1 : 0)
+    }
+    siblings.splice(insertAt, 0, realId)
+
+    for (const parentId of oldParentIds) {
+      const parent = todosRef.value.find(todo => todo.id === parentId)
+      if (!parent) continue
+      await updateTodo(parentId, {
+        child_ids: (parent.child_ids || []).filter(childId => childId !== realId)
+      })
+    }
+
+    if (newParentId != null) {
+      // 已删除子任务的 ID 仍留在子列表里以便恢复, 重排时追加到末尾不丢失
+      const parent = todosRef.value.find(todo => todo.id === newParentId)
+      const knownIds = new Set(todosRef.value.map(todo => todo.id))
+      const orphanIds = (parent?.child_ids || []).filter(childId => !knownIds.has(childId))
+      await updateTodo(newParentId, { child_ids: [...siblings, ...orphanIds] })
+    }
+
+    // 同级顺序由 sort_order 决定，逐个写回新序号
+    for (const [index, siblingId] of siblings.entries()) {
+      const sibling = todosRef.value.find(todo => todo.id === siblingId)
+      if (!sibling || sibling.sort_order === index * ORDER_STEP) continue
+      await updateTodo(siblingId, { sort_order: index * ORDER_STEP })
+    }
+
+    return { success: true, data: { parentId: newParentId, index: insertAt } }
+  }
+
   const deleteTodo = async (id) => {
     const syncQueue = getSyncQueue()
     const realId = syncQueue.getRealId(id)
@@ -247,7 +334,8 @@ export const createTodoOptimisticActions = ({
       payload: { deleted_at: deletedAt }
     })
 
-    return { success: true }
+    // 回收站里记录的是真实 ID, 撤销删除时要用它定位
+    return { success: true, data: { id: realId } }
   }
 
   // 一键清理已完成: 只把每棵已完成子树的根入队, 后代由服务端级联软删除
@@ -302,7 +390,7 @@ export const createTodoOptimisticActions = ({
       syncQueue.clearSnapshot('batch-delete-completed')
     }
 
-    return { success: true, count: idsToRemove.size }
+    return { success: true, count: idsToRemove.size, data: { ids: serverIds } }
   }
 
   const restoreTodo = async (id) => {
@@ -437,6 +525,7 @@ export const createTodoOptimisticActions = ({
     addTodo,
     updateTodo,
     toggleDone,
+    moveTodo,
     deleteTodo,
     deleteCompletedTodos,
     restoreTodo,

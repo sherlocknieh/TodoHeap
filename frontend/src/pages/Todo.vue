@@ -162,7 +162,11 @@ const completedTodos = computed(() => {
 
 const toggleCompletedTodo = async (todo) => {
 	if (!todo?.id) return
-	await todoStore.toggleDone(todo.id)
+	const previousCompletedAt = todo.completed_at ?? null
+	const result = await todoStore.toggleDone(todo.id)
+	if (!result.success) return
+	showToast(`已恢复「${todo.title || '任务'}」`, () =>
+		todoStore.updateTodo(todo.id, { completed_at: previousCompletedAt }))
 }
 
 // 一键清除已完成：确认后整棵已完成子树移入回收站
@@ -178,6 +182,12 @@ const clearCompletedTodos = async () => {
 	if (selectedTaskId.value != null && !todoStore.todos.some(todo => todo.id === selectedTaskId.value)) {
 		closeDetailPanel()
 		selectedTaskId.value = null
+	}
+
+	const restoredIds = result.data?.ids || []
+	if (restoredIds.length) {
+		showToast(`已清除 ${result.count} 个已完成任务`, () =>
+			Promise.all(restoredIds.map(id => todoStore.restoreTodo(id))))
 	}
 }
 
@@ -590,7 +600,33 @@ onUnmounted(() => {
 	window.removeEventListener('sync:id-replaced', handleSelectedIdReplaced)
 	// 离开应用页时收起设置浮窗，避免下次进入时残留
 	settingsPanelOpen.value = false
+	if (toastTimer) clearTimeout(toastTimer)
 })
+
+// 轻提示：删除、完成、批量操作后给出结果，并允许撤销
+const toast = ref({ visible: false, message: '', undo: null })
+let toastTimer = null
+
+const hideToast = () => {
+	toast.value = { visible: false, message: '', undo: null }
+}
+
+const showToast = (message, undo = null) => {
+	if (toastTimer) clearTimeout(toastTimer)
+	toast.value = { visible: true, message, undo }
+	toastTimer = setTimeout(hideToast, undo ? 6000 : 3000)
+}
+
+const handleNotify = (payload) => {
+	if (!payload?.message) return
+	showToast(payload.message, payload.undo || null)
+}
+
+const runToastUndo = async () => {
+	const undo = toast.value.undo
+	hideToast()
+	if (undo) await undo()
+}
 </script>
 
 
@@ -700,7 +736,8 @@ onUnmounted(() => {
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									:is-breaking-down="isBreakingDown"
 									@task-selected="handleTaskSelected" @breakdown-task="handleBreakdownTask"
-									@submit-task="handleAnalyzeTaskInput" @optimize-tasks="handleOptimizeTasks" />
+									@submit-task="handleAnalyzeTaskInput" @optimize-tasks="handleOptimizeTasks"
+									@notify="handleNotify" />
 							</router-view>
 
 							<!-- 已完成任务：收在清单下方，与列表同宽同卡 -->
@@ -788,5 +825,23 @@ onUnmounted(() => {
 
 		<!-- 设置浮窗：覆盖在当前视图之上，不打断任务操作 -->
 		<Settings v-if="settingsPanelOpen" floating @close="settingsPanelOpen = false" />
+
+		<!-- 操作反馈：带撤销入口的轻提示 -->
+		<Transition name="fade">
+			<div v-if="toast.visible"
+				class="fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 panel px-3 py-2 shadow-lg">
+				<span class="text-sm text-neutral-700 dark:text-neutral-300">{{ toast.message }}</span>
+				<button v-if="toast.undo" type="button"
+					class="flex items-center gap-1 text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"
+					@click="runToastUndo">
+					<AppIcon name="undo" :size="14" />
+					撤销
+				</button>
+				<button type="button" class="p-0.5 rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+					title="关闭提示" @click="hideToast">
+					<AppIcon name="close" :size="13" />
+				</button>
+			</div>
+		</Transition>
 	</div>
 </template>

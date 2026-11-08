@@ -130,7 +130,7 @@ describe('createTodoOptimisticActions', () => {
 
     const result = await actions.deleteCompletedTodos()
 
-    expect(result).toEqual({ success: true, count: 4 })
+    expect(result).toMatchObject({ success: true, count: 4 })
     expect(todosRef.value.map(item => item.id)).toEqual([5])
     expect(trashTodosRef.value.map(item => item.id)).toEqual([4, 3, 2, 1])
     // 父任务已完成时后代由级联覆盖，只有子树根进入一次批量删除
@@ -161,7 +161,7 @@ describe('createTodoOptimisticActions', () => {
 
     const result = await actions.deleteCompletedTodos()
 
-    expect(result).toEqual({ success: true, count: 1 })
+    expect(result).toMatchObject({ success: true, count: 1 })
     expect(todosRef.value).toEqual([])
     expect(trashTodosRef.value.map(item => item.id)).toEqual([-1])
     expect(syncQueue.enqueue).not.toHaveBeenCalled()
@@ -224,5 +224,71 @@ describe('createTodoOptimisticActions', () => {
         user_id: 'user-1'
       })
     }))
+  })
+
+  it('deleteTodo 应返回回收站中的真实 ID 供撤销使用', async () => {
+    todosRef.value = [{ id: 7, title: '待删除', child_ids: [], deleted_at: null }]
+
+    const result = await actions.deleteTodo(7)
+
+    expect(result.data).toEqual({ id: 7 })
+  })
+
+  it('moveTodo 拖入任务内部应成为其子任务并写回序号', async () => {
+    todosRef.value = [
+      { id: 1, title: '目标', child_ids: [], sort_order: 0, deleted_at: null },
+      { id: 2, title: '移动项', child_ids: [], sort_order: 10, deleted_at: null }
+    ]
+
+    const result = await actions.moveTodo(2, { targetId: 1, position: 'inside' })
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([2])
+    expect(todosRef.value.find(todo => todo.id === 2).sort_order).toBe(0)
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.UPDATE,
+      targetId: 1,
+      payload: { child_ids: [2] }
+    }))
+  })
+
+  it('moveTodo 同级后移应重排兄弟序号', async () => {
+    todosRef.value = [
+      { id: 1, title: 'A', child_ids: [3, 4], sort_order: 0, deleted_at: null },
+      { id: 2, title: 'B', child_ids: [], sort_order: 10, deleted_at: null },
+      { id: 3, title: 'A1', child_ids: [], sort_order: 0, deleted_at: null },
+      { id: 4, title: 'A2', child_ids: [], sort_order: 10, deleted_at: null }
+    ]
+
+    const result = await actions.moveTodo(4, { targetId: 3, position: 'before' })
+
+    expect(result.success).toBe(true)
+    // 父节点按新顺序保存子列表
+    expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([4, 3])
+    expect(todosRef.value.find(todo => todo.id === 4).sort_order).toBe(0)
+    expect(todosRef.value.find(todo => todo.id === 3).sort_order).toBe(10)
+  })
+
+  it('moveTodo 跨层级移动应从旧父剔除并挂到新父', async () => {
+    todosRef.value = [
+      { id: 1, title: '旧父', child_ids: [3], sort_order: 0, deleted_at: null },
+      { id: 2, title: '新父', child_ids: [], sort_order: 10, deleted_at: null },
+      { id: 3, title: '移动项', child_ids: [], sort_order: 0, deleted_at: null }
+    ]
+
+    await actions.moveTodo(3, { targetId: 2, position: 'inside' })
+
+    expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([])
+    expect(todosRef.value.find(todo => todo.id === 2).child_ids).toEqual([3])
+  })
+
+  it('moveTodo 不允许移动到自身或自己的后代下', async () => {
+    todosRef.value = [
+      { id: 1, title: '父', child_ids: [2], sort_order: 0, deleted_at: null },
+      { id: 2, title: '子', child_ids: [], sort_order: 0, deleted_at: null }
+    ]
+
+    expect((await actions.moveTodo(1, { targetId: 1, position: 'inside' })).success).toBe(false)
+    expect((await actions.moveTodo(1, { targetId: 2, position: 'inside' })).success).toBe(false)
   })
 })

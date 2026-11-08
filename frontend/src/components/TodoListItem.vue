@@ -1,12 +1,16 @@
 <template>
   <ul class="divide-y divide-hairline dark:divide-hairline-dark">
     <template v-for="item in flatList">
-      <li v-if="isItemVisible(item)" :key="item.id" data-task-item :class="[
+      <li v-if="isItemVisible(item)" :key="item.id" data-task-item :draggable="canDrag(item)" :class="[
         'group flex items-center gap-2 py-1.5 pr-2 cursor-pointer border-l-2 transition-colors',
-        selectedTaskId === (item._isRef ? item._refTargetId : item.id)
-          ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-500 dark:border-accent-400'
-          : 'border-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
-      ]" :style="{ paddingLeft: (6 + item._level * 18) + 'px' }" @click="selectTask(item)">
+        dropIndicator && dropIndicator.id === item.id && dropIndicator.position === 'inside'
+          ? 'bg-accent-100/70 dark:bg-accent-500/20'
+          : selectedTaskId === (item._isRef ? item._refTargetId : item.id)
+            ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-500 dark:border-accent-400'
+            : 'border-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
+      ]" :style="{ paddingLeft: (6 + item._level * 18) + 'px', ...dropStyle(item.id) }"
+        @click="handleRowClick(item)" @dragstart="onDragStart(item, $event)" @dragover.prevent="onDragOver(item, $event)"
+        @dragleave="onDragLeave(item, $event)" @drop.prevent="onDrop(item, $event)" @dragend="onDragEnd">
         <!-- 展开/折叠 -->
         <button v-if="item.children && item.children.length"
           class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
@@ -15,8 +19,17 @@
         </button>
         <span v-else class="w-[17px] shrink-0"></span>
 
-        <!-- 完成状态 -->
-        <button v-if="!item._isRef" type="button"
+        <!-- 多选模式的选择框 / 日常的完成状态 -->
+        <button v-if="selectionMode" type="button"
+          class="shrink-0 grid place-items-center w-[15px] h-[15px] rounded-[3px] border transition-colors"
+          :class="isSelected(item)
+            ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
+            : 'border-neutral-400 text-transparent hover:border-neutral-500 dark:border-neutral-500 dark:hover:border-neutral-400'"
+          :aria-pressed="isSelected(item)" :aria-label="isSelected(item) ? '取消选择' : '选择任务'"
+          @click.stop="emitToggleSelect(item)">
+          <AppIcon name="check" :size="10" />
+        </button>
+        <button v-else-if="!item._isRef" type="button"
           class="shrink-0 grid place-items-center w-[15px] h-[15px] rounded-[3px] border transition-colors"
           :class="statusMap[item.id] === 'checked'
             ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
@@ -31,7 +44,7 @@
           <span v-if="editingId !== item.id" :class="[
             'block text-sm leading-6 text-neutral-800 dark:text-neutral-200 break-words',
             { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
-          ]" @dblclick.stop="item._isRef ? null : startEdit(item.id, item.title)">
+          ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
             <AppIcon v-if="item._isRef" name="link" :size="11"
               class="inline-block mr-1 -mt-0.5 text-neutral-400 dark:text-neutral-500" />
             <span :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }">{{ item.title || '未命名任务' }}</span>
@@ -43,15 +56,44 @@
 
           <div v-if="editingId !== item.id && (item.deadline || item.difficulty != null)"
             class="mt-1 flex flex-wrap items-center gap-1.5">
-            <span v-if="item.deadline" class="chip">
+            <button v-if="item.deadline" type="button" class="chip hover:border-accent-500 transition-colors"
+              data-deadline-trigger title="修改截止时间" @click.stop="toggleDeadlineMenu(item)">
               <AppIcon name="clock" :size="10" />{{ formatMetaDate(item.deadline) }}
-            </span>
+            </button>
             <span v-if="item.difficulty != null" class="chip font-mono">{{ formatDifficulty(item.difficulty) }}h</span>
           </div>
         </div>
 
         <!-- 行内操作 -->
-        <div v-if="!item._isRef" class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+        <div v-if="!item._isRef && !selectionMode"
+          class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <div class="relative">
+            <button
+              class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
+              data-deadline-trigger title="设置截止时间" @click.stop="toggleDeadlineMenu(item)">
+              <AppIcon name="calendar" :size="14" />
+            </button>
+            <div v-if="showDeadlineMenuId === item.id" data-deadline-menu
+              class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 py-1">
+              <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
+                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                @click.stop="applyDeadlinePreset(item.id, preset.value)">
+                <AppIcon :name="preset.icon" :size="13" />
+                <span>{{ preset.label }}</span>
+              </button>
+              <label class="block px-2.5 py-1.5 text-xs text-neutral-500">
+                自定义时间
+                <input v-model="customDeadline" type="datetime-local" class="field mt-1 text-xs"
+                  @change="applyDeadlinePreset(item.id, 'custom')" />
+              </label>
+              <button v-if="item.deadline" type="button"
+                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                @click.stop="applyDeadlinePreset(item.id, 'clear')">
+                <AppIcon name="close" :size="13" />
+                <span>清除截止时间</span>
+              </button>
+            </div>
+          </div>
           <button
             class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
             title="添加子任务" @click.stop="emitAddSubtask(item.id)">
@@ -99,14 +141,29 @@
 <script setup>
 import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
+import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue } from '@/utils/deadline'
+import { draggingTodoId as draggingId, dropIndicator, resetDragState } from '@/utils/todoDrag'
 
 const props = defineProps({
   node: Object,
   selectedTaskId: Number,
-  isBreakingDown: { type: Boolean, default: false }
+  isBreakingDown: { type: Boolean, default: false },
+  // 多选模式：用勾选框替换完成状态与行内操作
+  selectionMode: { type: Boolean, default: false },
+  selectedIds: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['toggle-done', 'delete-todo', 'add-subtask', 'edit-subtask', 'task-selected', 'breakdown-task'])
+const emit = defineEmits([
+  'toggle-done',
+  'delete-todo',
+  'add-subtask',
+  'edit-subtask',
+  'task-selected',
+  'breakdown-task',
+  'toggle-select',
+  'set-deadline',
+  'move-todo'
+])
 
 const emitToggleDone = (item) => emit('toggle-done', item)
 const emitDeleteTodo = (id) => emit('delete-todo', id)
@@ -220,6 +277,89 @@ function cycleStatus(item) {
   emitToggleDone(item)
 }
 
+// 多选与拖拽共用真实任务 ID，引用行指向被引用的任务
+const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
+const isSelected = (item) => props.selectedIds.includes(selectableIdOf(item))
+const emitToggleSelect = (item) => emit('toggle-select', selectableIdOf(item))
+
+// 拖拽刚结束时浏览器仍会补发一次 click，短暂忽略避免误选中
+let suppressClickUntil = 0
+const handleRowClick = (item) => {
+  if (Date.now() < suppressClickUntil) return
+  if (props.selectionMode) {
+    emitToggleSelect(item)
+    return
+  }
+  selectTask(item)
+}
+
+// 截止时间快捷预设由共享工具换算，自定义与实际选择统一转 ISO
+const applyDeadlinePreset = (id, preset) => {
+  if (preset === 'custom') {
+    if (!customDeadline.value) return
+    emit('set-deadline', { id, deadline: new Date(customDeadline.value).toISOString() })
+  } else {
+    emit('set-deadline', { id, deadline: resolveDeadlinePreset(preset) })
+  }
+  closeDeadlineMenu()
+}
+
+// 拖拽：上四分位插到前面，下四分位插到后面，中间成为子任务
+const canDrag = (item) => !props.selectionMode && !item._isRef
+
+const dropStyle = (id) => {
+  const indicator = dropIndicator.value
+  if (!indicator || indicator.id !== id) return {}
+  if (indicator.position === 'before') return { boxShadow: 'inset 0 2px 0 0 var(--color-accent-500)' }
+  if (indicator.position === 'after') return { boxShadow: 'inset 0 -2px 0 0 var(--color-accent-500)' }
+  return {}
+}
+
+const onDragStart = (item, event) => {
+  if (!canDrag(item)) return
+  draggingId.value = item.id
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', String(item.id))
+  closeMoreMenu()
+  closeDeadlineMenu()
+}
+
+const onDragOver = (item, event) => {
+  if (draggingId.value == null || item._isRef) return
+  if (item.id === draggingId.value) {
+    dropIndicator.value = null
+    return
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  const offset = (event.clientY - rect.top) / rect.height
+  const position = offset < 0.25 ? 'before' : offset > 0.75 ? 'after' : 'inside'
+  dropIndicator.value = { id: item.id, position }
+}
+
+const onDragLeave = (item, event) => {
+  if (dropIndicator.value?.id !== item.id) return
+  // 在行内部移动到子元素时也会触发 dragleave，此时不应清掉落点提示
+  if (event?.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return
+  dropIndicator.value = null
+}
+
+const onDrop = (item, event) => {
+  const sourceId = draggingId.value
+  resetDragState()
+  if (sourceId == null) return
+
+  // 落点按投放时的实际位置判断，避免中途 dragleave 清空提示后无法落位
+  const rect = event.currentTarget.getBoundingClientRect()
+  const offset = (event.clientY - rect.top) / rect.height
+  const position = offset < 0.25 ? 'before' : offset > 0.75 ? 'after' : 'inside'
+  emit('move-todo', { id: sourceId, targetId: item.id, position })
+}
+
+const onDragEnd = () => {
+  resetDragState()
+  suppressClickUntil = Date.now() + 150
+}
+
 // 更多菜单相关（记录当前打开面板的 DOM 元素，避免 v-for ref 冲突）
 const showMoreMenuId = ref(null)
 const currentMenuEl = ref(null)
@@ -228,6 +368,7 @@ const toggleMoreMenu = (id, ev) => {
     showMoreMenuId.value = null
     currentMenuEl.value = null
   } else {
+    closeDeadlineMenu()
     showMoreMenuId.value = id
     nextTick(() => {
       // 按钮的下一个兄弟节点为菜单容器（template 中结构保证）
@@ -239,13 +380,40 @@ const closeMoreMenu = () => {
   showMoreMenuId.value = null
   currentMenuEl.value = null
 }
+
+// 截止时间菜单与更多菜单互斥，同一时间只展开一个
+const showDeadlineMenuId = ref(null)
+const customDeadline = ref('')
+
+const closeDeadlineMenu = () => {
+  showDeadlineMenuId.value = null
+  customDeadline.value = ''
+}
+
+const toggleDeadlineMenu = (item) => {
+  if (showDeadlineMenuId.value === item.id) {
+    closeDeadlineMenu()
+    return
+  }
+  closeMoreMenu()
+  customDeadline.value = item.deadline ? toDateTimeLocalValue(item.deadline) : ''
+  showDeadlineMenuId.value = item.id
+}
 // 点击菜单外自动关闭（基于 currentMenuEl）
 function handleClickOutside(event) {
-  if (!showMoreMenuId.value) return
-  const el = currentMenuEl.value
-  if (!el) return
-  if (!el.contains(event.target)) {
-    closeMoreMenu()
+  if (showMoreMenuId.value) {
+    const el = currentMenuEl.value
+    if (el && !el.contains(event.target)) {
+      closeMoreMenu()
+    }
+  }
+  if (showDeadlineMenuId.value) {
+    const target = event.target
+    const insideMenu = target.closest?.('[data-deadline-menu]')
+    const onTrigger = target.closest?.('[data-deadline-trigger]')
+    if (!insideMenu && !onTrigger) {
+      closeDeadlineMenu()
+    }
   }
 }
 onMounted(() => {
