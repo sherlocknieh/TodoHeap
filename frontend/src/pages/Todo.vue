@@ -468,11 +468,7 @@ const runToastUndo = async () => {
 				<header
 					class="h-11 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
 					<div class="flex h-full items-center gap-3 px-3 @container">
-						<!-- 导航收起后，从这里开回 -->
-						<button v-if="!showActivityRail" @click="expandNavigation" title="显示导航"
-							class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200">
-							<AppIcon name="sidebar" :size="15" />
-						</button>
+						<!-- 导航收起后，从底栏开回 -->
 						<h1
 							class="shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
 							{{ activeViewTitle }}
@@ -527,10 +523,15 @@ const runToastUndo = async () => {
 				@task-selected="handleTaskSelected" />
 		</div>
 
-		<!-- 状态栏：当前视图与全局进度、同步状态、详情面板开关；树视图全屏展示思维导图时隐藏 -->
-		<footer v-if="activeView !== 'tree'"
+		<!-- 状态栏：当前视图与全局进度、同步状态；树视图全屏展示思维导图时隐藏，导航收起时保留开回入口 -->
+		<footer v-if="activeView !== 'tree' || !showActivityRail"
 			class="h-8 shrink-0 border-t border-hairline bg-surface px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 select-none">
 			<div class="flex items-center gap-2.5 min-w-0">
+				<!-- 导航收起后，从这里开回 -->
+				<button v-if="!showActivityRail" type="button" @click="expandNavigation" title="显示导航"
+					class="h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200">
+					<AppIcon name="sidebar" :size="14" />
+				</button>
 				<span class="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">{{ activeViewTitle }}</span>
 				<template v-if="taskStats.total">
 					<span class="h-3 w-px shrink-0 bg-hairline dark:bg-hairline-dark"></span>
