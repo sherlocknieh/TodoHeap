@@ -10,7 +10,7 @@ const HEADER_ALIASES = {
   listName: ['listname', 'list', '清单', '清单名称', '列表', '列表名称'],
   folderName: ['foldername', 'folder', '文件夹', '分组', '文件夹名称'],
   content: ['content', 'description', 'desc', 'notes', '内容', '描述', '备注'],
-  status: ['status', '状态'],
+  status: ['status', '状态', '是否完成', '完成状态'],
   completedAt: ['completedtime', 'completedat', 'completeddate', '完成时间', '完成日期'],
   dueAt: ['duedate', 'due', 'deadline', '截止日期', '截止时间', '到期时间'],
   startAt: ['startdate', 'start', 'startat', '开始日期', '开始时间'],
@@ -324,7 +324,7 @@ export function parseTickTickJson(text, { now = new Date() } = {}) {
       key,
       parentKey,
       title,
-      details: composeDetails(task.content ?? task.desc ?? task.description ?? task.notes, {
+      details: composeDetails(task.content || task.desc || task.description || task.notes, {
         listName,
         folderName,
         priority,
@@ -345,7 +345,8 @@ export function parseTickTickJson(text, { now = new Date() } = {}) {
       task.items.forEach((item, itemIndex) => {
         const itemTitle = String(item?.title ?? item?.name ?? '').trim()
         if (!itemTitle) return
-        const itemCompleted = isCompleted(item?.status, parseTickTickDate(item?.completedTime ?? item?.completedAt))
+        const itemCompleted = item?.status === 1
+          || isCompleted(item?.status, parseTickTickDate(item?.completedTime ?? item?.completedAt))
         tasks.push({
           key: `${key}:item:${itemIndex}`,
           parentKey: key,
@@ -468,8 +469,7 @@ export function buildImportPlan(tasks = [], { groupByList = true } = {}) {
     nextPath.add(task.key)
     const children = childrenByParent.get(task.key) || []
     children.forEach((child, index) => {
-      const childOrder = Number.isFinite(child.sortOrder) ? child.sortOrder : index
-      emit(child, task.key, childOrder, nextPath)
+      emit(child, task.key, index, nextPath)
     })
   }
 
@@ -490,8 +490,7 @@ export function buildImportPlan(tasks = [], { groupByList = true } = {}) {
       roots
         .filter((task) => task.listName === name)
         .forEach((task, taskIndex) => {
-          const order = Number.isFinite(task.sortOrder) ? task.sortOrder : taskIndex
-          emit(task, key, order, new Set([key]))
+          emit(task, key, taskIndex, new Set([key]))
         })
     })
   }
@@ -500,8 +499,7 @@ export function buildImportPlan(tasks = [], { groupByList = true } = {}) {
     ? roots.filter((task) => !task.listName || !listKeyByName.has(task.listName))
     : roots
   remainingRoots.forEach((task, index) => {
-    const order = Number.isFinite(task.sortOrder) ? task.sortOrder : index
-    emit(task, null, order, new Set())
+    emit(task, null, index, new Set())
   })
 
   // 纯循环里没有顶层节点，兜底提升为顶层，保证所有任务都能导入

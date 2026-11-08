@@ -80,23 +80,29 @@ describe('parseTickTickJson', () => {
           title: '发布',
           items: [
             { title: '跑测试', status: 1, completedTime: '2026-11-02T10:00:00+0800' },
-            { title: '写公告', status: 0 }
+            { title: '写公告', status: 0 },
+            { title: '补测试', status: 1 }
           ]
-        }
+        },
+        { id: 't4', projectId: 'p1', title: '只看 desc', content: '', desc: '87页' }
       ]
     })
 
     const { tasks } = parseTickTickJson(json, { now: new Date('2026-11-08T00:00:00Z') })
-    expect(tasks).toHaveLength(5)
+    expect(tasks).toHaveLength(7)
     expect(tasks[0]).toMatchObject({ key: 'json:t1', listName: '工作', parentKey: null })
     expect(tasks[1]).toMatchObject({ key: 'json:t2', parentKey: 'json:t1' })
     expect(tasks[1].completedAt).not.toBeNull()
 
     const itemTasks = tasks.filter((task) => task.parentKey === 'json:t3')
-    expect(itemTasks).toHaveLength(2)
+    expect(itemTasks).toHaveLength(3)
     expect(itemTasks[0]).toMatchObject({ title: '跑测试' })
     expect(itemTasks[0].completedAt).not.toBeNull()
     expect(itemTasks[1].completedAt).toBeNull()
+    expect(itemTasks[2].completedAt).not.toBeNull()
+
+    const descOnly = tasks.find((task) => task.key === 'json:t4')
+    expect(descOnly.details).toContain('87页')
   })
 
   it('只有 childIds 时也能反推父任务', () => {
@@ -141,8 +147,16 @@ describe('buildImportPlan', () => {
     expect(nodes.find((node) => node.key === 'top').parentKey).toBeNull()
   })
 
-  it('循环引用不会无限递归', () => {
+  it('排序值只用于排序，写入计划时归一为小整数', () => {
     const tasks = [
+      { key: 'b', parentKey: null, title: 'B', listName: null, sortOrder: 2 ** 40 },
+      { key: 'a', parentKey: null, title: 'A', listName: null, sortOrder: -(2 ** 40) }
+    ]
+    const { nodes } = buildImportPlan(tasks, { groupByList: false })
+    expect(nodes.map((node) => [node.key, node.sortOrder])).toEqual([['a', 0], ['b', 1]])
+  })
+
+  it('循环引用不会无限递归', () => {    const tasks = [
       { key: 'a', parentKey: 'b', title: 'A', listName: null },
       { key: 'b', parentKey: 'a', title: 'B', listName: null }
     ]
