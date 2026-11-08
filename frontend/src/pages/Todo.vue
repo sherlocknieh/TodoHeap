@@ -715,7 +715,7 @@ const runToastUndo = async () => {
 									:is-breaking-down="isBreakingDown"
 									@task-selected="handleTaskSelected" @breakdown-task="handleBreakdownTask"
 									@submit-task="handleAnalyzeTaskInput" @optimize-tasks="handleOptimizeTasks"
-									@notify="handleNotify" />
+									@notify="handleNotify" @open-sidebar="showLeftSidebar = true" />
 							</router-view>
 						</div>
 					</template>

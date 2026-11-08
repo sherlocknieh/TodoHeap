@@ -1,6 +1,8 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useTodoStore } from '@/stores/todos'
+import { useAgentStore } from '@/stores/agent'
+import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -22,6 +24,72 @@ const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task
 const show = computed(() => props.show)
 
 const todoStore = useTodoStore()
+const agent = useAgentStore()
+const authStore = useAuthStore()
+
+const editingSessionId = ref(null)
+const editingTitle = ref('')
+const renameInput = ref(null)
+
+// AI 侧栏展示会话列表，进入 AI 入口时确保会话已载入
+const ensureAgent = () => {
+  if (props.section === 'ai') agent.init(authStore.user?.id)
+}
+onMounted(ensureAgent)
+watch(() => props.section, ensureAgent)
+
+const closeOnNarrowScreen = () => {
+  if (window.innerWidth < 1024) emit('close')
+}
+
+const handleNewSession = () => {
+  cancelSessionRename()
+  agent.newSession()
+  closeOnNarrowScreen()
+}
+
+const handleSwitchSession = (id) => {
+  cancelSessionRename()
+  agent.switchSession(id)
+  closeOnNarrowScreen()
+}
+
+const startSessionRename = (session) => {
+  editingSessionId.value = session.id
+  editingTitle.value = session.title
+  nextTick(() => {
+    const input = Array.isArray(renameInput.value) ? renameInput.value[0] : renameInput.value
+    input?.focus()
+    input?.select()
+  })
+}
+
+const commitSessionRename = () => {
+  if (!editingSessionId.value) return
+  agent.renameSession(editingSessionId.value, editingTitle.value)
+  cancelSessionRename()
+}
+
+const cancelSessionRename = () => {
+  editingSessionId.value = null
+  editingTitle.value = ''
+}
+
+const deleteSession = (id) => {
+  if (editingSessionId.value === id) cancelSessionRename()
+  agent.deleteSession(id)
+}
+
+// 会话列表只显示时间与消息数，按当天/更早两种格式
+const formatSessionTime = (iso) => {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+}
 
 // 统计信息
 const stats = computed(() => ({
@@ -196,6 +264,54 @@ const switchView = (view) => {
       </template>
 
       <template v-else>
+        <!-- 对话会话：新建、切换、重命名、删除 -->
+        <section class="space-y-0.5">
+          <div class="px-2 pb-1.5 flex items-center justify-between">
+            <p class="eyebrow">对话</p>
+            <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300 transition-colors"
+              title="新建对话" @click="handleNewSession">
+              <AppIcon name="plus" :size="14" />
+            </button>
+          </div>
+          <p v-if="!agent.sessions.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
+            还没有会话
+          </p>
+          <ul v-else class="space-y-0.5">
+            <li v-for="session in agent.sessions" :key="session.id"
+              class="group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors"
+              :class="session.id === agent.activeSessionId
+                ? 'bg-accent-100/80 dark:bg-accent-500/20'
+                : 'hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'">
+              <template v-if="editingSessionId === session.id">
+                <input ref="renameInput" v-model="editingTitle" class="field flex-1 px-1.5 py-1 text-xs"
+                  @keydown.enter.prevent="commitSessionRename" @keydown.esc.prevent="cancelSessionRename"
+                  @blur="commitSessionRename" />
+              </template>
+              <template v-else>
+                <button class="min-w-0 flex-1 text-left px-1" @click="handleSwitchSession(session.id)">
+                  <span class="block truncate text-sm"
+                    :class="session.id === agent.activeSessionId
+                      ? 'font-semibold text-accent-900 dark:text-accent-100'
+                      : 'text-neutral-700 dark:text-neutral-300'">
+                    {{ session.title }}
+                  </span>
+                  <span class="block font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
+                    {{ formatSessionTime(session.updatedAt) }} · {{ session.messages.length }}
+                  </span>
+                </button>
+                <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                  title="重命名会话" @click.stop="startSessionRename(session)">
+                  <AppIcon name="edit" :size="12" />
+                </button>
+                <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                  title="删除会话" @click.stop="deleteSession(session.id)">
+                  <AppIcon name="trash" :size="12" />
+                </button>
+              </template>
+            </li>
+          </ul>
+        </section>
+
         <!-- AI 操作 -->
         <section class="space-y-0.5">
           <p class="eyebrow px-2 pb-1.5">操作</p>
@@ -212,7 +328,7 @@ const switchView = (view) => {
         <section class="space-y-0.5">
           <p class="eyebrow px-2 pb-1.5">说明</p>
           <p class="px-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            直接告诉 Agent 要做什么，它会读写任务、日程与偏好；模型可在「设置 → 模型接入」中切换。
+            直接告诉 Agent 要做什么，它会读写任务、日程与偏好；会话按话题分开保存，模型可在「设置 → 模型接入」中切换。
           </p>
         </section>
       </template>

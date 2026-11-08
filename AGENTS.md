@@ -67,13 +67,13 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 文件 | 职责 |
 | --- | --- |
 | `AppIcon.vue` | 线性图标全集（`name` + `size`），全站唯一图标来源 |
-| `LeftSidebar.vue` | 视图切换、统计、全局优化入口 |
+| `LeftSidebar.vue` | 视图切换、统计、AI 会话列表与全局优化入口 |
 | `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单、AI 分解入口 |
 | `TodoDetailEditor.vue` | 右栏详情：标题、起止时间、难度、Markdown 描述 |
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
 | `MindMapWrapper.vue` | simple-mind-map 封装，负责与 todos 树互转 |
 | `AITaskInput.vue` | 自然语言输入与分析进度 |
-| `AgentChat.vue` | 对话 Agent：多会话列表、消息流、工具执行记录、破坏性操作确认 |
+| `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `BreakdownStatusCard.vue` | 分解状态：进行中 / 待确认 / 成功 / 失败 |
 | `OptimizeProgressCard.vue` | 全局优化进度与变更摘要 |

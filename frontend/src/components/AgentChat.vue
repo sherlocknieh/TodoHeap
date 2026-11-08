@@ -14,6 +14,7 @@ const agent = useAgentStore()
 const props = defineProps({
   selectedTaskId: { type: [Number, String], default: null }
 })
+const emit = defineEmits(['open-sidebar'])
 const llm = useLlmStore()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
@@ -24,10 +25,6 @@ const inputRef = ref(null)
 const scrollRef = ref(null)
 const isComposing = ref(false)
 const expandedCalls = ref(new Set())
-const showSessions = ref(false)
-const editingId = ref(null)
-const editingTitle = ref('')
-const renameInput = ref(null)
 
 const TOOL_LABELS = {
   list_todos: '查看任务',
@@ -152,61 +149,6 @@ const openProviderSettings = () => {
   router.push({ name: 'settings', query: { tab: 'provider' } })
 }
 
-const formatSessionTime = (iso) => {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  const now = new Date()
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-}
-
-const handleNewSession = () => {
-  showSessions.value = false
-  cancelRename()
-  agent.newSession()
-  nextTick(() => {
-    scrollToBottom()
-    inputRef.value?.focus()
-  })
-}
-
-const handleSwitchSession = (id) => {
-  showSessions.value = false
-  cancelRename()
-  agent.switchSession(id)
-  nextTick(scrollToBottom)
-}
-
-const handleDeleteSession = (id) => {
-  if (editingId.value === id) cancelRename()
-  agent.deleteSession(id)
-  nextTick(scrollToBottom)
-}
-
-const startRename = (session) => {
-  editingId.value = session.id
-  editingTitle.value = session.title
-  nextTick(() => {
-    const input = Array.isArray(renameInput.value) ? renameInput.value[0] : renameInput.value
-    input?.focus()
-    input?.select()
-  })
-}
-
-const commitRename = () => {
-  if (!editingId.value) return
-  agent.renameSession(editingId.value, editingTitle.value)
-  editingId.value = null
-  editingTitle.value = ''
-}
-
-const cancelRename = () => {
-  editingId.value = null
-  editingTitle.value = ''
-}
-
 const approvalDescription = computed(() => {
   const pending = agent.pendingApproval
   if (!pending) return ''
@@ -220,6 +162,7 @@ watch(
 
 watch(draft, () => nextTick(autoResize))
 watch(() => authStore.user?.id, (id) => agent.init(id))
+watch(() => agent.activeSessionId, () => nextTick(scrollToBottom))
 watch(() => props.selectedTaskId, (id) => agent.setContext({ selectedTaskId: id }), { immediate: true })
 
 onMounted(() => {
@@ -245,13 +188,12 @@ onMounted(() => {
           </p>
         </div>
       </div>
-      <div class="relative flex items-center gap-1.5 shrink-0">
-        <!-- 会话切换：当前标题与历史会话列表 -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <!-- 会话列表在左侧栏维护，这里只显示当前会话并作为入口 -->
         <button class="chip max-w-[11rem] hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-          title="切换会话" @click="showSessions = !showSessions">
+          title="在侧栏管理会话" @click="emit('open-sidebar')">
           <AppIcon name="layers" :size="12" />
           <span class="truncate">{{ agent.activeSession?.title || '新对话' }}</span>
-          <AppIcon name="chevronDown" :size="12" />
         </button>
 
         <button class="chip hidden sm:inline-flex hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
@@ -263,48 +205,6 @@ onMounted(() => {
           title="清空当前对话" @click="agent.clear()">
           <AppIcon name="trash" :size="14" />
         </button>
-
-        <div v-if="showSessions" class="fixed inset-0 z-40" @click="showSessions = false"></div>
-        <section v-if="showSessions" class="absolute right-0 top-full z-50 mt-1 w-72 panel p-1.5">
-          <button class="btn-ghost w-full justify-start px-2 py-1.5 text-xs" @click="handleNewSession">
-            <AppIcon name="plus" :size="14" />
-            <span>新建对话</span>
-          </button>
-          <div class="my-1 border-t border-hairline dark:border-hairline-dark"></div>
-          <ul class="max-h-64 overflow-y-auto space-y-0.5">
-            <li v-for="session in agent.sessions" :key="session.id"
-              class="flex items-center gap-1 rounded-md px-1.5 py-1"
-              :class="session.id === agent.activeSessionId
-                ? 'bg-accent-50 dark:bg-accent-500/10'
-                : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'">
-              <template v-if="editingId === session.id">
-                <input ref="renameInput" v-model="editingTitle" class="field flex-1 px-1.5 py-1 text-xs"
-                  @keydown.enter.prevent="commitRename" @keydown.esc.prevent="cancelRename" @blur="commitRename" />
-              </template>
-              <template v-else>
-                <button class="min-w-0 flex-1 text-left" @click="handleSwitchSession(session.id)">
-                  <span class="block truncate text-xs"
-                    :class="session.id === agent.activeSessionId
-                      ? 'font-semibold text-accent-800 dark:text-accent-200'
-                      : 'text-neutral-700 dark:text-neutral-300'">
-                    {{ session.title }}
-                  </span>
-                  <span class="block text-[10px] text-neutral-400">
-                    {{ formatSessionTime(session.updatedAt) }} · {{ session.messages.length }} 条
-                  </span>
-                </button>
-                <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
-                  title="重命名" @click.stop="startRename(session)">
-                  <AppIcon name="edit" :size="12" />
-                </button>
-                <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                  title="删除会话" @click.stop="handleDeleteSession(session.id)">
-                  <AppIcon name="trash" :size="12" />
-                </button>
-              </template>
-            </li>
-          </ul>
-        </section>
       </div>
     </header>
 

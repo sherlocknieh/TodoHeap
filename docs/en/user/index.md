@@ -55,7 +55,7 @@ Deleting a task moves it to the trash, where it can be restored or permanently r
 
 The AI view is a chat agent that can read and write your tasks, schedules and preferences on request.
 
-Conversations are organised into sessions: use the session button in the header to create, switch, rename or delete them. A new session is titled from its first message, sessions are stored in this browser only, and the previous single-conversation history is migrated automatically.
+Conversations are organised into sessions in the AI sidebar: use it to create, switch, rename or delete them. A new session is titled from its first message, sessions are stored in this browser only, and the previous single-conversation history is migrated automatically.
 
 To connect a model, open **Settings → Model access** and pick a provider preset (OpenAI, DeepSeek, Kimi, GLM, Qwen, Gemini, OpenRouter, local Ollama) or enter any OpenAI-compatible Base URL and model name. With a personal key the configuration is stored only in this browser; some providers must allow browser requests (CORS) for the connection test to pass.
 
