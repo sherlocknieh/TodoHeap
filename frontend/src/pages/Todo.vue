@@ -398,15 +398,17 @@ const runToastUndo = async () => {
 			<!-- 左侧活动栏：顶部 Logo 回主页，收起开关在底栏 -->
 			<aside v-if="showActivityRail" data-activity-rail
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between">
-				<div class="flex flex-col items-center">
-					<!-- 回主页 -->
-					<RouterLink to="/" title="回到主页"
-						class="h-9 w-9 flex items-center justify-center">
-						<img :src="logoSrc" alt="TodoHeap" class="h-6 w-6" />
-					</RouterLink>
+				<div class="flex flex-col items-center w-full">
+					<!-- 回主页；高度与顶栏一致，下边框与顶栏底边对齐 -->
+					<div class="h-11 w-full flex items-center justify-center border-b border-white/20">
+						<RouterLink to="/" title="回到主页"
+							class="h-9 w-9 flex items-center justify-center">
+							<img :src="logoSrc" alt="TodoHeap" class="h-6 w-6" />
+						</RouterLink>
+					</div>
 
-					<!-- 主入口：分隔线与顶栏下边框同高 -->
-					<nav class="flex flex-col items-center gap-1 pt-2 border-t border-white/20 w-8">
+					<!-- 主入口 -->
+					<nav class="flex flex-col items-center gap-1 pt-2 w-full">
 						<button v-for="entry in navEntries" :key="entry.id" @click="openNavEntry(entry)"
 							:title="entry.label"
 							:class="[
