@@ -397,34 +397,31 @@ const runToastUndo = async () => {
 		<div class="relative flex-1 min-w-0 min-h-0 flex overflow-hidden">
 			<!-- 左侧活动栏：顶部 Logo 回主页，收起开关在底栏 -->
 			<aside v-if="showActivityRail" data-activity-rail
-				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between">
-				<div class="flex flex-col items-center w-full">
-					<!-- 回主页；高度与顶栏一致，下边框与顶栏底边对齐 -->
-					<div class="h-11 w-full flex items-center justify-center border-b border-white/20">
-						<RouterLink to="/" title="回到主页"
-							class="h-9 w-9 flex items-center justify-center">
-							<img :src="logoSrc" alt="TodoHeap" class="h-6 w-6" />
-						</RouterLink>
-					</div>
-
-					<!-- 主入口 -->
-					<nav class="flex flex-col items-center gap-1 pt-2 w-full">
-						<button v-for="entry in navEntries" :key="entry.id" @click="openNavEntry(entry)"
-							:title="entry.label"
-							:class="[
-								'h-9 w-9 rounded-md flex items-center justify-center transition-colors',
-								isNavEntryActive(entry.id)
-									? 'bg-white/20 text-white'
-									: 'text-white/70 hover:bg-white/15 hover:text-white'
-							]">
-							<span v-if="entry.id === 'ai'" class="text-[11px] font-semibold tracking-tight">AI</span>
-							<AppIcon v-else :name="entry.icon" />
-						</button>
-					</nav>
+				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center">
+				<!-- 品牌区：高度与顶栏一致，下边框与顶栏底边对齐 -->
+				<div class="h-11 w-full flex items-center justify-center border-b border-white/20">
+					<RouterLink to="/" title="回到主页" class="h-9 w-9 flex items-center justify-center">
+						<img :src="logoSrc" alt="TodoHeap" class="h-6 w-6" />
+					</RouterLink>
 				</div>
 
-				<!-- 账户与设置 -->
-				<div class="flex flex-col items-center gap-1">
+				<!-- 主入口：清单 / 日程 / AI，占据中部剩余空间 -->
+				<nav class="flex flex-1 flex-col items-center gap-1 w-full pt-3" aria-label="主导航">
+					<button v-for="entry in navEntries" :key="entry.id" @click="openNavEntry(entry)"
+						:title="entry.label" :aria-label="entry.label" :aria-current="isNavEntryActive(entry.id) ? 'true' : undefined"
+						:class="[
+							'h-9 w-9 rounded-md flex items-center justify-center transition-colors',
+							isNavEntryActive(entry.id)
+								? 'bg-white/20 text-white'
+								: 'text-white/70 hover:bg-white/15 hover:text-white'
+						]">
+						<span v-if="entry.id === 'ai'" class="text-[11px] font-semibold tracking-tight">AI</span>
+						<AppIcon v-else :name="entry.icon" />
+					</button>
+				</nav>
+
+				<!-- 账户与设置：贴底独立成组，与主入口用分隔线区隔 -->
+				<div class="flex w-full flex-col items-center gap-1 pt-2 border-t border-white/20">
 					<div class="relative">
 						<button data-user-menu-trigger @click="showUserMenu = !showUserMenu"
 							class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
