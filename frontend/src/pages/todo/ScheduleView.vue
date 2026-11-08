@@ -146,7 +146,6 @@ const handleImport = async () => {
     importDone.value = true
   } catch (err) {
     importError.value = err instanceof Error ? err.message : '导入日程失败'
-    importDone.value = true
   } finally {
     isImporting.value = false
   }
@@ -212,8 +211,8 @@ onMounted(() => {
       <span>{{ importMessage }}</span>
     </p>
 
-    <!-- 导入预览：确认事件数量后再写入 -->
-    <div v-if="importEvents.length" class="mt-3 rounded-md border border-neutral-200 px-3 py-2.5 dark:border-neutral-800">
+    <!-- 导入预览：确认事件数量后再写入，成功后收起只留结果提示 -->
+    <div v-if="importEvents.length && !importDone" class="mt-3 rounded-md border border-neutral-200 px-3 py-2.5 dark:border-neutral-800">
       <div class="flex flex-wrap items-center gap-2">
         <span class="chip">{{ importFileName }}</span>
         <span class="chip">{{ importEvents.length }} 个事件</span>
@@ -227,9 +226,9 @@ onMounted(() => {
         <li v-if="importEvents.length > 3" class="text-neutral-400">等 {{ importEvents.length }} 个事件</li>
       </ul>
       <div class="mt-2 flex items-center gap-2">
-        <button class="btn-primary" :disabled="isImporting || importDone" @click="handleImport">
+        <button class="btn-primary" :disabled="isImporting" @click="handleImport">
           <AppIcon name="upload" :size="14" />
-          <span>{{ isImporting ? '导入中…' : (importDone ? '已导入' : '开始导入') }}</span>
+          <span>{{ isImporting ? '导入中…' : '开始导入' }}</span>
         </button>
         <button class="btn-outline" @click="resetImport">取消</button>
       </div>
