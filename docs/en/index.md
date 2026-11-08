@@ -7,7 +7,7 @@ hero:
   text: "AI-driven Task and Schedule Management"
   tagline: "Turn vague tasks into executable steps, then into a schedule: decomposition, prioritization and visualization."
   image:
-    src: /logo.png
+    src: /logo.svg
     alt: Logo
   actions:
     - theme: brand

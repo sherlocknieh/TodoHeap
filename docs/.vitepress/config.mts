@@ -23,7 +23,7 @@ const vitePressOptions = {
   // Vite 构建时会根据 base 配置给资源链接添加前缀, 并处理多余的双斜杠, 解决资源路径问题
   head: [
     // 设置浏览器标签栏图标
-    ['link', { rel: 'icon', href: '/TodoHeap/docs/logo.png' }],
+    ['link', { rel: 'icon', href: '/TodoHeap/docs/logo.svg' }],
     // 引入 KaTeX CSS 文件
     ['link', { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css' }],
     // 引入 copy-tex 扩展的 JS 和 CSS
@@ -54,7 +54,7 @@ const vitePressOptions = {
   ignoreDeadLinks: false,
   // 通用主题配置
   themeConfig: {
-    logo: '/TodoHeap/docs/logo.png',
+    logo: '/TodoHeap/docs/logo.svg',
     socialLinks: [
       { icon: 'github', link: 'https://github.com/sherlocknieh/TodoHeap' }
     ],

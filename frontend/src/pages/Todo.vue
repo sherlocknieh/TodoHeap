@@ -25,6 +25,9 @@ const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
 
 const userMenuRef = ref(null)
 
+// 站点部署在子路径下，静态资源需带上 base 前缀
+const logoSrc = `${import.meta.env.BASE_URL}logo.svg`
+
 // 根据路由名称同步当前视图
 const activeView = computed({
 	get: () => {
@@ -399,7 +402,7 @@ const runToastUndo = async () => {
 					<!-- 回主页 -->
 					<RouterLink to="/" title="回到主页"
 						class="h-9 w-9 rounded-md flex items-center justify-center hover:bg-white/15 transition-colors">
-						<img src="/logo.png" alt="TodoHeap" class="h-6 w-6 rounded" />
+						<img :src="logoSrc" alt="TodoHeap" class="h-6 w-6" />
 					</RouterLink>
 
 					<!-- 主入口：分隔线与顶栏下边框同高 -->

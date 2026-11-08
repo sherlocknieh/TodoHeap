@@ -6,6 +6,9 @@ import { useAuthStore } from '@/stores/auth'
 const router = useRouter()
 const auth = useAuthStore()
 
+// 站点部署在子路径下，静态资源需带上 base 前缀
+const logoSrc = `${import.meta.env.BASE_URL}logo.svg`
+
 // 按登录状态进入应用或引导登录
 const openApp = () => {
   router.push({ name: auth.isAuthenticated ? 'app' : 'login' })
@@ -37,7 +40,7 @@ const features = [
       class="sticky top-0 z-40 border-b border-hairline dark:border-hairline-dark bg-surface/85 dark:bg-surface-dark/85 backdrop-blur">
       <div class="w-full px-6 md:px-10 lg:px-16 h-14 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <img src="/logo.png" alt="TodoHeap" class="w-6 h-6 rounded" />
+          <img :src="logoSrc" alt="TodoHeap" class="w-6 h-6" />
           <span class="text-sm font-semibold tracking-tight">TodoHeap</span>
         </div>
         <button class="btn-primary text-xs px-3 py-1.5" @click="openApp">{{ auth.isAuthenticated ? '进入应用' : '登录 / 注册' }}</button>

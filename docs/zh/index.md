@@ -7,7 +7,7 @@ hero:
   text: "AI 驱动的任务与日程管理"
   tagline: "把模糊任务拆成可执行的步骤，再铺进日程：自动分解、优先排序与可视化。"
   image:
-    src: /logo.png
+    src: /logo.svg
     alt: Logo
   actions:
     - theme: brand
