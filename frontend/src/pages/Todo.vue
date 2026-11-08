@@ -474,7 +474,7 @@ const runToastUndo = async () => {
 				<!-- 顶栏：承载当前视图标题，页面操作入口通过 Teleport 注入右侧 -->
 				<header
 					class="h-11 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
-					<div class="flex h-full items-center gap-3" :class="topBarClass">
+					<div class="flex h-full items-center gap-3 @container" :class="topBarClass">
 						<!-- 导航收起后，从这里开回 -->
 						<button v-if="!showActivityRail" @click="expandNavigation" title="显示导航"
 							class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200">
@@ -484,7 +484,19 @@ const runToastUndo = async () => {
 							class="shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
 							{{ activeViewTitle }}
 						</h1>
-						<div id="main-topbar-actions" class="ml-auto flex min-w-0 items-center gap-2"></div>
+						<!-- 中栏被详情面板挤窄时，视图自己的操作先让位，保留全局面板开关 -->
+						<div class="ml-auto flex min-w-0 items-center gap-2">
+							<div id="main-topbar-actions"
+								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
+							<button v-if="activeView !== 'tree'" type="button"
+								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors"
+								:class="showDetailPanel
+									? 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'
+									: 'text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'"
+								:title="detailPanelToggleLabel" :aria-pressed="showDetailPanel" @click="toggleDetailPanel">
+								<AppIcon name="panelRight" :size="15" />
+							</button>
+						</div>
 					</div>
 				</header>
 
@@ -540,21 +552,11 @@ const runToastUndo = async () => {
 					</span>
 				</template>
 			</div>
-			<div class="flex items-center gap-1 shrink-0">
-				<span class="flex items-center gap-1.5 rounded-md px-1.5 py-1" :class="syncState.text"
-					:title="'实时连接：' + realtimeStatusLabel + ' · ' + syncStatusLabel">
-					<span class="h-1.5 w-1.5 rounded-full" :class="syncState.dot"></span>
-					{{ syncState.label }}
-				</span>
-				<span class="h-3 w-px bg-hairline dark:bg-hairline-dark"></span>
-				<button type="button" class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
-					:class="showDetailPanel
-						? 'bg-accent-50 text-accent-700 dark:bg-accent-500/15 dark:text-accent-300'
-						: 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-white/5 dark:hover:text-neutral-200'"
-					:title="detailPanelToggleLabel" :aria-pressed="showDetailPanel" @click="toggleDetailPanel">
-					<AppIcon name="panelRight" :size="14" />
-				</button>
-			</div>
+			<span class="flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-1" :class="syncState.text"
+				:title="'实时连接：' + realtimeStatusLabel + ' · ' + syncStatusLabel">
+				<span class="h-1.5 w-1.5 rounded-full" :class="syncState.dot"></span>
+				{{ syncState.label }}
+			</span>
 		</footer>
 
 		<!-- 设置浮窗：覆盖在当前视图之上，不打断任务操作 -->
