@@ -21,6 +21,7 @@ const ICONS = {
   plus: 'M12 5v14M5 12h14',
   check: 'M20 6 9 17l-5-5',
   chevronDown: 'm6 9 6 6 6-6',
+  chevronUp: 'm18 15-6-6-6 6',
   chevronRight: 'm9 6 6 6-6 6',
   chevronLeft: 'm15 6-6 6 6 6',
   alert: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',

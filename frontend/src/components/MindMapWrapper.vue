@@ -6,63 +6,52 @@
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="endPan" @click.stop @dblclick="fitView">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
-      <defs>
-        <marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
-          orient="auto-start-reverse">
-          <path d="M0 0 10 5 0 10z" fill="#a3a3a3" />
-        </marker>
-        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
-          orient="auto-start-reverse">
-          <path d="M0 0 10 5 0 10z" fill="#13b566" />
-        </marker>
-      </defs>
-
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
-        <!-- 连线：回边用虚线，直接展示 DAG 的多父引用与环 -->
-        <path v-for="edge in layout.edges" :key="edge.key" :d="edge.d" fill="none"
-          :class="edge.isRef ? 'stroke-accent-500 dark:stroke-accent-400' : 'stroke-neutral-300 dark:stroke-neutral-600'"
-          :stroke-width="edge.isRef ? 1.5 : 1.2" :stroke-dasharray="edge.isRef ? '5 4' : undefined"
-          :marker-end="edge.isRef ? 'url(#mm-arrow-ref)' : 'url(#mm-arrow)'" />
+        <!-- 连线：跨引用与回边用虚线，其余为平滑曲线 -->
+        <path v-for="edge in layout.edges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
+          :stroke="edge.isRef ? '#8f9df0' : '#6f6d8a'"
+          :stroke-width="edge.isRef ? 1.5 : 1.6" :stroke-dasharray="edge.isRef ? '6 5' : undefined" />
 
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
-          :opacity="node.completed_at ? 0.55 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
+          :opacity="node.completed_at ? 0.45 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
           @pointerdown.stop @dblclick.stop="selectNode(node)" @click.stop="selectNode(node)">
-          <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
-            :stroke-dasharray="node.isRef ? '5 4' : undefined" class="transition-colors" :class="[
-              node.isRef
-                ? 'stroke-accent-300 dark:stroke-accent-700'
-                : node.selected
-                  ? 'stroke-accent-600 dark:stroke-accent-400'
-                  : 'stroke-neutral-200 dark:stroke-neutral-700',
-              node.isRoot
-                ? 'fill-accent-700 dark:fill-accent-500'
-                : node.selected
-                  ? 'fill-accent-50 dark:fill-neutral-800'
-                  : 'fill-white dark:fill-neutral-900'
-            ]" />
-          <text :x="10" :y="10" class="text-[13px] font-medium" :class="node.isRoot
-            ? 'fill-white'
-            : node.isRef
-              ? 'fill-neutral-500 dark:fill-neutral-400'
-              : 'fill-neutral-800 dark:fill-neutral-100'">
-            <tspan v-for="(line, index) in node.lines" :key="index" :x="10"
-              :dy="index === 0 ? 10 + fontSize : lineHeight">{{ line }}</tspan>
+          <rect :width="nodeWidth" :height="node.height" rx="5" :fill="nodeFill(node)" :stroke="nodeStroke(node)"
+            :stroke-width="node.selected ? 2 : 1" :stroke-dasharray="node.isRef ? '5 4' : undefined" />
+          <text :x="nodeWidth / 2" :y="0" text-anchor="middle" class="text-[13px] font-medium"
+            :fill="nodeTextFill(node)">
+            <tspan v-for="(line, index) in node.lines" :key="index" :x="nodeWidth / 2"
+              :dy="index === 0 ? paddingTop + fontSize : lineHeight">{{ line }}</tspan>
           </text>
+          <line :x1="14" :y1="node.height - 6" :x2="nodeWidth - 14" :y2="node.height - 6" stroke-width="2"
+            stroke-linecap="round" :stroke="node.isRef ? '#8f9df0' : 'rgba(255,255,255,0.85)'" />
         </g>
       </g>
     </svg>
 
-    <!-- 布局切换 -->
-    <div
-      class="absolute top-3 right-3 z-10 flex items-center gap-0.5 rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-0.5 text-[11px] shadow-sm"
-      @pointerdown.stop>
-      <button v-for="option in modeOptions" :key="option.value" :title="option.label"
-        class="px-2 py-1 rounded-md transition-colors"
-        :class="mode === option.value
-          ? 'bg-accent-700 text-white dark:bg-accent-400 dark:text-accent-950'
-          : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'"
-        @click.stop="mode = option.value">{{ option.text }}</button>
+    <!-- 布局与方向切换 -->
+    <div class="absolute top-3 right-3 z-10 flex items-center gap-2" @pointerdown.stop>
+      <div
+        class="flex items-center gap-0.5 rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-0.5 text-[11px] shadow-sm">
+        <button v-for="option in modeOptions" :key="option.value" :title="option.label"
+          class="px-2 py-1 rounded-md transition-colors"
+          :class="mode === option.value
+            ? 'bg-accent-700 text-white dark:bg-accent-400 dark:text-accent-950'
+            : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'"
+          @click.stop="mode = option.value">{{ option.text }}</button>
+      </div>
+
+      <div
+        class="flex items-center gap-0.5 rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-0.5 shadow-sm">
+        <button v-for="option in directionOptions" :key="option.value" :title="option.label"
+          class="p-1 rounded-md transition-colors"
+          :class="direction === option.value
+            ? 'bg-accent-700 text-white dark:bg-accent-400 dark:text-accent-950'
+            : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'"
+          @click.stop="direction = option.value">
+          <AppIcon :name="option.icon" :size="13" />
+        </button>
+      </div>
     </div>
 
     <!-- 视图控件 -->
@@ -90,24 +79,40 @@ const props = defineProps({
 
 const emit = defineEmits(['task-selected'])
 
-const nodeWidth = 216
+const nodeWidth = 176
 const fontSize = 13
-const lineHeight = 17
-const paddingY = 10
+const lineHeight = 16
+const paddingTop = 10
 const maxLines = 3
-const horizontalGap = 56
-const verticalGap = 12
-const textUnitsPerLine = 13
+const crossGap = 40
+const mainGap = 52
+const textUnitsPerLine = 12
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
 const mode = ref('tree')
+const direction = ref('down')
+
 const modeOptions = [
   { value: 'tree', text: '树', label: '展开树模式' },
   { value: 'graph', text: '图', label: '有向图模式' }
 ]
+
+const directionOptions = [
+  { value: 'down', icon: 'chevronDown', label: '从上到下' },
+  { value: 'right', icon: 'chevronRight', label: '从左到右' },
+  { value: 'up', icon: 'chevronUp', label: '从下到上' },
+  { value: 'left', icon: 'chevronLeft', label: '从右到左' }
+]
+
+const isVertical = computed(() => direction.value === 'down' || direction.value === 'up')
+const isForward = computed(() => direction.value === 'down' || direction.value === 'right')
+
+// 主方向是层级展开方向，交叉方向是同层节点的排列方向
+const nodeMainSize = (node) => (isVertical.value ? node.height : nodeWidth)
+const nodeCrossSize = (node) => (isVertical.value ? nodeWidth : node.height)
 
 // 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出
 const wrapLines = (text) => {
@@ -140,58 +145,154 @@ const measureNode = (raw) => {
   return {
     ...raw,
     lines,
-    height: paddingY * 2 + lines.length * lineHeight,
+    height: paddingTop + lines.length * lineHeight + 12,
     selected: String(raw.id) === String(props.selectedTaskId)
   }
 }
 
-// 展开树：子节点纵向排开，父节点对齐子节点跨度中心
+const nodeFill = (node) => {
+  if (node.isRoot) return '#565483'
+  if (node.isRef) return '#37364e'
+  return node.selected ? '#4f5470' : '#4a4969'
+}
+
+const nodeStroke = (node) => {
+  if (node.selected) return '#42d386'
+  if (node.isRef) return '#8f9df0'
+  return node.isRoot ? '#6f6c9e' : '#5c5a80'
+}
+
+const nodeTextFill = (node) => (node.isRef ? '#c9c8de' : '#f6f6fb')
+
+// 父节点出边、子节点入边的锚点与朝向
+const outAnchor = (node) => {
+  switch (direction.value) {
+    case 'up':
+      return { x: node.x + nodeWidth / 2, y: node.y, dx: 0, dy: -1 }
+    case 'right':
+      return { x: node.x + nodeWidth, y: node.y + node.height / 2, dx: 1, dy: 0 }
+    case 'left':
+      return { x: node.x, y: node.y + node.height / 2, dx: -1, dy: 0 }
+    default:
+      return { x: node.x + nodeWidth / 2, y: node.y + node.height, dx: 0, dy: 1 }
+  }
+}
+
+const inAnchor = (node) => {
+  switch (direction.value) {
+    case 'up':
+      return { x: node.x + nodeWidth / 2, y: node.y + node.height, dx: 0, dy: 1 }
+    case 'right':
+      return { x: node.x, y: node.y + node.height / 2, dx: -1, dy: 0 }
+    case 'left':
+      return { x: node.x + nodeWidth, y: node.y + node.height / 2, dx: 1, dy: 0 }
+    default:
+      return { x: node.x + nodeWidth / 2, y: node.y, dx: 0, dy: -1 }
+  }
+}
+
+const crossVector = () => (isVertical.value ? { x: 1, y: 0 } : { x: 0, y: 1 })
+
+// 统一生成连线路径：正向走平滑曲线，逆向与自环绕行展示
+const createEdge = (from, to, key, isRef = false, backward = false) => {
+  const start = outAnchor(from)
+  const end = inAnchor(to)
+  const cross = crossVector()
+  let d
+
+  if (from.id === to.id) {
+    const half = 18
+    const bulge = 42
+    const startX = start.x - cross.x * half
+    const startY = start.y - cross.y * half
+    const endX = start.x + cross.x * half
+    const endY = start.y + cross.y * half
+    d = `M${startX} ${startY} C${startX + start.dx * bulge - cross.x * bulge} ${startY + start.dy * bulge - cross.y * bulge}, ${endX + start.dx * bulge + cross.x * bulge} ${endY + start.dy * bulge + cross.y * bulge}, ${endX} ${endY}`
+  } else if (backward) {
+    const bulge = 110
+    const along = 40
+    d = `M${start.x} ${start.y} C${start.x + cross.x * bulge + start.dx * along} ${start.y + cross.y * bulge + start.dy * along}, ${end.x + cross.x * bulge + end.dx * along} ${end.y + cross.y * bulge + end.dy * along}, ${end.x} ${end.y}`
+  } else {
+    const distance = isVertical.value ? Math.abs(end.y - start.y) : Math.abs(end.x - start.x)
+    const bend = Math.max(20, distance * 0.5)
+    d = `M${start.x} ${start.y} C${start.x + start.dx * bend} ${start.y + start.dy * bend}, ${end.x + end.dx * bend} ${end.y + end.dy * bend}, ${end.x} ${end.y}`
+  }
+
+  return { key, isRef, d }
+}
+
+// 展开树：子节点沿交叉方向排开，父节点居中于子节点跨度
 const treeLayout = computed(() => {
-  const nodes = []
+  const depthMain = []
   const edges = []
-  let cursorY = 0
+  const vertical = isVertical.value
+  const forward = isForward.value
 
-  const place = (raw, depth) => {
-    const node = {
-      ...measureNode(raw),
-      x: depth * (nodeWidth + horizontalGap),
-      y: 0
-    }
+  const measure = (raw, depth) => {
+    const node = measureNode(raw)
+    node.depth = depth
+    depthMain[depth] = Math.max(depthMain[depth] || 0, nodeMainSize(node))
+    node.children = (raw.children || []).map((child) => measure(child, depth + 1))
 
-    const children = Array.isArray(raw.children) ? raw.children : []
-    if (children.length === 0) {
-      node.y = cursorY
-      cursorY += node.height + verticalGap
-    } else {
-      const placedChildren = children.map((child) => place(child, depth + 1))
-      const first = placedChildren[0]
-      const last = placedChildren[placedChildren.length - 1]
-      node.y = (first.y + last.y + last.height - node.height) / 2
-
-      const startY = node.y + node.height / 2
-      const startX = node.x + nodeWidth
-      placedChildren.forEach((child, index) => {
-        const endY = child.y + child.height / 2
-        const endX = child.x
-        const bend = Math.max(24, (endX - startX) * 0.5)
-        edges.push({
-          key: `${node.id}->${child.id}-${index}`,
-          isRef: !!child.isRef,
-          d: `M${startX} ${startY} C${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`
-        })
-      })
-    }
-
-    nodes.push(node)
+    const childrenCross = node.children.reduce((sum, child) => sum + child.subtreeCross, 0)
+      + Math.max(0, node.children.length - 1) * crossGap
+    node.subtreeCross = Math.max(nodeCrossSize(node), childrenCross)
     return node
   }
 
-  ;(props.nodes || []).forEach((root) => place(root, 0))
+  const roots = (props.nodes || []).map((root) => measure(root, 0))
 
-  const contentWidth = nodes.reduce((max, node) => Math.max(max, node.x + nodeWidth), 0)
-  const contentHeight = Math.max(cursorY - verticalGap, 0)
+  const mainStart = []
+  let cursorMain = 0
+  depthMain.forEach((depthSize, depth) => {
+    mainStart[depth] = cursorMain
+    cursorMain += depthSize + mainGap
+  })
+  const contentMain = Math.max(cursorMain - mainGap, 0)
 
-  return { nodes, edges, contentWidth, contentHeight }
+  let cursorCross = 0
+  const place = (node, crossLeft) => {
+    const mainOffset = mainStart[node.depth] + (depthMain[node.depth] - nodeMainSize(node)) / 2
+    const crossCenter = crossLeft + node.subtreeCross / 2
+
+    if (vertical) {
+      node.x = crossCenter - nodeWidth / 2
+      node.y = forward ? mainOffset : contentMain - mainOffset - node.height
+    } else {
+      node.y = crossCenter - node.height / 2
+      node.x = forward ? mainOffset : contentMain - mainOffset - nodeWidth
+    }
+
+    const childrenCross = node.children.reduce((sum, child) => sum + child.subtreeCross, 0)
+      + Math.max(0, node.children.length - 1) * crossGap
+    let childCrossLeft = crossLeft + (node.subtreeCross - childrenCross) / 2
+
+    node.children.forEach((child, index) => {
+      place(child, childCrossLeft)
+      edges.push(createEdge(node, child, `${node.id}->${child.id}-${index}`, !!child.isRef))
+      childCrossLeft += child.subtreeCross + crossGap
+    })
+  }
+
+  roots.forEach((root) => {
+    place(root, cursorCross)
+    cursorCross += root.subtreeCross + crossGap
+  })
+
+  const nodes = []
+  const collect = (node) => {
+    nodes.push(node)
+    node.children.forEach(collect)
+  }
+  roots.forEach(collect)
+
+  const contentCross = Math.max(cursorCross - crossGap, 0)
+  return {
+    nodes,
+    edges,
+    contentWidth: vertical ? contentCross : contentMain,
+    contentHeight: vertical ? contentMain : contentCross
+  }
 })
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
@@ -214,7 +315,7 @@ const buildGraphData = (forest) => {
   return { nodes: [...nodes.values()], edges }
 }
 
-// 有向图：按强连通分量分层，环内节点顺序排列，回边从右侧绕回
+// 有向图：按强连通分量分层，环内节点顺序排列，回边绕行展示
 const graphLayout = computed(() => {
   const { nodes: rawNodes, edges: rawEdges } = buildGraphData(props.nodes)
   if (rawNodes.length === 0) return { nodes: [], edges: [], contentWidth: 0, contentHeight: 0 }
@@ -294,7 +395,7 @@ const graphLayout = computed(() => {
     })
   }
 
-  // 环内节点按顺序占一层，让环方向仍然从左到右可读
+  // 环内节点按顺序占一层，让环方向仍然沿主方向可读
   const nodeLayer = new Map()
   components.forEach((component, index) => {
     const ordered = [...component].sort((a, b) => {
@@ -304,7 +405,7 @@ const graphLayout = computed(() => {
     ordered.forEach((id, offset) => nodeLayer.set(id, componentLayer[index] + offset))
   })
 
-  // 每层纵向堆叠，再整体垂直居中
+  // 每层沿交叉方向排开，层与层沿主方向堆叠
   const layers = new Map()
   nodes.forEach((node) => {
     const layer = nodeLayer.get(node.id) ?? 0
@@ -313,66 +414,66 @@ const graphLayout = computed(() => {
   })
 
   const layerKeys = [...layers.keys()].sort((a, b) => a - b)
-  const columnHeights = new Map()
-  let maxHeight = 0
+  const layerCross = new Map()
+  const layerMain = new Map()
+  let maxCross = 0
 
   layerKeys.forEach((layer) => {
-    const column = layers.get(layer).sort((a, b) => {
+    layers.get(layer).sort((a, b) => {
       const diff = Number(a.id) - Number(b.id)
       return Number.isFinite(diff) && diff !== 0 ? diff : String(a.id).localeCompare(String(b.id))
     })
-    let cursorY = 0
-    column.forEach((node) => {
-      node.x = layer * (nodeWidth + horizontalGap)
-      node.y = cursorY
-      cursorY += node.height + verticalGap
-    })
-    const columnHeight = Math.max(cursorY - verticalGap, 0)
-    columnHeights.set(layer, columnHeight)
-    maxHeight = Math.max(maxHeight, columnHeight)
+    const list = layers.get(layer)
+    layerCross.set(layer, list.reduce((sum, node) => sum + nodeCrossSize(node), 0)
+      + Math.max(0, list.length - 1) * crossGap)
+    layerMain.set(layer, Math.max(...list.map(nodeMainSize)))
+    maxCross = Math.max(maxCross, layerCross.get(layer))
   })
 
+  let cursorMain = 0
+  const layerStart = new Map()
   layerKeys.forEach((layer) => {
-    const offset = (maxHeight - columnHeights.get(layer)) / 2
-    layers.get(layer).forEach((node) => { node.y += offset })
+    layerStart.set(layer, cursorMain)
+    cursorMain += layerMain.get(layer) + mainGap
+  })
+  const contentMain = Math.max(cursorMain - mainGap, 0)
+
+  layerKeys.forEach((layer) => {
+    const list = layers.get(layer)
+    let cursorCross = (maxCross - layerCross.get(layer)) / 2
+    list.forEach((node) => {
+      const mainOffset = layerStart.get(layer) + (layerMain.get(layer) - nodeMainSize(node)) / 2
+      if (isVertical.value) {
+        node.x = cursorCross
+        node.y = isForward.value ? mainOffset : contentMain - mainOffset - node.height
+      } else {
+        node.y = cursorCross
+        node.x = isForward.value ? mainOffset : contentMain - mainOffset - nodeWidth
+      }
+      cursorCross += nodeCrossSize(node) + crossGap
+    })
   })
 
   const routedEdges = rawEdges.map((edge, index) => {
     const from = byId.get(edge.from)
     const to = byId.get(edge.to)
     if (!from || !to) return null
-
     const backward = (nodeLayer.get(to.id) ?? 0) <= (nodeLayer.get(from.id) ?? 0)
-    const startY = from.y + from.height / 2
-    const startX = from.x + nodeWidth
-    let path
-
-    if (from.id === to.id) {
-      // 自环：节点上方向外绕一圈
-      path = `M${from.x + nodeWidth * 0.35} ${from.y} C${from.x + nodeWidth * 0.2} ${from.y - 44}, ${from.x + nodeWidth * 0.8} ${from.y - 44}, ${from.x + nodeWidth * 0.65} ${from.y}`
-    } else if (backward) {
-      // 回边：从右侧绕回目标右侧，提示环或逆向引用
-      const endY = to.y + to.height / 2
-      const endX = to.x + nodeWidth
-      path = `M${startX} ${startY} C${startX + 70} ${startY}, ${endX + 70} ${endY}, ${endX} ${endY}`
-    } else {
-      const endY = to.y + to.height / 2
-      const endX = to.x
-      const bend = Math.max(24, (endX - startX) * 0.5)
-      path = `M${startX} ${startY} C${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`
-    }
-
-    return { key: `${edge.from}->${edge.to}-${index}`, isRef: edge.isRef || backward, d: path }
+    return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, edge.isRef || backward, backward)
   }).filter(Boolean)
 
-  const contentWidth = nodes.reduce((max, node) => Math.max(max, node.x + nodeWidth), 0)
-
-  return { nodes, edges: routedEdges, contentWidth, contentHeight: maxHeight }
+  return {
+    nodes,
+    edges: routedEdges,
+    contentWidth: isVertical.value ? maxCross : contentMain,
+    contentHeight: isVertical.value ? contentMain : maxCross
+  }
 })
 
 const layout = computed(() => (mode.value === 'tree' ? treeLayout.value : graphLayout.value))
 
-const idSignature = computed(() => `${mode.value}:${layout.value.nodes.map((node) => node.id).join('|')}`)
+const layoutSignature = computed(() =>
+  `${mode.value}:${direction.value}:${layout.value.nodes.map((node) => node.id).join('|')}`)
 
 let hasInteracted = false
 
@@ -382,7 +483,7 @@ const fitView = () => {
   const { contentWidth, contentHeight } = layout.value
   if (!contentWidth || !size.width || !size.height) return
 
-  const pad = 40
+  const pad = 48
   const scale = Math.min(
     (size.width - pad * 2) / contentWidth,
     (size.height - pad * 2) / contentHeight,
@@ -452,18 +553,22 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
 
-// 任务增删后重新适配视图；仅标题变化时保持当前缩放与位置
-watch(idSignature, () => nextTick(fitView))
+// 模式、方向或任务增删后重新适配视图；仅标题变化时保持当前缩放与位置
+watch(layoutSignature, () => nextTick(fitView))
 </script>
 
 <style scoped>
+/* 点阵底纹：与参考图一致的空旷感，暗色下更明显 */
 .mindmap-canvas {
-  background-color: #fafafa;
+  background-color: #f7f7fa;
+  background-image: radial-gradient(circle, rgba(20, 20, 40, 0.10) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 
 @media (prefers-color-scheme: dark) {
   .mindmap-canvas {
-    background-color: #141414;
+    background-color: #0f1015;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.11) 1px, transparent 1px);
   }
 }
 </style>
