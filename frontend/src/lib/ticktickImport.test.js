@@ -113,6 +113,46 @@ describe('parseTickTickJson', () => {
     const { tasks } = parseTickTickJson(json)
     expect(tasks[1].parentKey).toBe('json:a')
   })
+
+  it('保留副标题、类型、重复起点与检查项时间', () => {
+    const json = JSON.stringify({
+      tasks: [
+        {
+          id: 't9',
+          title: '论文选题',
+          content: '正文',
+          desc: '87 页',
+          kind: 'NOTE',
+          repeatFlag: 'RRULE:FREQ=WEEKLY',
+          repeatFrom: '2',
+          timeZone: 'Asia/Shanghai',
+          items: [
+            { id: 'i1', title: '查文献', dueDate: '2026-11-12T09:00:00+0800', isAllDay: false },
+            { id: 'i2', title: '列提纲' }
+          ]
+        }
+      ]
+    })
+
+    const { tasks } = parseTickTickJson(json)
+    const parent = tasks.find((task) => task.key === 'json:t9')
+    expect(parent.externalId).toBe('ticktick:t9')
+    expect(parent.details).toContain('正文')
+    expect(parent.details).toContain('副标题：87 页')
+    expect(parent.details).toContain('类型：NOTE')
+    expect(parent.details).toContain('重复：RRULE:FREQ=WEEKLY（起点 2）')
+
+    const [first, second] = tasks.filter((task) => task.parentKey === 'json:t9')
+    expect(first.externalId).toBe('ticktick:item:i1')
+    expect(first.deadline).toBe('2026-11-12T01:00:00.000Z')
+    expect(second.deadline).toBeNull()
+  })
+
+  it('repeatFrom 单独出现时不当作重复任务', () => {
+    const json = JSON.stringify([{ id: 'r1', title: '无规则', repeatFrom: '2' }])
+    const { tasks } = parseTickTickJson(json)
+    expect(tasks[0].details).toBeNull()
+  })
 })
 
 describe('parseTickTickFile', () => {
@@ -231,5 +271,81 @@ describe('executeTickTickImport', () => {
     expect(result.cancelled).toBe(true)
     expect(result.imported).toBe(1)
     expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  // 模拟带 external_id 列的表：一次性返回已有记录，并记录更新调用
+  const createSupabase = (existing = []) => {
+    const update = vi.fn(() => ({ eq: vi.fn(async () => ({ data: null, error: null })) }))
+    const rpc = vi.fn(async (_name, params) => ({ data: { id: 100 + rpc.mock.calls.length }, error: null }))
+    const supabase = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          not: vi.fn(() => ({
+            order: vi.fn(() => ({
+              range: vi.fn(async () => ({ data: existing, error: null }))
+            }))
+          }))
+        })),
+        update
+      })),
+      rpc
+    }
+    return { supabase, update, rpc }
+  }
+
+  it('重复导入同一来源时更新已存在的任务，子任务挂到原记录上', async () => {
+    const { supabase, update, rpc } = createSupabase([
+      { id: 7, external_id: 'ticktick:t1', title: '旧标题', details: null, deadline: null, completed_at: null, deleted_at: null }
+    ])
+    const nodes = [
+      { key: 'json:t1', parentKey: null, externalId: 'ticktick:t1', title: '新标题', details: null, deadline: null, completedAt: null, sortOrder: 0 },
+      { key: 'json:t2', parentKey: 'json:t1', externalId: 'ticktick:t2', title: '子任务', details: null, deadline: null, completedAt: null, sortOrder: 0 }
+    ]
+
+    const result = await executeTickTickImport({ supabase, nodes })
+
+    expect(update).toHaveBeenCalledWith({ title: '新标题' })
+    expect(result).toMatchObject({ imported: 1, updated: 1, unchanged: 0, failed: 0, skipped: 0 })
+    expect(rpc.mock.calls[0][1]).toMatchObject({ p_title: '子任务', p_parent_id: 7, p_external_id: 'ticktick:t2' })
+  })
+
+  it('内容完全一致时不写库', async () => {
+    const { supabase, update, rpc } = createSupabase([
+      {
+        id: 9,
+        external_id: 'ticktick:t1',
+        title: '标题',
+        details: '备注',
+        deadline: '2026-11-10T01:00:00+00:00',
+        completed_at: null,
+        deleted_at: null
+      }
+    ])
+    const nodes = [
+      { key: 'json:t1', parentKey: null, externalId: 'ticktick:t1', title: '标题', details: '备注', deadline: '2026-11-10T01:00:00.000Z', completedAt: null, sortOrder: 0 }
+    ]
+
+    const result = await executeTickTickImport({ supabase, nodes })
+
+    expect(update).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ imported: 0, updated: 0, unchanged: 1 })
+  })
+
+  it('已进回收站的来源记录连同子任务一起跳过', async () => {
+    const { supabase, update, rpc } = createSupabase([
+      { id: 5, external_id: 'ticktick:t1', title: '已删', details: null, deadline: null, completed_at: null, deleted_at: '2026-11-01T00:00:00+00:00' }
+    ])
+    const nodes = [
+      { key: 'json:t1', parentKey: null, externalId: 'ticktick:t1', title: '已删', details: null, deadline: null, completedAt: null, sortOrder: 0 },
+      { key: 'json:t2', parentKey: 'json:t1', externalId: 'ticktick:t2', title: '子任务', details: null, deadline: null, completedAt: null, sortOrder: 0 }
+    ]
+
+    const result = await executeTickTickImport({ supabase, nodes })
+
+    expect(update).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ imported: 0, skipped: 2 })
+    expect(result.errors[0].message).toContain('回收站')
   })
 })

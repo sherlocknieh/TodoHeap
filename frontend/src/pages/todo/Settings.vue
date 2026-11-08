@@ -121,7 +121,7 @@
               <div>
                 <p class="eyebrow mb-2">从滴答清单导入</p>
                 <p class="text-xs leading-relaxed text-neutral-500">
-                  在滴答清单「设置 → 备份」导出 CSV 或 JSON 后上传。导入只创建新任务，不会去重；同一文件请勿重复导入。
+                  在滴答清单「设置 → 备份」导出 CSV 或 JSON 后上传。JSON 导出带任务来源标识，同一文件重复导入只会更新已有任务；CSV 没有稳定标识，请勿重复导入。
                 </p>
               </div>
 
@@ -198,7 +198,7 @@
                     @click="handleImportStart"
                   >
                     <AppIcon name="upload" :size="14" />
-                    <span>{{ isImporting ? '导入中…' : (importDone ? '已导入' : '开始导入') }}</span>
+                    <span>{{ isImporting ? '导入中…' : (importDone ? '已完成' : '开始导入') }}</span>
                   </button>
                   <button v-if="isImporting" class="btn-outline" @click="handleImportCancel">取消</button>
                   <button v-else class="btn-outline" @click="resetImport">重新选择</button>
@@ -215,7 +215,9 @@
                   <p class="flex items-center gap-1.5">
                     <AppIcon :name="importResult.failed || importResult.skipped ? 'alert' : 'check'" :size="12" />
                     <span>
-                      成功 {{ importResult.imported }} 个
+                      新建 {{ importResult.imported }} 个
+                      <template v-if="importResult.updated">，更新 {{ importResult.updated }} 个</template>
+                      <template v-if="importResult.unchanged">，无变化 {{ importResult.unchanged }} 个</template>
                       <template v-if="importResult.failed">，失败 {{ importResult.failed }} 个</template>
                       <template v-if="importResult.skipped">，跳过 {{ importResult.skipped }} 个</template>
                       <template v-if="importResult.cancelled">（已取消）</template>
@@ -710,6 +712,7 @@ const handleImportStart = async () => {
     })
     // 只要写过数据就禁止重复点击，避免同一文件二次导入
     importDone.value = importResult.value.imported > 0
+      || importResult.value.updated > 0
       || importResult.value.failed > 0
       || importResult.value.skipped > 0
     await todoStore.fetchTodos()

@@ -1,5 +1,6 @@
 // 滴答清单数据导入：把导出的 CSV/JSON 解析成任务树，并逐条写入 todos 表
 // 解析与规划是纯函数，写入复用数据库的 create_todo RPC，保证 child_ids 与父任务同步维护
+// JSON 导出带任务 ID，写入时落到 external_id 上，所以重复导入命中原记录并只更新有变化的字段
 
 // 文件大小上限：超过后浏览器解析与逐条写入都会明显卡顿
 export const TICKTICK_IMPORT_MAX_BYTES = 5 * 1024 * 1024
@@ -174,9 +175,11 @@ const composeDetails = (content, meta = {}) => {
   if (text) parts.push(text)
 
   const bits = []
+  if (meta.desc) bits.push(`副标题：${meta.desc}`)
   if (meta.listName) bits.push(`清单：${meta.listName}`)
   if (meta.folderName && meta.folderName !== meta.listName) bits.push(`文件夹：${meta.folderName}`)
   if (meta.priority) bits.push(`优先级：${meta.priority}`)
+  if (meta.kind) bits.push(`类型：${meta.kind}`)
   if (meta.tags?.length) bits.push(`标签：${meta.tags.join('、')}`)
   if (meta.startAt) bits.push(`开始：${formatLocal(meta.startAt)}`)
   if (meta.repeat) bits.push(`重复：${meta.repeat}`)
@@ -185,6 +188,20 @@ const composeDetails = (content, meta = {}) => {
   if (bits.length) parts.push(`> 滴答清单｜${bits.join('｜')}`)
 
   return parts.length ? parts.join('\n\n') : null
+}
+
+// 重复规则只在 repeatFlag 存在时成立；repeatFrom 单独出现是滴答的残留标记，不单独展示
+const composeRepeat = (flag, from) => {
+  const rule = String(flag ?? '').trim()
+  if (!rule) return ''
+  const origin = String(from ?? '').trim()
+  return origin ? `${rule}（起点 ${origin}）` : rule
+}
+
+// 来源标识按类型加前缀，避免任务 ID 与检查项 ID 撞车
+const externalIdOf = (prefix, value) => {
+  const id = String(value ?? '').trim()
+  return id ? `${prefix}${id}` : null
 }
 
 // 解析 CSV 导出：滴答官方 CSV 是扁平的，没有父子关系，所有任务按清单归组
@@ -233,6 +250,8 @@ export function parseTickTickCsv(text, { now = new Date() } = {}) {
     tasks.push({
       key: `csv:${rowIndex}`,
       parentKey: null,
+      // CSV 没有稳定任务 ID，不参与去重
+      externalId: null,
       title,
       details: composeDetails(get('content'), {
         listName,
@@ -314,20 +333,25 @@ export function parseTickTickJson(text, { now = new Date() } = {}) {
 
     const tags = splitTags(task.tags)
     const priority = priorityLabel(task.priority)
-    const repeat = task.repeatFlag ?? task.repeat ?? ''
+    const repeat = composeRepeat(task.repeatFlag ?? task.repeat, task.repeatFrom)
     const reminders = Array.isArray(task.reminders) ? task.reminders.join('、') : (task.reminders || '')
     const allDay = isTruthy(task.isAllDay ?? task.allDay)
     const deadline = parseTickTickDate(task.dueDate ?? task.due ?? task.deadline, { allDay })
     const startAt = parseTickTickDate(task.startDate ?? task.startAt ?? task.start)
+    const kind = String(task.kind ?? '').trim()
 
     tasks.push({
       key,
       parentKey,
+      externalId: externalIdOf('ticktick:', rawId),
       title,
-      details: composeDetails(task.content || task.desc || task.description || task.notes, {
+      details: composeDetails(task.content || task.description || task.notes, {
+        desc: String(task.desc ?? '').trim(),
         listName,
         folderName,
         priority,
+        // TEXT 是普通任务的默认类型，只有笔记/清单才值得标注
+        kind: kind && kind.toUpperCase() !== 'TEXT' ? kind : '',
         tags,
         startAt,
         repeat,
@@ -340,20 +364,25 @@ export function parseTickTickJson(text, { now = new Date() } = {}) {
       sortOrder: Number.isFinite(Number(task.sortOrder ?? task.order)) ? Number(task.sortOrder ?? task.order) : index
     })
 
-    // 检查项作为子任务保留，完成状态一并迁移
+    // 检查项作为子任务保留，完成状态与时间一并迁移
     if (Array.isArray(task.items)) {
       task.items.forEach((item, itemIndex) => {
         const itemTitle = String(item?.title ?? item?.name ?? '').trim()
         if (!itemTitle) return
-        const itemCompleted = item?.status === 1
-          || isCompleted(item?.status, parseTickTickDate(item?.completedTime ?? item?.completedAt))
+        const itemCompletedAt = parseTickTickDate(item?.completedTime ?? item?.completedAt)
+        const itemCompleted = item?.status === 1 || isCompleted(item?.status, itemCompletedAt)
+        const itemAllDay = isTruthy(item?.isAllDay)
         tasks.push({
           key: `${key}:item:${itemIndex}`,
           parentKey: key,
+          externalId: externalIdOf('ticktick:item:', item?.id),
           title: itemTitle,
-          details: composeDetails('', { extra: '检查项' }),
-          deadline: null,
-          completedAt: itemCompleted ? (parseTickTickDate(item?.completedTime ?? item?.completedAt) || now.toISOString()) : null,
+          details: composeDetails(item?.content ?? item?.desc, {
+            extra: '检查项',
+            startAt: parseTickTickDate(item?.startDate ?? item?.startAt, { allDay: itemAllDay })
+          }),
+          deadline: parseTickTickDate(item?.dueDate ?? item?.due, { allDay: itemAllDay }),
+          completedAt: itemCompleted ? (itemCompletedAt || now.toISOString()) : null,
           listName,
           folderName,
           sortOrder: itemIndex
@@ -458,6 +487,7 @@ export function buildImportPlan(tasks = [], { groupByList = true } = {}) {
     nodes.push({
       key: task.key,
       parentKey,
+      externalId: task.externalId ?? null,
       title: task.title,
       details: task.details ?? null,
       deadline: task.deadline ?? null,
@@ -480,6 +510,7 @@ export function buildImportPlan(tasks = [], { groupByList = true } = {}) {
       nodes.push({
         key,
         parentKey: null,
+        externalId: `ticktick:list:${name}`,
         title: name,
         details: null,
         deadline: null,
@@ -512,14 +543,55 @@ export function buildImportPlan(tasks = [], { groupByList = true } = {}) {
   return { nodes, warnings }
 }
 
+// 读取已导入过的记录，用于重复导入时命中同一行
+const fetchImportedRecords = async (supabase) => {
+  const byExternalId = new Map()
+  if (typeof supabase?.from !== 'function') return byExternalId
+
+  const pageSize = 1000
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('todos')
+      .select('id, external_id, title, details, deadline, completed_at, deleted_at')
+      .not('external_id', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1)
+
+    if (error) throw error
+    if (!Array.isArray(data) || data.length === 0) break
+    data.forEach((row) => byExternalId.set(row.external_id, row))
+    if (data.length < pageSize) break
+  }
+  return byExternalId
+}
+
+const sameInstant = (left, right) => {
+  if (!left && !right) return true
+  if (!left || !right) return false
+  return new Date(left).getTime() === new Date(right).getTime()
+}
+
+// 只把与库里不同的字段挑出来，重复导入不会产生无意义的写入
+const diffExisting = (row, node) => {
+  const patch = {}
+  if ((row.title ?? '') !== node.title) patch.title = node.title
+  if ((row.details ?? null) !== (node.details ?? null)) patch.details = node.details ?? null
+  if (!sameInstant(row.deadline, node.deadline)) patch.deadline = node.deadline ?? null
+  if (!sameInstant(row.completed_at, node.completedAt)) patch.completed_at = node.completedAt ?? null
+  return patch
+}
+
 // 顺序执行导入计划：父子依赖决定不能并发，逐条调用 create_todo 并记录真实 ID
 export async function executeTickTickImport({ supabase, nodes = [], onProgress, isCancelled } = {}) {
   if (!supabase) throw new Error('缺少 Supabase 客户端')
 
+  const existingByExternalId = await fetchImportedRecords(supabase)
   const idByKey = new Map()
   const failedKeys = new Set()
   const errors = []
   let imported = 0
+  let updated = 0
+  let unchanged = 0
   let failed = 0
   let skipped = 0
   let cancelled = false
@@ -544,6 +616,43 @@ export async function executeTickTickImport({ supabase, nodes = [], onProgress, 
       parentId = idByKey.get(node.parentKey)
     }
 
+    // 命中已导入过的任务：沿用原记录，只同步变化的字段
+    const existing = node.externalId ? existingByExternalId.get(node.externalId) : null
+    if (existing) {
+      if (existing.deleted_at) {
+        skipped += 1
+        failedKeys.add(node.key)
+        errors.push({ title: node.title, message: '任务已在回收站中，已跳过' })
+        onProgress?.(index + 1, nodes.length, node.title)
+        continue
+      }
+
+      const patch = diffExisting(existing, node)
+      if (Object.keys(patch).length === 0) {
+        idByKey.set(node.key, existing.id)
+        unchanged += 1
+        onProgress?.(index + 1, nodes.length, node.title)
+        continue
+      }
+
+      const { error } = await supabase
+        .from('todos')
+        .update(patch)
+        .eq('id', existing.id)
+
+      if (error) {
+        failed += 1
+        failedKeys.add(node.key)
+        errors.push({ title: node.title, message: error.message || '更新失败' })
+      } else {
+        idByKey.set(node.key, existing.id)
+        updated += 1
+      }
+
+      onProgress?.(index + 1, nodes.length, node.title)
+      continue
+    }
+
     const { data, error } = await supabase.rpc('create_todo', {
       p_title: node.title,
       p_details: node.details ?? null,
@@ -551,7 +660,8 @@ export async function executeTickTickImport({ supabase, nodes = [], onProgress, 
       p_sort_order: node.sortOrder ?? null,
       p_difficulty: null,
       p_completed_at: node.completedAt ?? null,
-      p_parent_id: parentId
+      p_parent_id: parentId,
+      p_external_id: node.externalId ?? null
     })
 
     if (error) {
@@ -570,5 +680,5 @@ export async function executeTickTickImport({ supabase, nodes = [], onProgress, 
     onProgress?.(index + 1, nodes.length, node.title)
   }
 
-  return { imported, failed, skipped, errors, cancelled }
+  return { imported, updated, unchanged, failed, skipped, errors, cancelled }
 }
