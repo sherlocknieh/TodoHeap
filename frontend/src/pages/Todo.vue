@@ -55,7 +55,6 @@ const activeView = computed({
 const showUserMenu = ref(false)
 const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
-const showCompletedPanel = ref(true)
 const isAnalyzingTask = ref(false)
 const isOptimizingTasks = ref(false)
 const analyzeProgress = ref({
@@ -80,7 +79,8 @@ const optimizeProgress = ref({
 const pendingTasks = ref([]) // 待确认的任务列表（用于预览模式）
 const userSettings = ref({ ...DEFAULT_USER_SETTINGS })
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
-const showLeftSidebar = ref(true) // 侧栏显示状态
+// 侧栏显示状态：窄屏默认收起，避免浮层遮住清单
+const showLeftSidebar = ref(window.innerWidth >= 1024)
 
 const showViewLoading = computed(() => {
 	return (activeView.value === 'tree' || activeView.value === 'heap') && todoStore.loading
@@ -156,41 +156,6 @@ const viewProps = computed(() => {
 	return {}
 })
 
-const completedTodos = computed(() => {
-  return (todoStore.todos || []).filter(t => t.completed_at)
-})
-
-const toggleCompletedTodo = async (todo) => {
-	if (!todo?.id) return
-	const previousCompletedAt = todo.completed_at ?? null
-	const result = await todoStore.toggleDone(todo.id)
-	if (!result.success) return
-	showToast(`已恢复「${todo.title || '任务'}」`, () =>
-		todoStore.updateTodo(todo.id, { completed_at: previousCompletedAt }))
-}
-
-// 一键清除已完成：确认后整棵已完成子树移入回收站
-const clearCompletedTodos = async () => {
-	const total = completedTodos.value.length
-	if (total === 0) return
-	if (!window.confirm(`将 ${total} 个已完成任务及其子任务移入回收站？`)) return
-
-	const result = await todoStore.deleteCompletedTodos()
-	if (!result.success) return
-
-	// 当前选中的任务被级联删除时收起详情面板
-	if (selectedTaskId.value != null && !todoStore.todos.some(todo => todo.id === selectedTaskId.value)) {
-		closeDetailPanel()
-		selectedTaskId.value = null
-	}
-
-	const restoredIds = result.data?.ids || []
-	if (restoredIds.length) {
-		showToast(`已清除 ${result.count} 个已完成任务`, () =>
-			Promise.all(restoredIds.map(id => todoStore.restoreTodo(id))))
-	}
-}
-
 const handleSelectedIdReplaced = (event) => {
 	const { tempId, realId } = event.detail || {}
 	if (tempId == null || realId == null) return
@@ -220,6 +185,15 @@ provide(TODO_DETAIL_PANEL_CONTEXT, {
 })
 
 // 页面离开警告处理
+// 跨过桌面/窄屏阈值时自动切换侧栏，窄屏不遮住清单
+let lastWindowWidth = typeof window === 'undefined' ? 1024 : window.innerWidth
+const handleWindowResize = () => {
+	const width = window.innerWidth
+	if (width < 1024 && lastWindowWidth >= 1024) showLeftSidebar.value = false
+	if (width >= 1024 && lastWindowWidth < 1024) showLeftSidebar.value = true
+	lastWindowWidth = width
+}
+
 const handleBeforeUnload = (e) => {
 	if (hasUnsyncedChanges.value) {
 		e.preventDefault()
@@ -245,6 +219,7 @@ onMounted(async () => {
 	// 添加事件监听器
 	document.addEventListener('click', handleClickOutside)
 	window.addEventListener('beforeunload', handleBeforeUnload)
+	window.addEventListener('resize', handleWindowResize)
 	window.addEventListener('sync:id-replaced', handleSelectedIdReplaced)
 })
 
@@ -597,6 +572,7 @@ onUnmounted(() => {
 	todoStore.cleanupRealtimeSubscription()
 	// 移除页面离开警告
 	window.removeEventListener('beforeunload', handleBeforeUnload)
+	window.removeEventListener('resize', handleWindowResize)
 	window.removeEventListener('sync:id-replaced', handleSelectedIdReplaced)
 	// 离开应用页时收起设置浮窗，避免下次进入时残留
 	settingsPanelOpen.value = false
@@ -731,7 +707,9 @@ const runToastUndo = async () => {
 							? 'h-full'
 							: activeView === 'ai'
 								? 'mx-auto max-w-3xl w-full px-6 pb-4 h-full flex flex-col min-h-0'
-								: 'mx-auto max-w-3xl w-full px-6 pb-4 space-y-3'">
+								: activeView === 'trash'
+									? 'mx-auto flex h-full max-w-3xl w-full flex-col px-8 pt-6 pb-6'
+									: 'mx-auto max-w-3xl w-full px-8 pb-6'">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									:is-breaking-down="isBreakingDown"
@@ -739,52 +717,14 @@ const runToastUndo = async () => {
 									@submit-task="handleAnalyzeTaskInput" @optimize-tasks="handleOptimizeTasks"
 									@notify="handleNotify" />
 							</router-view>
-
-							<!-- 已完成任务：收在清单下方，与列表同宽同卡 -->
-							<section v-if="activeView !== 'ai' && activeView !== 'schedule' && activeView !== 'tree'" class="panel px-4 py-3">
-								<div class="flex items-center justify-between">
-									<span class="text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
-										已完成 <span class="ml-1 font-mono text-neutral-900 dark:text-neutral-100">{{ completedTodos.length }}</span>
-									</span>
-									<div class="flex items-center gap-1">
-										<button v-if="completedTodos.length" @click="clearCompletedTodos"
-											class="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
-											title="清除已完成任务">
-											<AppIcon name="trash" :size="14" />
-										</button>
-										<button @click="showCompletedPanel = !showCompletedPanel"
-											class="text-xs font-medium text-accent-700 hover:underline dark:text-accent-400 transition-colors">
-											{{ showCompletedPanel ? '收起' : '展开' }}
-										</button>
-									</div>
-								</div>
-								<Transition name="fade">
-									<div v-if="showCompletedPanel" class="mt-2 max-h-52 overflow-auto">
-										<ul class="space-y-px">
-											<li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)"
-												:class="[
-													'flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer transition-colors',
-													selectedTaskId === t.id
-														? 'bg-accent-50 text-accent-900 dark:bg-accent-500/10 dark:text-accent-100'
-														: 'text-neutral-600 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
-												]">
-												<input type="checkbox" checked
-													class="h-3.5 w-3.5 rounded border-accent-300 accent-accent-600 dark:accent-accent-400"
-													@click.stop @change="toggleCompletedTodo(t)" />
-												<span class="truncate">{{ t.title || '未命名任务' }}</span>
-											</li>
-										</ul>
-									</div>
-								</Transition>
-							</section>
 						</div>
 					</template>
 				</div>
 
 				<!-- 自然语言任务输入：AI 视图自带输入框，树视图保持全屏 -->
-				<div v-if="!isBreakingDown && activeView !== 'ai' && activeView !== 'tree'"
-					class="mx-auto max-w-3xl w-full px-6 pb-4">
-					<div class="panel p-2">
+				<div v-if="!isBreakingDown && (activeView === 'list' || activeView === 'heap')"
+					class="mx-auto w-full max-w-3xl border-t border-hairline px-8 pt-3 pb-4 dark:border-hairline-dark">
+					<div class="rounded-lg border border-hairline bg-surface px-3 py-2 dark:border-hairline-dark dark:bg-surface-dark">
 						<AITaskInput :loading="isAnalyzingTask" :progress="analyzeProgress"
 							@submit-task="handleAnalyzeTaskInput" />
 					</div>
@@ -829,7 +769,7 @@ const runToastUndo = async () => {
 		<!-- 操作反馈：带撤销入口的轻提示 -->
 		<Transition name="fade">
 			<div v-if="toast.visible"
-				class="fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 panel px-3 py-2 shadow-lg">
+				class="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 panel px-3 py-2 shadow-lg">
 				<span class="text-sm text-neutral-700 dark:text-neutral-300">{{ toast.message }}</span>
 				<button v-if="toast.undo" type="button"
 					class="flex items-center gap-1 text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"

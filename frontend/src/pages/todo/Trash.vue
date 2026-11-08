@@ -1,13 +1,12 @@
 <template>
   <div class="h-full flex flex-col min-h-0" ref="trashContainerRef">
     <!-- 头部 -->
-    <header
-      class="shrink-0 h-12 px-4 flex items-center justify-between gap-3 border-b border-hairline dark:border-hairline-dark">
-      <div class="flex items-baseline gap-2 min-w-0">
-        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">回收站</h2>
-        <span class="text-xs text-neutral-500">{{ trashTodos.length }} 个已删除任务</span>
-      </div>
-      <div class="flex items-center gap-2">
+    <header class="shrink-0 flex items-center gap-3 border-b border-hairline pb-3 dark:border-hairline-dark">
+      <h1 class="shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">回收站</h1>
+      <p class="ml-auto min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
+        <span class="font-mono">{{ trashTodos.length }}</span> 个已删除任务
+      </p>
+      <div class="flex shrink-0 items-center gap-2">
         <!-- 选中任务时只针对该任务操作 -->
         <template v-if="props.selectedTaskId != null">
           <button class="btn-secondary" @click="handleRestoreWithCheck(props.selectedTaskId)">
@@ -49,11 +48,11 @@
     <ul v-else class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-hairline dark:divide-hairline-dark">
       <template v-for="item in flatTrashList" :key="item.id">
         <li v-if="shouldShowItem(item)" :data-task-item="item.id" :data-task-id="item.id" :class="[
-          'group flex items-center gap-2 py-1.5 pr-3 cursor-pointer border-l-2 transition-colors',
+          'group flex items-center gap-2.5 rounded-md py-2.5 pr-3 cursor-pointer transition-colors',
           selectedTaskId === item.id
-            ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-600 dark:border-accent-400'
-            : 'border-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
-        ]" :style="{ paddingLeft: (10 + item._level * 18) + 'px' }" @click="selectTask(item.id)">
+            ? 'bg-accent-100/70 dark:bg-accent-500/20'
+            : 'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/40'
+        ]" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"
             class="p-0.5 rounded text-neutral-400 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"

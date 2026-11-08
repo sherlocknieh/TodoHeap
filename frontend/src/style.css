@@ -43,6 +43,23 @@ html {
   }
 }
 
+/* 行内操作：指针设备悬停时出现，触屏没有悬停则常显 */
+.row-actions {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.group:hover > .row-actions,
+.group:focus-within > .row-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .row-actions {
+    opacity: 1;
+  }
+}
+
 /* 使应用程序占满视口高度 */
 html, body, #app {
   height: 100%;

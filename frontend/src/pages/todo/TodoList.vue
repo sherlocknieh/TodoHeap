@@ -1,45 +1,52 @@
 <template>
-  <div class="panel p-4 text-neutral-900 dark:text-neutral-100">
-    <!-- 快速添加 -->
-    <section class="flex items-center gap-2 pb-1">
-      <AppIcon name="plus" :size="15" class="text-neutral-400 dark:text-neutral-600" />
-      <input
-        v-model.trim="newTaskTitle"
-        @keyup.enter="addTodo"
-        placeholder="写下任务，回车添加"
-        class="field flex-1"
-      />
-      <span class="hidden sm:inline font-mono text-[11px] text-neutral-400 dark:text-neutral-600">Enter</span>
-      <button
-        class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40"
-        :disabled="!newTaskTitle.trim()"
-        title="添加任务"
-        @click="addTodo"
-      >
-        <AppIcon name="chevronRight" :size="15" />
-      </button>
-    </section>
+  <div class="text-neutral-900 dark:text-neutral-100">
+    <!-- 页头：单行不换行，滚动时吸顶，长列表也能随时切换排序与多选 -->
+    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-hairline bg-canvas pt-6 pb-3 dark:border-hairline-dark dark:bg-canvas-dark">
+      <h1 class="shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight">我的任务</h1>
+      <p class="ml-auto min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
+        <span class="font-mono">{{ visibleCount }}</span> 项待办
+        <template v-if="completedCount">
+          <span class="px-1.5 text-neutral-300 dark:text-neutral-700">·</span>
+          <span class="font-mono">{{ completedCount }}</span> 项已完成
+        </template>
+      </p>
 
-    <!-- 工具栏：排序与多选 -->
-    <section v-if="visibleCount > 0 || completedCount > 0" class="mt-2 flex items-center justify-between gap-2 border-b border-hairline pb-2 dark:border-hairline-dark">
-      <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ visibleCount }} 项</span>
-      <div class="flex items-center gap-2">
-        <label class="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400" title="排序方式">
-          <AppIcon name="sliders" :size="13" />
-          <select v-model="sortMode" class="cursor-pointer bg-transparent text-xs text-neutral-700 outline-none dark:text-neutral-300">
+      <div class="flex shrink-0 items-center gap-1.5">
+        <label
+          class="relative flex h-8 items-center rounded-md border border-hairline text-xs text-neutral-600 transition-colors hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300"
+          title="排序方式">
+          <AppIcon name="sliders" :size="13" class="pointer-events-none ml-2 opacity-70" />
+          <select v-model="sortMode" class="h-full cursor-pointer appearance-none bg-transparent pr-6 pl-1.5 outline-none">
             <option v-for="option in LIST_SORT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select>
+          <AppIcon name="chevronDown" :size="12" class="pointer-events-none absolute right-1.5 opacity-60" />
         </label>
-        <button
-          class="rounded px-2 py-1 text-xs font-medium transition-colors"
+
+        <button type="button" class="flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors"
           :class="selectionMode
-            ? 'bg-accent-600 text-white dark:bg-accent-400 dark:text-accent-950'
-            : 'text-neutral-600 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'"
+            ? 'border-accent-600 bg-accent-600 text-white dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950'
+            : 'border-hairline text-neutral-600 hover:border-accent-500/60 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-300 dark:hover:text-accent-200'"
           :title="selectionMode ? '退出多选' : '多选任务'" @click="toggleSelectionMode">
-          {{ selectionMode ? '退出选择' : '选择' }}
+          <AppIcon name="check" :size="13" />
+          <span>{{ selectionMode ? '完成选择' : '选择' }}</span>
         </button>
       </div>
-    </section>
+    </header>
+
+    <!-- 快速添加：整行可聚焦，回车即存 -->
+    <div
+      class="mt-4 flex items-center gap-2 rounded-lg border border-hairline bg-surface px-3 transition-colors focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/15 dark:border-hairline-dark dark:bg-surface-dark">
+      <AppIcon name="plus" :size="16" class="text-neutral-400 dark:text-neutral-500" />
+      <input v-model.trim="newTaskTitle" @keyup.enter="addTodo" placeholder="添加任务，回车保存"
+        class="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500" />
+      <kbd
+        class="rounded border border-hairline px-1.5 py-0.5 font-mono text-[10px] text-neutral-400 dark:border-hairline-dark dark:text-neutral-500">Enter</kbd>
+      <button
+        class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-30 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+        :disabled="!newTaskTitle.trim()" title="添加任务" @click="addTodo">
+        <AppIcon name="chevronRight" :size="15" />
+      </button>
+    </div>
 
     <!-- 错误提示 -->
     <section v-if="errorText" class="mt-3 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
@@ -54,14 +61,17 @@
     </section>
 
     <!-- 空状态 -->
-    <section v-else-if="!loading && visibleCount === 0" class="py-16 text-center">
-      <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ completedCount ? '没有进行中的任务' : '还没有任务' }}</p>
-      <p v-if="!completedCount" class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">在上方写下第一件事，回车即可添加</p>
-      <p v-else class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">已完成的任务收在下方「已完成」区域</p>
+    <section v-if="!loading && visibleCount === 0 && !completedCount" class="mt-12 mb-8 text-center">
+      <div
+        class="mx-auto grid h-10 w-10 place-items-center rounded-full bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-300">
+        <AppIcon name="check" :size="18" />
+      </div>
+      <p class="mt-3 text-sm font-medium text-neutral-700 dark:text-neutral-300">还没有任务</p>
+      <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">在上方写下第一件事，回车即可添加</p>
     </section>
 
     <!-- 任务列表 -->
-    <div v-else class="mt-2">
+    <div v-else-if="!loading" class="mt-4">
       <TodoListItem
         v-for="node in sortedTree"
         :key="node.id"
@@ -80,7 +90,43 @@
         @set-deadline="setDeadline"
         @move-todo="moveTodo"
       />
+      <p v-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+        没有进行中的任务，已完成的收在下方
+      </p>
     </div>
+
+    <!-- 已完成：无内容时不占位 -->
+    <section v-if="completedCount" class="mt-6 border-t border-hairline dark:border-hairline-dark">
+      <div class="flex items-center gap-1 pt-2">
+        <button type="button"
+          class="flex items-center gap-1.5 rounded px-1 py-1 text-xs text-neutral-500 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+          @click="showCompletedPanel = !showCompletedPanel">
+          <AppIcon :name="showCompletedPanel ? 'chevronDown' : 'chevronRight'" :size="13" />
+          <span>已完成</span>
+          <span class="font-mono text-neutral-400 dark:text-neutral-500">{{ completedCount }}</span>
+        </button>
+        <button type="button"
+          class="ml-auto grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+          title="清除已完成任务" @click="clearCompletedTodos">
+          <AppIcon name="trash" :size="13" />
+        </button>
+      </div>
+      <ul v-if="showCompletedPanel" class="mt-1 space-y-0.5 pb-2">
+        <li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)" :class="[
+          'flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors',
+          props.selectedTaskId === t.id
+            ? 'bg-accent-100/70 dark:bg-accent-500/15'
+            : 'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/40'
+        ]">
+          <button type="button"
+            class="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] bg-accent-600 text-white dark:bg-accent-400 dark:text-accent-950"
+            title="标记为未完成" @click.stop="toggleCompletedTodo(t)">
+            <AppIcon name="check" :size="10" />
+          </button>
+          <span class="truncate text-neutral-400 line-through dark:text-neutral-500">{{ t.title || '未命名任务' }}</span>
+        </li>
+      </ul>
+    </section>
 
     <!-- 多选操作条 -->
     <Transition name="fade">
@@ -177,7 +223,46 @@ const sortedTree = computed(() => sortTodoTree(todoStore.treeNodes, sortMode.val
 
 const countNodes = (list) => list.reduce((acc, n) => acc + (n._isRef || n.completed_at ? 0 : 1) + countNodes(n.children || []), 0)
 const visibleCount = computed(() => countNodes(todoStore.treeNodes))
-const completedCount = computed(() => todoStore.todos.filter(todo => todo.completed_at).length)
+const completedTodos = computed(() => todoStore.todos.filter(todo => todo.completed_at))
+const completedCount = computed(() => completedTodos.value.length)
+
+// 已完成区域默认展开，与列表同属一页
+const showCompletedPanel = ref(true)
+
+const toggleCompletedTodo = async (todo) => {
+  if (!todo?.id) return
+  const previousCompletedAt = todo.completed_at ?? null
+  const result = await todoStore.toggleDone(todo.id)
+  if (!result.success) return
+
+  emit('notify', {
+    message: `已恢复「${todo.title || '任务'}」`,
+    undo: () => todoStore.updateTodo(todo.id, { completed_at: previousCompletedAt })
+  })
+}
+
+// 清除已完成：整棵已完成子树移入回收站，提示里可整体撤销
+const clearCompletedTodos = async () => {
+  if (!completedCount.value) return
+  if (!window.confirm(`将 ${completedCount.value} 个已完成任务及其子任务移入回收站？`)) return
+
+  const selectedWasCompleted = completedTodos.value.some(todo => todo.id === props.selectedTaskId)
+  const result = await todoStore.deleteCompletedTodos()
+  if (!result.success) return
+
+  // 选中的任务随清除消失时收起详情面板
+  if (selectedWasCompleted) {
+    emit('task-selected', null)
+  }
+
+  const restoredIds = result.data?.ids || []
+  emit('notify', {
+    message: `已清除 ${result.count} 个已完成任务`,
+    undo: restoredIds.length
+      ? () => Promise.all(restoredIds.map(id => todoStore.restoreTodo(id)))
+      : null
+  })
+}
 
 // 多选模式：选中集合按真实任务 ID 记录
 const selectionMode = ref(false)

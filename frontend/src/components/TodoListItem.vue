@@ -1,14 +1,14 @@
 <template>
-  <ul class="divide-y divide-hairline dark:divide-hairline-dark">
+  <ul class="divide-y divide-hairline/60 dark:divide-hairline-dark/60">
     <template v-for="item in flatList">
       <li v-if="isItemVisible(item)" :key="item.id" data-task-item :draggable="canDrag(item)" :class="[
-        'group flex items-center gap-2 py-1.5 pr-2 cursor-pointer border-l-2 transition-colors',
+        'group flex items-center gap-2.5 rounded-md py-2.5 pr-2 cursor-pointer transition-colors',
         dropIndicator && dropIndicator.id === item.id && dropIndicator.position === 'inside'
           ? 'bg-accent-100/70 dark:bg-accent-500/20'
           : selectedTaskId === (item._isRef ? item._refTargetId : item.id)
-            ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-500 dark:border-accent-400'
-            : 'border-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
-      ]" :style="{ paddingLeft: (6 + item._level * 18) + 'px', ...dropStyle(item.id) }"
+            ? 'bg-accent-100/70 dark:bg-accent-500/20'
+            : 'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/40'
+      ]" :style="{ paddingLeft: (4 + item._level * 22) + 'px', ...dropStyle(item.id) }"
         @click="handleRowClick(item)" @dragstart="onDragStart(item, $event)" @dragover.prevent="onDragOver(item, $event)"
         @dragleave="onDragLeave(item, $event)" @drop.prevent="onDrop(item, $event)" @dragend="onDragEnd">
         <!-- 展开/折叠 -->
@@ -17,11 +17,11 @@
           @click.stop="toggleExpand(item.id)">
           <AppIcon :name="expandedMap[item.id] ? 'chevronDown' : 'chevronRight'" :size="13" />
         </button>
-        <span v-else class="w-[17px] shrink-0"></span>
+        <span v-else class="w-[18px] shrink-0"></span>
 
         <!-- 多选模式的选择框 / 日常的完成状态 -->
         <button v-if="selectionMode" type="button"
-          class="shrink-0 grid place-items-center w-[15px] h-[15px] rounded-[3px] border transition-colors"
+          class="shrink-0 grid place-items-center h-4 w-4 rounded-[3px] border transition-colors"
           :class="isSelected(item)
             ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
             : 'border-neutral-400 text-transparent hover:border-neutral-500 dark:border-neutral-500 dark:hover:border-neutral-400'"
@@ -30,14 +30,14 @@
           <AppIcon name="check" :size="10" />
         </button>
         <button v-else-if="!item._isRef" type="button"
-          class="shrink-0 grid place-items-center w-[15px] h-[15px] rounded-[3px] border transition-colors"
+          class="shrink-0 grid place-items-center h-4 w-4 rounded-[3px] border transition-colors"
           :class="statusMap[item.id] === 'checked'
             ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
             : 'border-neutral-400 text-transparent hover:border-neutral-500 dark:border-neutral-500 dark:hover:border-neutral-400'"
           :aria-pressed="statusMap[item.id] === 'checked'" @click.stop="cycleStatus(item)">
           <AppIcon name="check" :size="10" />
         </button>
-        <span v-else class="w-[15px] shrink-0"></span>
+        <span v-else class="w-4 shrink-0"></span>
 
         <!-- 标题与元信息 -->
         <div class="flex-1 min-w-0">
@@ -66,10 +66,10 @@
 
         <!-- 行内操作 -->
         <div v-if="!item._isRef && !selectionMode"
-          class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          class="row-actions flex shrink-0 items-center gap-0.5">
           <div class="relative">
             <button
-              class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
+              class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               data-deadline-trigger title="设置截止时间" @click.stop="toggleDeadlineMenu(item)">
               <AppIcon name="calendar" :size="14" />
             </button>
@@ -95,20 +95,20 @@
             </div>
           </div>
           <button
-            class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
+            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             title="添加子任务" @click.stop="emitAddSubtask(item.id)">
             <AppIcon name="plus" :size="14" />
           </button>
           <button
-            class="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
+            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
             title="删除任务" @click.stop="emitDeleteTodo(item.id)">
             <AppIcon name="trash" :size="14" />
           </button>
           <div class="relative">
             <button
-              class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
+              class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               title="更多操作" @click.stop="toggleMoreMenu(item.id, $event)">
-              <AppIcon name="sliders" :size="14" />
+              <AppIcon name="more" :size="14" />
             </button>
             <div v-if="showMoreMenuId === item.id"
               class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1" ref="moreMenuRef">
@@ -216,9 +216,10 @@ const isItemVisible = (item) => {
 // 折叠/展开状态
 const expandedMap = ref({})
 onMounted(() => {
+  // 默认展开前两层，打开清单即可看到主要任务而不被折叠挡住
   flatList.value.forEach(item => {
-    if (item.children && item.children.length) {
-      expandedMap.value[item.id] = false
+    if (item._level <= 1 && item.children && item.children.length && !(item.id in expandedMap.value)) {
+      expandedMap.value[item.id] = true
     }
   })
 })

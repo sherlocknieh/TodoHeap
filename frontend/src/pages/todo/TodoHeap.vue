@@ -1,6 +1,6 @@
 <template>
 	<!-- 堆视图：形状表示层级，分数决定颜色 -->
-	<div class="h-full overflow-y-auto">
+	<div class="h-full overflow-y-auto pt-6">
 		<div v-if="heapNodes.length === 0" class="py-20 text-center">
 			<p class="text-sm text-neutral-500">暂无任务</p>
 		</div>
