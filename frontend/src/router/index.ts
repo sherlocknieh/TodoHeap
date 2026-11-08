@@ -65,8 +65,8 @@ router.beforeEach(async (to, _from) => {
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  // 如果用户已认证但访问登录页，重定向到应用主页
-  if ((to.name === 'login' || to.name === 'home') && auth.isAuthenticated) {
+  // 已登录用户访问登录页时直接进入应用；主页保持可访问，便于回顾功能介绍
+  if (to.name === 'login' && auth.isAuthenticated) {
     return { name: 'app' }
   }
   return;

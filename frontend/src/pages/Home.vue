@@ -1,11 +1,14 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const auth = useAuthStore()
 
-const openLogin = () => {
-  router.push({ name: 'login' })
+// 按登录状态进入应用或引导登录
+const openApp = () => {
+  router.push({ name: auth.isAuthenticated ? 'app' : 'login' })
 }
 
 const features = [
@@ -37,7 +40,7 @@ const features = [
           <img src="/logo.png" alt="TodoHeap" class="w-6 h-6 rounded" />
           <span class="text-sm font-semibold tracking-tight">TodoHeap</span>
         </div>
-        <button class="btn-primary text-xs px-3 py-1.5" @click="openLogin">登录 / 注册</button>
+        <button class="btn-primary text-xs px-3 py-1.5" @click="openApp">{{ auth.isAuthenticated ? '进入应用' : '登录 / 注册' }}</button>
       </div>
     </header>
 
@@ -52,7 +55,7 @@ const features = [
           TodoHeap 用 AI 分解任务，用堆结构决定先后顺序。你不必在等价的清单里反复挑选，随时知道下一步做什么。
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-3">
-          <button class="btn-primary px-4 py-2" @click="openLogin">开始使用</button>
+          <button class="btn-primary px-4 py-2" @click="openApp">{{ auth.isAuthenticated ? '进入应用' : '开始使用' }}</button>
           <a href="/TodoHeap/docs/zh/" class="btn-outline px-4 py-2">阅读文档</a>
         </div>
       </section>
