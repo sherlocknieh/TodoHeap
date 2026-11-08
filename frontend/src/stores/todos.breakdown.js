@@ -37,7 +37,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
     try {
       // 获取 Supabase 配置
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
 
       // 直接使用 fetch 调用边缘函数以支持流式响应
       const response = await fetch(`${supabaseUrl}/functions/v1/breakdown_task`, {
@@ -45,7 +45,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseAnonKey}`,
-          apikey: supabaseAnonKey
+          apikey: supabasePubKey
         },
         body: JSON.stringify(body)
       })
@@ -209,8 +209,6 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      const apikey = supabasePubKey || supabaseAnonKey
 
       onProgress?.({ stage: 'auth', message: '校验用户会话...' })
       const { data: sessionResult, error: sessionError } = await supabase.auth.getSession()
@@ -232,7 +230,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${sessionResult.session.access_token}`,
-            apikey
+            apikey: supabasePubKey
           },
           body: JSON.stringify({
             query: trimmedQuery,
@@ -287,8 +285,6 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      const apikey = supabasePubKey || supabaseAnonKey
 
       const { data: sessionResult, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !sessionResult?.session?.access_token) {
@@ -300,7 +296,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${sessionResult.session.access_token}`,
-          apikey
+          apikey: supabasePubKey
         },
         body: JSON.stringify({ query })
       })
