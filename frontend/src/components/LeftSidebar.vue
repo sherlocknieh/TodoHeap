@@ -9,6 +9,7 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
+import { persistedRef } from '@/utils/uiState'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -40,8 +41,10 @@ const renameInput = ref(null)
 const skillForm = ref(null)
 const skillError = ref('')
 
-// 侧栏分组默认展开，点击标题折叠（参考 VSCode 侧栏）
-const collapsedSections = ref({ sessions: false, skills: false })
+// 侧栏分组默认展开，点击标题折叠；折叠选择本地保留（参考 VSCode 侧栏）
+const collapsedSections = persistedRef('sidebar-sections', { sessions: false, skills: false }, {
+  validate: (value) => value && typeof value === 'object'
+})
 
 const toggleSection = (key) => {
   collapsedSections.value[key] = !collapsedSections.value[key]
@@ -266,7 +269,10 @@ const switchView = (view) => {
     </header>
 
     <!-- 内容：按活动栏入口切换 -->
-    <div class="flex-1 min-h-0 overflow-auto px-2 py-3 space-y-6">
+    <!-- AI 侧栏把技能钉在底部，其余分组在上方独立滚动 -->
+    <div :class="section === 'ai'
+      ? 'flex-1 min-h-0 flex flex-col px-2 py-3'
+      : 'flex-1 min-h-0 overflow-auto px-2 py-3 space-y-6'">
       <template v-if="section === 'list'">
         <!-- 视图 -->
         <nav class="space-y-0.5">
@@ -342,6 +348,7 @@ const switchView = (view) => {
       </template>
 
       <template v-else>
+        <div class="flex-1 min-h-0 overflow-auto space-y-6">
         <!-- 对话会话：新建、切换、重命名、删除 -->
         <section>
           <div class="flex items-center gap-1 pl-1 pr-2">
@@ -396,8 +403,10 @@ const switchView = (view) => {
           </div>
         </section>
 
-        <!-- 技能：点击直接在新会话执行，支持新建、编辑、启停与删除 -->
-        <section>
+        </div>
+
+        <!-- 技能：常驻底部分组，折叠后只保留标题行 -->
+        <section class="shrink-0 border-t border-hairline pt-2 dark:border-hairline-dark">
           <div class="flex items-center gap-1 pl-1 pr-2">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.skills" @click="toggleSection('skills')">
@@ -410,7 +419,7 @@ const switchView = (view) => {
             </button>
           </div>
 
-          <div v-show="!collapsedSections.skills" class="space-y-0.5">
+          <div v-show="!collapsedSections.skills" class="max-h-[50vh] overflow-auto space-y-0.5">
             <form v-if="skillForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
               @submit.prevent="saveSkill">
               <input v-model="skillForm.name" class="field w-full px-1.5 py-1 text-xs"
@@ -466,17 +475,7 @@ const switchView = (view) => {
             <p v-if="agent.skillsError" class="px-2 pt-1 text-[11px] leading-4 text-rose-600 dark:text-rose-400">
               {{ agent.skillsError }}
             </p>
-            <p v-else class="px-2 pt-1 text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
-              点击技能即在新会话中执行它的指令。
-            </p>
           </div>
-        </section>
-
-        <section class="space-y-0.5">
-          <p class="eyebrow px-2 pb-1.5">说明</p>
-          <p class="px-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            直接告诉 Agent 要做什么，它会读写任务与日程；会话按话题分开保存，模型可在「设置 → 模型接入」中切换。
-          </p>
         </section>
       </template>
     </div>
