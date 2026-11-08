@@ -50,7 +50,7 @@ const SUGGESTIONS = [
   { icon: 'sparkles', text: '把「准备季度汇报」拆成 5 个子任务，下周五前完成' },
   { icon: 'clock', text: '这周有哪些任务快逾期了？' },
   { icon: 'calendar', text: '帮我建一条明天 15:00-16:00 的评审会日程' },
-  { icon: 'target', text: '帮我做一次全局任务优化', action: 'optimize' }
+  { icon: 'target', text: '帮我做一次全局任务优化', skillId: 'global-optimize' }
 ]
 
 const toolLabel = (name) => TOOL_LABELS[name] || name
@@ -123,9 +123,13 @@ const sendDraft = () => {
 
 const sendSuggestion = (item) => {
   if (agent.running) return
-  if (item.action === 'optimize') {
-    agent.optimizeTasks()
-    return
+  // 指向已启用的技能时走技能流程，否则把示例当作普通提问
+  if (item.skillId) {
+    const skill = agent.skills.find((entry) => entry.id === item.skillId && entry.enabled)
+    if (skill) {
+      agent.runSkill(skill.id)
+      return
+    }
   }
   agent.send(item.text)
 }

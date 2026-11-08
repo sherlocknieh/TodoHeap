@@ -6,6 +6,13 @@ import { useTodoStore } from './todos'
 import { useScheduleStore } from './schedules'
 import { useLlmStore } from './llm'
 import { createAgentToolRunner, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
+import {
+  cloneDefaultSkills,
+  createSkill,
+  normalizeSkill,
+  normalizeSkills
+} from '@/lib/agentSkills'
+import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
 
 const STORAGE_PREFIX = 'todoheap.agent.v2.'
 const LEGACY_STORAGE_PREFIX = 'todoheap.agent.v1.'
@@ -128,17 +135,8 @@ const loadStoredState = (userId) => {
   return null
 }
 
-// 内置技能：全局优化不是独立能力，只是给 Agent 的一段固定指令
-const OPTIMIZE_PROMPT = `请对当前用户的所有任务做一次全局优化。
-步骤：
-1. 先用 list_todos 读取全部未完成任务，理解任务树、截止时间与难度。
-2. 调整不合理的截止时间，让先后顺序合理；缺少时间的任务按需要补上。
-3. 把过于笼统的任务拆成 3-6 个可执行子任务。
-4. 合并重复或过碎的任务。
-5. 最后创建一条「下一步执行建议」任务。
-只调整确实需要改的内容，不要为了改动而改动；不要删除任务或清空回收站。完成后用简短中文说明本次改了什么。`
-
-const truncate = (value) => {  const text = typeof value === 'string' ? value : JSON.stringify(value)
+const truncate = (value) => {
+  const text = typeof value === 'string' ? value : JSON.stringify(value)
   if (text.length <= MAX_TOOL_RESULT_CHARS) return text
   return `${text.slice(0, MAX_TOOL_RESULT_CHARS)}…（结果已截断）`
 }
@@ -152,9 +150,15 @@ export const useAgentStore = defineStore('agent', () => {
   const pendingApproval = ref(null)
   const activeUserId = ref(null)
   const context = ref({ selectedTaskId: null })
+  const skills = ref(cloneDefaultSkills())
+  const skillsLoading = ref(false)
+  const skillsError = ref('')
 
   let abortController = null
   let approvalResolver = null
+  let skillsLoadedFor = null
+  let skillsRevision = 0
+  let skillSaveChain = Promise.resolve()
 
   const activeSession = computed(() => (
     sessions.value.find((session) => session.id === activeSessionId.value) || null
@@ -188,10 +192,96 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
+  // 技能存 user_settings，与日历令牌共用一个 JSON；写前读最新值，避免覆盖其他字段
+  const persistSkills = (next) => {
+    skills.value = next
+    skillsRevision += 1
+    const userId = activeUserId.value
+    if (!userId) return skillSaveChain
+
+    skillSaveChain = skillSaveChain
+      .then(async () => {
+        const latest = await fetchUserSettings(userId)
+        if (!latest.success) throw latest.error || new Error('读取用户设置失败')
+        const saved = await saveUserSettings(userId, { ...latest.data, skills: next })
+        if (!saved.success) throw saved.error || new Error('保存用户设置失败')
+        skillsError.value = ''
+      })
+      .catch(() => {
+        skillsError.value = '技能保存失败，请检查网络后重试'
+      })
+    return skillSaveChain
+  }
+
+  // 已保存过技能就恢复用户列表；从未保存则保留内置默认技能
+  const loadSkills = async (userId) => {
+    const key = userId || 'anon'
+    if (skillsLoadedFor === key) return
+    skillsLoadedFor = key
+    skills.value = cloneDefaultSkills()
+    if (!userId) return
+
+    const revision = skillsRevision
+    skillsLoading.value = true
+    let result
+    try {
+      result = await fetchUserSettings(userId)
+    } catch {
+      result = { success: false }
+    }
+    skillsLoading.value = false
+    // 加载期间切换了账号或本地已改动，丢弃这次结果
+    if (activeUserId.value !== key || revision !== skillsRevision) return
+
+    if (!result.success) {
+      // 读取失败时保留默认技能，下次进入 AI 视图再重试
+      skillsLoadedFor = null
+      skillsError.value = '技能加载失败，请检查网络后重试'
+      return
+    }
+
+    skillsError.value = ''
+    skills.value = Array.isArray(result.data?.skills)
+      ? normalizeSkills(result.data.skills)
+      : cloneDefaultSkills()
+  }
+
+  const addSkill = (draft) => {
+    const skill = createSkill(draft)
+    if (!skill.name || !skill.prompt) return null
+    persistSkills([...skills.value, skill])
+    return skill
+  }
+
+  const updateSkill = (id, patch) => {
+    const current = skills.value.find((skill) => skill.id === id)
+    if (!current) return null
+    const skill = normalizeSkill({ ...current, ...patch }, id)
+    if (!skill) return null
+    persistSkills(skills.value.map((item) => (item.id === id ? skill : item)))
+    return skill
+  }
+
+  const deleteSkill = (id) => {
+    if (!skills.value.some((skill) => skill.id === id)) return false
+    persistSkills(skills.value.filter((skill) => skill.id !== id))
+    return true
+  }
+
+  const toggleSkill = (id) => {
+    const skill = skills.value.find((item) => item.id === id)
+    if (!skill) return null
+    return updateSkill(id, { enabled: !skill.enabled })
+  }
+
   // 按用户恢复各自的会话，切换账号不会串上下文
   const init = (userId) => {
     const key = userId || 'anon'
-    if (activeUserId.value === key) return
+    if (activeUserId.value === key) {
+      // 上次技能加载失败时，这里会再次尝试
+      loadSkills(userId)
+      return
+    }
     activeUserId.value = key
 
     const stored = loadStoredState(key)
@@ -210,6 +300,7 @@ export const useAgentStore = defineStore('agent', () => {
 
     error.value = ''
     persist()
+    loadSkills(userId)
   }
 
   const newSession = () => {
@@ -487,8 +578,10 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
-  // 内置技能：复用空会话或新建会话，让 Agent 按固定指令执行全局优化
-  const optimizeTasks = async () => {
+  // 运行技能：复用空会话或新建会话，把技能指令作为首条消息发给 Agent
+  const runSkill = async (id) => {
+    const skill = skills.value.find((item) => item.id === id)
+    if (!skill || !skill.enabled) return false
     if (running.value || pendingApproval.value) return false
 
     const llm = useLlmStore()
@@ -502,11 +595,11 @@ export const useAgentStore = defineStore('agent', () => {
 
     const session = activeSession.value
     if (session) {
-      session.title = '全局任务优化'
+      session.title = skill.name
       session.updatedAt = nowIso()
     }
     persist()
-    await send(OPTIMIZE_PROMPT)
+    await send(skill.prompt)
     return true
   }
 
@@ -519,6 +612,9 @@ export const useAgentStore = defineStore('agent', () => {
     error,
     pendingApproval,
     hasMessages,
+    skills,
+    skillsLoading,
+    skillsError,
     init,
     send,
     stop,
@@ -529,6 +625,10 @@ export const useAgentStore = defineStore('agent', () => {
     switchSession,
     renameSession,
     deleteSession,
-    optimizeTasks
+    addSkill,
+    updateSkill,
+    deleteSkill,
+    toggleSkill,
+    runSkill
   }
 })

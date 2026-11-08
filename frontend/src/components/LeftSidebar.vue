@@ -5,6 +5,7 @@ import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
+import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -28,6 +29,10 @@ const authStore = useAuthStore()
 const editingSessionId = ref(null)
 const editingTitle = ref('')
 const renameInput = ref(null)
+
+// 技能编辑器：新建与编辑共用一份草稿
+const skillForm = ref(null)
+const skillError = ref('')
 
 // AI 侧栏展示会话列表，进入 AI 入口时确保会话已载入
 const ensureAgent = () => {
@@ -76,6 +81,43 @@ const cancelSessionRename = () => {
 const deleteSession = (id) => {
   if (editingSessionId.value === id) cancelSessionRename()
   agent.deleteSession(id)
+}
+
+const startNewSkill = () => {
+  skillError.value = ''
+  skillForm.value = { id: null, name: '', icon: DEFAULT_SKILL_ICON, prompt: '' }
+}
+
+const startEditSkill = (skill) => {
+  skillError.value = ''
+  skillForm.value = { id: skill.id, name: skill.name, icon: skill.icon, prompt: skill.prompt }
+}
+
+const cancelSkillForm = () => {
+  skillForm.value = null
+  skillError.value = ''
+}
+
+const saveSkill = () => {
+  const form = skillForm.value
+  if (!form) return
+  if (!form.name.trim()) {
+    skillError.value = '给技能起个名字'
+    return
+  }
+  if (!form.prompt.trim()) {
+    skillError.value = '写下让 Agent 执行的指令'
+    return
+  }
+  if (form.id) agent.updateSkill(form.id, form)
+  else agent.addSkill(form)
+  cancelSkillForm()
+}
+
+const runSkill = (skill) => {
+  if (!skill.enabled) return
+  agent.runSkill(skill.id)
+  closeOnNarrowScreen()
 }
 
 // 会话列表只显示时间与消息数，按当天/更早两种格式
@@ -262,6 +304,76 @@ const switchView = (view) => {
       </template>
 
       <template v-else>
+        <!-- 技能：点击直接在新会话执行，支持新建、编辑、启停与删除 -->
+        <section class="space-y-0.5">
+          <div class="px-2 pb-1.5 flex items-center justify-between">
+            <p class="eyebrow">技能</p>
+            <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300 transition-colors"
+              title="新建技能" @click="startNewSkill">
+              <AppIcon name="plus" :size="14" />
+            </button>
+          </div>
+
+          <form v-if="skillForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
+            @submit.prevent="saveSkill">
+            <input v-model="skillForm.name" class="field w-full px-1.5 py-1 text-xs"
+              :maxlength="MAX_SKILL_NAME" placeholder="技能名称" />
+            <div class="flex flex-wrap gap-1">
+              <button v-for="icon in SKILL_ICONS" :key="icon" type="button"
+                class="p-1 rounded border transition-colors"
+                :class="skillForm.icon === icon
+                  ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-300'
+                  : 'border-transparent text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300'"
+                :title="icon" @click="skillForm.icon = icon">
+                <AppIcon :name="icon" :size="13" />
+              </button>
+            </div>
+            <textarea v-model="skillForm.prompt" rows="4"
+              class="field w-full resize-none px-1.5 py-1 text-xs leading-5"
+              :maxlength="MAX_SKILL_PROMPT" placeholder="写给 Agent 的指令，例如：把本周任务按优先级重新排序"></textarea>
+            <p v-if="skillError" class="text-[11px] text-rose-600 dark:text-rose-400">{{ skillError }}</p>
+            <div class="flex justify-end gap-1.5">
+              <button type="button" class="btn-ghost text-xs" @click="cancelSkillForm">取消</button>
+              <button type="submit" class="btn-primary text-xs">保存</button>
+            </div>
+          </form>
+
+          <p v-if="!agent.skills.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
+            还没有技能
+          </p>
+          <ul v-else class="space-y-0.5">
+            <li v-for="skill in agent.skills" :key="skill.id"
+              class="group flex items-center gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
+              <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left" :title="skill.enabled ? '在新会话中执行' : '技能已停用'"
+                @click="runSkill(skill)">
+                <AppIcon :name="skill.icon" :size="13" class="opacity-70" />
+                <span class="truncate text-sm"
+                  :class="skill.enabled
+                    ? 'text-neutral-700 dark:text-neutral-300'
+                    : 'text-neutral-400 line-through dark:text-neutral-500'">{{ skill.name }}</span>
+              </button>
+              <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+                :title="skill.enabled ? '停用技能' : '启用技能'" @click.stop="agent.toggleSkill(skill.id)">
+                <AppIcon :name="skill.enabled ? 'eye' : 'eyeOff'" :size="12" />
+              </button>
+              <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                title="编辑技能" @click.stop="startEditSkill(skill)">
+                <AppIcon name="edit" :size="12" />
+              </button>
+              <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                title="删除技能" @click.stop="agent.deleteSkill(skill.id)">
+                <AppIcon name="trash" :size="12" />
+              </button>
+            </li>
+          </ul>
+          <p v-if="agent.skillsError" class="px-2 pt-1 text-[11px] leading-4 text-rose-600 dark:text-rose-400">
+            {{ agent.skillsError }}
+          </p>
+          <p v-else class="px-2 pt-1 text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
+            点击技能即在新会话中执行它的指令。
+          </p>
+        </section>
+
         <!-- 对话会话：新建、切换、重命名、删除 -->
         <section class="space-y-0.5">
           <div class="px-2 pb-1.5 flex items-center justify-between">

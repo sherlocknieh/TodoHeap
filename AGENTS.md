@@ -53,6 +53,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
 | `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
 | `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好 |
+| `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建 |
 | `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
 | `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
 | `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
@@ -88,14 +89,14 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
 | `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
 | `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除 |
-| `stores/agent.js` | 对话 Agent：多会话、系统提示、工具循环、确认与本地持久化 |
+| `stores/agent.js` | 对话 Agent：多会话、技能管理、系统提示、工具循环、确认与本地持久化 |
 | `stores/llm.js` | 模型配置（仅浏览器本地）与聊天入口 |
 | `stores/auth.ts` | Supabase Auth 会话 |
 | `stores/todos.*.test.js` | vitest 覆盖乐观更新与回滚 |
 
 写操作链路：UI → `todos.js` action → 本地乐观更新并入队 → Supabase → 成功派发 `sync:id-replaced` / 失败回滚。
 
-对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。全局优化是内置技能（新建会话 + 固定提示词），没有独立的边缘函数。
+对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。技能（名称 + 图标 + 指令）存于 `user_settings.settings.skills`，运行技能等于新建会话并发送这段指令；全局优化只是默认技能，没有独立的边缘函数。
 
 ## Supabase
 

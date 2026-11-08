@@ -1,0 +1,54 @@
+import { describe, expect, it } from 'vitest'
+import {
+  DEFAULT_SKILLS,
+  cloneDefaultSkills,
+  createSkill,
+  normalizeSkill,
+  normalizeSkills
+} from './agentSkills'
+
+describe('agentSkills', () => {
+  it('默认技能可编辑且不共享引用', () => {
+    const skills = cloneDefaultSkills()
+    skills[0].name = '改过的名字'
+
+    expect(DEFAULT_SKILLS[0].name).toBe('全局任务优化')
+    expect(skills[0].id).toBe('global-optimize')
+    expect(skills[0].prompt).toContain('全局优化')
+  })
+
+  it('缺少名称或指令的技能会被丢弃', () => {
+    const skills = normalizeSkills([
+      { id: 'a', name: '有名字', prompt: '指令' },
+      { id: 'b', name: '  ', prompt: '指令' },
+      { id: 'c', name: '没指令', prompt: '' },
+      null
+    ])
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0].id).toBe('a')
+  })
+
+  it('去重并纠正未知图标', () => {
+    const skills = normalizeSkills([
+      { id: 'a', name: '技能 A', prompt: '指令', icon: 'unknown' },
+      { id: 'a', name: '技能 A 副本', prompt: '指令' }
+    ])
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0].icon).toBe('sparkles')
+  })
+
+  it('读取时把 enabled 归一化为布尔值', () => {
+    expect(normalizeSkill({ id: 'a', name: 'x', prompt: 'y' }).enabled).toBe(true)
+    expect(normalizeSkill({ id: 'a', name: 'x', prompt: 'y', enabled: false }).enabled).toBe(false)
+  })
+
+  it('新建技能默认启用并带唯一 id', () => {
+    const first = createSkill({ name: '周复盘', icon: 'chart', prompt: '总结本周' })
+    const second = createSkill({ name: '周复盘', icon: 'chart', prompt: '总结本周' })
+
+    expect(first.enabled).toBe(true)
+    expect(first.id).not.toBe(second.id)
+  })
+})

@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   addTodo: vi.fn(),
   updateTodo: vi.fn(),
   deleteTodo: vi.fn(),
+  fetchUserSettings: vi.fn(),
+  saveUserSettings: vi.fn(),
   stores: { todo: null, schedule: null, auth: null }
 }))
 
@@ -20,6 +22,10 @@ vi.mock('./todos', () => ({ useTodoStore: () => mocks.stores.todo }))
 vi.mock('./schedules', () => ({ useScheduleStore: () => mocks.stores.schedule }))
 vi.mock('./auth', () => ({ useAuthStore: () => mocks.stores.auth }))
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+vi.mock('@/lib/userSettings', () => ({
+  fetchUserSettings: mocks.fetchUserSettings,
+  saveUserSettings: mocks.saveUserSettings
+}))
 
 import { useAgentStore } from './agent'
 
@@ -61,6 +67,10 @@ describe('useAgentStore', () => {
     mocks.addTodo.mockReset()
     mocks.updateTodo.mockReset()
     mocks.deleteTodo.mockReset()
+    mocks.fetchUserSettings.mockReset()
+    mocks.saveUserSettings.mockReset()
+    mocks.fetchUserSettings.mockResolvedValue({ success: true, data: {} })
+    mocks.saveUserSettings.mockResolvedValue({ success: true, data: {} })
     nextId = -1
 
     mocks.addTodo.mockImplementation(async (title, options = {}) => ({
@@ -201,11 +211,11 @@ describe('useAgentStore', () => {
     expect(agent.sessions.find((session) => session.id === firstId).messages).toHaveLength(0)
   })
 
-  it('内置全局优化会新建会话并发送固定指令', async () => {
+  it('运行技能会新建会话并发送技能指令', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '已优化', tool_calls: [] })
 
     const agent = useAgentStore()
-    const result = await agent.optimizeTasks()
+    const result = await agent.runSkill('global-optimize')
 
     expect(result).toBe(true)
     expect(agent.activeSession.title).toBe('全局任务优化')
@@ -215,7 +225,7 @@ describe('useAgentStore', () => {
     expect(mocks.chat).toHaveBeenCalledTimes(1)
   })
 
-  it('已有消息时会为全局优化新建会话', async () => {
+  it('已有消息时会为技能新建会话', async () => {
     mocks.chat
       .mockResolvedValueOnce({ content: '旧会话回复', tool_calls: [] })
       .mockResolvedValueOnce({ content: '已优化', tool_calls: [] })
@@ -224,10 +234,39 @@ describe('useAgentStore', () => {
     await agent.send('旧话题')
     const previousId = agent.activeSessionId
 
-    await agent.optimizeTasks()
+    await agent.runSkill('global-optimize')
 
     expect(agent.activeSessionId).not.toBe(previousId)
     expect(agent.sessions.find((session) => session.id === previousId).messages).toHaveLength(2)
+  })
+
+  it('停用的技能不会启动', async () => {
+    const agent = useAgentStore()
+    agent.toggleSkill('global-optimize')
+    expect(agent.skills[0].enabled).toBe(false)
+
+    const result = await agent.runSkill('global-optimize')
+    expect(result).toBe(false)
+    expect(mocks.chat).not.toHaveBeenCalled()
+  })
+
+  it('同步技能的新增、修改与删除到用户设置', async () => {
+    const agent = useAgentStore()
+    agent.init('user-1')
+    await vi.waitFor(() => expect(agent.skillsLoading).toBe(false))
+
+    const skill = agent.addSkill({ name: '周复盘', icon: 'chart', prompt: '总结本周完成的任务' })
+    expect(agent.skills.some((item) => item.id === skill.id)).toBe(true)
+
+    agent.updateSkill(skill.id, { name: '每周复盘' })
+    expect(agent.skills.find((item) => item.id === skill.id).name).toBe('每周复盘')
+
+    agent.deleteSkill(skill.id)
+    expect(agent.skills.some((item) => item.id === skill.id)).toBe(false)
+
+    await vi.waitFor(() => expect(mocks.saveUserSettings).toHaveBeenCalledTimes(3))
+    expect(mocks.saveUserSettings).toHaveBeenCalledWith('user-1',
+      expect.objectContaining({ skills: agent.skills }))
   })
 
   it('模型调用失败时暴露可读错误并复位运行状态', async () => {
