@@ -80,20 +80,21 @@
         <div class="shrink-0 border-t border-hairline dark:border-hairline-dark">
           <div class="px-4 pt-2 pb-1 flex items-center justify-between">
             <span class="eyebrow">子任务</span>
-            <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ childTodos.length }}</span>
+            <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ directChildren.length }}</span>
           </div>
 
           <div class="max-h-40 overflow-auto px-2 pb-1">
-            <button v-for="child in childTodos" :key="child.id" type="button"
+            <button v-for="child in directChildren" :key="child.id" type="button"
               class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] transition-colors"
               @click="emit('task-selected', child.id)">
-              <AppIcon :name="child.completed_at ? 'check' : 'chevronRight'" :size="13" class="opacity-60" />
+              <span class="h-1.5 w-1.5 rounded-full shrink-0"
+                :class="child.completed_at ? 'bg-accent-500 dark:bg-accent-400' : 'bg-neutral-300 dark:bg-neutral-600'"></span>
               <span class="flex-1 truncate"
                 :class="child.completed_at ? 'line-through text-neutral-400 dark:text-neutral-600' : ''">
                 {{ child.title || '未命名任务' }}
               </span>
             </button>
-            <p v-if="childTodos.length === 0" class="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-600">
+            <p v-if="directChildren.length === 0" class="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-600">
               还没有子任务
             </p>
           </div>
@@ -182,8 +183,8 @@ const isDeleted = computed(() => {
   return todo.value?.deleted_at != null
 })
 
-// 子任务列表：只读展示，点击进入对应任务详情
-const childTodos = computed(() => {
+// 只取当前任务的直接子任务，不递归展开更深层级
+const directChildren = computed(() => {
   const ids = Array.isArray(todo.value?.child_ids) ? todo.value.child_ids : []
   return ids.map((id) => todoStore.findTodoById(id)).filter(Boolean)
 })
