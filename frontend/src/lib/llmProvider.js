@@ -175,7 +175,11 @@ export const streamChatCompletion = async ({
     })
   } catch (err) {
     if (err?.name === 'AbortError') throw err
-    throw new LlmError('无法连接模型服务：请检查 Base URL、网络，以及服务商是否允许浏览器直连（CORS）')
+    const target = endpoint ? '内置模型网关' : '模型服务'
+    const hint = endpoint
+      ? '请确认 llm_gateway 已部署（supabase functions deploy llm_gateway）'
+      : '请检查 Base URL、网络，以及服务商是否允许浏览器直连（CORS）'
+    throw new LlmError(`无法连接${target}：${hint}`)
   }
 
   if (!response.ok) {
