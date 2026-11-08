@@ -5,7 +5,7 @@ layout: home
 hero:
   name: "TodoHeap"
   text: "AI 驱动的任务与日程管理"
-  tagline: "把模糊任务拆成可执行的步骤，再铺进日程：自动分解、优先排序与可视化。"
+  tagline: "从记住任务到排进日程：对话 Agent 拆解与优化、任务树可视化，并落进日历。"
   image:
     src: /logo.svg
     alt: Logo
@@ -21,31 +21,31 @@ features:
   - icon:
       src: /icons/ai.svg
       alt: ''
-    title: AI 自动分解
-    details: 用自然语言描述目标，AI 自动拆成可执行的子任务并组织成任务树
+    title: 对话 Agent
+    details: 用一句话描述想做的事，Agent 完成拆解、新建与全局优化；可自带密钥接入模型，或使用内置模型
   - icon:
       src: /icons/tree.svg
       alt: ''
-    title: 思维导图展示
-    details: 以思维导图方式展示任务树，帮助理清思路，直观管理任务关系
+    title: 任务树与思维导图
+    details: 列表与思维导图双形态展示任务树，无限层级，直观理清任务关系
   - icon:
       src: /icons/heap.svg
       alt: ''
-    title: 堆视图优化
-    details: 以堆视图可视化展示最优先的任务，破解选择困难症
+    title: 堆视图
+    details: 以堆的形式展示最该先做的任务，堆顶即下一步，破解选择困难症
   - icon:
       src: /icons/sort.svg
       alt: ''
-    title: 优先级排序
+    title: 优先级打分
     details: 依据截止时间、完成进度与子任务复杂度实时打分，堆视图按分排序
   - icon:
       src: /icons/sync.svg
       alt: ''
     title: 实时同步
-    details: 云端同步数据，随时随地访问任务，支持离线编辑
+    details: 本地先写、云端同步，离线编辑在联网后自动重放，多设备共用同一份清单
   - icon:
       src: /icons/focus.svg
       alt: ''
     title: 从任务到日程
-    details: 按截止日期把未完成任务铺进日程视图，明确接下来几天做什么；自动排程与 ICS 导出在规划中
+    details: 按截止日期把未完成任务铺进日程视图，支持 ICS 导入导出与只读订阅链接；自动排程在规划中
 ---

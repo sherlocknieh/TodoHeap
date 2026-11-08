@@ -5,7 +5,7 @@ layout: home
 hero:
   name: "TodoHeap"
   text: "AI-driven Task and Schedule Management"
-  tagline: "Turn vague tasks into executable steps, then into a schedule: decomposition, prioritization and visualization."
+  tagline: "From remembering tasks to scheduling them: a conversational Agent decomposes and refines, mind maps keep the structure clear, and everything lands in your calendar."
   image:
     src: /logo.svg
     alt: Logo
@@ -21,32 +21,32 @@ features:
   - icon:
       src: /icons/ai.svg
       alt: ''
-    title: AI Automatic Decomposition
-    details: Describe a goal in natural language and AI breaks it into executable subtasks organized as a task tree.
+    title: Conversational Agent
+    details: Describe what you want in one sentence; the Agent handles decomposition, creation and global optimization. Bring your own API key or use the built-in model.
   - icon:
       src: /icons/tree.svg
       alt: ''
-    title: Mind Map Visualization
-    details: Visualize task trees using mind maps, helping to clear ideas and manage task relationships intuitively.
+    title: Task Tree & Mind Map
+    details: View task trees as a list or a mind map, with unlimited nesting, so task relationships stay clear.
   - icon:
       src: /icons/heap.svg
       alt: ''
-    title: Heap View Optimization
-    details: Visualize the most prioritized tasks using a heap view, breaking down the choice paralysis.
+    title: Heap View
+    details: Show the tasks that should come first as a heap; the top of the heap is your next step, cutting through choice paralysis.
   - icon:
       src: /icons/sort.svg
       alt: ''
-    title: Priority Sorting
+    title: Priority Scoring
     details: Score tasks in real time from deadline urgency, completion progress and subtask complexity; the heap view sorts by score.
   - icon:
       src: /icons/sync.svg
       alt: ''
     title: Real-time Synchronization
-    details: Cloud synchronization of data, allowing access to tasks anytime, anywhere, and supporting offline editing.
+    details: Write locally and sync to the cloud; offline edits replay once you reconnect, and every device shares the same list.
   - icon:
       src: /icons/focus.svg
       alt: ''
     title: From Tasks to Schedule
-    details: Lay unfinished tasks out by deadline in the schedule view so the coming days are clear. Automatic scheduling and ICS export are planned.
+    details: Lay unfinished tasks out by deadline in the schedule view, with ICS import/export and a read-only subscription link. Automatic scheduling is planned.
 ---
 
