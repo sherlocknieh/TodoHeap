@@ -1,221 +1,267 @@
 <template>
-  <!-- 思维导图容器 -->
-  <div ref="mindMapContainer"
-    class="mindmap-canvas min-h-100 h-full w-full border border-hairline dark:border-hairline-dark rounded-md relative overflow-hidden"
-    @click.stop>
-    <!-- 控件层 -->
-    <div class="absolute bottom-3 right-3 z-10">
+  <!-- 自研思维导图：SVG 渲染，支持滚轮缩放与拖拽平移 -->
+  <div ref="container"
+    class="mindmap-canvas relative w-full h-full overflow-hidden select-none"
+    :class="panning ? 'cursor-grabbing' : 'cursor-grab'"
+    @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
+    @pointerup="endPan" @pointerleave="endPan" @click.stop @dblclick="fitView">
+    <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
+      <defs>
+        <marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+          <path d="M0 0 10 5 0 10z" fill="#a3a3a3" />
+        </marker>
+        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+          <path d="M0 0 10 5 0 10z" fill="#13b566" />
+        </marker>
+      </defs>
+
+      <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
+        <!-- 连线：回边用虚线，直接展示 DAG 的多父引用与环 -->
+        <path v-for="edge in layout.edges" :key="edge.key" :d="edge.d" fill="none"
+          :class="edge.isRef ? 'stroke-accent-500 dark:stroke-accent-400' : 'stroke-neutral-300 dark:stroke-neutral-600'"
+          :stroke-width="edge.isRef ? 1.5 : 1.2" :stroke-dasharray="edge.isRef ? '5 4' : undefined"
+          :marker-end="edge.isRef ? 'url(#mm-arrow-ref)' : 'url(#mm-arrow)'" />
+
+        <!-- 节点 -->
+        <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
+          :opacity="node.completed_at ? 0.55 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
+          @pointerdown.stop @dblclick.stop="selectNode(node)" @click.stop="selectNode(node)">
+          <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
+            :stroke-dasharray="node.isRef ? '5 4' : undefined" class="transition-colors" :class="[
+              node.isRef
+                ? 'stroke-accent-300 dark:stroke-accent-700'
+                : node.selected
+                  ? 'stroke-accent-600 dark:stroke-accent-400'
+                  : 'stroke-neutral-200 dark:stroke-neutral-700',
+              node.isRoot
+                ? 'fill-accent-700 dark:fill-accent-500'
+                : node.selected
+                  ? 'fill-accent-50 dark:fill-neutral-800'
+                  : 'fill-white dark:fill-neutral-900'
+            ]" />
+          <text :x="10" :y="10" class="text-[13px] font-medium" :class="node.isRoot
+            ? 'fill-white'
+            : node.isRef
+              ? 'fill-neutral-500 dark:fill-neutral-400'
+              : 'fill-neutral-800 dark:fill-neutral-100'">
+            <tspan v-for="(line, index) in node.lines" :key="index" :x="10"
+              :dy="index === 0 ? 10 + fontSize : lineHeight">{{ line }}</tspan>
+          </text>
+        </g>
+      </g>
+    </svg>
+
+    <!-- 视图控件 -->
+    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1">
       <button
-        @click="fitView"
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-        title="适应视图"
-      >
+        title="适应视图" @click.stop="fitView">
         <AppIcon name="target" :size="14" />
       </button>
     </div>
+    <p class="absolute bottom-3 left-3 z-10 text-[11px] text-neutral-400 dark:text-neutral-600 pointer-events-none">
+      滚轮缩放 · 拖拽平移 · 双击复位
+    </p>
   </div>
 </template>
 
 <script setup>
-
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
-import MindMap from 'simple-mind-map'
-
 
 const props = defineProps({
-  mindData: { type: Object, default: () => ({ data: { text: '根节点' }, children: [] }) },
+  nodes: { type: Array, default: () => [] },
   selectedTaskId: { type: Number, default: null }
 })
 
-// 标记是否由内部操作引起的变化（避免反向同步循环）
-let isInternalChange = false
+const emit = defineEmits(['task-selected'])
 
-// 组件事件：task-selected, node-content-change, node-insert, node-delete, data-change, data-change-detail
-const emit = defineEmits(['task-selected', 'node-content-change', 'node-insert', 'node-delete', 'data-change', 'data-change-detail'])
+const nodeWidth = 216
+const fontSize = 13
+const lineHeight = 17
+const paddingY = 10
+const maxLines = 3
+const horizontalGap = 56
+const verticalGap = 12
+const textUnitsPerLine = 13
 
-// 本地变量
-const mindMapContainer = ref(null) // DOM 容器
-let mindMapInstance = null // 思维导图实例
-let isUpdatingData = false // 标志位：是否正在更新数据（用于防止闪烁）
+const container = ref(null)
+const size = reactive({ width: 0, height: 0 })
+const view = reactive({ x: 0, y: 0, scale: 1 })
+const panning = ref(false)
 
-// 居中思维导图视图
-const moveToCenter = () => {
-  if (!mindMapInstance || !mindMapInstance.renderer.root) return
-  const containerDiv = mindMapContainer.value
-  if (!containerDiv) return // 容器还未准备好
-  
-  const root = mindMapInstance.renderer.root
-  const children = root.children || []
-  const rootRight = root.left + root.width
-  const firstLeft = children.length > 0 ? children[0].left : root.left
-  const centerX = (rootRight + firstLeft) / 2
-  const centerY = (root.top + root.height / 2)
-  const transform = mindMapInstance.draw.transform()
-  const forkViewX = centerX * transform.scaleX + transform.translateX
-  const forkViewY = centerY * transform.scaleY + transform.translateY
-  const width = containerDiv.clientWidth
-  const height = containerDiv.clientHeight
-  const canvasCenterX = width / 2
-  const canvasCenterY = height / 2
-  const relX = forkViewX - canvasCenterX
-  const relY = forkViewY - canvasCenterY
-  mindMapInstance.view.translateXY(-relX, -relY)
-}
+// 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出
+const wrapLines = (text) => {
+  const chars = [...String(text || '未命名任务')]
+  const lines = []
+  let line = ''
+  let units = 0
 
-const fitView = () => {
-  if (!mindMapInstance) return
-  mindMapInstance.view.fit()
-}
-
-// 初始化思维导图实例
-const initMindMap = () => {
-  if (!mindMapContainer.value) return
-
-  // 销毁旧实例
-  if (mindMapInstance && mindMapInstance.destroy) {
-    try {
-      mindMapInstance.destroy()
-    } catch (e) {}
-    mindMapInstance = null
-  }
-
-  // 创建新实例
-  mindMapInstance = new MindMap({ el: mindMapContainer.value, data: props.mindData })
-
-  // 绑定事件并转发
-  if (mindMapInstance && mindMapInstance.on) {
-    mindMapInstance.on('select', (node) => emit('task-selected', node?.data?.id ?? null))
-    mindMapInstance.on('change', ({ id, text } = {}) => emit('node-content-change', { id, text }))
-    mindMapInstance.on('insert', (payload) => {
-      console.log('[MindMap DEBUG] insert event payload:', JSON.stringify(payload, null, 2))
-      emit('node-insert', payload)
-    })
-    mindMapInstance.on('delete', (payload) => {
-      console.log('[MindMap DEBUG] delete event payload:', JSON.stringify(payload, null, 2))
-      emit('node-delete', payload)
-    })
-    mindMapInstance.on('data_change', (data) => {
-      console.log('[MindMap DEBUG] data_change event triggered')
-      emit('data-change', data)
-    })
-    mindMapInstance.on('data_change_detail', (details) => {
-      console.log('[MindMap DEBUG] data_change_detail event:', JSON.stringify(details, null, 2))
-      emit('data-change-detail', details)
-    })
-    mindMapInstance.on('node_active', (node, activeNodeList) => {
-      // 如果正在更新数据，忽略此事件以防止闪烁
-      if (isUpdatingData) {
-        console.log('正在更新数据，忽略 node_active 事件')
-        return
-      }
-      
-      // 总是通过 activeNodeList 的状态来判断
-      if (activeNodeList.length === 0) {
-        console.log('没有激活的节点')
-        // 取消选中
-        emit('task-selected', null)
-        if (typeof hideNodeToolbar === 'function') hideNodeToolbar()
-      } else {
-        console.log('有', activeNodeList.length, '个激活的节点')
-        // 打印节点uid列表
-        const uids = activeNodeList.map(n => n.getData ? n.getData('uid') : n?.data?.uid)
-        console.log('激活节点 UID 列表:', uids)
-        // 选中节点uid对应的任务
-        const activeNode = activeNodeList[0]
-        const nodeUid = activeNode.getData ? activeNode.getData('uid') : activeNode?.data?.uid
-        emit('task-selected', nodeUid ? parseInt(nodeUid) : null)
-      }
-    })
-  }
-
-  // 节点树渲染完成事件
-  mindMapInstance.on('node_tree_render_end', () => {
-    // 渲染完成后，如果有选中的任务，选中对应节点
-    if (props.selectedTaskId) {
-      const nodeUid = props.selectedTaskId.toString()
-      const node = mindMapInstance.renderer.findNodeByUid(nodeUid)
-      if (node) {
-        node.active()
-      }
+  for (const char of chars) {
+    const charUnits = /[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 1 : 0.55
+    if (units + charUnits > textUnitsPerLine && line) {
+      lines.push(line)
+      line = ''
+      units = 0
     }
-    // 渲染完成后调用 fitView，确保节点已渲染且布局已计算
-    fitView()
-  })
-  
-  // 监听内部数据变化，标记为内部操作
-  mindMapInstance.on('data_change', () => {
-    isInternalChange = true
-    // 下一个 tick 重置标记
-    setTimeout(() => {
-      isInternalChange = false
-    }, 100)
-  })
+    line += char
+    units += charUnits
+  }
+  if (line) lines.push(line)
+
+  if (lines.length <= maxLines) return lines
+  const visible = lines.slice(0, maxLines)
+  visible[maxLines - 1] = `${visible[maxLines - 1].replace(/.$/, '')}…`
+  return visible
 }
 
-// 生命周期 & 数据同步
-onMounted(() => initMindMap())
+// 从左到右的层叠布局：子节点纵向排开，父节点对齐子节点跨度中心
+const layout = computed(() => {
+  const nodes = []
+  const edges = []
+  let cursorY = 0
 
-// 监听 selectedTaskId 变化，选中对应节点
-watch(() => props.selectedTaskId, (newId) => {
-  if (!mindMapInstance || !newId) return
-  const nodeUid = newId.toString()
-  const node = mindMapInstance.renderer.findNodeByUid(nodeUid)
-  console.warn('Watch selectedTaskId:', newId, 'Found node:', node)
-  if (node) {
-    node.active()
+  const place = (raw, depth) => {
+    const lines = wrapLines(raw.title)
+    const node = {
+      ...raw,
+      lines,
+      height: paddingY * 2 + lines.length * lineHeight,
+      x: depth * (nodeWidth + horizontalGap),
+      y: 0,
+      selected: String(raw.id) === String(props.selectedTaskId)
+    }
+
+    const children = Array.isArray(raw.children) ? raw.children : []
+    if (children.length === 0) {
+      node.y = cursorY
+      cursorY += node.height + verticalGap
+    } else {
+      const placedChildren = children.map((child) => place(child, depth + 1))
+      const first = placedChildren[0]
+      const last = placedChildren[placedChildren.length - 1]
+      node.y = (first.y + last.y + last.height - node.height) / 2
+
+      const startY = node.y + node.height / 2
+      const startX = node.x + nodeWidth
+      placedChildren.forEach((child, index) => {
+        const endY = child.y + child.height / 2
+        const endX = child.x
+        const bend = Math.max(24, (endX - startX) * 0.5)
+        edges.push({
+          key: `${node.id}->${child.id}-${index}`,
+          isRef: !!child.isRef,
+          d: `M${startX} ${startY} C${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`
+        })
+      })
+    }
+
+    nodes.push(node)
+    return node
   }
+
+  ;(props.nodes || []).forEach((root) => place(root, 0))
+
+  const contentWidth = nodes.reduce((max, node) => Math.max(max, node.x + nodeWidth), 0)
+  const contentHeight = Math.max(cursorY - verticalGap, 0)
+
+  return { nodes, edges, contentWidth, contentHeight }
 })
 
-// 监听 mindData 变化，更新实例
+const idSignature = computed(() => layout.value.nodes.map((node) => node.id).join('|'))
 
-// 只在非内部变化且未初始化时才重新设置数据
-watch(() => props.mindData, (newVal, oldVal) => {
-  // 如果是内部操作引起的变化，跳过（避免循环）
-  if (isInternalChange) {
-    return
-  }
-  
-  // 如果实例不存在，初始化
-  if (!mindMapInstance) {
-    return initMindMap()
-  }
-  
-  // 如果已初始化，只在首次加载数据时同步（避免反向同步导致的闪烁）
-  // 通过比较节点数量变化来判断是否需要同步
-  const oldCount = oldVal?.children?.length || 0
-  const newCount = newVal?.children?.length || 0
-  
-  // 尝试使用 updateData 代替 setData 以避免全量重绘和视图重置
-  if (oldCount === 0 && newCount > 0) {
-    // 记录当前视图状态（位置、缩放）
-    const viewTransform = mindMapInstance.view.getTransformData()
-    
-    if (mindMapInstance.updateData) {
-      mindMapInstance.updateData(newVal)
-    } else {
-      mindMapInstance.setData(newVal)
-    }
-    
-    // 恢复视图状态，防止视图重置
-    if (viewTransform) {
-       mindMapInstance.view.setTransformData(viewTransform)
-    }
-  }
-  // 其他情况：数据变化由 MindMap 内部操作触发，
-  // MindMap 已经更新了视图，无需再次 setData
+let hasInteracted = false
 
-}, { deep: true })
+const fitView = () => {
+  const el = container.value
+  if (!el) return
+  const { contentWidth, contentHeight } = layout.value
+  if (!contentWidth || !size.width || !size.height) return
+
+  const pad = 40
+  const scale = Math.min(
+    (size.width - pad * 2) / contentWidth,
+    (size.height - pad * 2) / contentHeight,
+    1.25
+  )
+  view.scale = Math.max(0.15, scale)
+  view.x = (size.width - contentWidth * view.scale) / 2
+  view.y = (size.height - contentHeight * view.scale) / 2
+}
+
+const selectNode = (node) => {
+  if (node.isRoot) return
+  emit('task-selected', node.isRef ? node.targetId : Number(node.id))
+}
+
+// 以指针位置为中心缩放，避免缩放后视线漂移
+const onWheel = (event) => {
+  const el = container.value
+  if (!el) return
+  hasInteracted = true
+  const rect = el.getBoundingClientRect()
+  const pointerX = event.clientX - rect.left
+  const pointerY = event.clientY - rect.top
+  const nextScale = Math.min(2.5, Math.max(0.15, view.scale * Math.exp(-event.deltaY * 0.0015)))
+  const ratio = nextScale / view.scale
+
+  view.x = pointerX - (pointerX - view.x) * ratio
+  view.y = pointerY - (pointerY - view.y) * ratio
+  view.scale = nextScale
+}
+
+let panStart = { x: 0, y: 0, originX: 0, originY: 0 }
+
+const onPointerDown = (event) => {
+  if (event.button !== 0) return
+  hasInteracted = true
+  panning.value = true
+  panStart = { x: event.clientX, y: event.clientY, originX: view.x, originY: view.y }
+  container.value?.setPointerCapture(event.pointerId)
+}
+
+const onPointerMove = (event) => {
+  if (!panning.value) return
+  view.x = panStart.originX + (event.clientX - panStart.x)
+  view.y = panStart.originY + (event.clientY - panStart.y)
+}
+
+const endPan = () => {
+  panning.value = false
+}
+
+let resizeObserver = null
+
+onMounted(() => {
+  resizeObserver = new ResizeObserver((entries) => {
+    const box = entries[0]?.contentRect
+    if (!box) return
+    size.width = box.width
+    size.height = box.height
+    if (!hasInteracted) fitView()
+  })
+  if (container.value) resizeObserver.observe(container.value)
+  nextTick(fitView)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
+
+// 任务增删后重新适配视图；仅标题变化时保持当前缩放与位置
+watch(idSignature, () => nextTick(fitView))
 </script>
+
 <style scoped>
-/* 画布底色由思维导图库内联写入，这里按主题纠正 */
 .mindmap-canvas {
-  background-color: #fafafa !important;
+  background-color: #fafafa;
 }
 
 @media (prefers-color-scheme: dark) {
   .mindmap-canvas {
-    background-color: #141414 !important;
+    background-color: #141414;
   }
 }
 </style>

@@ -644,8 +644,8 @@ onUnmounted(() => {
 				</div>
 			</aside>
 
-			<!-- 左栏：任务导航面板 -->
-			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
+			<!-- 左栏：任务导航面板；树视图让思维导图占满活动栏以外区域 -->
+			<LeftSidebar v-if="activeView !== 'tree'" :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
 				:is-breaking-down="isBreakingDown"
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
 				@breakdown-task="handleBreakdownTask" />
@@ -653,7 +653,7 @@ onUnmounted(() => {
 			<!-- 中栏：主要视图内容 -->
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
 				<!-- AI 分解与优化状态 -->
-				<div class="mx-auto mt-4 mb-3 max-w-3xl w-full px-6">
+				<div v-if="activeView !== 'tree'" class="mx-auto mt-4 mb-3 max-w-3xl w-full px-6">
 					<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
 						:status="breakdownMessageType" :task-count="breakdownProgress.count"
 						:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks" @cancel="handleCancelTasks" />
@@ -664,7 +664,8 @@ onUnmounted(() => {
 				</div>
 
 				<!-- 清单内容 -->
-				<div class="flex-1 min-h-0 overflow-auto" @click="onMainAreaClick">
+				<div class="flex-1 min-h-0" :class="activeView === 'tree' ? 'overflow-hidden' : 'overflow-auto'"
+					@click="onMainAreaClick">
 					<div v-if="showViewLoading" class="flex items-center justify-center h-96 meta-text">
 						<span class="inline-flex items-center gap-2">
 							<AppIcon name="loader" class="animate-spin" />
@@ -672,8 +673,9 @@ onUnmounted(() => {
 						</span>
 					</div>
 					<template v-else>
-						<div class="mx-auto max-w-3xl w-full px-6 pb-4 space-y-3"
-							:class="activeView === 'ai' ? 'min-h-full flex flex-col justify-center' : ''">
+						<div :class="activeView === 'tree'
+							? 'h-full'
+							: ['mx-auto max-w-3xl w-full px-6 pb-4 space-y-3', activeView === 'ai' ? 'min-h-full flex flex-col justify-center' : '']">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									:is-breaking-down="isBreakingDown"
@@ -682,7 +684,7 @@ onUnmounted(() => {
 							</router-view>
 
 							<!-- 已完成任务：收在清单下方，与列表同宽同卡 -->
-							<section v-if="activeView !== 'ai' && activeView !== 'schedule'" class="panel px-4 py-3">
+							<section v-if="activeView !== 'ai' && activeView !== 'schedule' && activeView !== 'tree'" class="panel px-4 py-3">
 								<div class="flex items-center justify-between">
 									<span class="text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
 										已完成 <span class="ml-1 font-mono text-neutral-900 dark:text-neutral-100">{{ completedTodos.length }}</span>
@@ -715,8 +717,9 @@ onUnmounted(() => {
 					</template>
 				</div>
 
-				<!-- 自然语言任务输入：AI 视图自带输入框，避免重复 -->
-				<div v-if="!isBreakingDown && activeView !== 'ai'" class="mx-auto max-w-3xl w-full px-6 pb-4">
+				<!-- 自然语言任务输入：AI 视图自带输入框，树视图保持全屏 -->
+				<div v-if="!isBreakingDown && activeView !== 'ai' && activeView !== 'tree'"
+					class="mx-auto max-w-3xl w-full px-6 pb-4">
 					<div class="panel p-2">
 						<AITaskInput :loading="isAnalyzingTask" :progress="analyzeProgress"
 							@submit-task="handleAnalyzeTaskInput" />
@@ -728,8 +731,8 @@ onUnmounted(() => {
 			<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel" />
 		</div>
 
-		<!-- 状态栏 -->
-		<footer
+		<!-- 状态栏：树视图全屏展示思维导图时隐藏 -->
+		<footer v-if="activeView !== 'tree'"
 			class="h-7 shrink-0 border-t border-hairline dark:border-hairline-dark px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:text-neutral-500 select-none">
 			<div class="flex items-center gap-3 min-w-0">
 				<span class="truncate">{{ authStore.user?.email || '未登录' }}</span>
