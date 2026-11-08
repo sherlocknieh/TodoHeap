@@ -6,25 +6,49 @@
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="endPan" @click.stop @dblclick="fitView">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
+      <defs>
+        <marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+          <path d="M0 0 10 5 0 10z" fill="#a3a3a3" />
+        </marker>
+        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+          orient="auto-start-reverse">
+          <path d="M0 0 10 5 0 10z" fill="#13b566" />
+        </marker>
+      </defs>
+
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
         <!-- 连线：跨引用与回边用虚线，其余为平滑曲线 -->
         <path v-for="edge in layout.edges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
-          :stroke="edge.isRef ? '#8f9df0' : '#6f6d8a'"
-          :stroke-width="edge.isRef ? 1.5 : 1.6" :stroke-dasharray="edge.isRef ? '6 5' : undefined" />
+          :class="edge.isRef ? 'stroke-accent-500 dark:stroke-accent-400' : 'stroke-neutral-300 dark:stroke-neutral-600'"
+          :stroke-width="edge.isRef ? 1.5 : 1.2" :stroke-dasharray="edge.isRef ? '5 4' : undefined"
+          :marker-end="edge.isRef ? 'url(#mm-arrow-ref)' : 'url(#mm-arrow)'" />
 
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
-          :opacity="node.completed_at ? 0.45 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
+          :opacity="node.completed_at ? 0.55 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
           @pointerdown.stop @dblclick.stop="selectNode(node)" @click.stop="selectNode(node)">
-          <rect :width="nodeWidth" :height="node.height" rx="5" :fill="nodeFill(node)" :stroke="nodeStroke(node)"
-            :stroke-width="node.selected ? 2 : 1" :stroke-dasharray="node.isRef ? '5 4' : undefined" />
-          <text :x="nodeWidth / 2" :y="0" text-anchor="middle" class="text-[13px] font-medium"
-            :fill="nodeTextFill(node)">
-            <tspan v-for="(line, index) in node.lines" :key="index" :x="nodeWidth / 2"
+          <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
+            :stroke-dasharray="node.isRef ? '5 4' : undefined" class="transition-colors" :class="[
+              node.isRef
+                ? 'stroke-accent-300 dark:stroke-accent-700'
+                : node.selected
+                  ? 'stroke-accent-600 dark:stroke-accent-400'
+                  : 'stroke-neutral-200 dark:stroke-neutral-700',
+              node.isRoot
+                ? 'fill-accent-700 dark:fill-accent-500'
+                : node.selected
+                  ? 'fill-accent-50 dark:fill-neutral-800'
+                  : 'fill-white dark:fill-neutral-900'
+            ]" />
+          <text :x="10" :y="0" class="text-[13px] font-medium" :class="node.isRoot
+            ? 'fill-white'
+            : node.isRef
+              ? 'fill-neutral-500 dark:fill-neutral-400'
+              : 'fill-neutral-800 dark:fill-neutral-100'">
+            <tspan v-for="(line, index) in node.lines" :key="index" :x="10"
               :dy="index === 0 ? paddingTop + fontSize : lineHeight">{{ line }}</tspan>
           </text>
-          <line :x1="14" :y1="node.height - 6" :x2="nodeWidth - 14" :y2="node.height - 6" stroke-width="2"
-            stroke-linecap="round" :stroke="node.isRef ? '#8f9df0' : 'rgba(255,255,255,0.85)'" />
         </g>
       </g>
     </svg>
@@ -79,14 +103,14 @@ const props = defineProps({
 
 const emit = defineEmits(['task-selected'])
 
-const nodeWidth = 176
+const nodeWidth = 200
 const fontSize = 13
 const lineHeight = 16
 const paddingTop = 10
 const maxLines = 3
 const crossGap = 40
 const mainGap = 52
-const textUnitsPerLine = 12
+const textUnitsPerLine = 13
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -149,20 +173,6 @@ const measureNode = (raw) => {
     selected: String(raw.id) === String(props.selectedTaskId)
   }
 }
-
-const nodeFill = (node) => {
-  if (node.isRoot) return '#565483'
-  if (node.isRef) return '#37364e'
-  return node.selected ? '#4f5470' : '#4a4969'
-}
-
-const nodeStroke = (node) => {
-  if (node.selected) return '#42d386'
-  if (node.isRef) return '#8f9df0'
-  return node.isRoot ? '#6f6c9e' : '#5c5a80'
-}
-
-const nodeTextFill = (node) => (node.isRef ? '#c9c8de' : '#f6f6fb')
 
 // 父节点出边、子节点入边的锚点与朝向
 const outAnchor = (node) => {
@@ -560,15 +570,12 @@ watch(layoutSignature, () => nextTick(fitView))
 <style scoped>
 /* 点阵底纹：与参考图一致的空旷感，暗色下更明显 */
 .mindmap-canvas {
-  background-color: #f7f7fa;
-  background-image: radial-gradient(circle, rgba(20, 20, 40, 0.10) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-color: #fafafa;
 }
 
 @media (prefers-color-scheme: dark) {
   .mindmap-canvas {
-    background-color: #0f1015;
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.11) 1px, transparent 1px);
+    background-color: #141414;
   }
 }
 </style>
