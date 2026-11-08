@@ -7,7 +7,6 @@ import katex from 'markdown-it-katex'
 const baseNav = [
   { link: '/user/', text: { en: 'User Guide', zh: '用户指南' } },
   { link: '/dev/', text: { en: 'Developer Guide', zh: '开发文档' } },
-  { link: '/test/', text: { en: 'Test Guide', zh: '[文档测试]' } },
 ]
 
 function makeNav(lang: 'en' | 'zh') {
@@ -51,7 +50,8 @@ const vitePressOptions = {
       exclude: ['vitepress'],
     },
   },
-  ignoreDeadLinks: true,  // 即使有死链也不中断构建
+  // 死链会让构建失败，避免把断链带上线
+  ignoreDeadLinks: false,
   // 通用主题配置
   themeConfig: {
     logo: '/TodoHeap/docs/logo.png',
@@ -104,7 +104,7 @@ const vitePressOptions = {
 
 // 生成多语言×多文件夹侧边栏
 const languages = ['zh', 'en'];
-const folders = ['user', 'dev', 'test'];
+const folders = ['user', 'dev'];
 const sidebarConfigs = languages.flatMap(lang =>
   folders.map(mod => ({
     scanStartPath: `${lang}/${mod}`,  // 当前侧栏扫描的目录
@@ -121,7 +121,6 @@ const sidebarConfigs = languages.flatMap(lang =>
       'index.md',
       'user',
       'dev',
-      'test',
     ]
   }))
 );

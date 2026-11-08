@@ -8,7 +8,7 @@ outline: deep
 
 欢迎加入 TodoHeap 的开发！本指南帮助你快速上手项目，理解体系，并参与功能开发。
 
-## 🚀 快速开始
+## 快速开始
 
 ### 项目地址
 https://github.com/sherlocknieh/TodoHeap
@@ -22,9 +22,8 @@ https://github.com/sherlocknieh/TodoHeap
 
 ```bash
 git clone https://github.com/sherlocknieh/TodoHeap.git
-cd TodoHeap
+cd TodoHeap/frontend
 pnpm install
-cd frontend
 pnpm dev
 ```
 
@@ -32,31 +31,31 @@ pnpm dev
 
 ---
 
-## 📚 开发文档导引
+## 开发文档导引
 
-### 🏗️ 系统架构
+### 系统架构
 了解 TodoHeap 的整体设计与技术栈
 
 - [**架构与技术栈**](./02.architecture.md) - 系统架构、技术选型、核心模块、数据库设计
 
-### 📋 需求与规划
+### 需求与规划
 理解项目目标与功能需求
 
 - [**需求概览（已并入架构）**](./02.architecture.md) - 功能需求摘要（已并入 `架构与技术栈`）
 
-### 💻 开发工作流
+### 开发工作流
 参与开发的流程与常见任务
 
 - [**开发流程与任务**](./03.development.md) - 开发流程、常见任务、本地调试
 
-### 🤖 AI 功能实现
+### AI 功能实现
 深入理解三大 AI 功能的后端实现
 
 - 详见 [架构与技术栈](./02.architecture.md) 中的 `Edge Functions` 部分（分解/分析/优化 的整体说明）
 
 ---
 
-## 🎯 按角色快速定位
+## 按角色快速定位
 
 ### 我是 UI / 前端开发者
 1. 阅读 [架构与技术栈](./02.architecture.md) 了解整体设计
@@ -75,25 +74,27 @@ pnpm dev
 
 ### 我想了解完整的系统
 1. 先读 [架构与技术栈](./02.architecture.md) 获得全景
-2. 再读 [需求文档](./02.architecture.md 理解功能
-3. 然后根据兴趣深入阅读具体模块文档
+2. 再读 [开发流程与任务](./03.development.md) 了解动手方式
+3. 需要定位代码时看仓库根目录的 `AGENTS.md` 索引
 
 ---
 
-## 📂 文档结构
+## 文档结构
 
 ```
 docs/zh/dev/
-├── index.md                          ← 你在这里（导引）
-├── setup.md                          ← 环境搭建
-├── architecture.md                   ← 架构与技术栈（含需求概览）
-├── development.md                    ← 开发流程与任务（含 AI 概要）
-└── supabase/functions/               ← Edge Functions 实现
+├── index.md              ← 你在这里（导引）
+├── 01.setup.md           ← 环境搭建
+├── 02.architecture.md    ← 架构与技术栈
+└── 03.development.md     ← 开发流程与常见任务
+
+supabase/functions/       ← Edge Functions 实现
+frontend/src/             ← 前端源码（详见仓库根目录 AGENTS.md）
 ```
 
 ---
 
-## 🔑 关键概念
+## 关键概念
 
 ### 应用架构三层
 
@@ -125,19 +126,19 @@ docs/zh/dev/
 
 ---
 
-## 📖 文档导航
+## 文档导航
 
 - 新手上路？→ [环境搭建](./01.setup.md)
 - 想知道怎么做？→ [开发流程与任务](./03.development.md)
 - 需要理解设计？→ [架构与技术栈](./02.architecture.md)
-- 想深入某功能？→ 选择对应的 AI 功能文档
+- 想深入 AI 功能？→ [架构与技术栈](./02.architecture.md) 的 Edge Functions 部分
 
 ---
 
-## ⚡ 常见快速问题
+## 常见快速问题
 
 **Q: 如何启动开发服务器？**  
-A: `cd frontend && pnpm dev`，访问 http://localhost:5173
+A: `cd frontend && pnpm dev`，访问 `http://localhost:5200`
 
 **Q: 如何测试 Edge Function？**  
 A: `supabase functions serve` 然后调用本地端点
