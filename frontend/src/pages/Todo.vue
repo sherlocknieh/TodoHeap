@@ -397,11 +397,11 @@ const runToastUndo = async () => {
 		<div class="relative flex-1 min-w-0 min-h-0 flex overflow-hidden">
 			<!-- 左侧活动栏：顶部 Logo 回主页，收起开关在底栏 -->
 			<aside v-if="showActivityRail" data-activity-rail
-				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
+				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between">
 				<div class="flex flex-col items-center">
 					<!-- 回主页 -->
 					<RouterLink to="/" title="回到主页"
-						class="h-9 w-9 rounded-md flex items-center justify-center hover:bg-white/15 transition-colors">
+						class="h-9 w-9 flex items-center justify-center">
 						<img :src="logoSrc" alt="TodoHeap" class="h-6 w-6" />
 					</RouterLink>
 
