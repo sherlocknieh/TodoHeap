@@ -552,10 +552,10 @@ onUnmounted(() => {
 		<div class="flex-1 min-w-0 min-h-0 flex overflow-hidden">
 			<!-- 左侧活动栏 -->
 			<aside
-				class="w-12 shrink-0 border-r border-hairline dark:border-hairline-dark flex flex-col items-center justify-between py-2">
+				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
 				<!-- 侧栏开关 -->
 				<button @click="toggleLeftPanel"
-					class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
+					class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
 					title="切换侧栏">
 					<AppIcon name="sidebar" />
 				</button>
@@ -564,7 +564,7 @@ onUnmounted(() => {
 				<div class="flex flex-col items-center gap-1">
 					<div class="relative">
 						<button data-user-menu-trigger @click="showUserMenu = !showUserMenu"
-							class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
+							class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
 							title="用户菜单">
 							<AppIcon name="user" />
 						</button>
@@ -588,7 +588,7 @@ onUnmounted(() => {
 					</div>
 
 					<button @click="openSettings"
-						class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
+						class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
 						title="设置">
 						<AppIcon name="sliders" />
 					</button>
