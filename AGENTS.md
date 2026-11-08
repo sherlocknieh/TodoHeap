@@ -118,5 +118,5 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 ## 改动的验证
 
 - 前端：`cd frontend && npm run build`；涉及 store 再 `npm test`
-- 数据库：结构以 `supabase/migrations/20261108000000_init_schema.sql` 为基线；后续变更新增 `<timestamp>_*.sql`，**不要修改基线**
+- 数据库：项目处于实验阶段，**结构可以随时调整**；新增迁移写在 `supabase/migrations/<timestamp>_*.sql`，需要时也可以直接改写既有迁移（改完重置数据库即可，无需兼容历史数据）
 - 文档：`cd docs && npm run build`（配置已关闭 `ignoreDeadLinks`，死链会直接中断构建）
