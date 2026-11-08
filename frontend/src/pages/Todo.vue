@@ -53,6 +53,7 @@ const selectedTaskId = ref(null)
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 // 侧栏显示状态：窄屏默认收起，避免浮层遮住清单
 const showLeftSidebar = ref(window.innerWidth >= 1024)
+const windowWidth = ref(window.innerWidth)
 
 const showViewLoading = computed(() => {
 	return (activeView.value === 'tree' || activeView.value === 'heap') && todoStore.loading
@@ -154,6 +155,7 @@ provide(TODO_DETAIL_PANEL_CONTEXT, {
 let lastWindowWidth = typeof window === 'undefined' ? 1024 : window.innerWidth
 const handleWindowResize = () => {
 	const width = window.innerWidth
+	windowWidth.value = width
 	if (width < 1024 && lastWindowWidth >= 1024) showLeftSidebar.value = false
 	if (width >= 1024 && lastWindowWidth < 1024) showLeftSidebar.value = true
 	lastWindowWidth = width
@@ -250,11 +252,21 @@ const createNewTask = async () => {
 	}
 }
 
-// 点击外部关闭用户菜单
+// 浮层侧栏：窄屏抽屉或树视图覆盖模式，点击外部应自动收起
+const isSidebarFloating = computed(() => activeView.value === 'tree' || windowWidth.value < 1024)
+
+// 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {
 	if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
 		if (!event.target.closest('[data-user-menu-trigger]')) {
 			showUserMenu.value = false
+		}
+	}
+	if (showLeftSidebar.value && isSidebarFloating.value) {
+		const insideSidebar = event.target.closest?.('[data-left-sidebar]')
+		const insideRail = event.target.closest?.('[data-activity-rail]')
+		if (!insideSidebar && !insideRail) {
+			showLeftSidebar.value = false
 		}
 	}
 }
@@ -324,7 +336,7 @@ const runToastUndo = async () => {
 		<!-- 主内容区 -->
 		<div class="relative flex-1 min-w-0 min-h-0 flex overflow-hidden">
 			<!-- 左侧活动栏 -->
-			<aside
+			<aside data-activity-rail
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
 				<div class="flex flex-col items-center gap-1">
 					<!-- 侧栏开关 -->
