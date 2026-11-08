@@ -13,7 +13,7 @@
 ### 数据库管理
   - 创建迁移脚本: `npx supabase migration new <title>`
   - 推送更改到远程: `npx supabase db push`
-  - 重置远程数据库: `npx supabase db reset --linked`
+  - 重置远程数据库: `npx supabase db reset --remote`
 
 ### 边缘函数管理
   - 创建边缘函数: `npx supabase functions new hello-world`
