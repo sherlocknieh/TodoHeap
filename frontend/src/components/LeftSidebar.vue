@@ -18,7 +18,9 @@ const props = defineProps({
   // 当前活动栏入口，决定侧栏内容
   section: { type: String, default: 'list' },
   // 覆盖在内容之上，不挤压主视图（树视图使用）
-  overlay: { type: Boolean, default: false }
+  overlay: { type: Boolean, default: false },
+  // 活动栏收起时贴齐左边，不留下空档
+  railHidden: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close', 'switch-view', 'create-task'])
@@ -249,7 +251,8 @@ const switchView = (view) => {
     v-if="show"
     data-left-sidebar
     :class="[
-      'absolute top-0 bottom-0 left-12 w-64 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
+      'absolute top-0 bottom-0 w-64 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
+      railHidden ? 'left-0' : 'left-12',
       overlay ? 'shadow-lg' : 'lg:static lg:z-10 lg:shadow-none'
     ]"
   >
