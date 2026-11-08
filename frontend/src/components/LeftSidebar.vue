@@ -5,7 +5,7 @@ import { useTodoStore } from '@/stores/todos'
 import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
 import { useScheduleStore } from '@/stores/schedules'
-import { SCHEDULE_RANGES, scheduleRangeOf } from '@/utils/scheduleRange'
+import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
@@ -40,6 +40,17 @@ const renameInput = ref(null)
 const skillForm = ref(null)
 const skillError = ref('')
 
+// 侧栏分组默认展开，点击标题折叠（参考 VSCode 侧栏）
+const collapsedSections = ref({ sessions: false, skills: false })
+
+const toggleSection = (key) => {
+  collapsedSections.value[key] = !collapsedSections.value[key]
+}
+
+const expandSection = (key) => {
+  collapsedSections.value[key] = false
+}
+
 // AI 侧栏展示会话列表，进入 AI 入口时确保会话已载入
 const ensureAgent = () => {
   if (props.section === 'ai') agent.init(authStore.user?.id)
@@ -60,6 +71,7 @@ const closeOnNarrowScreen = () => {
 
 const handleNewSession = () => {
   cancelSessionRename()
+  expandSection('sessions')
   agent.newSession()
   closeOnNarrowScreen()
 }
@@ -98,6 +110,7 @@ const deleteSession = (id) => {
 
 const startNewSkill = () => {
   skillError.value = ''
+  expandSection('skills')
   skillForm.value = { id: null, name: '', icon: DEFAULT_SKILL_ICON, prompt: '' }
 }
 
@@ -178,10 +191,15 @@ const scheduleStats = computed(() => {
   return { ...counts, total: scheduleStore.schedules.length }
 })
 
-// 当前生效的时间段筛选来自路由 query，切换页面后仍保留
+// 概览高亮跟随正在浏览的日期所属时间段；未指定日期时归入全部
 const activeScheduleRange = computed(() => {
-  const value = route.query.range
-  return SCHEDULE_RANGES.includes(value) ? value : ''
+  const selected = parseDateKey(route.query.date)
+  if (!selected) return 'all'
+  const startOfDay = new Date(selected)
+  startOfDay.setHours(0, 0, 0, 0)
+  const endOfDay = new Date(selected)
+  endOfDay.setHours(23, 59, 59, 999)
+  return scheduleRangeOf({ start_at: startOfDay, end_at: endOfDay }, new Date())
 })
 
 const scheduleRangeItems = computed(() => [
@@ -191,10 +209,23 @@ const scheduleRangeItems = computed(() => [
   { id: 'all', label: '全部', count: scheduleStats.value.total }
 ])
 
-// 再次点击已选中的时间段即取消筛选
-const toggleScheduleRange = (id) => {
-  const active = id === 'all' || id === activeScheduleRange.value ? '' : id
-  router.replace({ name: 'ScheduleView', query: active ? { range: active } : {} })
+// 点击概览跳到该范围内离今天最近的一天，全部则回到今天
+const openScheduleRange = (id) => {
+  const today = new Date()
+  let target = today
+
+  if (id === 'future' || id === 'past') {
+    const matches = scheduleStore.schedules.filter((event) => scheduleRangeOf(event) === id)
+    const hit = id === 'future' ? matches[0] : matches[matches.length - 1]
+    if (hit) {
+      target = new Date(hit.start_at)
+    } else {
+      target = new Date(today)
+      target.setDate(target.getDate() + (id === 'future' ? 1 : -1))
+    }
+  }
+
+  router.replace({ name: 'ScheduleView', query: id === 'all' ? {} : { date: toDateKey(target) } })
   closeOnNarrowScreen()
 }
 
@@ -285,7 +316,7 @@ const switchView = (view) => {
       </template>
 
       <template v-else-if="section === 'schedule'">
-        <!-- 日程概览：点击按时间段筛选，再点一次取消 -->
+        <!-- 日程概览：点击跳到对应范围内的日程 -->
         <section class="space-y-0.5">
           <p class="eyebrow px-2 pb-1.5">概览</p>
           <div class="px-1 space-y-0.5">
@@ -294,7 +325,8 @@ const switchView = (view) => {
               :class="activeScheduleRange === item.id
                 ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
                 : 'text-neutral-600 hover:bg-accent-50/70 dark:text-neutral-400 dark:hover:bg-accent-500/[0.06]'"
-              @click="toggleScheduleRange(item.id)">
+              :title="item.id === 'all' ? '回到今天' : undefined"
+              @click="openScheduleRange(item.id)">
               <span>{{ item.label }}</span>
               <span class="font-mono">{{ item.count }}</span>
             </button>
@@ -310,122 +342,134 @@ const switchView = (view) => {
       </template>
 
       <template v-else>
+        <!-- 对话会话：新建、切换、重命名、删除 -->
+        <section>
+          <div class="flex items-center gap-1 pl-1 pr-2">
+            <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+              :aria-expanded="!collapsedSections.sessions" @click="toggleSection('sessions')">
+              <AppIcon :name="collapsedSections.sessions ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
+              <span class="eyebrow">对话</span>
+            </button>
+            <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300 transition-colors"
+              title="新建对话" @click="handleNewSession">
+              <AppIcon name="plus" :size="14" />
+            </button>
+          </div>
+          <div v-show="!collapsedSections.sessions" class="space-y-0.5">
+            <p v-if="!agent.sessions.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
+              还没有会话
+            </p>
+            <ul v-else class="space-y-0.5">
+              <li v-for="session in agent.sessions" :key="session.id"
+                class="group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors"
+                :class="session.id === agent.activeSessionId
+                  ? 'bg-accent-100/80 dark:bg-accent-500/20'
+                  : 'hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'">
+                <template v-if="editingSessionId === session.id">
+                  <input ref="renameInput" v-model="editingTitle" class="field flex-1 px-1.5 py-1 text-xs"
+                    @keydown.enter.prevent="commitSessionRename" @keydown.esc.prevent="cancelSessionRename"
+                    @blur="commitSessionRename" />
+                </template>
+                <template v-else>
+                  <button class="min-w-0 flex-1 text-left px-1" @click="handleSwitchSession(session.id)">
+                    <span class="block truncate text-sm"
+                      :class="session.id === agent.activeSessionId
+                        ? 'font-semibold text-accent-900 dark:text-accent-100'
+                        : 'text-neutral-700 dark:text-neutral-300'">
+                      {{ session.title }}
+                    </span>
+                    <span class="block font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
+                      {{ formatSessionTime(session.updatedAt) }} · {{ session.messages.length }}
+                    </span>
+                  </button>
+                  <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                    title="重命名会话" @click.stop="startSessionRename(session)">
+                    <AppIcon name="edit" :size="12" />
+                  </button>
+                  <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                    title="删除会话" @click.stop="deleteSession(session.id)">
+                    <AppIcon name="trash" :size="12" />
+                  </button>
+                </template>
+              </li>
+            </ul>
+          </div>
+        </section>
+
         <!-- 技能：点击直接在新会话执行，支持新建、编辑、启停与删除 -->
-        <section class="space-y-0.5">
-          <div class="px-2 pb-1.5 flex items-center justify-between">
-            <p class="eyebrow">技能</p>
+        <section>
+          <div class="flex items-center gap-1 pl-1 pr-2">
+            <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+              :aria-expanded="!collapsedSections.skills" @click="toggleSection('skills')">
+              <AppIcon :name="collapsedSections.skills ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
+              <span class="eyebrow">技能</span>
+            </button>
             <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300 transition-colors"
               title="新建技能" @click="startNewSkill">
               <AppIcon name="plus" :size="14" />
             </button>
           </div>
 
-          <form v-if="skillForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
-            @submit.prevent="saveSkill">
-            <input v-model="skillForm.name" class="field w-full px-1.5 py-1 text-xs"
-              :maxlength="MAX_SKILL_NAME" placeholder="技能名称" />
-            <div class="flex flex-wrap gap-1">
-              <button v-for="icon in SKILL_ICONS" :key="icon" type="button"
-                class="p-1 rounded border transition-colors"
-                :class="skillForm.icon === icon
-                  ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-300'
-                  : 'border-transparent text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300'"
-                :title="icon" @click="skillForm.icon = icon">
-                <AppIcon :name="icon" :size="13" />
-              </button>
-            </div>
-            <textarea v-model="skillForm.prompt" rows="4"
-              class="field w-full resize-none px-1.5 py-1 text-xs leading-5"
-              :maxlength="MAX_SKILL_PROMPT" placeholder="写给 Agent 的指令，例如：把本周任务按优先级重新排序"></textarea>
-            <p v-if="skillError" class="text-[11px] text-rose-600 dark:text-rose-400">{{ skillError }}</p>
-            <div class="flex justify-end gap-1.5">
-              <button type="button" class="btn-ghost text-xs" @click="cancelSkillForm">取消</button>
-              <button type="submit" class="btn-primary text-xs">保存</button>
-            </div>
-          </form>
+          <div v-show="!collapsedSections.skills" class="space-y-0.5">
+            <form v-if="skillForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
+              @submit.prevent="saveSkill">
+              <input v-model="skillForm.name" class="field w-full px-1.5 py-1 text-xs"
+                :maxlength="MAX_SKILL_NAME" placeholder="技能名称" />
+              <div class="flex flex-wrap gap-1">
+                <button v-for="icon in SKILL_ICONS" :key="icon" type="button"
+                  class="p-1 rounded border transition-colors"
+                  :class="skillForm.icon === icon
+                    ? 'border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-300'
+                    : 'border-transparent text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300'"
+                  :title="icon" @click="skillForm.icon = icon">
+                  <AppIcon :name="icon" :size="13" />
+                </button>
+              </div>
+              <textarea v-model="skillForm.prompt" rows="4"
+                class="field w-full resize-none px-1.5 py-1 text-xs leading-5"
+                :maxlength="MAX_SKILL_PROMPT" placeholder="写给 Agent 的指令，例如：把本周任务按优先级重新排序"></textarea>
+              <p v-if="skillError" class="text-[11px] text-rose-600 dark:text-rose-400">{{ skillError }}</p>
+              <div class="flex justify-end gap-1.5">
+                <button type="button" class="btn-ghost text-xs" @click="cancelSkillForm">取消</button>
+                <button type="submit" class="btn-primary text-xs">保存</button>
+              </div>
+            </form>
 
-          <p v-if="!agent.skills.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
-            还没有技能
-          </p>
-          <ul v-else class="space-y-0.5">
-            <li v-for="skill in agent.skills" :key="skill.id"
-              class="group flex items-center gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
-              <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left" :title="skill.enabled ? '在新会话中执行' : '技能已停用'"
-                @click="runSkill(skill)">
-                <AppIcon :name="skill.icon" :size="13" class="opacity-70" />
-                <span class="truncate text-sm"
-                  :class="skill.enabled
-                    ? 'text-neutral-700 dark:text-neutral-300'
-                    : 'text-neutral-400 line-through dark:text-neutral-500'">{{ skill.name }}</span>
-              </button>
-              <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
-                :title="skill.enabled ? '停用技能' : '启用技能'" @click.stop="agent.toggleSkill(skill.id)">
-                <AppIcon :name="skill.enabled ? 'eye' : 'eyeOff'" :size="12" />
-              </button>
-              <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-                title="编辑技能" @click.stop="startEditSkill(skill)">
-                <AppIcon name="edit" :size="12" />
-              </button>
-              <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-                title="删除技能" @click.stop="agent.deleteSkill(skill.id)">
-                <AppIcon name="trash" :size="12" />
-              </button>
-            </li>
-          </ul>
-          <p v-if="agent.skillsError" class="px-2 pt-1 text-[11px] leading-4 text-rose-600 dark:text-rose-400">
-            {{ agent.skillsError }}
-          </p>
-          <p v-else class="px-2 pt-1 text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
-            点击技能即在新会话中执行它的指令。
-          </p>
-        </section>
-
-        <!-- 对话会话：新建、切换、重命名、删除 -->
-        <section class="space-y-0.5">
-          <div class="px-2 pb-1.5 flex items-center justify-between">
-            <p class="eyebrow">对话</p>
-            <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300 transition-colors"
-              title="新建对话" @click="handleNewSession">
-              <AppIcon name="plus" :size="14" />
-            </button>
-          </div>
-          <p v-if="!agent.sessions.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
-            还没有会话
-          </p>
-          <ul v-else class="space-y-0.5">
-            <li v-for="session in agent.sessions" :key="session.id"
-              class="group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors"
-              :class="session.id === agent.activeSessionId
-                ? 'bg-accent-100/80 dark:bg-accent-500/20'
-                : 'hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'">
-              <template v-if="editingSessionId === session.id">
-                <input ref="renameInput" v-model="editingTitle" class="field flex-1 px-1.5 py-1 text-xs"
-                  @keydown.enter.prevent="commitSessionRename" @keydown.esc.prevent="cancelSessionRename"
-                  @blur="commitSessionRename" />
-              </template>
-              <template v-else>
-                <button class="min-w-0 flex-1 text-left px-1" @click="handleSwitchSession(session.id)">
-                  <span class="block truncate text-sm"
-                    :class="session.id === agent.activeSessionId
-                      ? 'font-semibold text-accent-900 dark:text-accent-100'
-                      : 'text-neutral-700 dark:text-neutral-300'">
-                    {{ session.title }}
-                  </span>
-                  <span class="block font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
-                    {{ formatSessionTime(session.updatedAt) }} · {{ session.messages.length }}
-                  </span>
+            <p v-if="!agent.skills.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
+              还没有技能
+            </p>
+            <ul v-else class="space-y-0.5">
+              <li v-for="skill in agent.skills" :key="skill.id"
+                class="group flex items-center gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
+                <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left" :title="skill.enabled ? '在新会话中执行' : '技能已停用'"
+                  @click="runSkill(skill)">
+                  <AppIcon :name="skill.icon" :size="13" class="opacity-70" />
+                  <span class="truncate text-sm"
+                    :class="skill.enabled
+                      ? 'text-neutral-700 dark:text-neutral-300'
+                      : 'text-neutral-400 line-through dark:text-neutral-500'">{{ skill.name }}</span>
+                </button>
+                <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+                  :title="skill.enabled ? '停用技能' : '启用技能'" @click.stop="agent.toggleSkill(skill.id)">
+                  <AppIcon :name="skill.enabled ? 'eye' : 'eyeOff'" :size="12" />
                 </button>
                 <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-                  title="重命名会话" @click.stop="startSessionRename(session)">
+                  title="编辑技能" @click.stop="startEditSkill(skill)">
                   <AppIcon name="edit" :size="12" />
                 </button>
                 <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-                  title="删除会话" @click.stop="deleteSession(session.id)">
+                  title="删除技能" @click.stop="agent.deleteSkill(skill.id)">
                   <AppIcon name="trash" :size="12" />
                 </button>
-              </template>
-            </li>
-          </ul>
+              </li>
+            </ul>
+            <p v-if="agent.skillsError" class="px-2 pt-1 text-[11px] leading-4 text-rose-600 dark:text-rose-400">
+              {{ agent.skillsError }}
+            </p>
+            <p v-else class="px-2 pt-1 text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
+              点击技能即在新会话中执行它的指令。
+            </p>
+          </div>
         </section>
 
         <section class="space-y-0.5">
