@@ -33,6 +33,9 @@ import { supabase } from '@/lib/supabase'
 // 👇 直接解析
 export async function handleAuthCallback() {
   const hash = window.location.hash
+  // 普通页面（含刷新、深链）不带 token，直接保留当前路由
+  if (!hash.includes('access_token')) return
+
   // 匹配 #/access_token= 或 #access_token=
   if (hash.includes('access_token')) {
     const cleaned = hash.startsWith('#/')
@@ -64,6 +67,6 @@ export async function handleAuthCallback() {
       }
     }
   }
-  // 清理 URL
-  window.location.hash = ''
+  // 处理完回调参数后回到首页，避免 token 留在地址栏
+  window.location.hash = '#/'
 }
