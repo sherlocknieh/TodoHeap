@@ -98,13 +98,14 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 `todos` 表：`id, user_id, child_ids(BIGINT[] 子任务 ID 列表), title, details, deadline, difficulty(工时, DECIMAL(5,2)), sort_order, completed_at, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
 `user_settings` 表：用户偏好，如 `autoApplyAITasks`。
 `schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, start_at, end_at, created_at, updated_at`；已启 RLS 与 Realtime。
+`get_calendar_feed(feed_token)`：SECURITY DEFINER 函数，按 `user_settings.settings.calendarFeedToken` 返回该用户的日程，授权 anon 调用，供日历订阅使用。
 
 | 边缘函数 | 作用 |
 | --- | --- |
 | `breakdown_task` | 把选定任务拆成 3-6 个子任务，返回 JSON 数组 |
 | `new_task_ai` | 自然语言 → 新建任务树 |
 | `optimize_tasks` | 全局优化：调日期、拆解、聚合、生成执行建议（AI SDK + tool calling） |
-| `calendar_feed` | 日历订阅源：`?token=` 反查用户并输出 ICS，`verify_jwt = false` |
+| `calendar_feed` | 日历订阅源：`?token=` 调用 `get_calendar_feed` RPC 输出 ICS，`verify_jwt = false` |
 
 密钥只放 Supabase secrets 与 GitHub Actions vars/secrets；前端仅持 `VITE_SUPABASE_PUB_KEY`。
 

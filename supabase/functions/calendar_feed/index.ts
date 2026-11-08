@@ -114,42 +114,42 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!supabaseUrl || !serviceRoleKey) {
+  // 只持公开密钥调用 RPC，真正的令牌校验与数据读取在 SECURITY DEFINER 函数里
+  const parseKey = (name: string, fallbackName: string) => {
+    const raw = Deno.env.get(name) ?? "";
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "string") return parsed;
+        const key = parsed.default ?? Object.values(parsed).find((value) => typeof value === "string");
+        if (typeof key === "string") return key;
+      } catch {
+        // 不是 JSON 时按原始值使用
+      }
+    }
+    return Deno.env.get(fallbackName) ?? "";
+  };
+  const publishableKey = parseKey("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !publishableKey) {
     return textResponse("Feed unavailable", 503);
   }
 
-  // 订阅链接不携带 JWT，用服务角色按令牌反查用户，避免开放匿名读取权限
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
+  const supabase = createClient(supabaseUrl, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: owner, error: ownerError } = await admin
-    .from("user_settings")
-    .select("user_id")
-    .eq("settings->>calendarFeedToken", token)
-    .maybeSingle();
-
-  if (ownerError) {
-    console.error("calendar_feed lookup failed", ownerError.message);
+  const { data, error } = await supabase.rpc("get_calendar_feed", { feed_token: token });
+  if (error) {
+    console.error("calendar_feed rpc failed", error.message);
     return textResponse("Feed unavailable", 500);
   }
-  if (!owner) {
+
+  const feed = data as { found?: boolean; schedules?: ScheduleRow[] } | null;
+  if (!feed?.found) {
     return textResponse("Not Found", 404);
   }
 
-  const { data: schedules, error: scheduleError } = await admin
-    .from("schedules")
-    .select("id, title, notes, start_at, end_at, updated_at")
-    .eq("user_id", owner.user_id)
-    .order("start_at", { ascending: true });
-
-  if (scheduleError) {
-    console.error("calendar_feed schedules failed", scheduleError.message);
-    return textResponse("Feed unavailable", 500);
-  }
-
-  return new Response(buildCalendar((schedules ?? []) as ScheduleRow[]), {
+  return new Response(buildCalendar(feed.schedules ?? []), {
     status: 200,
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
