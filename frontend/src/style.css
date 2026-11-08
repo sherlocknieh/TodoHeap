@@ -59,8 +59,10 @@ html, body, #app {
     @apply bg-accent-200 text-accent-900;
   }
 
-  /* 细窄滚动条，避免抢视觉重心 */
-  * {
+  /* 细窄滚动条，避免抢视觉重心；限定在应用容器内，这两条属性可继承且会穿透
+     Shadow DOM，作用到 * 上会被页面里的浏览器扩展面板继承，改掉它们的滚动条 */
+  #app,
+  #app * {
     scrollbar-width: thin;
     scrollbar-color: rgb(6 80 48 / 0.18) transparent;
   }
@@ -80,7 +82,8 @@ html, body, #app {
   }
 
   @media (prefers-color-scheme: dark) {
-    * {
+    #app,
+    #app * {
       scrollbar-color: rgb(255 255 255 / 0.18) transparent;
     }
 
