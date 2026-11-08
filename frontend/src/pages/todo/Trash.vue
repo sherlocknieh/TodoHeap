@@ -296,9 +296,11 @@ const trashTreeNodes = computed(() => todoStore.trashTreeNodes)
 const trashLoading = computed(() => todoStore.trashLoading)
 
 // 检查父任务是否在垃圾箱中
+const trashIdSet = computed(() => new Set(trashTodos.value.map(t => t.id)))
+
 function isParentInTrash(parentId) {
   if (!parentId) return false
-  return trashTodos.value.some(t => t.id === parentId)
+  return trashIdSet.value.has(parentId)
 }
 
 // 展平树结构为带层级的数组
@@ -374,7 +376,8 @@ const blockedParentId = ref(null)
 const blockedParentTitle = ref('')
 
 onMounted(async () => {
-  await todoStore.fetchTrash()
+  // 已在工作区启动时预取过则直接复用, 避免每次进入视图都重新等待网络
+  await todoStore.ensureTrashFetched()
 })
 
 // 选择任务

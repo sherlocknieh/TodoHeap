@@ -5,7 +5,7 @@ export const createTodosRealtimeManager = ({
   getUserId,
   todosRef,
   trashTodosRef,
-  trashLoadingRef,
+  isTrashFetchedRef,
   setRealtimeStatus
 }) => {
   let realtimeChannel = null
@@ -51,7 +51,8 @@ export const createTodosRealtimeManager = ({
     }
   }
 
-  const shouldMaintainTrash = () => trashTodosRef.value.length > 0 || trashLoadingRef.value === false
+  // 回收站只在完整拉取过一次后才跟随推送, 否则局部数据会掩盖真正缺失的记录
+  const shouldMaintainTrash = () => isTrashFetchedRef.value
 
   const handleRealtimeInsert = (record) => {
     if (record.deleted_at === null) {
