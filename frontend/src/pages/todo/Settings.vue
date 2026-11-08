@@ -670,6 +670,8 @@ const handleImportStart = async () => {
       },
       isCancelled: () => importCancelRequested.value
     })
+    // 写入即结束导入态，刷新列表期间不再提供无效的取消
+    isImporting.value = false
     // 只要写过数据就禁止重复点击，避免同一文件二次导入
     importDone.value = importResult.value.imported > 0
       || importResult.value.updated > 0
