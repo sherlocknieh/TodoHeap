@@ -23,6 +23,7 @@
 
 ### 滴答清单 MCP 网关 `dida_mcp`
   - 部署: `npx supabase functions deploy dida_mcp`
+  - 本地打包报 `entrypoint path does not exist` 时改用服务端打包: `npx supabase functions deploy dida_mcp --use-api`（路径含中文时必现）
   - 平台应用（可选但推荐）: 在滴答开放平台创建应用，回调地址填站点基路径（如 `https://<用户>.github.io/TodoHeap/`），再把凭据写入 Supabase secrets:
     `npx supabase secrets set DIDA_CLIENT_ID=... DIDA_CLIENT_SECRET=...`
   - 未配置凭据时退回动态注册的公开客户端（PKCE），部分账号可能无法完成换令牌，此时在设置页用「改用访问令牌连接」粘贴令牌
