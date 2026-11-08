@@ -79,13 +79,6 @@ const activeViewTitle = computed(() => {
 	return '我的任务'
 })
 
-// 顶栏左右留白与下方内容对齐，树视图铺满整块区域
-const topBarClass = computed(() => {
-	if (activeView.value === 'tree') return 'px-3'
-	if (activeView.value === 'ai') return 'mx-auto w-full max-w-3xl px-6'
-	return 'mx-auto w-full max-w-3xl px-8'
-})
-
 // 底栏统计：全局完成进度，侧栏收起时也能一眼看到
 const taskStats = computed(() => {
 	const total = todoStore.todos.length
@@ -474,7 +467,7 @@ const runToastUndo = async () => {
 				<!-- 顶栏：承载当前视图标题，页面操作入口通过 Teleport 注入右侧 -->
 				<header
 					class="h-11 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
-					<div class="flex h-full items-center gap-3 @container" :class="topBarClass">
+					<div class="flex h-full items-center gap-3 px-3 @container">
 						<!-- 导航收起后，从这里开回 -->
 						<button v-if="!showActivityRail" @click="expandNavigation" title="显示导航"
 							class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200">
