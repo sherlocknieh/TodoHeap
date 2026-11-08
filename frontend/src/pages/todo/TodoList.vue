@@ -1,9 +1,8 @@
 <template>
   <div class="text-neutral-900 dark:text-neutral-100">
-    <!-- 页头：单行不换行，滚动时吸顶，长列表也能随时切换排序与多选 -->
-    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-hairline bg-canvas pt-6 pb-3 dark:border-hairline-dark dark:bg-canvas-dark">
-      <h1 class="shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight">我的任务</h1>
-      <p class="ml-auto min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
+    <!-- 页面操作：统计、排序与多选入口放进主区域顶栏 -->
+    <Teleport defer to="#main-topbar-actions">
+      <p class="min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
         <span class="font-mono">{{ visibleCount }}</span> 项待办
         <template v-if="completedCount">
           <span class="px-1.5 text-neutral-300 dark:text-neutral-700">·</span>
@@ -31,7 +30,7 @@
           <span>{{ selectionMode ? '完成选择' : '选择' }}</span>
         </button>
       </div>
-    </header>
+    </Teleport>
 
     <!-- 快速添加：整行可聚焦，回车即存 -->
     <div
@@ -183,6 +182,7 @@ import { useAuthStore } from '@/stores/auth'
 import { collectDescendantIds } from '@/utils/taskGraph'
 import { DEADLINE_PRESETS, resolveDeadlinePreset } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
+import { persistedRef } from '@/utils/uiState'
 import TodoListItem from '@/components/TodoListItem.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -222,8 +222,8 @@ const visibleCount = computed(() => countNodes(todoStore.treeNodes))
 const completedTodos = computed(() => todoStore.todos.filter(todo => todo.completed_at))
 const completedCount = computed(() => completedTodos.value.length)
 
-// 已完成区域默认展开，与列表同属一页
-const showCompletedPanel = ref(true)
+// 已完成区域默认展开，与列表同属一页；展开状态本地保留
+const showCompletedPanel = persistedRef('list-show-completed', true)
 
 const toggleCompletedTodo = async (todo) => {
   if (!todo?.id) return

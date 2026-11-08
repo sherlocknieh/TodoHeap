@@ -1,6 +1,6 @@
 <script setup>
 
-import { ref, onMounted, computed, watch, onUnmounted, provide } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted, provide, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
@@ -12,6 +12,7 @@ import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
+import { persistedRef, useScrollMemory } from '@/utils/uiState'
 
 const router = useRouter()
 const route = useRoute()
@@ -49,11 +50,18 @@ const activeView = computed({
 })
 
 const showUserMenu = ref(false)
-const selectedTaskId = ref(null)
-const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
-// 侧栏显示状态：窄屏默认收起，避免浮层遮住清单
-const showLeftSidebar = ref(window.innerWidth >= 1024)
+// 选中任务与详情面板沿用上次离开时的状态
+const selectedTaskId = persistedRef('selected-task', null, {
+	validate: (value) => value === null || Number.isFinite(value)
+})
+const showDetailPanel = persistedRef('detail-open', false)
+// 侧栏显示状态：首次进入窄屏默认收起，之后沿用上次的开合
+const showLeftSidebar = persistedRef('sidebar-open', window.innerWidth >= 1024)
 const windowWidth = ref(window.innerWidth)
+
+// 中栏滚动位置记忆：每个视图各存一份，刷新或切换回来后回到原处
+const mainScrollRef = ref(null)
+const { save: saveMainScroll, restore: restoreMainScroll } = useScrollMemory(mainScrollRef, () => activeView.value)
 
 const showViewLoading = computed(() => {
 	return (activeView.value === 'tree' || activeView.value === 'heap') && todoStore.loading
@@ -66,6 +74,23 @@ const activeViewLabel = computed(() => {
 	if (activeView.value === 'ai') return 'AI'
 	if (activeView.value === 'schedule') return '日程'
 	return '列表'
+})
+
+// 顶栏标题：主区域统一呈现当前视图名称
+const activeViewTitle = computed(() => {
+	if (activeView.value === 'tree') return '树视图'
+	if (activeView.value === 'heap') return '堆视图'
+	if (activeView.value === 'trash') return '回收站'
+	if (activeView.value === 'ai') return 'AI'
+	if (activeView.value === 'schedule') return '日程'
+	return '我的任务'
+})
+
+// 顶栏左右留白与下方内容对齐，树视图铺满整块区域
+const topBarClass = computed(() => {
+	if (activeView.value === 'tree') return 'px-3'
+	if (activeView.value === 'ai') return 'mx-auto w-full max-w-3xl px-6'
+	return 'mx-auto w-full max-w-3xl px-8'
 })
 
 // 活动栏主入口：清单、日程与 AI 分别对应视图与侧栏内容
@@ -184,7 +209,19 @@ onMounted(async () => {
 	window.addEventListener('beforeunload', handleBeforeUnload)
 	window.addEventListener('resize', handleWindowResize)
 	window.addEventListener('sync:id-replaced', handleSelectedIdReplaced)
+	nextTick(restoreMainScroll)
 })
+
+// 数据到达后滚动目标才算有效，再落位一次；顺带清理已不存在的选中任务
+watch(() => todoStore.isFetched, (fetched) => {
+	if (!fetched) return
+	if (selectedTaskId.value != null
+		&& !todoStore.findTodoById(selectedTaskId.value)
+		&& !todoStore.trashTodos.some(todo => todo.id === selectedTaskId.value)) {
+		selectedTaskId.value = null
+	}
+	nextTick(restoreMainScroll)
+}, { immediate: true })
 
 // 监听路由变化，确保数据总是最新的
 watch(
@@ -338,7 +375,7 @@ const runToastUndo = async () => {
 			<!-- 左侧活动栏 -->
 			<aside data-activity-rail
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
-				<div class="flex flex-col items-center gap-1">
+				<div class="flex flex-col items-center">
 					<!-- 侧栏开关 -->
 					<button @click="toggleLeftPanel"
 						class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
@@ -346,8 +383,8 @@ const runToastUndo = async () => {
 						<AppIcon name="sidebar" />
 					</button>
 
-					<!-- 主入口 -->
-					<nav class="flex flex-col items-center gap-1 pt-1 border-t border-white/20 w-8">
+					<!-- 主入口：分隔线与顶栏下边框同高 -->
+					<nav class="flex flex-col items-center gap-1 pt-2 border-t border-white/20 w-8">
 						<button v-for="entry in navEntries" :key="entry.id" @click="openNavEntry(entry)"
 							:title="entry.label"
 							:class="[
@@ -404,11 +441,23 @@ const runToastUndo = async () => {
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
 				/>
 
-			<!-- 中栏：主要视图内容 -->
+			<!-- 中栏：统一顶栏 + 主要视图内容 -->
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
+				<!-- 顶栏：承载当前视图标题，页面操作入口通过 Teleport 注入右侧 -->
+				<header
+					class="h-11 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
+					<div class="flex h-full items-center gap-3" :class="topBarClass">
+						<h1
+							class="shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
+							{{ activeViewTitle }}
+						</h1>
+						<div id="main-topbar-actions" class="ml-auto flex min-w-0 items-center gap-2"></div>
+					</div>
+				</header>
+
 				<!-- 清单内容 -->
-				<div class="flex-1 min-h-0" :class="['tree', 'ai'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
-					@click="onMainAreaClick">
+				<div ref="mainScrollRef" class="flex-1 min-h-0" :class="['tree', 'ai'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
+					@scroll.passive="saveMainScroll" @click="onMainAreaClick">
 					<div v-if="showViewLoading" class="flex items-center justify-center h-96 meta-text">
 						<span class="inline-flex items-center gap-2">
 							<AppIcon name="loader" class="animate-spin" />
@@ -421,8 +470,10 @@ const runToastUndo = async () => {
 							: activeView === 'ai'
 								? 'mx-auto max-w-3xl w-full px-6 pb-4 h-full flex flex-col min-h-0'
 								: activeView === 'trash'
-									? 'mx-auto flex h-full max-w-3xl w-full flex-col px-8 pt-6 pb-6'
-									: 'mx-auto max-w-3xl w-full px-8 pb-6'">
+									? 'mx-auto flex h-full max-w-3xl w-full flex-col px-8 pt-4 pb-6'
+									: activeView === 'schedule'
+										? 'mx-auto max-w-3xl w-full px-8 pt-4 pb-6'
+										: 'mx-auto max-w-3xl w-full px-8 pb-6'">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									@task-selected="handleTaskSelected"

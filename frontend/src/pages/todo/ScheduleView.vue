@@ -251,12 +251,10 @@ onMounted(() => {
 <template>
   <!-- 日程：按日期排出 schedules 中的日历事件 -->
   <div class="panel p-4 text-neutral-900 dark:text-neutral-100">
-    <header class="flex flex-wrap items-center gap-2 pb-1">
-      <AppIcon name="calendar" :size="15" class="text-neutral-400 dark:text-neutral-600" />
-      <h1 class="text-sm font-semibold">日程</h1>
+    <!-- 页面操作：日程数量与导入、导出、订阅入口放进主区域顶栏 -->
+    <Teleport defer to="#main-topbar-actions">
       <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ dayEvents.length }} 个日程</span>
-
-      <div class="ml-auto flex items-center gap-1.5">
+      <div class="flex shrink-0 items-center gap-1.5">
         <label class="btn-outline cursor-pointer">
           <input ref="calendarFileInput" type="file" accept=".ics,text/calendar" class="sr-only" @change="handleFileChange" />
           <AppIcon name="upload" :size="14" />
@@ -271,10 +269,10 @@ onMounted(() => {
           <span>订阅</span>
         </button>
       </div>
-    </header>
+    </Teleport>
 
     <!-- 日期导航：左右翻页切换前后一天，点「今天」回到当天 -->
-    <section class="mt-3 rounded-md border border-hairline dark:border-hairline-dark">
+    <section class="rounded-md border border-hairline dark:border-hairline-dark">
       <div class="flex items-center gap-1.5 px-3 py-2">
         <button class="rounded p-1 text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
           aria-label="前一天" @click="shiftDay(-1)">
