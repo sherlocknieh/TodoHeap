@@ -69,9 +69,9 @@
 
         <!-- 行内操作 -->
         <div v-if="!item._isRef && !selectionMode"
-          class="row-actions flex shrink-0 items-center gap-0.5">
+          class="flex shrink-0 items-center gap-0.5">
           <div class="relative">
-            <button
+            <button v-if="!item.deadline"
               class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               data-deadline-trigger title="设置截止时间" @click.stop="toggleDeadlineMenu(item)">
               <AppIcon name="calendar" :size="14" />
@@ -97,16 +97,6 @@
               </button>
             </div>
           </div>
-          <button
-            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-            title="添加子任务" @click.stop="emitAddSubtask(item.id)">
-            <AppIcon name="plus" :size="14" />
-          </button>
-          <button
-            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-            title="删除任务" @click.stop="emitDeleteTodo(item.id)">
-            <AppIcon name="trash" :size="14" />
-          </button>
           <div class="relative">
             <button
               class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
