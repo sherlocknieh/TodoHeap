@@ -12,7 +12,7 @@ import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
-import { persistedRef, useScrollMemory } from '@/utils/uiState'
+import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 
 const router = useRouter()
 const route = useRoute()
@@ -56,7 +56,7 @@ const selectedTaskId = persistedRef('selected-task', null, {
 })
 const showDetailPanel = persistedRef('detail-open', false)
 // 侧栏显示状态：首次进入窄屏默认收起，之后沿用上次的开合
-const showLeftSidebar = persistedRef('sidebar-open', window.innerWidth >= 1024)
+const showLeftSidebar = persistedRef('sidebar-open', window.innerWidth >= SIDEBAR_FLOAT_BREAKPOINT)
 // 活动栏显示状态：收起后由顶栏按钮开回
 const showActivityRail = persistedRef('rail-open', true)
 const windowWidth = ref(window.innerWidth)
@@ -199,12 +199,12 @@ provide(TODO_DETAIL_PANEL_CONTEXT, {
 
 // 页面离开警告处理
 // 跨过桌面/窄屏阈值时自动切换侧栏，窄屏不遮住清单
-let lastWindowWidth = typeof window === 'undefined' ? 1024 : window.innerWidth
+let lastWindowWidth = typeof window === 'undefined' ? SIDEBAR_FLOAT_BREAKPOINT : window.innerWidth
 const handleWindowResize = () => {
 	const width = window.innerWidth
 	windowWidth.value = width
-	if (width < 1024 && lastWindowWidth >= 1024) showLeftSidebar.value = false
-	if (width >= 1024 && lastWindowWidth < 1024) showLeftSidebar.value = true
+	if (width < SIDEBAR_FLOAT_BREAKPOINT && lastWindowWidth >= SIDEBAR_FLOAT_BREAKPOINT) showLeftSidebar.value = false
+	if (width >= SIDEBAR_FLOAT_BREAKPOINT && lastWindowWidth < SIDEBAR_FLOAT_BREAKPOINT) showLeftSidebar.value = true
 	lastWindowWidth = width
 }
 
@@ -314,7 +314,7 @@ const createNewTask = async () => {
 }
 
 // 浮层侧栏：窄屏抽屉或树视图覆盖模式，点击外部应自动收起
-const isSidebarFloating = computed(() => activeView.value === 'tree' || windowWidth.value < 1024)
+const isSidebarFloating = computed(() => activeView.value === 'tree' || windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
 
 // 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {

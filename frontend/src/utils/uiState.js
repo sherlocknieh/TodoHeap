@@ -3,6 +3,9 @@ import { getCurrentInstance, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 // 界面状态本地持久化：刷新后回到离开时的布局与位置
 const STORAGE_PREFIX = 'todoheap:ui:'
 
+// 侧栏转为浮层的宽度阈值：更窄时才把侧栏抽屉盖在内容上，需与模板中的 md: 断点一致
+export const SIDEBAR_FLOAT_BREAKPOINT = 768
+
 // 读取本地状态；缺失或损坏时回退到默认值
 export const readUiState = (key, fallback) => {
   if (typeof localStorage === 'undefined') return fallback

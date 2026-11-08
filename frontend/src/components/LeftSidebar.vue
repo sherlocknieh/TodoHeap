@@ -9,7 +9,7 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
-import { persistedRef } from '@/utils/uiState'
+import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { useResizablePanel } from '@/utils/resizablePanel'
 
 const props = defineProps({
@@ -81,7 +81,7 @@ onMounted(ensureSchedules)
 watch(() => props.section, ensureSchedules)
 
 const closeOnNarrowScreen = () => {
-  if (window.innerWidth < 1024) emit('close')
+  if (window.innerWidth < SIDEBAR_FLOAT_BREAKPOINT) emit('close')
 }
 
 const handleNewSession = () => {
@@ -248,7 +248,7 @@ const openScheduleRange = (id) => {
 const switchView = (view) => {
   emit('switch-view', view)
   // 小屏下切换视图后自动关闭侧栏
-  if (window.innerWidth < 1024) {
+  if (window.innerWidth < SIDEBAR_FLOAT_BREAKPOINT) {
     emit('close')
   }
 }
@@ -263,8 +263,8 @@ const switchView = (view) => {
     :class="[
       'absolute top-0 bottom-0 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
       // 常驻左栏由布局排布，浮层时才按活动栏留出左边距
-      railHidden ? 'left-0' : overlay ? 'left-12' : 'left-12 lg:left-0',
-      overlay ? 'shadow-lg' : 'lg:relative lg:z-10 lg:shadow-none'
+      railHidden ? 'left-0' : overlay ? 'left-12' : 'left-12 md:left-0',
+      overlay ? 'shadow-lg' : 'md:relative md:z-10 md:shadow-none'
     ]"
     :style="{ width: sidebarWidth + 'px' }"
   >
@@ -275,7 +275,7 @@ const switchView = (view) => {
         @click="$emit('close')"
         :class="[
           'p-1.5 -mr-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors',
-          overlay || railHidden ? '' : 'lg:hidden'
+          overlay || railHidden ? '' : 'md:hidden'
         ]"
         title="关闭侧栏"
       >
