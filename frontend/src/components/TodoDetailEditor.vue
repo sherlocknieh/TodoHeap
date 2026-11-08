@@ -1,9 +1,18 @@
 <template>
   <div v-if="show" data-detail-panel :class="[
-    'w-80 max-w-full h-full min-h-0 overflow-hidden bg-surface dark:bg-surface-dark flex flex-col z-20 border-l border-hairline dark:border-hairline-dark',
+    'relative max-w-full h-full min-h-0 overflow-hidden bg-surface dark:bg-surface-dark flex flex-col z-20 border-l border-hairline dark:border-hairline-dark',
     // 已删除任务时整个面板显示禁用光标
     isDeleted ? 'cursor-not-allowed' : ''
-  ]">
+  ]" :style="{ width: panelWidth + 'px' }">
+    <!-- 左缘拖拽条：拖过最小宽度后收起详情面板 -->
+    <div
+      class="absolute inset-y-0 left-0 z-40 w-2 cursor-col-resize touch-none transition-colors hover:bg-accent-500/30"
+      :class="panelResizing ? 'bg-accent-500/50' : ''"
+      role="separator"
+      aria-orientation="vertical"
+      title="拖拽调整宽度，继续拖动即收起"
+      @pointerdown="startResize"
+    ></div>
     <!-- 面板关闭按钮（移动端/桌面端通用） -->
     <div class="shrink-0 h-11 flex items-center justify-between px-3 border-b border-hairline dark:border-hairline-dark">
       <span class="eyebrow">任务详情</span>
@@ -136,6 +145,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useSyncQueueStore } from '@/stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
+import { useResizablePanel } from '@/utils/resizablePanel'
 
 // 防抖函数
 function debounce(fn, delay) {
@@ -167,6 +177,15 @@ const syncQueueStore = useSyncQueueStore()
 
 // 为模板提供 `show` 绑定（确保模板中的 v-if="show" 可访问）
 const show = computed(() => props.show)
+
+// 面板左缘可拖拽调宽，拖过最小宽度即收起
+const { width: panelWidth, resizing: panelResizing, start: startResize } = useResizablePanel({
+  key: 'detail-width',
+  initial: 320,
+  min: 260,
+  side: 'right',
+  onCollapse: () => emit('close')
+})
 
 // 同时从正常列表和垃圾箱中查找任务
 const todo = computed(() => {

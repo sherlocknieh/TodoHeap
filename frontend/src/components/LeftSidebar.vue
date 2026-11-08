@@ -10,6 +10,7 @@ import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
 import { persistedRef } from '@/utils/uiState'
+import { useResizablePanel } from '@/utils/resizablePanel'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -27,6 +28,15 @@ const emit = defineEmits(['close', 'switch-view', 'create-task'])
 
 // 为模板提供 `show` 绑定
 const show = computed(() => props.show)
+
+// 侧栏右缘可拖拽调宽，拖过最小宽度即收起
+const { width: sidebarWidth, resizing: sidebarResizing, start: startResize } = useResizablePanel({
+  key: 'sidebar-width',
+  initial: 256,
+  min: 200,
+  side: 'left',
+  onCollapse: () => emit('close')
+})
 
 const todoStore = useTodoStore()
 const agent = useAgentStore()
@@ -251,10 +261,12 @@ const switchView = (view) => {
     v-if="show"
     data-left-sidebar
     :class="[
-      'absolute top-0 bottom-0 w-64 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
-      railHidden ? 'left-0' : 'left-12',
-      overlay ? 'shadow-lg' : 'lg:static lg:z-10 lg:shadow-none'
+      'absolute top-0 bottom-0 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
+      // 常驻左栏由布局排布，浮层时才按活动栏留出左边距
+      railHidden ? 'left-0' : overlay ? 'left-12' : 'left-12 lg:left-0',
+      overlay ? 'shadow-lg' : 'lg:relative lg:z-10 lg:shadow-none'
     ]"
+    :style="{ width: sidebarWidth + 'px' }"
   >
     <!-- 头部 -->
     <header class="shrink-0 h-11 px-3 flex items-center justify-between border-b border-hairline dark:border-hairline-dark">
@@ -482,5 +494,15 @@ const switchView = (view) => {
         </section>
       </template>
     </div>
+
+    <!-- 右缘拖拽条：拖过最小宽度后收起侧栏 -->
+    <div
+      class="absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize touch-none transition-colors hover:bg-accent-500/30"
+      :class="sidebarResizing ? 'bg-accent-500/50' : ''"
+      role="separator"
+      aria-orientation="vertical"
+      title="拖拽调整宽度，继续拖动即收起"
+      @pointerdown="startResize"
+    ></div>
   </div>
 </template>
