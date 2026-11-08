@@ -39,23 +39,25 @@
         </button>
         <span v-else class="w-4 shrink-0"></span>
 
-        <!-- 标题与元信息 -->
-        <div class="flex-1 min-w-0">
-          <span v-if="editingId !== item.id" :class="[
-            'block text-sm leading-6 text-neutral-800 dark:text-neutral-200 break-words',
-            { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
-          ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
-            <AppIcon v-if="item._isRef" name="link" :size="11"
-              class="inline-block mr-1 -mt-0.5 text-neutral-400 dark:text-neutral-500" />
-            <span :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }">{{ item.title || '未命名任务' }}</span>
-          </span>
-          <input v-else :id="'edit-input-' + item.id" v-model="editingText"
-            class="w-full bg-transparent text-sm leading-6 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
-            @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')"
-            @keyup.esc="editingId = null" />
+        <!-- 标题与元信息：标签跟标题同一行，长标题换行时不挤掉标签 -->
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+          <div class="min-w-0 flex-1">
+            <span v-if="editingId !== item.id" :class="[
+              'block text-sm leading-6 text-neutral-800 dark:text-neutral-200 break-words',
+              { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
+            ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
+              <AppIcon v-if="item._isRef" name="link" :size="11"
+                class="inline-block mr-1 -mt-0.5 text-neutral-400 dark:text-neutral-500" />
+              <span :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }">{{ item.title || '未命名任务' }}</span>
+            </span>
+            <input v-else :id="'edit-input-' + item.id" v-model="editingText"
+              class="w-full bg-transparent text-sm leading-6 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
+              @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')"
+              @keyup.esc="editingId = null" />
+          </div>
 
           <div v-if="editingId !== item.id && (item.deadline || item.difficulty != null)"
-            class="mt-1 flex flex-wrap items-center gap-1.5">
+            class="flex shrink-0 items-center gap-1.5">
             <button v-if="item.deadline" type="button" class="chip hover:border-accent-500 transition-colors"
               data-deadline-trigger title="修改截止时间" @click.stop="toggleDeadlineMenu(item)">
               <AppIcon name="clock" :size="10" />{{ formatMetaDate(item.deadline) }}
