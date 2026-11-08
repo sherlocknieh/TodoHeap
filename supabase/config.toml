@@ -394,3 +394,7 @@ verify_jwt = false
 # 内置模型网关只接受已登录用户，平台先校验 JWT，函数内再解析用户身份
 [functions.llm_gateway]
 verify_jwt = true
+
+# 滴答清单 MCP 网关：转发 OAuth 与 MCP 调用，只允许已登录用户使用
+[functions.dida_mcp]
+verify_jwt = true

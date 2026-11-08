@@ -94,13 +94,70 @@
               <ProviderSettings />
             </section>
 
-            <!-- 导入：先预览文件内容，再按清单分组写入任务树 -->
+            <!-- 导入：MCP 拉取或上传备份文件，预览确认后按清单分组写入 -->
             <section v-else-if="activeTab === 'import'" class="space-y-5">
               <div>
                 <p class="eyebrow mb-2">从滴答清单导入</p>
                 <p class="text-xs leading-relaxed text-neutral-500">
-                  在滴答清单「设置 → 备份」导出 CSV 或 JSON 后上传。JSON 导出带任务来源标识，同一文件重复导入只会更新已有任务；CSV 没有稳定标识，请勿重复导入。
+                  滴答清单没有导出功能，改为接入官方 MCP 读取：连接一次后直接拉取任务，按任务 ID 更新已导入的记录，重复读取不会产生重复条目。
                 </p>
+              </div>
+
+              <!-- MCP 接入：已连接时直接拉取，否则先走一次授权 -->
+              <div class="rounded-md border border-neutral-200 px-3 py-3 dark:border-neutral-800">
+                <div v-if="didaAuth" class="flex flex-wrap items-center gap-2">
+                  <span class="chip">
+                    <AppIcon name="link" :size="12" />
+                    <span>已连接滴答清单</span>
+                  </span>
+                  <button class="btn-outline" :disabled="isDidaLoading" @click="handleDidaFetch">
+                    <AppIcon :name="isDidaLoading ? 'loader' : 'refresh'" :size="14" />
+                    <span>{{ isDidaLoading ? '读取中…' : '读取任务' }}</span>
+                  </button>
+                  <button class="btn-outline" :disabled="isDidaLoading" @click="handleDidaDisconnect">
+                    <AppIcon name="logout" :size="14" />
+                    <span>断开连接</span>
+                  </button>
+                </div>
+                <div v-else class="space-y-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button class="btn-primary" :disabled="isDidaConnecting" @click="handleDidaConnect">
+                      <AppIcon name="link" :size="14" />
+                      <span>{{ isDidaConnecting ? '准备授权…' : '连接滴答清单' }}</span>
+                    </button>
+                    <span class="text-xs text-neutral-500">跳转到滴答清单登录并授权读取任务</span>
+                  </div>
+                  <!-- 授权失败时可以直接粘贴其他 MCP 客户端里拿到的访问令牌 -->
+                  <button
+                    class="text-xs text-neutral-500 underline-offset-2 hover:text-accent-700 hover:underline dark:hover:text-accent-300"
+                    @click="showDidaTokenInput = !showDidaTokenInput"
+                  >
+                    {{ showDidaTokenInput ? '收起手动连接' : '改用访问令牌连接' }}
+                  </button>
+                  <div v-if="showDidaTokenInput" class="flex flex-wrap items-center gap-2">
+                    <input
+                      v-model="didaTokenInput"
+                      type="password"
+                      class="field flex-1 min-w-[12rem]"
+                      placeholder="粘贴滴答清单 MCP 访问令牌"
+                      autocomplete="off"
+                    />
+                    <button class="btn-outline" @click="handleDidaSaveToken">
+                      <AppIcon name="check" :size="14" />
+                      <span>保存</span>
+                    </button>
+                  </div>
+                </div>
+                <p v-if="didaError" class="mt-2 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+                  <AppIcon name="alert" :size="12" />
+                  <span>{{ didaError }}</span>
+                </p>
+              </div>
+
+              <div class="flex items-center gap-2 text-xs text-neutral-400">
+                <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
+                <span>或导入旧版备份文件</span>
+                <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
               </div>
 
               <!-- 文件选择：点击或拖入，读取后进入预览 -->
@@ -121,7 +178,7 @@
                   @change="handleImportFileChange"
                 />
                 <AppIcon name="upload" :size="20" class="mb-2 text-neutral-400" />
-                <span class="text-sm text-neutral-800 dark:text-neutral-200">选择或拖入导出文件</span>
+                <span class="text-sm text-neutral-800 dark:text-neutral-200">选择或拖入备份文件</span>
                 <span class="mt-1 text-xs text-neutral-500">CSV / JSON，最大 5 MB</span>
               </label>
 
@@ -420,6 +477,14 @@ import {
   summarizeTickTickTasks,
   executeTickTickImport
 } from '@/lib/ticktickImport'
+import {
+  clearDidaAuth,
+  fetchDidaTasks,
+  readDidaAuth,
+  readDidaCallbackError,
+  saveDidaAuth,
+  startDidaAuthorize
+} from '@/lib/didaMcp'
 import AppIcon from '@/components/AppIcon.vue'
 import ProviderSettings from '@/components/ProviderSettings.vue'
 
@@ -509,6 +574,14 @@ const importDone = ref(false)
 const importCancelRequested = ref(false)
 const importProgress = ref({ done: 0, total: 0, title: '' })
 const importResult = ref(null)
+
+// 滴答清单 MCP：授权状态与拉取进度
+const didaAuth = ref(null)
+const didaError = ref('')
+const isDidaConnecting = ref(false)
+const isDidaLoading = ref(false)
+const showDidaTokenInput = ref(false)
+const didaTokenInput = ref('')
 
 // 日历：ICS 文件解析结果、导入导出状态与订阅令牌
 const calendarFileInput = ref(null)
@@ -610,7 +683,7 @@ const loadImportFile = async (file) => {
   importFileName.value = file.name
 
   if (file.size > TICKTICK_IMPORT_MAX_BYTES) {
-    importError.value = '文件超过 5 MB，请先在滴答清单中分批导出'
+    importError.value = '文件超过 5 MB，请拆分后再导入'
     importFileName.value = ''
     return
   }
@@ -638,6 +711,80 @@ const handleImportFileChange = (event) => {
 const handleImportDrop = (event) => {
   isImportDragging.value = false
   loadImportFile(event.dataTransfer?.files?.[0])
+}
+
+// 连接滴答清单：整页跳转授权，回跳后在 main.ts 里换取令牌
+const handleDidaConnect = async () => {
+  if (isDidaConnecting.value) return
+  didaError.value = ''
+  isDidaConnecting.value = true
+  try {
+    await startDidaAuthorize()
+  } catch (err) {
+    didaError.value = err instanceof Error ? err.message : '连接滴答清单失败'
+    isDidaConnecting.value = false
+  }
+}
+
+// 断开只清本地令牌，滴答清单里的任务不受影响
+const handleDidaDisconnect = () => {
+  clearDidaAuth(authStore.user?.id)
+  didaAuth.value = null
+  didaError.value = ''
+  resetImport()
+}
+
+// 手动粘贴令牌：令牌由用户在其他已授权的 MCP 客户端里取得
+const handleDidaSaveToken = () => {
+  const token = didaTokenInput.value.trim()
+  if (!token) {
+    didaError.value = '请填入访问令牌'
+    return
+  }
+
+  const auth = { accessToken: token, scope: '', expiresAt: 0 }
+  saveDidaAuth(authStore.user?.id, auth)
+  didaAuth.value = auth
+  didaTokenInput.value = ''
+  showDidaTokenInput.value = false
+  didaError.value = ''
+}
+
+// 从 MCP 拉取任务，结果直接进入与文件导入相同的预览
+const handleDidaFetch = async () => {
+  if (isDidaLoading.value) return
+
+  const auth = readDidaAuth(authStore.user?.id)
+  if (!auth) {
+    didaAuth.value = null
+    didaError.value = '授权已失效，请重新连接'
+    return
+  }
+
+  if (!navigator.onLine) {
+    didaError.value = '当前离线，恢复网络后再读取'
+    return
+  }
+
+  didaError.value = ''
+  isDidaLoading.value = true
+  resetImport()
+  try {
+    const result = await fetchDidaTasks({ auth, includeCompleted: importIncludeCompleted.value })
+    importTasks.value = result.tasks
+    importWarnings.value = result.warnings
+    importFileName.value = '滴答清单 MCP'
+  } catch (err) {
+    if (err?.unauthorized) {
+      clearDidaAuth(authStore.user?.id)
+      didaAuth.value = null
+      didaError.value = '授权已过期，请重新连接滴答清单'
+    } else {
+      didaError.value = err instanceof Error ? err.message : '读取任务失败'
+    }
+  } finally {
+    isDidaLoading.value = false
+  }
 }
 
 // 按计划逐条写入；父任务失败时子任务会被跳过
@@ -936,9 +1083,13 @@ const handleDeleteAccount = async () => {
   }
 }
 
-onMounted(() => {
-  loadSettings()
+onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
+  await loadSettings()
+  didaAuth.value = readDidaAuth(authStore.user?.id)
+  // 授权回跳失败的原因由 didaMcp 暂存，这里取出来展示一次
+  const callbackError = readDidaCallbackError()
+  if (callbackError) didaError.value = callbackError
 })
 
 onUnmounted(() => {

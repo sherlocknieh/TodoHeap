@@ -21,6 +21,12 @@
   - 取消部署函数: `npx supabase functions delete hello-world`
   - [访问官方教程](https://supabase.com/docs/guides/functions/quickstart);
 
+### 滴答清单 MCP 网关 `dida_mcp`
+  - 部署: `npx supabase functions deploy dida_mcp`
+  - 平台应用（可选但推荐）: 在滴答开放平台创建应用，回调地址填站点基路径（如 `https://<用户>.github.io/TodoHeap/`），再把凭据写入 Supabase secrets:
+    `npx supabase secrets set DIDA_CLIENT_ID=... DIDA_CLIENT_SECRET=...`
+  - 未配置凭据时退回动态注册的公开客户端（PKCE），部分账号可能无法完成换令牌，此时在设置页用「改用访问令牌连接」粘贴令牌
+
 ### 客户端接入准备
 - 获取 `Project URL` 和 `Publishable Key`:
   - 在项目主页顶部 `Connect` 按钮中 `API Keys` 子选项卡获取

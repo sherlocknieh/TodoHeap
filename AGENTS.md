@@ -46,11 +46,12 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组 |
 | `pages/todo/AIView.vue` | AI 工作台：对话式 Agent，可读写任务、日程与偏好 |
 | `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
-| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、模型接入、日历、滴答清单导入 |
+| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、模型接入、日历、滴答清单 MCP 导入 |
 | `pages/{Home,Login,ResetPassword,404}.vue` | 落地页与认证页 |
 | `lib/supabase.ts` | 唯一 Supabase client，读 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUB_KEY` |
 | `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
 | `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
+| `lib/didaMcp.js` | 滴答清单 MCP：OAuth 授权、工具调用、拉取任务后交给导入解析 |
 | `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
 | `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好 |
 | `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建 |
@@ -109,6 +110,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | --- | --- |
 | `calendar_feed` | 日历订阅源：`?token=` 调用 `get_calendar_feed` RPC 输出 ICS，`verify_jwt = false` |
 | `llm_gateway` | 内置模型网关：校验用户 JWT 后用平台密钥转发 OpenAI 兼容请求；`GET` 返回实际可用模型（白名单或上游 `/models`）；订阅校验在 `authorizeRequest` 留空 |
+| `dida_mcp` | 滴答清单 MCP 网关：动态注册与 PKCE 换令牌、透传 MCP JSON-RPC；浏览器无法直连 `mcp.dida365.com`，令牌不落库 |
 
 密钥只放 Supabase secrets 与 GitHub Actions vars/secrets；前端仅持 `VITE_SUPABASE_PUB_KEY`。
 
