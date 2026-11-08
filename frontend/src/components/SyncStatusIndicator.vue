@@ -50,7 +50,7 @@
         </div>
         <div class="popup-content">
           <div v-if="lastError" class="error-message">
-            <span class="error-icon">⚠️</span>
+            <svg class="error-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
             {{ lastError }}
           </div>
           <div v-if="pendingCount > 0" class="pending-info">
@@ -270,7 +270,7 @@ onUnmounted(() => {
 .retry-btn {
   width: 100%;
   padding: 8px 16px;
-  background: #4f46e5;
+  background: #171717;
   color: white;
   border: none;
   border-radius: 6px;
@@ -281,7 +281,7 @@ onUnmounted(() => {
 }
 
 .retry-btn:hover {
-  background: #4338ca;
+  background: #404040;
 }
 
 /* 过渡动画 */

@@ -210,10 +210,10 @@ export function calculatePrioritiesForAll(todos) {
  * 获取优先级等级名称
  */
 export function getPriorityLevelName(score) {
-  if (score >= 300) return '🔴 紧急'
-  if (score >= 200) return '🟠 高'
-  if (score >= 100) return '🟡 中'
-  return '🟢 低'
+  if (score >= 300) return '紧急'
+  if (score >= 200) return '高'
+  if (score >= 100) return '中'
+  return '低'
 }
 
 /**

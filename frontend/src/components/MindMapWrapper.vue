@@ -1,14 +1,16 @@
 <template>
   <!-- 思维导图容器 -->
-  <div ref="mindMapContainer" class="min-h-100 h-full w-full border border-gray-300 rounded-lg relative" @click.stop>
+  <div ref="mindMapContainer"
+    class="mindmap-canvas min-h-100 h-full w-full border border-neutral-200 dark:border-neutral-800 rounded-md relative overflow-hidden"
+    @click.stop>
     <!-- 控件层 -->
-    <div class="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
+    <div class="absolute bottom-3 right-3 z-10">
       <button
         @click="fitView"
-        class="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:bg-gray-50 transition-colors"
+        class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         title="适应视图"
       >
-        🔄️
+        <AppIcon name="target" :size="14" />
       </button>
     </div>
   </div>
@@ -17,6 +19,7 @@
 <script setup>
 
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 import MindMap from 'simple-mind-map'
 
 
@@ -204,3 +207,15 @@ watch(() => props.mindData, (newVal, oldVal) => {
 
 }, { deep: true })
 </script>
+<style scoped>
+/* 画布底色由思维导图库内联写入，这里按主题纠正 */
+.mindmap-canvas {
+  background-color: #fafafa !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mindmap-canvas {
+    background-color: #141414 !important;
+  }
+}
+</style>

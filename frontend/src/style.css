@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* 设计令牌：中性灰阶为底，单一墨绿强调色，克制使用彩色 */
+@theme {
+  --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
+
+  --color-accent-50: #f4f8f7;
+  --color-accent-100: #e6eeec;
+  --color-accent-200: #ccdcd8;
+  --color-accent-300: #a6c2bc;
+  --color-accent-400: #7aa29b;
+  --color-accent-500: #578379;
+  --color-accent-600: #42665e;
+  --color-accent-700: #36534d;
+  --color-accent-800: #2d443f;
+  --color-accent-900: #273934;
+  --color-accent-950: #14201d;
+}
+
 /* 跟随系统切换亮暗主题 */
 html {
   color-scheme: light dark;
@@ -14,4 +33,91 @@ html {
 /* 使应用程序占满视口高度 */
 html, body, #app {
   height: 100%;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    @apply bg-accent-200 text-accent-900;
+  }
+
+  /* 细窄滚动条，避免抢视觉重心 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(0 0 0 / 0.18) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgb(0 0 0 / 0.16);
+    border-radius: 9999px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    * {
+      scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background-color: rgb(255 255 255 / 0.16);
+    }
+  }
+}
+
+/* 组件基元：统一圆角、边框与层级，避免每处各写一套 */
+@layer components {
+  .panel {
+    @apply rounded-md border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-medium tracking-[0.08em] text-neutral-500;
+  }
+
+  .field {
+    @apply w-full rounded-md border border-neutral-200 bg-transparent px-3 py-1.5 text-sm text-neutral-900 outline-none
+      transition-colors placeholder:text-neutral-400 focus:border-accent-600 focus:ring-2 focus:ring-accent-600/15
+      dark:border-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-600 dark:focus:border-accent-400;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50 bg-neutral-900 text-white hover:bg-neutral-700
+      dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900
+      dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50 border border-neutral-200 text-neutral-700 hover:bg-neutral-50
+      dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded border border-neutral-200 px-1.5 py-0.5
+      text-[11px] leading-4 text-neutral-600 dark:border-neutral-800 dark:text-neutral-400;
+  }
 }

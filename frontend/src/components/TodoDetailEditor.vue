@@ -1,57 +1,56 @@
 <template>
   <div v-if="show" data-detail-panel :class="[
-    'w-80 max-w-full h-full min-h-0 overflow-hidden bg-white dark:bg-slate-900 shadow-2xl flex flex-col z-20 border-l border-slate-200 dark:border-slate-700',
+    'w-80 max-w-full h-full min-h-0 overflow-hidden bg-white dark:bg-neutral-950 flex flex-col z-20 border-l border-neutral-200 dark:border-neutral-800',
     // 已删除任务时整个面板显示禁用光标
     isDeleted ? 'cursor-not-allowed' : ''
   ]">
     <!-- 面板关闭按钮（移动端/桌面端通用） -->
-    <div class="shrink-0 flex justify-end px-4 py-2">
+    <div class="shrink-0 h-11 flex items-center justify-between px-3 border-b border-neutral-200 dark:border-neutral-800">
+      <span class="eyebrow">任务详情</span>
       <button type="button"
-        class="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+        class="p-1.5 -mr-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
         title="关闭" @click="emit('close')">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <AppIcon name="close" :size="15" />
       </button>
     </div>
     <section class="flex-1 min-h-0 flex flex-col">
       <!-- 空状态显示 -->
-      <div v-if="!todo" class="flex-1 h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
-        <div class="text-center">
-          <p class="text-4xl mb-2">📝</p>
-          <p class="text-sm">选择一个任务查看详情</p>
+      <div v-if="!todo" class="flex-1 h-full flex items-center justify-center px-6 text-center text-neutral-400 dark:text-neutral-600">
+        <div>
+          <AppIcon name="fileText" :size="20" class="mx-auto mb-2" />
+          <p class="text-sm text-neutral-500">选择一个任务查看详情</p>
         </div>
       </div>
 
       <template v-else>
         <!-- 区块1: 可编辑任务标题 -->
-        <div class="shrink-0 px-4 pt-4 pb-3">
+        <div class="shrink-0 px-4 pt-3 pb-3">
           <input v-model.trim="draftTitle" type="text" :disabled="isDeleted" :class="[
-            'w-full px-0 py-1 text-xl font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600 bg-transparent border-none focus:outline-none focus:ring-0',
-            isDeleted ? 'cursor-not-allowed text-slate-400 dark:text-slate-600' : 'text-slate-800 dark:text-white'
+            'w-full px-0 py-1 text-lg font-semibold placeholder:text-neutral-300 dark:placeholder:text-neutral-700 bg-transparent border-none focus:outline-none focus:ring-0',
+            isDeleted ? 'cursor-not-allowed text-neutral-400 dark:text-neutral-600' : 'text-neutral-800 dark:text-white'
           ]" placeholder="任务标题" @input="markDirty('title')" @blur="saveIfNeeded('title')" />
-          <div class="mt-3 grid grid-cols-1 gap-2">
-            <label class="text-xs text-slate-500 dark:text-slate-400">
+          <div class="mt-3 grid grid-cols-1 gap-2.5">
+            <label class="text-[11px] text-neutral-500">
               开始时间
               <input
                 v-model="draftStartDate"
                 type="datetime-local"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-slate-700 dark:text-slate-200"
+                class="mt-1 w-full rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
                 @blur="saveDateField('start_date', draftStartDate)"
               />
             </label>
-            <label class="text-xs text-slate-500 dark:text-slate-400">
+            <label class="text-[11px] text-neutral-500">
               截止时间
               <input
                 v-model="draftDeadline"
                 type="datetime-local"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-slate-700 dark:text-slate-200"
+                class="mt-1 w-full rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
                 @blur="saveDateField('deadline', draftDeadline)"
               />
             </label>
-            <label class="text-xs text-slate-500 dark:text-slate-400">
+            <label class="text-[11px] text-neutral-500">
               难度(预计工时)
               <input
                 v-model="draftDifficulty"
@@ -59,7 +58,7 @@
                 step="0.25"
                 min="0"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-slate-700 dark:text-slate-200"
+                class="mt-1 w-full rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
                 @blur="saveDifficultyField"
               />
             </label>
@@ -67,7 +66,7 @@
         </div>
 
         <!-- 分割线 -->
-        <div class="shrink-0 border-t border-slate-200 dark:border-slate-700"></div>
+        <div class="shrink-0 border-t border-neutral-200 dark:border-neutral-800"></div>
 
         <!-- 区块3: 任务描述 - Milkdown 编辑器（占满剩余空间） -->
         <!--
@@ -78,7 +77,7 @@
         -->
         <div class="flex-1 min-h-0 flex flex-col">
           <div :class="[
-            'flex-1 min-h-0 bg-white dark:bg-slate-900',
+            'flex-1 min-h-0',
             isDeleted ? 'pointer-events-none deleted-content' : ''
           ]">
             <MilkdownEditor :key="editorKey" v-model="draftDescription" :readonly="isDeleted"
@@ -93,6 +92,7 @@
 </template>
 
 <script setup>
+import AppIcon from '@/components/AppIcon.vue'
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useSyncQueueStore } from '@/stores/syncQueue'

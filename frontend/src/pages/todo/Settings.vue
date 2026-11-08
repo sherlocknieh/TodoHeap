@@ -1,185 +1,164 @@
 <template>
-  <!-- 设置界面 -->
-  <div class="min-h-screen bg-linear-to-br from-gray-100 via-gray-200 to-blue-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6 relative transition-colors duration-300">
-    <!-- 右上角关闭按钮 -->
-    <button
-      class="absolute top-6 right-6 z-20 bg-white dark:bg-slate-800 rounded-full shadow hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 flex items-center justify-center"
-      style="width: 40px; height: 40px; min-width: 40px; min-height: 40px; padding: 0;"
-      @click="handleClose"
-      aria-label="关闭设置"
-    >
-      <span style="font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">×</span>
-    </button>
-    <div class="max-w-5xl mx-auto mb-8 text-left">
-      <h1 class="text-3xl font-extrabold text-gray-800 dark:text-white">设置</h1>
-    </div>
-
-    <div class="max-w-5xl mx-auto grid md:grid-cols-[200px_1fr] grid-cols-1 gap-6 bg-white dark:bg-slate-900 rounded-lg overflow-hidden shadow-lg border border-gray-100 dark:border-slate-800">
-      <!-- 左侧标签栏（Tailwind 改写） -->
-      <nav class="bg-gray-50 dark:bg-slate-800 p-4 border-r border-gray-200 dark:border-slate-700" role="tablist">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          :class="[
-            'flex items-center gap-3 w-full p-3 text-sm transition-colors rounded-sm',
-            activeTab === tab.id
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 border-r-4 border-indigo-600 dark:border-indigo-400 font-semibold' 
-              : 'text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-800 dark:hover:text-slate-300'
-          ]"
-          role="tab"
-          :aria-selected="activeTab === tab.id"
-          @click="activeTab = tab.id"
-        >
-          <span class="tab-icon text-lg">{{ tab.icon }}</span>
-          <span class="tab-label">{{ tab.label }}</span>
-        </button>
-      </nav>
-
-      <!-- 右侧内容区 -->
-      <div class="p-8">
-        <!-- 账户设置 -->
-        <div v-if="activeTab === 'account'">
-          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-0 mb-4">账户信息</h2>
-          <div class="grid gap-3">
-            <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700">
-              <div class="text-xs text-gray-500 dark:text-slate-400 uppercase mb-1">邮箱地址</div>
-              <div class="text-sm text-gray-800 dark:text-white wrap-break-word">{{ userEmail }}</div>
-            </div>
-
-            <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700">
-              <div class="text-xs text-gray-500 dark:text-slate-400 uppercase mb-1">账户创建时间</div>
-              <div class="text-sm text-gray-800 dark:text-white">{{ userCreatedAt }}</div>
-            </div>
-
-            <div v-if="userEmailVerified" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700">
-              <div class="text-xs text-gray-500 dark:text-slate-400 uppercase mb-1">邮箱验证状态</div>
-              <div class="text-sm text-green-600 dark:text-green-400 flex items-center gap-2"> <span class="text-lg">✓</span> 已验证</div>
-            </div>
-          </div>
-
-          <div class="border-t border-gray-200 dark:border-slate-700 my-6"></div>
-
-          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-6 mb-4">安全</h2>
-          <div class="flex gap-3">
-            <button class="bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-white border border-gray-200 dark:border-slate-700 px-4 py-2 rounded-md font-semibold hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors" @click="showPasswordModal = true">
-              <span>🔒</span>
-              <span class="ml-2">修改密码</span>
-            </button>
-          </div>
-
-          <div class="border-t border-gray-200 dark:border-slate-700 my-6"></div>
-
-          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-6 mb-4">账户操作</h2>
-          <div class="flex flex-col gap-3">
-            <button
-              class="border-2 border-red-500 dark:border-red-600 text-red-500 dark:text-red-400 px-4 py-2 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              @click="handleDeleteAccount"
-              :disabled="isDeletingAccount"
-            >
-              <span>🗑️</span>
-              <span class="ml-2">{{ isDeletingAccount ? '删除中...' : '删除账户' }}</span>
-            </button>
-          </div>
+  <div class="min-h-screen p-6">
+    <div class="max-w-3xl mx-auto">
+      <!-- 顶栏 -->
+      <header class="flex items-start justify-between mb-6">
+        <div>
+          <h1 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">设置</h1>
+          <p class="mt-0.5 text-xs text-neutral-500">账户与 AI 偏好</p>
         </div>
+        <button class="p-2 -mr-2 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+          @click="handleClose" aria-label="关闭设置">
+          <AppIcon name="close" :size="16" />
+        </button>
+      </header>
 
-        <!-- 偏好设置 -->
-        <div v-else-if="activeTab === 'preferences'">
-          <h2 class="text-lg font-bold text-gray-800 dark:text-white mt-0 mb-4">AI 偏好</h2>
-          <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md border border-gray-200 dark:border-slate-700 space-y-4">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <div class="text-sm font-semibold text-gray-800 dark:text-white">AI 分解后自动添加任务</div>
-                <div class="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                  开启后，点击 AI 分解将直接落库，不再进入待确认列表。
+      <div class="grid md:grid-cols-[168px_1fr] grid-cols-1 gap-6">
+        <!-- 标签 -->
+        <nav class="flex md:flex-col gap-1" role="tablist">
+          <button v-for="tab in tabs" :key="tab.id" :class="[
+            'flex items-center gap-2 px-2.5 py-1.5 text-sm rounded border-l-2 transition-colors text-left',
+            activeTab === tab.id
+              ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium border-accent-600 dark:border-accent-400'
+              : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-neutral-200'
+          ]" role="tab" :aria-selected="activeTab === tab.id" @click="activeTab = tab.id">
+            <AppIcon :name="tab.icon" :size="15" class="opacity-70" />
+            <span>{{ tab.label }}</span>
+          </button>
+        </nav>
+
+        <!-- 内容 -->
+        <div class="panel p-6">
+          <!-- 账户 -->
+          <section v-if="activeTab === 'account'" class="space-y-8">
+            <div>
+              <p class="eyebrow mb-2">账户信息</p>
+              <dl class="divide-y divide-neutral-100 dark:divide-neutral-800 text-sm">
+                <div class="flex items-baseline gap-4 py-2">
+                  <dt class="w-20 shrink-0 text-neutral-500">邮箱</dt>
+                  <dd class="text-neutral-900 dark:text-neutral-100 break-all">{{ userEmail }}</dd>
                 </div>
+                <div class="flex items-baseline gap-4 py-2">
+                  <dt class="w-20 shrink-0 text-neutral-500">创建时间</dt>
+                  <dd class="text-neutral-900 dark:text-neutral-100">{{ userCreatedAt }}</dd>
+                </div>
+                <div v-if="userEmailVerified" class="flex items-baseline gap-4 py-2">
+                  <dt class="w-20 shrink-0 text-neutral-500">验证状态</dt>
+                  <dd class="flex items-center gap-1.5 text-accent-700 dark:text-accent-400">
+                    <AppIcon name="check" :size="13" />
+                    <span>已验证</span>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div>
+              <p class="eyebrow mb-2">安全</p>
+              <button class="btn-outline" @click="showPasswordModal = true">
+                <AppIcon name="lock" :size="14" />
+                <span>修改密码</span>
+              </button>
+            </div>
+
+            <div>
+              <p class="eyebrow mb-2">账户操作</p>
+              <button
+                class="btn border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                @click="handleDeleteAccount" :disabled="isDeletingAccount">
+                <AppIcon name="trash" :size="14" />
+                <span>{{ isDeletingAccount ? '删除中…' : '删除账户' }}</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- 偏好 -->
+          <section v-else-if="activeTab === 'preferences'" class="space-y-4">
+            <p class="eyebrow">AI 偏好</p>
+
+            <div class="flex items-start justify-between gap-6">
+              <div>
+                <p class="text-sm text-neutral-900 dark:text-neutral-100">AI 分解后自动添加任务</p>
+                <p class="mt-0.5 text-xs text-neutral-500">开启后，分解结果直接写入任务列表，不再进入待确认状态。</p>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input
-                  v-model="settingsForm.autoApplyAITasks"
-                  type="checkbox"
-                  class="sr-only peer"
-                >
-                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:bg-indigo-600 transition-colors"></div>
-                <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input v-model="settingsForm.autoApplyAITasks" type="checkbox" class="sr-only peer" />
+                <div class="w-9 h-5 rounded-full bg-neutral-300 dark:bg-neutral-700 peer-checked:bg-accent-600 transition-colors"></div>
+                <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
               </label>
             </div>
 
-            <div v-if="settingsError" class="text-sm text-red-600 dark:text-red-400">{{ settingsError }}</div>
-            <div v-if="settingsSuccess" class="text-sm text-green-600 dark:text-green-400">{{ settingsSuccess }}</div>
+            <p v-if="settingsError" class="text-xs text-rose-600 dark:text-rose-400">{{ settingsError }}</p>
+            <p v-if="settingsSuccess" class="text-xs text-accent-700 dark:text-accent-400">{{ settingsSuccess }}</p>
 
-            <div class="flex justify-end">
-              <button
-                class="bg-linear-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-md font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-                :disabled="settingsLoading || settingsSaving"
-                @click="handleSaveSettings"
-              >
-                {{ settingsSaving ? '保存中...' : '保存偏好设置' }}
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+              <span v-if="settingsLoading" class="text-xs text-neutral-500">读取中…</span>
+              <button class="btn-primary" :disabled="settingsLoading || settingsSaving" @click="handleSaveSettings">
+                {{ settingsSaving ? '保存中…' : '保存' }}
               </button>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>
 
-    <!-- 修改密码弹窗 -->
-    <Transition
-      enter-active-class="transition ease-out duration-200"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition ease-in duration-150"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
+    <!-- 修改密码 -->
+    <Transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0"
+      leave-active-class="transition ease-in duration-100" leave-to-class="opacity-0">
       <div v-if="showPasswordModal" class="modal-overlay" @click.self="closePasswordModal">
-        <Transition
-          enter-active-class="transition ease-out duration-200"
-          enter-from-class="opacity-0 scale-95"
-          enter-to-class="opacity-100 scale-100"
-          leave-active-class="transition ease-in duration-150"
-          leave-from-class="opacity-100 scale-100"
-          leave-to-class="opacity-0 scale-95"
-        >
-              <div class="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden border border-gray-100 dark:border-slate-800" v-if="showPasswordModal">
-                <div class="flex justify-between items-center p-6 border-b border-gray-100 dark:border-slate-800">
-                  <h2 class="text-lg font-semibold text-gray-800 dark:text-white">修改密码</h2>
-                  <button class="text-gray-400 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-300" @click="closePasswordModal" aria-label="关闭">×</button>
-                </div>
+        <div class="panel w-11/12 max-w-sm p-5 shadow-xl">
+          <div class="flex items-start justify-between mb-4">
+            <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">修改密码</h2>
+            <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+              @click="closePasswordModal" aria-label="关闭">
+              <AppIcon name="close" :size="14" />
+            </button>
+          </div>
 
-                <div class="p-6">
-                  <div class="mb-4">
-                    <label for="new-password" class="block mb-2 text-sm font-medium text-gray-700 dark:text-slate-300">新密码</label>
-                    <input id="new-password" v-model="newPassword" type="password" placeholder="请输入新密码（至少6个字符）" autocomplete="new-password" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700" />
-                    <div class="mt-2 text-xs text-gray-500 dark:text-slate-400">密码长度至少6个字符</div>
-                  </div>
+          <div class="space-y-3">
+            <label class="block">
+              <span class="text-[11px] text-neutral-500">新密码</span>
+              <input id="new-password" v-model="newPassword" type="password" placeholder="至少 6 个字符"
+                autocomplete="new-password" class="field mt-1" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] text-neutral-500">确认新密码</span>
+              <input id="confirm-password" v-model="confirmPassword" type="password" placeholder="再次输入新密码"
+                autocomplete="new-password" class="field mt-1" />
+            </label>
+          </div>
 
-                  <div class="mb-4">
-                    <label for="confirm-password" class="block mb-2 text-sm font-medium text-gray-700 dark:text-slate-300">确认新密码</label>
-                    <input id="confirm-password" v-model="confirmPassword" type="password" placeholder="请再次输入新密码" autocomplete="new-password" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700" />
-                  </div>
+          <p v-if="passwordError" class="mt-3 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+            <AppIcon name="alert" :size="12" />
+            <span>{{ passwordError }}</span>
+          </p>
+          <p v-if="passwordSuccess" class="mt-3 flex items-center gap-1.5 text-xs text-accent-700 dark:text-accent-400">
+            <AppIcon name="check" :size="12" />
+            <span>{{ passwordSuccess }}</span>
+          </p>
 
-                  <div v-if="passwordError" class="mt-4 p-3 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-800 rounded-md text-sm flex items-center gap-2">
-                    <span>⚠️</span>
-                    <span>{{ passwordError }}</span>
-                  </div>
-                  <div v-if="passwordSuccess" class="mt-4 p-3 bg-green-50 text-green-700 border border-green-100 rounded-md text-sm flex items-center gap-2">
-                    <span>✓</span>
-                    <span>{{ passwordSuccess }}</span>
-                  </div>
-                </div>
-
-                <div class="p-6 border-t flex gap-3 justify-end">
-                  <button class="bg-gray-100 text-gray-800 border border-gray-200 px-4 py-2 rounded-md" @click="closePasswordModal">取消</button>
-                  <button class="bg-linear-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-md font-semibold" @click="handleChangePassword" :disabled="isChangingPassword">
-                    <span v-if="isChangingPassword">处理中...</span>
-                    <span v-else>修改密码</span>
-                  </button>
-                </div>
-              </div>
-        </Transition>
+          <div class="mt-5 flex justify-end gap-2">
+            <button class="btn-outline" @click="closePasswordModal">取消</button>
+            <button class="btn-primary" @click="handleChangePassword" :disabled="isChangingPassword">
+              {{ isChangingPassword ? '处理中…' : '修改密码' }}
+            </button>
+          </div>
+        </div>
       </div>
     </Transition>
   </div>
 </template>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+</style>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
@@ -187,6 +166,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_USER_SETTINGS, fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
+import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -198,8 +178,8 @@ const handleClose = () => {
 
 // 标签配置
 const tabs = [
-  { id: 'account', label: '账户安全', icon: '🔒' },
-  { id: 'preferences', label: '偏好设置', icon: '⚙️' }
+  { id: 'account', label: '账户安全', icon: 'lock' },
+  { id: 'preferences', label: '偏好设置', icon: 'sliders' }
 ]
 
 // 标签切换
@@ -380,343 +360,3 @@ onMounted(() => {
   loadSettings()
 })
 </script>
-
-<style scoped>
-.settings-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 24px;
-}
-
-.settings-header {
-  max-width: 1200px;
-  margin: 0 auto 32px;
-  text-align: left;
-}
-
-.settings-header h1 {
-  font-size: 32px;
-  font-weight: 800;
-  color: #1f2937;
-  margin: 0;
-}
-
-.subtitle {
-  margin-top: 8px;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.section-desc {
-  margin-top: 4px;
-  margin-bottom: 20px;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.settings-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 24px;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-}
-
-/* 侧边栏样式已替换为 Tailwind CSS */
-
-/* 右侧内容区 */
-.settings-content {
-  padding: 32px;
-}
-
-.setting-section h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 24px 0 16px;
-}
-
-.setting-section h2:first-child {
-  margin-top: 0;
-}
-
-/* 信息组 */
-.info-group {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-.info-item {
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-}
-
-.info-item label {
-  display: block;
-  font-size: 12px;
-  color: #9ca3af;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-
-.info-value {
-  font-size: 16px;
-  color: #1f2937;
-  font-weight: 500;
-  word-break: break-all;
-}
-
-.info-value.verified {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #059669;
-}
-
-.verified-icon {
-  font-size: 18px;
-}
-
-/* 操作组 */
-.action-group {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.action-group.danger {
-  flex-direction: column;
-}
-
-/* 分割线 */
-.divider {
-  height: 1px;
-  background: #e5e7eb;
-  margin: 24px 0;
-}
-
-/* 主题与通知相关样式已移除 */
-
-/* 按钮 */
-.btn-primary,
-.btn-secondary,
-.btn-danger,
-.btn-danger-outline {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  font-size: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover {
-  background: #e5e7eb;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-  transform: translateY(-2px);
-}
-
-.btn-danger-outline {
-  background: transparent;
-  color: #ef4444;
-  border: 2px solid #ef4444;
-}
-
-.btn-danger-outline:hover {
-  background: #fef2f2;
-}
-
-/* 弹窗 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  width: 90%;
-  max-width: 400px;
-  overflow: hidden;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #1f2937;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #9ca3af;
-  font-size: 24px;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.close-btn:hover {
-  color: #1f2937;
-}
-
-.modal-body {
-  padding: 24px;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group:last-of-type {
-  margin-bottom: 0;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #374151;
-  font-size: 14px;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  transition: border-color 0.2s;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-hint {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.error-message {
-  margin-top: 12px;
-  padding: 10px 12px;
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.success-message {
-  margin-top: 12px;
-  padding: 10px 12px;
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
-  border-radius: 6px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.error-icon,
-.success-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.modal-footer {
-  padding: 24px;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
-/* 响应式 */
-@media (max-width: 768px) {
-  .settings-container {
-    grid-template-columns: 1fr;
-  }
-
-
-  .settings-content {
-    padding: 20px;
-  }
-
-  .theme-options {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-content {
-    width: 95%;
-  }
-}
-</style>

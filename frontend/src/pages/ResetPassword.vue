@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -63,70 +64,67 @@ const handleUpdatePassword = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-linear-to-br from-indigo-400 to-purple-500 dark:from-gray-900 dark:to-gray-800 p-4 relative">
-    <div class="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 md:p-10 z-10 relative">
-      <router-link to="/login" class="absolute left-0 top-0 ml-2 mt-2 flex items-center gap-1 text-indigo-500 dark:text-indigo-300 hover:underline text-sm font-medium">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-        返回登录
+  <!-- 重置密码 -->
+  <div class="min-h-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-sm">
+      <router-link to="/login"
+        class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
+        <AppIcon name="chevronLeft" :size="13" />
+        <span>返回登录</span>
       </router-link>
 
-      <div class="text-center mb-8">
-        <div class="text-5xl mb-2">🔐</div>
-        <h1 class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1">重置密码</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400">请输入新的登录密码</p>
+      <div class="mt-10 mb-6">
+        <h1 class="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">重置密码</h1>
+        <p class="mt-1 text-sm text-neutral-500">设置一个新的登录密码</p>
       </div>
 
-      <div v-if="!ready" class="text-center text-gray-500 dark:text-gray-400 py-6">
-        正在检查重置状态...
-      </div>
+      <p v-if="!ready" class="flex items-center gap-2 text-sm text-neutral-500">
+        <AppIcon name="loader" :size="14" class="animate-spin" />
+        正在检查重置状态…
+      </p>
 
       <template v-else>
+        <!-- 缺少重置会话 -->
         <div v-if="!auth.isAuthenticated" class="space-y-4">
-          <div class="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+          <p class="text-sm leading-6 text-neutral-500">
             当前没有可用的重置会话，请重新通过邮箱中的密码重置链接进入。
-          </div>
-          <router-link
-            to="/login"
-            class="w-full inline-flex items-center justify-center py-3 rounded-lg font-semibold bg-linear-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:from-indigo-600 hover:to-purple-600 transition"
-          >
+          </p>
+          <router-link to="/login" class="btn-primary w-full py-2">
             返回登录页
           </router-link>
         </div>
 
-        <form v-else @submit.prevent="handleUpdatePassword" class="space-y-6">
+        <form v-else @submit.prevent="handleUpdatePassword" class="space-y-4">
           <div>
-            <label for="newPassword" class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">新密码</label>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-indigo-400">🔒</span>
-              <input id="newPassword" v-model="password" type="password" placeholder="请输入新密码" required :disabled="loading"
-                class="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition" />
-            </div>
-            <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">密码至少需要 6 个字符</p>
-          </div>
-
-          <div>
-            <label for="confirmNewPassword" class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">确认新密码</label>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-indigo-400">🔒</span>
-              <input id="confirmNewPassword" v-model="confirmPassword" type="password" placeholder="请再次输入新密码" required :disabled="loading"
-                class="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition" />
+            <label for="newPassword" class="text-xs text-neutral-500">新密码</label>
+            <div class="relative mt-1">
+              <AppIcon name="lock" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input id="newPassword" v-model="password" type="password" placeholder="至少 6 个字符" required
+                :disabled="loading" class="field pl-8" />
             </div>
           </div>
 
-          <div v-if="errorMsg" class="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-700">
-            <span class="text-lg">⚠️</span>
+          <div>
+            <label for="confirmNewPassword" class="text-xs text-neutral-500">确认新密码</label>
+            <div class="relative mt-1">
+              <AppIcon name="lock" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input id="confirmNewPassword" v-model="confirmPassword" type="password" placeholder="再次输入新密码"
+                required :disabled="loading" class="field pl-8" />
+            </div>
+          </div>
+
+          <p v-if="errorMsg" class="flex items-start gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+            <AppIcon name="alert" :size="12" class="mt-0.5" />
             <span>{{ errorMsg }}</span>
-          </div>
-
-          <div v-if="successMsg" class="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-700">
-            <span class="text-lg">✅</span>
+          </p>
+          <p v-if="successMsg" class="flex items-start gap-1.5 text-xs text-accent-700 dark:text-accent-400">
+            <AppIcon name="check" :size="12" class="mt-0.5" />
             <span>{{ successMsg }}</span>
-          </div>
+          </p>
 
-          <button type="submit" :disabled="loading"
-            class="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-lg bg-linear-to-r from-indigo-500 to-purple-500 dark:from-indigo-700 dark:to-purple-800 text-white shadow-md hover:from-indigo-600 hover:to-purple-600 dark:hover:from-indigo-600 dark:hover:to-purple-700 transition disabled:opacity-60 disabled:cursor-not-allowed">
-            <span v-if="loading" class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-            {{ loading ? '更新中...' : '更新密码' }}
+          <button type="submit" :disabled="loading" class="btn-primary w-full py-2">
+            <AppIcon v-if="loading" name="loader" :size="14" class="animate-spin" />
+            <span>{{ loading ? '更新中…' : '更新密码' }}</span>
           </button>
         </form>
       </template>

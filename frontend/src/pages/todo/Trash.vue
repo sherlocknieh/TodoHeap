@@ -1,173 +1,131 @@
 <template>
-  <div class="trash-container" ref="trashContainerRef">
+  <div class="h-full flex flex-col min-h-0" ref="trashContainerRef">
     <!-- 头部 -->
-    <header class="trash-header">
-      <div class="header-info">
-        <h2>🗑️ 垃圾箱</h2>
-        <p>{{ trashTodos.length }} 个已删除任务</p>
+    <header
+      class="shrink-0 h-12 px-4 flex items-center justify-between gap-3 border-b border-neutral-200 dark:border-neutral-800">
+      <div class="flex items-baseline gap-2 min-w-0">
+        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">回收站</h2>
+        <span class="text-xs text-neutral-500">{{ trashTodos.length }} 个已删除任务</span>
       </div>
-      <div class="header-actions">
-            <!-- 当有选中任务时，显示针对选中任务的恢复/删除操作 -->
-            <template v-if="props.selectedTaskId != null">
-              <button
-                class="btn btn-secondary"
-                @click="handleRestoreWithCheck(props.selectedTaskId)"
-              >
-                ↩️ 恢复任务
-              </button>
-              <button
-                class="btn btn-danger"
-                @click="handlePermanentDelete(props.selectedTaskId)"
-              >
-                🗑️ 永久删除
-              </button>
-            </template>
-            <!-- 否则显示全局操作 -->
-            <template v-else>
-              <button
-                v-if="trashTodos.length > 0"
-                class="btn btn-secondary"
-                @click="handleRestoreAll"
-              >
-                ↩️ 恢复全部
-              </button>
-              <button
-                v-if="trashTodos.length > 0"
-                class="btn btn-danger"
-                @click="handleEmptyTrash"
-              >
-                🗑️ 清空垃圾箱
-              </button>
-            </template>
+      <div class="flex items-center gap-2">
+        <!-- 选中任务时只针对该任务操作 -->
+        <template v-if="props.selectedTaskId != null">
+          <button class="btn-secondary" @click="handleRestoreWithCheck(props.selectedTaskId)">
+            <AppIcon name="undo" :size="14" />
+            <span>恢复</span>
+          </button>
+          <button class="btn-danger" @click="handlePermanentDelete(props.selectedTaskId)">
+            <AppIcon name="trash" :size="14" />
+            <span>永久删除</span>
+          </button>
+        </template>
+        <!-- 否则为全局操作 -->
+        <template v-else>
+          <button v-if="trashTodos.length > 0" class="btn-secondary" @click="handleRestoreAll">
+            <AppIcon name="undo" :size="14" />
+            <span>恢复全部</span>
+          </button>
+          <button v-if="trashTodos.length > 0" class="btn-danger" @click="handleEmptyTrash">
+            <AppIcon name="trash" :size="14" />
+            <span>清空</span>
+          </button>
+        </template>
       </div>
     </header>
 
-    <!-- 加载状态 -->
-    <div v-if="trashLoading" class="loading-state">
-      <div class="spinner">⏳</div>
-      <p>加载中...</p>
+    <!-- 加载中 -->
+    <div v-if="trashLoading" class="flex-1 flex items-center justify-center gap-2 text-sm text-neutral-500">
+      <AppIcon name="loader" :size="14" class="animate-spin" />
+      <span>加载中…</span>
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="trashTodos.length === 0" class="empty-state">
-      <div class="empty-icon">🎉</div>
-      <p class="empty-title">垃圾箱是空的</p>
-      <p class="empty-desc">删除的任务会显示在这里</p>
+    <div v-else-if="trashTodos.length === 0" class="flex-1 flex flex-col items-center justify-center gap-1">
+      <p class="text-sm text-neutral-500 dark:text-neutral-400">回收站是空的</p>
+      <p class="text-xs text-neutral-400 dark:text-neutral-600">删除的任务会保留在这里</p>
     </div>
 
-
-    <!-- 树形任务列表 -->
-    <ul v-else class="list-none p-0 m-0 flex-1 overflow-y-auto">
+    <!-- 任务列表 -->
+    <ul v-else class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-900">
       <template v-for="item in flatTrashList" :key="item.id">
-        <li v-if="shouldShowItem(item)"
-          :data-task-item="item.id"
-          :data-task-id="item.id"
-          :class="[
-            'flex items-center gap-2.5 p-2.5 px-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 transition-colors duration-150 cursor-pointer',
-            {
-              'bg-indigo-50 dark:bg-indigo-900/40 border-l-3 border-l-indigo-600 dark:border-l-indigo-400': selectedTaskId === item.id,
-              'opacity-60': true
-            }
-          ]"
-          :style="{ paddingLeft: (12 + item._level * 20) + 'px' }"
-          @click="selectTask(item.id)"
-        >
-          <!-- 展开/折叠按钮 -->
-          <div class="flex items-center mr-1 w-6 justify-center">
-            <button v-if="item.children && item.children.length"
-              class="inline-flex items-center justify-center w-5 h-5 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-              @click.stop="toggleExpand(item.id)"
-            >
-              <svg v-if="expandedMap[item.id]" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>
-              <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <span v-else class="inline-block w-4 h-4"></span>
-          </div>
+        <li v-if="shouldShowItem(item)" :data-task-item="item.id" :data-task-id="item.id" :class="[
+          'group flex items-center gap-2 py-1.5 pr-3 cursor-pointer border-l-2 transition-colors',
+          selectedTaskId === item.id
+            ? 'bg-neutral-50 dark:bg-neutral-900 border-accent-600 dark:border-accent-400'
+            : 'border-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900'
+        ]" :style="{ paddingLeft: (10 + item._level * 18) + 'px' }" @click="selectTask(item.id)">
+          <!-- 展开/折叠 -->
+          <button v-if="item.children && item.children.length"
+            class="p-0.5 rounded text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+            @click.stop="toggleExpand(item.id)">
+            <AppIcon :name="expandedMap[item.id] ? 'chevronDown' : 'chevronRight'" :size="13" />
+          </button>
+          <span v-else class="w-[17px] shrink-0"></span>
 
-          <!-- 删除标记图标 -->
-          <div class="shrink-0">
-            <div class="inline-flex items-center justify-center w-4 h-4 rounded border bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-          </div>
+          <AppIcon name="trash" :size="13" class="text-neutral-300 dark:text-neutral-700" />
 
           <!-- 标题 -->
-          <div class="flex-1 min-w-0">
-            <span class="block text-sm text-slate-500 dark:text-slate-400 font-normal leading-relaxed wrap-break-word line-through">
+          <div class="flex-1 min-w-0 flex items-baseline gap-2">
+            <span class="text-sm text-neutral-400 dark:text-neutral-600 line-through truncate">
               {{ item.title || '未命名任务' }}
             </span>
-            <span v-if="item.children && item.children.length" class="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full ml-2">
+            <span v-if="item.children && item.children.length" class="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-600">
               {{ item.children.length }} 个子任务
             </span>
           </div>
 
           <!-- 元信息 -->
           <div class="flex items-center gap-2 shrink-0">
-            <span class="text-xs text-slate-400 dark:text-slate-500 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
-              删除于 {{ formatDate(item.deleted_at) }}
+            <span class="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
+              {{ formatDate(item.deleted_at) }}
             </span>
-            <span v-if="item.priority > 0" :class="[
-              'text-xs font-semibold px-1.5 py-0.5 rounded',
-              {
-                'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300': item.priority === 1,
-                'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300': item.priority === 2,
-                'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300': item.priority === 3
-              }
-            ]">
-              P{{ item.priority }}
-            </span>
+            <span v-if="item.priority > 0" class="chip font-mono">P{{ item.priority }}</span>
           </div>
 
-          <!-- 操作按钮组 -->
-          <div class="flex items-center gap-1 shrink-0 opacity-0 hover-show transition-opacity duration-150">
+          <!-- 行内操作 -->
+          <div class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <button
-              class="inline-flex items-center justify-center w-7 h-7 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 hover:bg-green-100 hover:text-green-600"
-              @click.stop="handleRestoreWithCheck(item.id)"
-              title="恢复任务"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              class="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+              @click.stop="handleRestoreWithCheck(item.id)" title="恢复任务">
+              <AppIcon name="undo" :size="14" />
             </button>
             <button
-              class="inline-flex items-center justify-center w-7 h-7 border-none bg-transparent rounded cursor-pointer transition-colors duration-150 text-slate-500 hover:bg-red-100 hover:text-red-600"
-              @click.stop="handlePermanentDelete(item.id)"
-              title="永久删除"
-            >
-              <span class="text-lg leading-none font-light">×</span>
+              class="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
+              @click.stop="handlePermanentDelete(item.id)" title="永久删除">
+              <AppIcon name="close" :size="14" />
             </button>
           </div>
         </li>
       </template>
-
     </ul>
 
     <!-- 确认弹窗 -->
     <Transition name="modal">
       <div v-if="showConfirmModal" class="modal-overlay" @click.self="closeConfirmModal">
-        <div class="modal-content">
-          <h3>{{ confirmTitle }}</h3>
-          <p>{{ confirmMessage }}</p>
-          <p v-if="confirmSubMessage" class="modal-sub-message">{{ confirmSubMessage }}</p>
-          <div class="modal-actions">
-            <button class="btn btn-secondary" @click="closeConfirmModal">取消</button>
-            <button :class="['btn', confirmButtonClass]" @click="confirmAction">{{ confirmButtonText }}</button>
+        <div class="panel modal-content">
+          <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ confirmTitle }}</h3>
+          <p class="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">{{ confirmMessage }}</p>
+          <p v-if="confirmSubMessage" class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">{{ confirmSubMessage }}</p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="btn-secondary" @click="closeConfirmModal">取消</button>
+            <button :class="confirmButtonClass" @click="confirmAction">{{ confirmButtonText }}</button>
           </div>
         </div>
       </div>
     </Transition>
 
-    <!-- 恢复限制提示弹窗 -->
+    <!-- 恢复限制提示 -->
     <Transition name="modal">
       <div v-if="showRestoreBlockedModal" class="modal-overlay" @click.self="closeRestoreBlockedModal">
-        <div class="modal-content modal-warning">
-          <h3>⚠️ 无法恢复</h3>
-          <p>{{ restoreBlockedMessage }}</p>
-          <div class="modal-actions">
-            <button class="btn btn-secondary" @click="closeRestoreBlockedModal">知道了</button>
-            <button v-if="blockedParentId" class="btn btn-primary" @click="handleRestoreParentInstead">
+        <div class="panel modal-content">
+          <h3 class="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            <AppIcon name="alert" :size="14" class="text-amber-600 dark:text-amber-500" />
+            无法恢复
+          </h3>
+          <p class="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">{{ restoreBlockedMessage }}</p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="btn-secondary" @click="closeRestoreBlockedModal">知道了</button>
+            <button v-if="blockedParentId" class="btn-primary" @click="handleRestoreParentInstead">
               恢复父任务「{{ blockedParentTitle }}」
             </button>
           </div>
@@ -177,8 +135,123 @@
   </div>
 </template>
 
+<style scoped>
+/* 回收站自己的按钮：与全局设计令牌保持一致 */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.btn-primary {
+  background: #171717;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #404040;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: #525252;
+  border: 1px solid #e5e5e5;
+}
+
+.btn-secondary:hover {
+  background: #fafafa;
+}
+
+.btn-danger {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn-danger:hover {
+  background: #fef2f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-primary {
+    background: #f5f5f5;
+    color: #171717;
+  }
+
+  .btn-primary:hover {
+    background: #fff;
+  }
+
+  .btn-secondary {
+    color: #d4d4d4;
+    border-color: #262626;
+  }
+
+  .btn-secondary:hover {
+    background: #171717;
+  }
+
+  .btn-danger {
+    color: #f87171;
+    border-color: #7f1d1d;
+  }
+
+  .btn-danger:hover {
+    background: rgba(127, 29, 29, 0.3);
+  }
+}
+
+/* 弹窗 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-content {
+  padding: 1.125rem 1.25rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content {
+  transition: transform 0.15s ease;
+}
+
+.modal-enter-from .modal-content,
+.modal-leave-to .modal-content {
+  transform: scale(0.98);
+}
+</style>
+
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { useTodoStore } from '@/stores/todos'
 
 const props = defineProps({
@@ -438,312 +511,3 @@ async function confirmAction() {
   closeConfirmModal()
 }
 </script>
-
-<style scoped>
-.trash-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  color: #1e293b;
-}
-
-@media (prefers-color-scheme: dark) {
-  .trash-container {
-    background: #0f172a;
-    color: #e2e8f0;
-  }
-}
-
-.trash-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  background: white;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-@media (prefers-color-scheme: dark) {
-  .trash-header {
-    background: #1e293b;
-    border-bottom-color: #334155;
-  }
-}
-
-.header-info h2 {
-  margin: 0;
-  font-size: 1.25rem;
-  color: #1e293b;
-}
-
-@media (prefers-color-scheme: dark) {
-  .header-info h2 {
-    color: #f1f5f9;
-  }
-}
-
-.header-info p {
-  margin: 0.25rem 0 0;
-  font-size: 0.875rem;
-  color: #64748b;
-}
-
-@media (prefers-color-scheme: dark) {
-  .header-info p {
-    color: #94a3b8;
-  }
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #e2e8f0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-secondary {
-    background: #334155;
-    color: #cbd5e1;
-  }
-
-  .btn-secondary:hover:not(:disabled) {
-    background: #475569;
-  }
-}
-
-.btn-primary {
-  background: #4f46e5;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #4338ca;
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-primary {
-    background: #4f46e5;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: #6366f1;
-  }
-}
-
-.btn-danger {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: #fecaca;
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-danger {
-    background: #7f1d1d;
-    color: #fca5a5;
-  }
-
-  .btn-danger:hover:not(:disabled) {
-    background: #991b1b;
-  }
-}
-
-.loading-state,
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-}
-
-.spinner {
-  font-size: 2rem;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
-
-.empty-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .empty-title {
-    color: #f1f5f9;
-  }
-}
-
-.empty-desc {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin: 0.5rem 0 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .empty-desc {
-    color: #94a3b8;
-  }
-}
-
-/* 弹窗样式 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal-content {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .modal-content {
-    background: #1e293b;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-  }
-}
-
-.modal-content h3 {
-  margin: 0 0 0.5rem;
-  font-size: 1.125rem;
-  color: #1e293b;
-}
-
-@media (prefers-color-scheme: dark) {
-  .modal-content h3 {
-    color: #f1f5f9;
-  }
-}
-
-.modal-content p {
-  margin: 0 0 0.5rem;
-  color: #64748b;
-  font-size: 0.875rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  .modal-content p {
-    color: #cbd5e1;
-  }
-}
-
-.modal-sub-message {
-  margin: 0 0 1rem !important;
-  color: #94a3b8;
-  font-size: 0.8rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  .modal-sub-message {
-    color: #64748b;
-  }
-}
-
-.modal-content p:last-of-type {
-  margin-bottom: 1.5rem;
-}
-
-.modal-warning h3 {
-  color: #d97706;
-}
-
-@media (prefers-color-scheme: dark) {
-  .modal-warning h3 {
-    color: #fbbf24;
-  }
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-/* 弹窗动画 */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .modal-content,
-.modal-leave-active .modal-content {
-  transition: transform 0.2s ease;
-}
-
-.modal-enter-from .modal-content,
-.modal-leave-to .modal-content {
-  transform: scale(0.95);
-}
-
-@media (max-width: 640px) {
-  .header-actions {
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .btn {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8rem;
-  }
-  
-  li .hover-show {
-    opacity: 1 !important;
-  }
-}
-</style>

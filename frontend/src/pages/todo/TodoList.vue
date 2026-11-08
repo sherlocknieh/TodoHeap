@@ -1,48 +1,45 @@
 <template>
-  <div class="max-w-4xl mx-auto text-slate-900 dark:text-white" ref="shellRef">
-    <!-- 快速添加任务 -->
-    <section class="flex items-center rounded-lg gap-2">
-      <div class="flex-1 relative flex items-center">
-        <input
-          v-model.trim="newTaskTitle"
-          @keyup.enter="addTodo"
-          placeholder="快速添加：输入任务，回车添加"
-          class="w-full border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-md pl-3 pr-44 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:outline-none"
-        />
-        <div v-if="showMore" class="absolute right-2 top-full mt-2 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-lg z-10" ref="moreMenuRef">
-          <ul class="py-1 text-sm text-slate-700 dark:text-slate-300">
-            <li>
-              <button class="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" @click="handleMoreOption('优先级')">设置优先级</button>
-            </li>
-            <li>
-              <button class="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" @click="handleMoreOption('标签')">添加标签</button>
-            </li>
-          </ul>
-        </div>
-      </div>
+  <div class="text-neutral-900 dark:text-neutral-100">
+    <!-- 快速添加 -->
+    <section class="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2.5">
+      <AppIcon name="plus" :size="15" class="text-neutral-400 dark:text-neutral-600" />
+      <input
+        v-model.trim="newTaskTitle"
+        @keyup.enter="addTodo"
+        placeholder="写下任务，回车添加"
+        class="flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-600"
+      />
+      <span class="hidden sm:inline font-mono text-[11px] text-neutral-400 dark:text-neutral-600">Enter</span>
       <button
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md px-4 py-2 text-sm transition shrink-0"
+        class="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors disabled:opacity-40"
+        :disabled="!newTaskTitle.trim()"
+        title="添加任务"
         @click="addTodo"
       >
-        添加任务
+        <AppIcon name="chevronRight" :size="15" />
       </button>
     </section>
 
-    <section v-if="errorText" class="mt-4 flex items-center gap-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg px-4 py-3 font-semibold">
-      <span>⚠</span>
+    <!-- 错误提示 -->
+    <section v-if="errorText" class="mt-3 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
+      <AppIcon name="alert" :size="14" />
       <span>{{ errorText }}</span>
     </section>
 
-    <section v-if="loading && !isFetched" class="mt-4 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded-lg px-4 py-3">加载中，请稍候...</section>
-
-    <section v-if="!loading && visibleCount === 0" class="mt-8 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 py-12 text-slate-500 dark:text-slate-400">
-      <div class="text-4xl mb-3 opacity-60">📋</div>
-      <p class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">暂无任务</p>
-      <p class="text-sm">点击上方输入框快速添加任务</p>
+    <!-- 加载中 -->
+    <section v-if="loading && !isFetched" class="mt-6 flex items-center gap-2 text-sm text-neutral-500">
+      <AppIcon name="loader" :size="14" class="animate-spin" />
+      加载中…
     </section>
 
-    <div v-else class="mt-6 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-      <ul class="divide-y divide-slate-100 dark:divide-slate-700">
+    <!-- 空状态 -->
+    <section v-else-if="!loading && visibleCount === 0" class="py-16 text-center">
+      <p class="text-sm text-neutral-500 dark:text-neutral-400">还没有任务</p>
+      <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">在上方写下第一件事，回车即可添加</p>
+    </section>
+
+    <!-- 任务列表 -->
+    <div v-else class="mt-2">
       <TodoListItem
         v-for="node in filteredTree"
         :key="node.id"
@@ -56,28 +53,16 @@
         @task-selected="handleTaskSelected"
         @breakdown-task="$emit('breakdown-task', $event)"
       />
-      </ul>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-const showMore = ref(false)
-const moreMenuRef = ref(null)
-
-const handleMoreOption = (option) => {
-  showMore.value = false
-  if (option === '优先级') {
-    // 打开优先级设置弹窗或聚焦优先级输入
-  } else if (option === '标签') {
-    // 打开标签设置弹窗或聚焦标签输入
-  }
-}
-
+import { ref, onMounted, computed } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import TodoListItem from '@/components/TodoListItem.vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps({
   selectedTaskId: {
@@ -95,8 +80,6 @@ const authStore = useAuthStore()
 const emit = defineEmits(['task-selected', 'breakdown-task'])
 
 const newTaskTitle = ref('')
-const newTaskDate = ref('')
-const newTaskPriority = ref(1)
 const loading = computed(() => todoStore.loading)
 const isFetched = computed(() => todoStore.isFetched)
 const errorText = computed(() => todoStore.error)
@@ -111,22 +94,13 @@ const filteredTree = computed(() => todoStore.treeNodes)
 const countNodes = (list) => list.reduce((acc, n) => acc + 1 + countNodes(n.children || []), 0)
 const visibleCount = computed(() => countNodes(filteredTree.value))
 
-// filters 已移除
-
 const addTodo = async () => {
   const title = newTaskTitle.value.trim()
   if (!title) return
 
-  const deadline = newTaskDate.value ? new Date(newTaskDate.value).toISOString() : null
-  const result = await todoStore.addTodo(title, {
-    priority: Number(newTaskPriority.value),
-    deadline
-  })
-  
-  // 乐观更新：无论成功与否都立即清空输入框
+  await todoStore.addTodo(title, { priority: 1, deadline: null })
+
   newTaskTitle.value = ''
-  newTaskDate.value = ''
-  newTaskPriority.value = 1
 }
 
 const addSubtask = async (parentId, startEditCb) => {
@@ -150,19 +124,8 @@ const deleteTodo = async (id) => {
 const toggleDone = async (todo) => {
   await todoStore.toggleDone(todo.id)
 }
+
 const handleTaskSelected = (taskId) => {
   emit('task-selected', taskId)
 }
 </script>
-
-<style scoped>
-.date-input {
-  width: 140px;
-  height: 28px;
-}
-
-/* 确保日期输入框在各浏览器中显示完整 */
-.date-input::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-}
-</style>

@@ -1,6 +1,6 @@
 <template>
 	<!-- Todo 树视图 -->
-	<div class="p-6 bg-gray-50 rounded-xl w-full h-full min-h-150 overflow-hidden flex flex-col gap-4">
+	<div class="w-full h-full min-h-150 overflow-hidden flex flex-col">
 		<!-- 思维导图组件 -->
 		<MindMapWrapper
 			:mindData="mindMapData"

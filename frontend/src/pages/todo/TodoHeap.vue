@@ -1,78 +1,55 @@
 <template>
-	<!-- Todo 堆视图 -->
-	<div class="heap-container" ref="heapContainerRef">
-		<div v-if="heapNodes.length === 0" class="empty-state">
-			<div class="empty-icon">📚</div>
-			<p>暂无任务</p>
+	<!-- 堆视图：形状表示层级，分数决定颜色 -->
+	<div class="h-full overflow-y-auto">
+		<div v-if="heapNodes.length === 0" class="py-20 text-center">
+			<p class="text-sm text-neutral-500">暂无任务</p>
 		</div>
-		
-		<div v-else class="heap-visual">
-			<!-- 树形可视化 SVG -->
-			<div class="svg-wrapper" v-if="heapTree.length > 0">
-				<svg class="heap-svg" :width="svgWidth" :height="svgHeight">
-					<!-- 连接线 -->
+
+		<div v-else class="grid lg:grid-cols-2 gap-4">
+			<!-- 堆形可视化 -->
+			<div v-if="heapTree.length > 0" class="panel p-2 overflow-auto max-h-150">
+				<svg class="block mx-auto" :width="svgWidth" :height="svgHeight">
 					<g class="heap-links">
-						<line 
-							v-for="node in heapTree.filter(n => n.parentIdx >= 0)" 
-							:key="`link-${node.index}`"
-							:x1="getNodeX(node.parentIdx)"
-							:y1="getNodeY(node.parentIdx)"
-							:x2="getNodeX(node.index)"
-							:y2="getNodeY(node.index)"
-							stroke="#cbd5e1"
-							stroke-width="2"
-						/>
+						<line v-for="node in heapTree.filter(n => n.parentIdx >= 0)" :key="`link-${node.index}`"
+							:x1="getNodeX(node.parentIdx)" :y1="getNodeY(node.parentIdx)" :x2="getNodeX(node.index)"
+							:y2="getNodeY(node.index)" stroke-width="1.5" />
 					</g>
-					
-					<!-- 节点圆形 -->
-					<g class="heap-nodes">
-						<circle 
-							v-for="node in heapTree" 
-							:key="`circle-${node.index}`"
-							:cx="getNodeX(node.index)"
-							:cy="getNodeY(node.index)"
-							:r="getNodeRadius(node.level)"
-							class="heap-node"
-							:style="{ fill: getNodeColor(node) }"
-						/>
-						<!-- 优先级数字 -->
-						<text 
-							v-for="node in heapTree" 
-							:key="`score-${node.index}`"
-							:x="getNodeX(node.index)"
-							:y="getNodeY(node.index) + 2"
-							class="heap-score"
-							text-anchor="middle"
-							dominant-baseline="middle"
-						>
+					<g>
+						<circle v-for="node in heapTree" :key="`circle-${node.index}`" :cx="getNodeX(node.index)"
+							:cy="getNodeY(node.index)" :r="getNodeRadius(node.level)" class="heap-node"
+							:style="{ fill: getNodeColor(node) }" />
+						<text v-for="node in heapTree" :key="`score-${node.index}`" :x="getNodeX(node.index)"
+							:y="getNodeY(node.index) + 2" class="heap-score" text-anchor="middle"
+							dominant-baseline="middle">
 							{{ Math.round(node.priorityInfo.finalScore) }}
 						</text>
 					</g>
 				</svg>
 			</div>
-			
-			<!-- 列表视图 -->
-			<div class="heap-list">
-				<div class="list-header">任务列表（按优先级排序）</div>
-				<div
-					v-for="(node, idx) in heapTree"
-					:key="node.id"
-					data-task-item
-					:class="['heap-item', { selected: selectedTaskId === node.id }]"
-					@click="selectTask(node.id)"
-				>
-					<div class="item-rank">{{ idx + 1 }}</div>
-					<div class="item-content">
-						<div class="item-title">{{ node.title }}</div>
-						<div class="item-meta">
-							<span class="score-badge">
-								📊 {{ Math.round(node.priorityInfo.finalScore) }}
-							</span>
-							<span class="priority-label">
+
+			<!-- 按优先级排序 -->
+			<div class="panel self-start overflow-hidden">
+				<div class="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800">
+					<span class="eyebrow">按优先级排序</span>
+				</div>
+				<div v-for="(node, idx) in heapTree" :key="node.id" data-task-item :class="[
+					'flex items-start gap-3 px-3 py-2 border-b border-neutral-100 dark:border-neutral-900 last:border-0 cursor-pointer border-l-2 transition-colors',
+					selectedTaskId === node.id
+						? 'bg-neutral-50 dark:bg-neutral-900 border-l-accent-600 dark:border-l-accent-400'
+						: 'border-l-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900'
+				]" @click="selectTask(node.id)">
+					<span class="w-5 shrink-0 pt-0.5 font-mono text-xs text-neutral-400">{{ idx + 1 }}</span>
+					<div class="flex-1 min-w-0">
+						<p class="text-sm text-neutral-800 dark:text-neutral-200 truncate">{{ node.title }}</p>
+						<div class="mt-1 flex flex-wrap items-center gap-1.5">
+							<span class="chip font-mono">{{ Math.round(node.priorityInfo.finalScore) }}</span>
+							<span class="chip">
+								<span class="h-1.5 w-1.5 rounded-full" :style="{ background: getNodeColor(node) }"></span>
 								{{ getPriorityLevelName(node.priorityInfo.finalScore) }}
 							</span>
-							<span v-if="node.deadline" class="deadline-badge">
-								⏱️ {{ getUrgencyLevelName(node.priorityInfo.breakdown.daysUntilDeadline) }}
+							<span v-if="node.deadline" class="chip">
+								<AppIcon name="clock" :size="10" />
+								{{ getUrgencyLevelName(node.priorityInfo.breakdown.daysUntilDeadline) }}
 							</span>
 						</div>
 					</div>
@@ -82,6 +59,32 @@
 	</div>
 </template>
 
+<style scoped>
+.heap-links line {
+	stroke: currentColor;
+	opacity: 0.25;
+}
+
+.heap-node {
+	cursor: pointer;
+	stroke: transparent;
+	transition: opacity 0.15s ease;
+}
+
+.heap-node:hover {
+	opacity: 0.85;
+}
+
+.heap-score {
+	font-family: var(--font-mono);
+	font-weight: 600;
+	font-size: 12px;
+	fill: #fff;
+	pointer-events: none;
+	text-anchor: middle;
+	dominant-baseline: central;
+}
+</style>
 
 <script setup>
 // 不同层级节点半径，level越小越大
@@ -94,6 +97,7 @@ const getNodeRadius = (level) => {
 }
 import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor, getUrgencyLevelName } from '@/utils/priorityCalculator'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps({
 	todos: { type: Array, default: () => [] },
@@ -248,218 +252,3 @@ const selectTask = (taskId) => {
 </script>
 
 
-<style scoped>
-.heap-container {
-	padding: 20px;
-	background: #f9fafb;
-	border-radius: 12px;
-	height: 100%;
-	overflow-y: auto;
-}
-
-.heap-info {
-	margin-bottom: 20px;
-}
-
-.heap-info h2 {
-	font-size: 24px;
-	font-weight: 700;
-	color: #111827;
-	margin: 0 0 8px 0;
-}
-
-.heap-info p {
-	color: #6b7280;
-	margin: 0;
-	font-size: 14px;
-}
-
-.empty-state {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	padding: 60px 20px;
-	text-align: center;
-	color: #9ca3af;
-}
-
-.empty-icon {
-	font-size: 48px;
-	margin-bottom: 12px;
-}
-
-.heap-visual {
-	display: flex;
-	gap: 20px;
-}
-
-/* SVG 容器 */
-.svg-wrapper {
-	flex: 1;
-	background: white;
-	border-radius: 10px;
-	padding: 10px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-	overflow: auto;
-	max-height: 600px;
-}
-
-.heap-svg {
-	display: block;
-	margin: 0 auto;
-}
-
-.heap-links {
-	pointer-events: none;
-}
-
-.heap-node {
-	cursor: pointer;
-	transition: all 0.2s ease;
-	stroke: white;
-	stroke-width: 2;
-	filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.heap-node:hover {
-	filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)) brightness(1.1);
-	r: 35;
-}
-
-.heap-score {
-	font-weight: 700;
-	font-size: 13px;
-	fill: white;
-	pointer-events: none;
-	text-anchor: middle;
-	dominant-baseline: central;
-}
-
-/* 列表容器 */
-.heap-list {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	background: white;
-	border-radius: 10px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-	overflow: hidden;
-}
-
-.list-header {
-	padding: 12px 16px;
-	font-weight: 700;
-	color: #111827;
-	background: #f3f4f6;
-	border-bottom: 1px solid #e5e7eb;
-	font-size: 14px;
-}
-
-.heap-item {
-	display: flex;
-	align-items: flex-start;
-	gap: 12px;
-	padding: 12px 16px;
-	border-bottom: 1px solid #e5e7eb;
-	transition: all 0.2s ease;
-	cursor: pointer;
-}
-
-.heap-item:hover {
-	background: #f9fafb;
-}
-
-.heap-item:last-child {
-	border-bottom: none;
-}
-
-.item-rank {
-	min-width: 32px;
-	height: 32px;
-	border-radius: 50%;
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-weight: 700;
-	font-size: 13px;
-	color: white;
-	flex-shrink: 0;
-}
-
-.item-content {
-	flex: 1;
-	min-width: 0;
-}
-
-.item-title {
-	font-weight: 600;
-	color: #111827;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	font-size: 14px;
-	margin-bottom: 4px;
-}
-
-.item-meta {
-	display: flex;
-	gap: 8px;
-	align-items: center;
-	flex-wrap: wrap;
-	font-size: 12px;
-}
-
-.score-badge {
-	padding: 2px 8px;
-	border-radius: 4px;
-	background: #f0f1f3;
-	color: #6b7280;
-	font-weight: 600;
-}
-
-.priority-label {
-	padding: 2px 8px;
-	border-radius: 4px;
-	background: #e5e7eb;
-	color: #4b5563;
-	font-weight: 600;
-}
-
-.deadline-badge {
-	padding: 2px 8px;
-	border-radius: 4px;
-	background: #fee2e2;
-	color: #991b1b;
-	font-weight: 600;
-}
-
-.item-select {
-	display: flex;
-	align-items: center;
-	margin-left: 12px;
-}
-
-.heap-item.selected {
-	/* border-color: #10b981; */
-	/* box-shadow: 0 0 0 2px #d1fae5; */
-	background: #eff6ff;
-  	border-left: 3px solid #2563eb;
-}
-
-@media (max-width: 1024px) {
-	.heap-visual {
-		flex-direction: column;
-	}
-	
-	.svg-wrapper {
-		max-height: 300px;
-	}
-	
-	.heap-list {
-		max-height: 400px;
-		overflow-y: auto;
-	}
-}
-</style>
