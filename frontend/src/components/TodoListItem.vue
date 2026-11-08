@@ -100,7 +100,7 @@
           <div class="relative">
             <button
               class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-              title="更多操作" @click.stop="toggleMoreMenu(item.id, $event)">
+              title="更多操作" data-more-trigger @click.stop="toggleMoreMenu(item.id, $event)">
               <AppIcon name="more" :size="14" />
             </button>
             <div v-if="showMoreMenuId === item.id"
@@ -385,7 +385,8 @@ const toggleDeadlineMenu = (item) => {
 function handleClickOutside(event) {
   if (showMoreMenuId.value) {
     const el = currentMenuEl.value
-    if (el && !el.contains(event.target)) {
+    const onTrigger = event.target.closest?.('[data-more-trigger]')
+    if (el && !el.contains(event.target) && !onTrigger) {
       closeMoreMenu()
     }
   }
