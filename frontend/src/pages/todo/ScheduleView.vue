@@ -1,12 +1,27 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedules'
 import { exportSchedulesIcs, readIcsFile } from '@/lib/calendarTransfer'
+import { SCHEDULE_RANGES, scheduleRangeOf } from '@/utils/scheduleRange'
 import AppIcon from '@/components/AppIcon.vue'
 
+const route = useRoute()
 const router = useRouter()
 const scheduleStore = useScheduleStore()
+
+// 侧栏点击的时间段筛选，通过路由 query 传递
+const activeRange = computed(() => {
+  const value = route.query.range
+  return SCHEDULE_RANGES.includes(value) ? value : ''
+})
+
+const RANGE_LABELS = { today: '今天', future: '以后', past: '已过去' }
+const activeRangeLabel = computed(() => RANGE_LABELS[activeRange.value] || '')
+
+const clearRange = () => {
+  router.replace({ name: 'ScheduleView', query: {} })
+}
 
 const startOfDay = (value) => {
   const date = new Date(value)
@@ -31,7 +46,7 @@ const weekdayLabel = (value) => ['周日', '周一', '周二', '周三', '周四
 const groupLabel = (value) => {
   const today = startOfDay(new Date())
   const diffDays = Math.round((startOfDay(value) - today) / 86400000)
-  if (diffDays < 0) return `逾期 · ${formatMonthDay(value)}`
+  if (diffDays < 0) return `已过去 · ${formatMonthDay(value)}`
   if (diffDays === 0) return '今天'
   if (diffDays === 1) return '明天'
   return `${formatMonthDay(value)} · ${weekdayLabel(value)}`
@@ -62,6 +77,7 @@ const schedule = computed(() => {
   const buckets = new Map()
 
   for (const event of scheduleStore.schedules) {
+    if (activeRange.value && scheduleRangeOf(event) !== activeRange.value) continue
     const key = dayKey(event.start_at)
     if (!buckets.has(key)) {
       buckets.set(key, { key, label: groupLabel(event.start_at), events: [] })
@@ -202,6 +218,12 @@ onMounted(() => {
       </div>
     </header>
 
+    <!-- 时间段筛选：窄屏侧栏收起时也能看到并清除 -->
+    <p v-if="activeRange" class="mt-2 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+      <span class="chip">仅看 {{ activeRangeLabel }}</span>
+      <button class="transition-colors hover:text-neutral-800 dark:hover:text-neutral-200" @click="clearRange">显示全部</button>
+    </p>
+
     <p v-if="importError" class="mt-2 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
       <AppIcon name="alert" :size="12" />
       <span>{{ importError }}</span>
@@ -234,10 +256,11 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 空状态 -->
+    <!-- 空状态：筛选无结果时提示切换时间段 -->
     <section v-if="schedule.total === 0" class="py-16 text-center">
-      <p class="text-sm text-neutral-500 dark:text-neutral-400">还没有日程事件</p>
-      <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">导入 ICS 日历后，事件会出现在这里</p>
+      <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ activeRange ? '这个时间段还没有日程' : '还没有日程事件' }}</p>
+      <button v-if="activeRange" class="btn-outline mt-3" @click="clearRange">显示全部日程</button>
+      <p v-else class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">导入 ICS 日历后，事件会出现在这里</p>
     </section>
 
     <div v-else class="mt-2 space-y-4">

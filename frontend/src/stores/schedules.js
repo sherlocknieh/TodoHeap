@@ -17,31 +17,43 @@ export const useScheduleStore = defineStore('schedules', () => {
     return { ok: true, userId: authStore.user.id }
   }
 
+  // 侧栏与日程页会同时进入，同一时刻只发一次请求，两处共用结果
+  let inflight = null
+
   // 拉取全部日程；订阅端更新后可由调用方强制刷新
   const fetchSchedules = async ({ force = false } = {}) => {
     if (isFetched.value && !force) return { success: true, data: schedules.value }
+    if (inflight) return inflight
 
-    const auth = requireUserId()
-    if (!auth.ok) return { success: false, error: auth.error }
+    inflight = (async () => {
+      const auth = requireUserId()
+      if (!auth.ok) return { success: false, error: auth.error }
 
-    loading.value = true
-    error.value = null
+      loading.value = true
+      error.value = null
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('schedules')
+          .select('id, title, notes, start_at, end_at, todo_id, updated_at')
+          .eq('user_id', auth.userId)
+          .order('start_at', { ascending: true })
+
+        if (fetchError) throw fetchError
+        schedules.value = data || []
+        isFetched.value = true
+        return { success: true, data: schedules.value }
+      } catch (err) {
+        error.value = err instanceof Error ? err.message : '读取日程失败'
+        return { success: false, error: error.value }
+      } finally {
+        loading.value = false
+      }
+    })()
+
     try {
-      const { data, error: fetchError } = await supabase
-        .from('schedules')
-        .select('id, title, notes, start_at, end_at, todo_id, updated_at')
-        .eq('user_id', auth.userId)
-        .order('start_at', { ascending: true })
-
-      if (fetchError) throw fetchError
-      schedules.value = data || []
-      isFetched.value = true
-      return { success: true, data: schedules.value }
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : '读取日程失败'
-      return { success: false, error: error.value }
+      return await inflight
     } finally {
-      loading.value = false
+      inflight = null
     }
   }
 

@@ -1,8 +1,11 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useTodoStore } from '@/stores/todos'
 import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
+import { useScheduleStore } from '@/stores/schedules'
+import { SCHEDULE_RANGES, scheduleRangeOf } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
@@ -25,6 +28,9 @@ const show = computed(() => props.show)
 const todoStore = useTodoStore()
 const agent = useAgentStore()
 const authStore = useAuthStore()
+const scheduleStore = useScheduleStore()
+const route = useRoute()
+const router = useRouter()
 
 const editingSessionId = ref(null)
 const editingTitle = ref('')
@@ -40,6 +46,13 @@ const ensureAgent = () => {
 }
 onMounted(ensureAgent)
 watch(() => props.section, ensureAgent)
+
+// 进入日程入口时确保事件已载入，概览数字才有数据
+const ensureSchedules = () => {
+  if (props.section === 'schedule') scheduleStore.fetchSchedules()
+}
+onMounted(ensureSchedules)
+watch(() => props.section, ensureSchedules)
 
 const closeOnNarrowScreen = () => {
   if (window.innerWidth < 1024) emit('close')
@@ -158,33 +171,32 @@ const sectionTitle = computed(() => {
   return '任务导航'
 })
 
-// 日程侧栏的概览：只统计未完成任务
+// 日程概览：按时间段统计日程事件，与列表筛选共用同一条判定
 const scheduleStats = computed(() => {
-  const now = new Date()
-  const startOfToday = new Date(now)
-  startOfToday.setHours(0, 0, 0, 0)
-  const endOfToday = new Date(now)
-  endOfToday.setHours(23, 59, 59, 999)
-
-  let overdue = 0
-  let today = 0
-  let upcoming = 0
-  let undated = 0
-
-  for (const todo of todoStore.todos) {
-    if (todo.completed_at) continue
-    if (!todo.deadline) {
-      undated += 1
-      continue
-    }
-    const deadline = new Date(todo.deadline)
-    if (deadline < startOfToday) overdue += 1
-    else if (deadline <= endOfToday) today += 1
-    else upcoming += 1
-  }
-
-  return { overdue, today, upcoming, undated }
+  const counts = { today: 0, future: 0, past: 0 }
+  for (const event of scheduleStore.schedules) counts[scheduleRangeOf(event)] += 1
+  return { ...counts, total: scheduleStore.schedules.length }
 })
+
+// 当前生效的时间段筛选来自路由 query，切换页面后仍保留
+const activeScheduleRange = computed(() => {
+  const value = route.query.range
+  return SCHEDULE_RANGES.includes(value) ? value : ''
+})
+
+const scheduleRangeItems = computed(() => [
+  { id: 'today', label: '今天', count: scheduleStats.value.today },
+  { id: 'future', label: '以后', count: scheduleStats.value.future },
+  { id: 'past', label: '已过去', count: scheduleStats.value.past },
+  { id: 'all', label: '全部', count: scheduleStats.value.total }
+])
+
+// 再次点击已选中的时间段即取消筛选
+const toggleScheduleRange = (id) => {
+  const active = id === 'all' || id === activeScheduleRange.value ? '' : id
+  router.replace({ name: 'ScheduleView', query: active ? { range: active } : {} })
+  closeOnNarrowScreen()
+}
 
 // 切换视图
 const switchView = (view) => {
@@ -201,6 +213,7 @@ const switchView = (view) => {
   <!-- 小屏浮层 / 大屏常驻左栏 -->
   <div
     v-if="show"
+    data-left-sidebar
     :class="[
       'absolute top-0 bottom-0 left-12 w-64 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
       overlay ? 'shadow-lg' : 'lg:static lg:z-10 lg:shadow-none'
@@ -272,33 +285,26 @@ const switchView = (view) => {
       </template>
 
       <template v-else-if="section === 'schedule'">
-        <!-- 日程概览 -->
+        <!-- 日程概览：点击按时间段筛选，再点一次取消 -->
         <section class="space-y-0.5">
           <p class="eyebrow px-2 pb-1.5">概览</p>
-          <div class="px-2 space-y-1.5">
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-neutral-600 dark:text-neutral-400">逾期</span>
-              <span class="font-mono" :class="scheduleStats.overdue ? 'text-rose-600 dark:text-rose-400' : 'text-neutral-900 dark:text-neutral-100'">{{ scheduleStats.overdue }}</span>
-            </div>
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-neutral-600 dark:text-neutral-400">今天</span>
-              <span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ scheduleStats.today }}</span>
-            </div>
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-neutral-600 dark:text-neutral-400">以后</span>
-              <span class="font-mono text-neutral-900 dark:text-neutral-100">{{ scheduleStats.upcoming }}</span>
-            </div>
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-neutral-600 dark:text-neutral-400">未设置时间</span>
-              <span class="font-mono text-neutral-900 dark:text-neutral-100">{{ scheduleStats.undated }}</span>
-            </div>
+          <div class="px-1 space-y-0.5">
+            <button v-for="item in scheduleRangeItems" :key="item.id" type="button"
+              class="flex w-full items-baseline justify-between rounded px-2 py-1 text-sm transition-colors"
+              :class="activeScheduleRange === item.id
+                ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
+                : 'text-neutral-600 hover:bg-accent-50/70 dark:text-neutral-400 dark:hover:bg-accent-500/[0.06]'"
+              @click="toggleScheduleRange(item.id)">
+              <span>{{ item.label }}</span>
+              <span class="font-mono">{{ item.count }}</span>
+            </button>
           </div>
         </section>
 
         <section class="space-y-0.5">
           <p class="eyebrow px-2 pb-1.5">说明</p>
           <p class="px-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            在任务详情里设置截止时间后，会按日期出现在日程中；勾选完成即从日程移除。
+            导入 .ics 日历文件后，事件会按日期出现在这里；订阅链接供外部日历读取这些事件。
           </p>
         </section>
       </template>
