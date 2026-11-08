@@ -65,10 +65,22 @@ Breakdown can run in preview mode: generated subtasks are shown for confirmation
 | --- | --- | --- |
 | List | `/app/list` | Day-to-day editing, ordered execution |
 | Tree | `/app/tree` | Mind-map style structure work |
+| Schedule | `/app/schedule` | Tasks and calendar events grouped by date |
+| AI | `/app/ai` | Natural-language capture and global optimisation |
 | Trash | `/app/trash` | Restore or permanently delete |
 | Heap | `/app/heap` | Priority-ranked queue (sidebar entry currently hidden) |
 
-Switch views from the "Views" group in the left sidebar; on narrow screens the sidebar closes after switching.
+Switch views from the activity bar or the "Views" group in the sidebar; on narrow screens the sidebar closes after switching.
+
+## Calendar
+
+The schedule view and **Settings → Calendar** can import and export `.ics` files and generate a read-only subscription URL for system calendars.
+
+- **Import**: events are written to `schedules`; recurring events are expanded across the coming year, and imports are not de-duplicated
+- **Export / subscribe**: only calendar events are included, not task deadlines
+- **Subscription**: the URL contains a random token that acts as a read-only credential; regenerate or disable it at any time
+
+Imported events appear in the schedule view and can be deleted from there.
 
 ## Sync and offline
 
@@ -79,9 +91,9 @@ Switch views from the "Views" group in the left sidebar; on narrow screens the s
 
 ## Concepts
 
-**Status**: `todo`, `doing`, `done`. Deleted tasks are soft-deleted (`deleted_at`) and live in the trash.
+**Completion**: a task is complete when `completed_at` is set; there is no separate status field. Deleted tasks are soft-deleted (`deleted_at`) and live in the trash.
 
-**Priority**: an integer from 0 to 4, higher means more urgent. You rarely set it by hand — the AI optimiser and heap view compute it from deadline, difficulty and structure.
+**Priority**: not a stored field. It is scored in real time from deadline urgency, completion progress and subtask complexity, and the heap view sorts by that score. Fill in deadlines and effort estimates accurately instead of maintaining priority by hand.
 
 ## Feedback
 

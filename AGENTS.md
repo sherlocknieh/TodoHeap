@@ -51,6 +51,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/supabase.ts` | 唯一 Supabase client，读 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUB_KEY` |
 | `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
 | `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
+| `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
+| `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
 | `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
 | `utils/taskGraph.js` | 任务图遍历：后代收集、多父查找、森林展开（支持环） |
 | `utils/detailPanelContext.js` | provide/inject key，供深层组件打开详情面板 |
@@ -85,6 +87,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
 | `stores/todos.breakdown.js` | 三个 AI 边缘函数的调用封装（分解 / 新建 / 优化） |
 | `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
+| `stores/schedules.js` | 日程事件拉取、批量写入与删除 |
 | `stores/auth.ts` | Supabase Auth 会话 |
 | `stores/todos.*.test.js` | vitest 覆盖乐观更新与回滚 |
 
@@ -101,6 +104,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `breakdown_task` | 把选定任务拆成 3-6 个子任务，返回 JSON 数组 |
 | `new_task_ai` | 自然语言 → 新建任务树 |
 | `optimize_tasks` | 全局优化：调日期、拆解、聚合、生成执行建议（AI SDK + tool calling） |
+| `calendar_feed` | 日历订阅源：`?token=` 反查用户并输出 ICS，`verify_jwt = false` |
 
 密钥只放 Supabase secrets 与 GitHub Actions vars/secrets；前端仅持 `VITE_SUPABASE_PUB_KEY`。
 

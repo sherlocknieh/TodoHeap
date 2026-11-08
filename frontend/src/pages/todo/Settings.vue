@@ -233,6 +233,122 @@
                 </div>
               </div>
             </section>
+
+            <!-- 日历：ICS 导入导出与只读订阅链接 -->
+            <section v-else-if="activeTab === 'calendar'" class="space-y-6">
+              <div>
+                <p class="eyebrow mb-2">导出日程</p>
+                <p class="text-xs leading-relaxed text-neutral-500">
+                  把全部日程导出为 .ics 文件，可导入系统日历、Google 日历等支持 ICS 的应用。
+                </p>
+                <div class="mt-3 flex items-center gap-2">
+                  <button class="btn-outline" :disabled="isExportingCalendar" @click="handleCalendarExport">
+                    <AppIcon name="download" :size="14" />
+                    <span>{{ isExportingCalendar ? '导出中…' : '导出 .ics' }}</span>
+                  </button>
+                  <span v-if="calendarExportMessage" class="text-xs text-neutral-500">{{ calendarExportMessage }}</span>
+                </div>
+                <p v-if="calendarExportError" class="mt-2 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+                  <AppIcon name="alert" :size="12" />
+                  <span>{{ calendarExportError }}</span>
+                </p>
+              </div>
+
+              <div class="border-t border-neutral-100 pt-5 dark:border-neutral-800">
+                <p class="eyebrow mb-2">导入日程</p>
+                <p class="text-xs leading-relaxed text-neutral-500">
+                  上传 .ics 文件，事件会写入日程。重复日程会展开为未来一年内的实例；导入只新增，不会去重。
+                </p>
+
+                <label
+                  class="mt-3 flex cursor-pointer flex-col items-center rounded-md border border-dashed px-4 py-7 text-center transition-colors"
+                  :class="isCalendarDragging
+                    ? 'border-accent-500 bg-accent-50/70 dark:bg-accent-500/10'
+                    : 'border-neutral-300 hover:border-accent-400 dark:border-neutral-700'"
+                  @dragover.prevent="isCalendarDragging = true"
+                  @dragleave.prevent="isCalendarDragging = false"
+                  @drop.prevent="handleCalendarDrop"
+                >
+                  <input
+                    ref="calendarFileInput"
+                    type="file"
+                    accept=".ics,text/calendar"
+                    class="sr-only"
+                    @change="handleCalendarFileChange"
+                  />
+                  <AppIcon name="upload" :size="20" class="mb-2 text-neutral-400" />
+                  <span class="text-sm text-neutral-800 dark:text-neutral-200">选择或拖入 .ics 文件</span>
+                  <span class="mt-1 text-xs text-neutral-500">最大 5 MB</span>
+                </label>
+
+                <p v-if="calendarImportError" class="mt-2 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+                  <AppIcon name="alert" :size="12" />
+                  <span>{{ calendarImportError }}</span>
+                </p>
+
+                <div v-if="calendarEvents.length" class="mt-4 space-y-3">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="chip">{{ calendarFileName }}</span>
+                    <span class="chip">{{ calendarEvents.length }} 个事件</span>
+                    <span v-if="calendarSkipped" class="chip">{{ calendarSkipped }} 个无法解析</span>
+                  </div>
+                  <ul class="space-y-1 text-xs text-neutral-600 dark:text-neutral-400">
+                    <li v-for="event in calendarEvents.slice(0, 5)" :key="`${event.start_at}-${event.title}`" class="flex items-center gap-2">
+                      <span class="font-mono text-neutral-400">{{ formatCalendarTime(event.start_at) }}</span>
+                      <span class="truncate">{{ event.title }}</span>
+                    </li>
+                    <li v-if="calendarEvents.length > 5" class="text-neutral-400">等 {{ calendarEvents.length }} 个事件</li>
+                  </ul>
+                  <div class="flex items-center gap-2">
+                    <button class="btn-primary" :disabled="isCalendarImporting || calendarImportDone" @click="handleCalendarImport">
+                      <AppIcon name="upload" :size="14" />
+                      <span>{{ isCalendarImporting ? '导入中…' : (calendarImportDone ? '已导入' : '开始导入') }}</span>
+                    </button>
+                    <button class="btn-outline" @click="resetCalendarImport">重新选择</button>
+                  </div>
+                  <p v-if="calendarImportResult" class="flex items-center gap-1.5 text-xs text-accent-700 dark:text-accent-400">
+                    <AppIcon name="check" :size="12" />
+                    <span>{{ calendarImportResult }}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div class="border-t border-neutral-100 pt-5 dark:border-neutral-800">
+                <p class="eyebrow mb-2">日历订阅</p>
+                <p class="text-xs leading-relaxed text-neutral-500">
+                  生成只读订阅链接，粘贴到系统日历的“添加日历订阅”，日程变化会自动同步。链接本身就是凭据，请勿公开分享。
+                </p>
+
+                <button v-if="!calendarFeedToken" class="btn-primary mt-3" :disabled="isTokenBusy || settingsLoading" @click="handleGenerateFeed">
+                  <AppIcon name="link" :size="14" />
+                  <span>{{ isTokenBusy ? '生成中…' : (settingsLoading ? '读取设置…' : '生成订阅链接') }}</span>
+                </button>
+
+                <div v-else class="mt-3 space-y-2">
+                  <input
+                    class="field font-mono text-xs"
+                    :value="calendarFeedUrl"
+                    readonly
+                    @focus="$event.target.select()"
+                  />
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button class="btn-outline" @click="handleCopyFeed">
+                      <AppIcon :name="feedCopied ? 'check' : 'copy'" :size="14" />
+                      <span>{{ feedCopied ? '已复制' : '复制链接' }}</span>
+                    </button>
+                    <button class="btn-outline" :disabled="isTokenBusy || settingsLoading" @click="handleRotateFeed">重新生成</button>
+                    <button class="btn-outline" :disabled="isTokenBusy || settingsLoading" @click="handleDisableFeed">停用</button>
+                  </div>
+                  <p class="text-[11px] leading-relaxed text-neutral-500">
+                    重新生成或停用后，旧链接会立即失效，需要在日历软件里重新添加。
+                  </p>
+                </div>
+                <p v-if="calendarTokenError" class="mt-2 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+                  <AppIcon name="alert" :size="12" />
+                  <span>{{ calendarTokenError }}</span>
+                </p>
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -302,8 +418,17 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
+import { useScheduleStore } from '@/stores/schedules'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_USER_SETTINGS, fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
+import {
+  buildCalendarFeedUrl,
+  disableCalendarFeed,
+  ensureCalendarFeedToken,
+  exportSchedulesIcs,
+  readIcsFile,
+  rotateCalendarFeedToken
+} from '@/lib/calendarTransfer'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
 import {
   TICKTICK_IMPORT_MAX_BYTES,
@@ -324,6 +449,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
+const scheduleStore = useScheduleStore()
 
 // 关闭设置：浮窗回到当前页面，整页返回上一页
 const handleClose = () => {
@@ -362,11 +488,12 @@ const handleKeydown = (event) => {
 const tabs = [
   { id: 'account', label: '账户安全', icon: 'lock' },
   { id: 'preferences', label: '偏好设置', icon: 'sliders' },
+  { id: 'calendar', label: '日历', icon: 'calendar' },
   { id: 'import', label: '导入数据', icon: 'upload' }
 ]
 
-// 标签切换
-const activeTab = ref('account')
+// 标签切换；支持 /settings?tab=calendar 这类直达链接
+const activeTab = ref(tabs.some((tab) => tab.id === route.query.tab) ? route.query.tab : 'account')
 
 // 账户设置
 const showPasswordModal = ref(false)
@@ -396,6 +523,33 @@ const importDone = ref(false)
 const importCancelRequested = ref(false)
 const importProgress = ref({ done: 0, total: 0, title: '' })
 const importResult = ref(null)
+
+// 日历：ICS 文件解析结果、导入导出状态与订阅令牌
+const calendarFileInput = ref(null)
+const calendarFileName = ref('')
+const calendarEvents = ref([])
+const calendarSkipped = ref(0)
+const calendarImportError = ref('')
+const isCalendarDragging = ref(false)
+const isCalendarImporting = ref(false)
+const calendarImportDone = ref(false)
+const calendarImportResult = ref('')
+const isExportingCalendar = ref(false)
+const calendarExportMessage = ref('')
+const calendarExportError = ref('')
+const isTokenBusy = ref(false)
+const calendarTokenError = ref('')
+const feedCopied = ref(false)
+
+const calendarFeedToken = computed(() => settingsForm.value.calendarFeedToken || '')
+const calendarFeedUrl = computed(() => calendarFeedToken.value ? buildCalendarFeedUrl(calendarFeedToken.value) : '')
+
+const formatCalendarTime = (value) => new Date(value).toLocaleString('zh-CN', {
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})
 
 // 只把用户勾选的已完成任务纳入计划，关闭后它们不会写入
 const importCandidateTasks = computed(() => importIncludeCompleted.value
@@ -585,6 +739,149 @@ const resetImport = () => {
   isImporting.value = false
   importCancelRequested.value = false
   importProgress.value = { done: 0, total: 0, title: '' }
+}
+
+// 读取 ICS 只做预览；确认后才批量写入日程
+const loadCalendarFile = async (file) => {
+  if (!file) return
+
+  calendarImportError.value = ''
+  calendarImportResult.value = ''
+  calendarImportDone.value = false
+  calendarEvents.value = []
+  calendarSkipped.value = 0
+  calendarFileName.value = file.name
+
+  try {
+    const { events, skipped } = await readIcsFile(file)
+    calendarEvents.value = events
+    calendarSkipped.value = skipped
+  } catch (err) {
+    calendarImportError.value = err instanceof Error ? err.message : '解析日历失败'
+    calendarFileName.value = ''
+  }
+}
+
+const handleCalendarFileChange = (event) => {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  loadCalendarFile(file)
+}
+
+const handleCalendarDrop = (event) => {
+  isCalendarDragging.value = false
+  loadCalendarFile(event.dataTransfer?.files?.[0])
+}
+
+const resetCalendarImport = () => {
+  if (calendarFileInput.value) calendarFileInput.value.value = ''
+  calendarFileName.value = ''
+  calendarEvents.value = []
+  calendarSkipped.value = 0
+  calendarImportError.value = ''
+  calendarImportResult.value = ''
+  calendarImportDone.value = false
+  isCalendarImporting.value = false
+}
+
+const handleCalendarImport = async () => {
+  if (isCalendarImporting.value || calendarImportDone.value || !calendarEvents.value.length) return
+
+  if (!navigator.onLine) {
+    calendarImportError.value = '当前离线，恢复网络后再导入'
+    return
+  }
+
+  calendarImportError.value = ''
+  isCalendarImporting.value = true
+  try {
+    const result = await scheduleStore.createSchedules(calendarEvents.value)
+    if (!result.success) throw new Error(result.error)
+    calendarImportResult.value = `已导入 ${result.data.length} 个日程`
+    calendarImportDone.value = true
+  } catch (err) {
+    calendarImportError.value = err instanceof Error ? err.message : '导入日程失败'
+    calendarImportDone.value = true
+  } finally {
+    isCalendarImporting.value = false
+  }
+}
+
+const handleCalendarExport = async () => {
+  calendarExportError.value = ''
+  calendarExportMessage.value = ''
+  isExportingCalendar.value = true
+  try {
+    const result = await scheduleStore.fetchSchedules({ force: true })
+    if (!result.success) throw new Error(result.error)
+    const count = exportSchedulesIcs(result.data)
+    calendarExportMessage.value = `已导出 ${count} 个日程`
+  } catch (err) {
+    calendarExportError.value = err instanceof Error ? err.message : '导出失败'
+  } finally {
+    isExportingCalendar.value = false
+  }
+}
+
+// 订阅令牌增删都写回同一份用户设置，避免覆盖其他偏好
+const handleGenerateFeed = async () => {
+  calendarTokenError.value = ''
+  isTokenBusy.value = true
+  try {
+    const result = await ensureCalendarFeedToken(authStore.user?.id, settingsForm.value)
+    if (!result.success) throw new Error(result.error?.message || '生成订阅链接失败')
+    settingsForm.value = { ...result.settings }
+  } catch (err) {
+    calendarTokenError.value = err instanceof Error ? err.message : '生成订阅链接失败'
+  } finally {
+    isTokenBusy.value = false
+  }
+}
+
+const handleRotateFeed = async () => {
+  if (!window.confirm('重新生成后旧订阅链接会立即失效，确定继续吗？')) return
+
+  calendarTokenError.value = ''
+  isTokenBusy.value = true
+  try {
+    const result = await rotateCalendarFeedToken(authStore.user?.id, settingsForm.value)
+    if (!result.success) throw new Error(result.error?.message || '重新生成失败')
+    settingsForm.value = { ...result.settings }
+    feedCopied.value = false
+  } catch (err) {
+    calendarTokenError.value = err instanceof Error ? err.message : '重新生成失败'
+  } finally {
+    isTokenBusy.value = false
+  }
+}
+
+const handleDisableFeed = async () => {
+  if (!window.confirm('停用后订阅链接会立即失效，确定继续吗？')) return
+
+  calendarTokenError.value = ''
+  isTokenBusy.value = true
+  try {
+    const result = await disableCalendarFeed(authStore.user?.id, settingsForm.value)
+    if (!result.success) throw new Error(result.error?.message || '停用失败')
+    settingsForm.value = { ...result.settings }
+    feedCopied.value = false
+  } catch (err) {
+    calendarTokenError.value = err instanceof Error ? err.message : '停用失败'
+  } finally {
+    isTokenBusy.value = false
+  }
+}
+
+const handleCopyFeed = async () => {
+  try {
+    await navigator.clipboard.writeText(calendarFeedUrl.value)
+    feedCopied.value = true
+    setTimeout(() => {
+      feedCopied.value = false
+    }, 1800)
+  } catch (err) {
+    calendarTokenError.value = '复制失败，请手动选中链接复制'
+  }
 }
 
 // 修改密码

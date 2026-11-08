@@ -17,7 +17,8 @@ docs/
 │   │   ├── 02.ai-features.md
 │   │   ├── 03.views.md
 │   │   ├── 04.sync-offline.md
-│   │   └── 05.faq.md
+│   │   ├── 05.faq.md
+│   │   └── 06.calendar.md
 │   └── dev/                # 开发文档
 │       ├── index.md
 │       ├── 00.goals.md     # 项目愿景与方案
