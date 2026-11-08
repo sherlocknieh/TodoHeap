@@ -115,6 +115,124 @@
                 </button>
               </div>
             </section>
+
+            <!-- 导入：先预览文件内容，再按清单分组写入任务树 -->
+            <section v-else-if="activeTab === 'import'" class="space-y-5">
+              <div>
+                <p class="eyebrow mb-2">从滴答清单导入</p>
+                <p class="text-xs leading-relaxed text-neutral-500">
+                  在滴答清单「设置 → 备份」导出 CSV 或 JSON 后上传。导入只创建新任务，不会去重；同一文件请勿重复导入。
+                </p>
+              </div>
+
+              <!-- 文件选择：点击或拖入，读取后进入预览 -->
+              <label
+                class="flex cursor-pointer flex-col items-center rounded-md border border-dashed px-4 py-7 text-center transition-colors"
+                :class="isImportDragging
+                  ? 'border-accent-500 bg-accent-50/70 dark:bg-accent-500/10'
+                  : 'border-neutral-300 hover:border-accent-400 dark:border-neutral-700'"
+                @dragover.prevent="isImportDragging = true"
+                @dragleave.prevent="isImportDragging = false"
+                @drop.prevent="handleImportDrop"
+              >
+                <input
+                  ref="importFileInput"
+                  type="file"
+                  accept=".csv,.json,text/csv,application/json"
+                  class="sr-only"
+                  @change="handleImportFileChange"
+                />
+                <AppIcon name="upload" :size="20" class="mb-2 text-neutral-400" />
+                <span class="text-sm text-neutral-800 dark:text-neutral-200">选择或拖入导出文件</span>
+                <span class="mt-1 text-xs text-neutral-500">CSV / JSON，最大 5 MB</span>
+              </label>
+
+              <p v-if="importError" class="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+                <AppIcon name="alert" :size="12" />
+                <span>{{ importError }}</span>
+              </p>
+
+              <!-- 预览：确认数量与分组方式后再写入 -->
+              <div v-if="importTasks.length" class="space-y-4">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="chip">{{ importFileName }}</span>
+                  <span class="chip">{{ importSummary.taskCount }} 个任务</span>
+                  <span v-if="importSummary.listCount" class="chip">{{ importSummary.listCount }} 个清单</span>
+                  <span v-if="importSummary.completedCount" class="chip">{{ importSummary.completedCount }} 个已完成</span>
+                </div>
+
+                <div class="space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
+                  <label class="flex items-center gap-2">
+                    <input v-model="importGroupByList" type="checkbox" class="accent-accent-600" />
+                    <span>每个清单生成一个顶层任务</span>
+                  </label>
+                  <label class="flex items-center gap-2">
+                    <input v-model="importIncludeCompleted" type="checkbox" class="accent-accent-600" />
+                    <span>包含已完成任务</span>
+                  </label>
+                </div>
+
+                <ul v-if="importWarningList.length" class="space-y-1 text-xs text-amber-600 dark:text-amber-400">
+                  <li v-for="warning in importWarningList.slice(0, 3)" :key="warning" class="flex items-start gap-1.5">
+                    <AppIcon name="alert" :size="12" class="mt-0.5" />
+                    <span>{{ warning }}</span>
+                  </li>
+                </ul>
+
+                <!-- 进度：逐条写入，父任务失败时子任务会跳过 -->
+                <div v-if="isImporting" class="space-y-1.5">
+                  <div class="flex items-center justify-between text-xs text-neutral-500">
+                    <span>正在写入 {{ importProgress.done }} / {{ importProgress.total }}</span>
+                    <span>{{ importPercent }}%</span>
+                  </div>
+                  <div class="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                    <div class="h-full rounded-full bg-accent-600 transition-all" :style="{ width: `${importPercent}%` }"></div>
+                  </div>
+                  <p class="truncate text-xs text-neutral-500">{{ importProgress.title }}</p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    class="btn-primary"
+                    :disabled="isImporting || importDone || !importPlan.nodes.length"
+                    @click="handleImportStart"
+                  >
+                    <AppIcon name="upload" :size="14" />
+                    <span>{{ isImporting ? '导入中…' : (importDone ? '已导入' : '开始导入') }}</span>
+                  </button>
+                  <button v-if="isImporting" class="btn-outline" @click="handleImportCancel">取消</button>
+                  <button v-else class="btn-outline" @click="resetImport">重新选择</button>
+                </div>
+
+                <!-- 结果 -->
+                <div
+                  v-if="importResult"
+                  class="rounded-md border px-3 py-2.5 text-xs"
+                  :class="importResult.failed || importResult.skipped
+                    ? 'border-amber-200 bg-amber-50/60 text-amber-800 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300'
+                    : 'border-accent-200 bg-accent-50/60 text-accent-800 dark:border-accent-900 dark:bg-accent-500/10 dark:text-accent-300'"
+                >
+                  <p class="flex items-center gap-1.5">
+                    <AppIcon :name="importResult.failed || importResult.skipped ? 'alert' : 'check'" :size="12" />
+                    <span>
+                      成功 {{ importResult.imported }} 个
+                      <template v-if="importResult.failed">，失败 {{ importResult.failed }} 个</template>
+                      <template v-if="importResult.skipped">，跳过 {{ importResult.skipped }} 个</template>
+                      <template v-if="importResult.cancelled">（已取消）</template>
+                    </span>
+                  </p>
+                  <ul v-if="importResult.errors.length" class="mt-1.5 space-y-0.5">
+                    <li
+                      v-for="error in importResult.errors.slice(0, 5)"
+                      :key="`${error.title}-${error.message}`"
+                      class="truncate"
+                    >
+                      {{ error.title }}：{{ error.message }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -183,9 +301,17 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useTodoStore } from '@/stores/todos'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_USER_SETTINGS, fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
+import {
+  TICKTICK_IMPORT_MAX_BYTES,
+  parseTickTickFile,
+  buildImportPlan,
+  summarizeTickTickTasks,
+  executeTickTickImport
+} from '@/lib/ticktickImport'
 import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps({
@@ -197,6 +323,7 @@ const emit = defineEmits(['close'])
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const todoStore = useTodoStore()
 
 // 关闭设置：浮窗回到当前页面，整页返回上一页
 const handleClose = () => {
@@ -234,7 +361,8 @@ const handleKeydown = (event) => {
 // 标签配置
 const tabs = [
   { id: 'account', label: '账户安全', icon: 'lock' },
-  { id: 'preferences', label: '偏好设置', icon: 'sliders' }
+  { id: 'preferences', label: '偏好设置', icon: 'sliders' },
+  { id: 'import', label: '导入数据', icon: 'upload' }
 ]
 
 // 标签切换
@@ -253,6 +381,37 @@ const settingsSaving = ref(false)
 const settingsError = ref('')
 const settingsSuccess = ref('')
 const settingsForm = ref({ ...DEFAULT_USER_SETTINGS })
+
+// 导入数据：文件解析结果、预览选项与逐条写入进度
+const importFileInput = ref(null)
+const importFileName = ref('')
+const importTasks = ref([])
+const importWarnings = ref([])
+const importError = ref('')
+const importGroupByList = ref(true)
+const importIncludeCompleted = ref(true)
+const isImportDragging = ref(false)
+const isImporting = ref(false)
+const importDone = ref(false)
+const importCancelRequested = ref(false)
+const importProgress = ref({ done: 0, total: 0, title: '' })
+const importResult = ref(null)
+
+// 只把用户勾选的已完成任务纳入计划，关闭后它们不会写入
+const importCandidateTasks = computed(() => importIncludeCompleted.value
+  ? importTasks.value
+  : importTasks.value.filter((task) => !task.completedAt))
+
+// 预览统计与写入计划都随选项实时重算
+const importSummary = computed(() => summarizeTickTickTasks(importCandidateTasks.value))
+const importPlan = computed(() => buildImportPlan(importCandidateTasks.value, {
+  groupByList: importGroupByList.value
+}))
+const importWarningList = computed(() => [...new Set([...importWarnings.value, ...importPlan.value.warnings])])
+const importPercent = computed(() => {
+  if (!importProgress.value.total) return 0
+  return Math.round((importProgress.value.done / importProgress.value.total) * 100)
+})
 
 // 用户信息
 const userEmail = computed(() => authStore.user?.email || '未知')
@@ -323,9 +482,113 @@ const handleSaveSettings = async () => {
   }
 }
 
+// 读取并解析文件：只做预览，不写数据库
+const loadImportFile = async (file) => {
+  if (!file) return
+
+  importError.value = ''
+  importResult.value = null
+  importDone.value = false
+  importTasks.value = []
+  importWarnings.value = []
+  importFileName.value = file.name
+
+  if (file.size > TICKTICK_IMPORT_MAX_BYTES) {
+    importError.value = '文件超过 5 MB，请先在滴答清单中分批导出'
+    importFileName.value = ''
+    return
+  }
+
+  try {
+    const text = await file.text()
+    if (!text.trim()) throw new Error('文件为空')
+    const parsed = parseTickTickFile(file.name, text)
+    importTasks.value = parsed.tasks
+    importWarnings.value = parsed.warnings
+  } catch (err) {
+    importError.value = err instanceof Error ? err.message : '解析文件失败'
+    importFileName.value = ''
+  }
+}
+
+// 选择文件后允许再次选择同一个文件
+const handleImportFileChange = (event) => {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  loadImportFile(file)
+}
+
+// 拖入文件与点击选择走同一条解析流程
+const handleImportDrop = (event) => {
+  isImportDragging.value = false
+  loadImportFile(event.dataTransfer?.files?.[0])
+}
+
+// 按计划逐条写入；父任务失败时子任务会被跳过
+const handleImportStart = async () => {
+  if (isImporting.value || importDone.value) return
+
+  if (!navigator.onLine) {
+    importError.value = '当前离线，恢复网络后再导入'
+    return
+  }
+
+  const plan = importPlan.value
+  if (!plan.nodes.length) {
+    importError.value = '没有可导入的任务'
+    return
+  }
+
+  importError.value = ''
+  importResult.value = null
+  isImporting.value = true
+  importCancelRequested.value = false
+  importProgress.value = { done: 0, total: plan.nodes.length, title: '' }
+
+  try {
+    importResult.value = await executeTickTickImport({
+      supabase,
+      nodes: plan.nodes,
+      onProgress: (done, total, title) => {
+        importProgress.value = { done, total, title }
+      },
+      isCancelled: () => importCancelRequested.value
+    })
+    // 只要写过数据就禁止重复点击，避免同一文件二次导入
+    importDone.value = importResult.value.imported > 0
+      || importResult.value.failed > 0
+      || importResult.value.skipped > 0
+    await todoStore.fetchTodos()
+  } catch (err) {
+    // 写入中途异常可能已产生部分数据，强制重置文件后再导入
+    importDone.value = true
+    importError.value = err instanceof Error ? err.message : '导入失败'
+  } finally {
+    isImporting.value = false
+  }
+}
+
+// 取消只阻止后续写入，已创建的任务保留
+const handleImportCancel = () => {
+  importCancelRequested.value = true
+}
+
+// 清空预览，换一个文件或重新导入
+const resetImport = () => {
+  if (importFileInput.value) importFileInput.value.value = ''
+  importFileName.value = ''
+  importTasks.value = []
+  importWarnings.value = []
+  importError.value = ''
+  importResult.value = null
+  importDone.value = false
+  isImporting.value = false
+  importCancelRequested.value = false
+  importProgress.value = { done: 0, total: 0, title: '' }
+}
+
 // 修改密码
-const handleChangePassword = async () => {
-  passwordError.value = ''
+const handleChangePassword = async () => {  passwordError.value = ''
   passwordSuccess.value = ''
 
   // 验证

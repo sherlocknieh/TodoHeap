@@ -27,7 +27,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 启动文档 | 根目录 `pnpm dev:docs`（端口 5201） |
 | 两者同时 | `pnpm dev:all` |
 | 构建前端 | `cd frontend && npm run build` |
-| 单元测试 | `cd frontend && npm test`（vitest，仅覆盖 store 层） |
+| 单元测试 | `cd frontend && npm test`（vitest，覆盖 store 层与滴答清单导入解析） |
 | 类型检查 | `cd frontend && npm run type-check`；⚠️ vue-tsc 1.8 与 TS 5.9 不兼容会直接崩，属已知问题，不是新引入的错误 |
 
 `frontend/` 与 `docs/` 各自安装依赖，仓库根只装 `concurrently`。
@@ -43,10 +43,11 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `pages/todo/TodoTree.vue` | 树视图，仅容器，实际渲染 `MindMapWrapper` |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
 | `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
-| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、AI 偏好 |
+| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、AI 偏好、滴答清单导入 |
 | `pages/{Home,Login,ResetPassword,404}.vue` | 落地页与认证页 |
 | `lib/supabase.ts` | 唯一 Supabase client，读 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUB_KEY` |
 | `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
+| `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
 | `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
 | `utils/detailPanelContext.js` | provide/inject key，供深层组件打开详情面板 |
 | `style.css` | Tailwind v4 入口 + 设计令牌（`accent-*` 色阶）+ 基元类 |
