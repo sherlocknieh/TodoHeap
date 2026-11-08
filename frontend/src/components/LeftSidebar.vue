@@ -263,7 +263,7 @@ const switchView = (view) => {
         @click="$emit('close')"
         :class="[
           'p-1.5 -mr-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors',
-          overlay ? '' : 'lg:hidden'
+          overlay || railHidden ? '' : 'lg:hidden'
         ]"
         title="关闭侧栏"
       >

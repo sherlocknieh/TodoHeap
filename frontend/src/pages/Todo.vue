@@ -113,6 +113,22 @@ const activeSection = computed(() => {
 
 const isNavEntryActive = (id) => id === activeSection.value
 
+// 收起左侧导航前的侧栏开合，开回时恢复原样
+let sidebarBeforeRailCollapse = false
+
+// 收起左侧导航：活动栏与侧栏一起隐藏，避免留下无从关闭的侧栏
+const collapseNavigation = () => {
+	sidebarBeforeRailCollapse = showLeftSidebar.value
+	showActivityRail.value = false
+	showLeftSidebar.value = false
+}
+
+// 开回左侧导航：顶栏按钮触发，恢复收起前的侧栏状态
+const expandNavigation = () => {
+	showActivityRail.value = true
+	showLeftSidebar.value = sidebarBeforeRailCollapse
+}
+
 // 点击当前入口切换侧栏，点击其他入口切换视图并展开对应侧栏
 const openNavEntry = (entry) => {
 	if (activeSection.value === entry.id) {
@@ -208,6 +224,8 @@ const handleBeforeUnload = (e) => {
 }
 
 onMounted(async () => {
+	// 导航处于收起状态时，侧栏不能单独浮在外面
+	if (!showActivityRail.value) showLeftSidebar.value = false
 	// 确保认证初始化完成
 	await authStore.initAuth()
 
@@ -385,10 +403,10 @@ const runToastUndo = async () => {
 			<aside v-if="showActivityRail" data-activity-rail
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
 				<div class="flex flex-col items-center">
-					<!-- 收起活动栏 -->
-					<button @click="showActivityRail = false"
+					<!-- 收起左侧导航 -->
+					<button @click="collapseNavigation"
 						class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
-						title="收起活动栏">
+						title="收起导航">
 						<AppIcon name="sidebar" />
 					</button>
 
@@ -457,8 +475,8 @@ const runToastUndo = async () => {
 				<header
 					class="h-11 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
 					<div class="flex h-full items-center gap-3" :class="topBarClass">
-						<!-- 活动栏收起后，从这里开回 -->
-						<button v-if="!showActivityRail" @click="showActivityRail = true" title="显示活动栏"
+						<!-- 导航收起后，从这里开回 -->
+						<button v-if="!showActivityRail" @click="expandNavigation" title="显示导航"
 							class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200">
 							<AppIcon name="sidebar" :size="15" />
 						</button>
