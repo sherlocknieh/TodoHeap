@@ -392,16 +392,15 @@ const runToastUndo = async () => {
 	<div class="h-screen flex flex-col overflow-hidden">
 		<!-- 主内容区 -->
 		<div class="relative flex-1 min-w-0 min-h-0 flex overflow-hidden">
-			<!-- 左侧活动栏：可收起，由开关与顶栏按钮控制 -->
+			<!-- 左侧活动栏：顶部 Logo 回主页，收起开关在底栏 -->
 			<aside v-if="showActivityRail" data-activity-rail
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
 				<div class="flex flex-col items-center">
-					<!-- 收起左侧导航 -->
-					<button @click="collapseNavigation"
-						class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
-						title="收起导航">
-						<AppIcon name="sidebar" />
-					</button>
+					<!-- 回主页 -->
+					<RouterLink to="/" title="回到主页"
+						class="h-9 w-9 rounded-md flex items-center justify-center hover:bg-white/15 transition-colors">
+						<img src="/logo.png" alt="TodoHeap" class="h-6 w-6 rounded" />
+					</RouterLink>
 
 					<!-- 主入口：分隔线与顶栏下边框同高 -->
 					<nav class="flex flex-col items-center gap-1 pt-2 border-t border-white/20 w-8">
@@ -523,13 +522,18 @@ const runToastUndo = async () => {
 				@task-selected="handleTaskSelected" />
 		</div>
 
-		<!-- 状态栏：当前视图与全局进度、同步状态；树视图全屏展示思维导图时隐藏，导航收起时保留开回入口 -->
-		<footer v-if="activeView !== 'tree' || !showActivityRail"
+		<!-- 状态栏：导航开关、当前视图与全局进度、同步状态 -->
+		<footer
 			class="h-8 shrink-0 border-t border-hairline bg-surface px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 select-none">
 			<div class="flex items-center gap-2.5 min-w-0">
-				<!-- 导航收起后，从这里开回 -->
-				<button v-if="!showActivityRail" type="button" @click="expandNavigation" title="显示导航"
-					class="h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200">
+				<!-- 导航开关：常驻底栏，收起后仍可从这里开回 -->
+				<button type="button"
+					:title="showActivityRail ? '收起导航' : '显示导航'"
+					@click="showActivityRail ? collapseNavigation() : expandNavigation()"
+					class="h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-colors"
+					:class="showActivityRail
+						? 'text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'
+						: 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'">
 					<AppIcon name="sidebar" :size="14" />
 				</button>
 				<span class="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">{{ activeViewTitle }}</span>
