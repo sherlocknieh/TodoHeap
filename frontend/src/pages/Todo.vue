@@ -9,7 +9,6 @@ import { storeToRefs } from 'pinia'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import BreakdownStatusCard from '@/components/BreakdownStatusCard.vue'
-import OptimizeProgressCard from '@/components/OptimizeProgressCard.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import AITaskInput from '@/components/AITaskInput.vue'
@@ -56,7 +55,6 @@ const showUserMenu = ref(false)
 const selectedTaskId = ref(null)
 const isBreakingDown = ref(false)
 const isAnalyzingTask = ref(false)
-const isOptimizingTasks = ref(false)
 const analyzeProgress = ref({
 	visible: false,
 	stage: '',
@@ -67,15 +65,6 @@ const analyzeProgress = ref({
 const breakdownMessage = ref('')
 const breakdownMessageType = ref('') // 'success' or 'error'
 const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
-const optimizeProgress = ref({
-	visible: false,
-	stage: '', // 'executing' | 'complete' | 'error'
-	currentOp: '', // 当前操作描述
-	operations: [], // 已完成的操作列表
-	elapsedSec: 0,
-	summary: '',
-	changes: null
-}) // 优化进度
 const pendingTasks = ref([]) // 待确认的任务列表（用于预览模式）
 const userSettings = ref({ ...DEFAULT_USER_SETTINGS })
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
@@ -145,7 +134,6 @@ const realtimeStatusClass = computed(() => {
 })
 
 const aiStatusLabel = computed(() => {
-	if (isOptimizingTasks.value) return '任务优化中...'
 	if (isBreakingDown.value) return '任务分解中...'
 	if (isAnalyzingTask.value) return analyzeProgress.value.message || 'AI 分析中...'
 	return '空闲'
@@ -448,95 +436,6 @@ const stopAnalyzeTimer = () => {
 	analyzeTimer = null
 }
 
-let optimizeTimer = null
-
-const resetOptimizeProgress = () => {
-	optimizeProgress.value = {
-		visible: false,
-		stage: '',
-		currentOp: '',
-		operations: [],
-		elapsedSec: 0,
-		summary: '',
-		changes: null
-	}
-}
-
-const startOptimizeTimer = () => {
-	if (optimizeTimer) clearInterval(optimizeTimer)
-	optimizeTimer = setInterval(() => {
-		optimizeProgress.value.elapsedSec += 1
-	}, 1000)
-}
-
-const stopOptimizeTimer = () => {
-	if (!optimizeTimer) return
-	clearInterval(optimizeTimer)
-	optimizeTimer = null
-}
-
-const handleOptimizeTasks = async () => {
-	if (isOptimizingTasks.value) return
-
-	isOptimizingTasks.value = true
-	resetOptimizeProgress()
-	optimizeProgress.value.visible = true
-	optimizeProgress.value.stage = 'executing'
-	optimizeProgress.value.currentOp = '初始化优化任务...'
-	startOptimizeTimer()
-
-	try {
-		// 显示初始的操作提示
-		optimizeProgress.value.operations.push('正在分析任务树结构')
-		optimizeProgress.value.currentOp = '正在执行优化操作...'
-		await new Promise(resolve => setTimeout(resolve, 500))
-
-		const result = await todoStore.invokeOptimizeTasks('请执行任务优化：日期调整、任务聚合、并创建一条执行建议任务。')
-		
-		stopOptimizeTimer()
-
-		if (result.success) {
-			optimizeProgress.value.operations.push('日期调整完成')
-			optimizeProgress.value.operations.push('任务聚合完成')
-			optimizeProgress.value.operations.push('执行建议已创建')
-			optimizeProgress.value.currentOp = '优化完成，正在加载更新...'
-			
-			await todoStore.fetchTodos()
-			
-			optimizeProgress.value.stage = 'complete'
-			optimizeProgress.value.summary = result.summary || '任务优化已完成'
-			optimizeProgress.value.changes = result.changes || {}
-			optimizeProgress.value.currentOp = ''
-			
-			showBreakdownMessage(result.summary || '任务优化已完成', 'success')
-			
-			// 3秒后隐藏进度窗口
-			setTimeout(() => {
-				optimizeProgress.value.visible = false
-			}, 3000)
-		} else {
-			optimizeProgress.value.stage = 'error'
-			optimizeProgress.value.currentOp = `错误: ${result.error || '未知错误'}`
-			showBreakdownMessage(`任务优化失败: ${result.error || '未知错误'}`, 'error')
-			
-			setTimeout(() => {
-				optimizeProgress.value.visible = false
-			}, 3000)
-		}
-	} catch (error) {
-		stopOptimizeTimer()
-		optimizeProgress.value.stage = 'error'
-		optimizeProgress.value.currentOp = `异常: ${error.message || '未知错误'}`
-		showBreakdownMessage(`任务优化异常: ${error.message || '未知错误'}`, 'error')
-		setTimeout(() => {
-			optimizeProgress.value.visible = false
-		}, 3000)
-	} finally {
-		isOptimizingTasks.value = false
-		stopOptimizeTimer()
-	}
-}
-
 // 点击外部关闭用户菜单
 const handleClickOutside = (event) => {
 	if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
@@ -675,10 +574,10 @@ const runToastUndo = async () => {
 
 			<!-- 左栏：任务导航面板；树视图下覆盖在导图之上，避免改变导图宽度 -->
 			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
-				:is-breaking-down="isBreakingDown" :section="activeSection" :is-optimizing="isOptimizingTasks"
+				:is-breaking-down="isBreakingDown" :section="activeSection"
 				:overlay="activeView === 'tree'"
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
-				@breakdown-task="handleBreakdownTask" @optimize-tasks="handleOptimizeTasks" />
+				@breakdown-task="handleBreakdownTask" />
 
 			<!-- 中栏：主要视图内容 -->
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
@@ -687,10 +586,6 @@ const runToastUndo = async () => {
 					<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
 						:status="breakdownMessageType" :task-count="breakdownProgress.count"
 						:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks" @cancel="handleCancelTasks" />
-					<OptimizeProgressCard :visible="optimizeProgress.visible" :stage="optimizeProgress.stage"
-						:current-op="optimizeProgress.currentOp" :operations="optimizeProgress.operations"
-						:elapsed-sec="optimizeProgress.elapsedSec" :summary="optimizeProgress.summary"
-						:changes="optimizeProgress.changes" />
 				</div>
 
 				<!-- 清单内容 -->
@@ -714,7 +609,7 @@ const runToastUndo = async () => {
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									:is-breaking-down="isBreakingDown"
 									@task-selected="handleTaskSelected" @breakdown-task="handleBreakdownTask"
-									@submit-task="handleAnalyzeTaskInput" @optimize-tasks="handleOptimizeTasks"
+									@submit-task="handleAnalyzeTaskInput"
 									@notify="handleNotify" @open-sidebar="showLeftSidebar = true" />
 							</router-view>
 						</div>

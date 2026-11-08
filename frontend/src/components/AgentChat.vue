@@ -51,7 +51,8 @@ const SUGGESTIONS = [
   { icon: 'list', text: '今天有哪些任务最该先做？' },
   { icon: 'sparkles', text: '把「准备季度汇报」拆成 5 个子任务，下周五前完成' },
   { icon: 'clock', text: '这周有哪些任务快逾期了？' },
-  { icon: 'calendar', text: '帮我建一条明天 15:00-16:00 的评审会日程' }
+  { icon: 'calendar', text: '帮我建一条明天 15:00-16:00 的评审会日程' },
+  { icon: 'target', text: '帮我做一次全局任务优化', action: 'optimize' }
 ]
 
 const toolLabel = (name) => TOOL_LABELS[name] || name
@@ -122,9 +123,13 @@ const sendDraft = () => {
   agent.send(content)
 }
 
-const sendSuggestion = (text) => {
+const sendSuggestion = (item) => {
   if (agent.running) return
-  agent.send(text)
+  if (item.action === 'optimize') {
+    agent.optimizeTasks()
+    return
+  }
+  agent.send(item.text)
 }
 
 const onEnter = (event) => {
@@ -226,7 +231,7 @@ onMounted(() => {
         <p class="text-xs text-neutral-500 dark:text-neutral-400">试试这样问：</p>
         <button v-for="item in SUGGESTIONS" :key="item.text"
           class="w-full text-left panel px-3 py-2.5 text-sm text-neutral-700 dark:text-neutral-300 hover:border-accent-300 dark:hover:border-accent-500/40 transition-colors flex items-start gap-2.5"
-          @click="sendSuggestion(item.text)">
+          @click="sendSuggestion(item)">
           <AppIcon :name="item.icon" :size="15" class="mt-0.5 opacity-70" />
           <span class="flex-1">{{ item.text }}</span>
           <AppIcon name="chevronRight" :size="14" class="mt-0.5 opacity-40" />

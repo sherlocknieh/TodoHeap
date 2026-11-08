@@ -63,13 +63,13 @@ A built-in option is also available: choose **Built-in model** instead of a pers
 
 Destructive actions (deleting tasks, clearing completed tasks, emptying the trash) are always shown for confirmation before they run.
 
-### Shortcuts
+### Other AI actions
 
 | Feature | What it does |
 | --- | --- |
 | Task breakdown | Split an existing task into 3–6 actionable subtasks |
 | Task analysis | Turn a natural-language sentence into a task tree |
-| Global optimisation | Adjust dates, break down and aggregate tasks in one pass |
+| One-click optimisation | Create a session and let the agent adjust dates, break down and aggregate tasks in one pass |
 
 Breakdown can run in preview mode: generated subtasks are shown for confirmation before they are written to the database. Enable auto-apply in **Settings → AI preferences** to skip that step.
 

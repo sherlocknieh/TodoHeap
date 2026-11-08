@@ -201,6 +201,35 @@ describe('useAgentStore', () => {
     expect(agent.sessions.find((session) => session.id === firstId).messages).toHaveLength(0)
   })
 
+  it('内置全局优化会新建会话并发送固定指令', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '已优化', tool_calls: [] })
+
+    const agent = useAgentStore()
+    const result = await agent.optimizeTasks()
+
+    expect(result).toBe(true)
+    expect(agent.activeSession.title).toBe('全局任务优化')
+    expect(agent.messages[0]).toMatchObject({ role: 'user' })
+    expect(agent.messages[0].content).toContain('全局优化')
+    expect(agent.messages.at(-1).content).toBe('已优化')
+    expect(mocks.chat).toHaveBeenCalledTimes(1)
+  })
+
+  it('已有消息时会为全局优化新建会话', async () => {
+    mocks.chat
+      .mockResolvedValueOnce({ content: '旧会话回复', tool_calls: [] })
+      .mockResolvedValueOnce({ content: '已优化', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('旧话题')
+    const previousId = agent.activeSessionId
+
+    await agent.optimizeTasks()
+
+    expect(agent.activeSessionId).not.toBe(previousId)
+    expect(agent.sessions.find((session) => session.id === previousId).messages).toHaveLength(2)
+  })
+
   it('模型调用失败时暴露可读错误并复位运行状态', async () => {
     mocks.chat.mockRejectedValueOnce(new Error('模型接口返回 401：invalid api key'))
 

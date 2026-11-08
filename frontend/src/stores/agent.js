@@ -128,8 +128,17 @@ const loadStoredState = (userId) => {
   return null
 }
 
-const truncate = (value) => {
-  const text = typeof value === 'string' ? value : JSON.stringify(value)
+// 内置技能：全局优化不是独立能力，只是给 Agent 的一段固定指令
+const OPTIMIZE_PROMPT = `请对当前用户的所有任务做一次全局优化。
+步骤：
+1. 先用 list_todos 读取全部未完成任务，理解任务树、截止时间与难度。
+2. 调整不合理的截止时间，让先后顺序合理；缺少时间的任务按需要补上。
+3. 把过于笼统的任务拆成 3-6 个可执行子任务。
+4. 合并重复或过碎的任务。
+5. 最后创建一条「下一步执行建议」任务。
+只调整确实需要改的内容，不要为了改动而改动；不要删除任务或清空回收站。完成后用简短中文说明本次改了什么。`
+
+const truncate = (value) => {  const text = typeof value === 'string' ? value : JSON.stringify(value)
   if (text.length <= MAX_TOOL_RESULT_CHARS) return text
   return `${text.slice(0, MAX_TOOL_RESULT_CHARS)}…（结果已截断）`
 }
@@ -359,8 +368,7 @@ export const useAgentStore = defineStore('agent', () => {
     persist()
   }
 
-  const send = async (text) => {
-    const content = String(text || '').trim()
+  const send = async (text) => {    const content = String(text || '').trim()
     if (!content || running.value || pendingApproval.value) return
 
     const llm = useLlmStore()
@@ -479,6 +487,29 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
+  // 内置技能：复用空会话或新建会话，让 Agent 按固定指令执行全局优化
+  const optimizeTasks = async () => {
+    if (running.value || pendingApproval.value) return false
+
+    const llm = useLlmStore()
+    if (!llm.isConfigured) {
+      error.value = '请先在设置 → 模型接入中配置模型'
+      return false
+    }
+
+    init(useAuthStore().user?.id)
+    if (!activeSession.value || messages.value.length > 0) newSession()
+
+    const session = activeSession.value
+    if (session) {
+      session.title = '全局任务优化'
+      session.updatedAt = nowIso()
+    }
+    persist()
+    await send(OPTIMIZE_PROMPT)
+    return true
+  }
+
   return {
     messages,
     sessions,
@@ -497,6 +528,7 @@ export const useAgentStore = defineStore('agent', () => {
     newSession,
     switchSession,
     renameSession,
-    deleteSession
+    deleteSession,
+    optimizeTasks
   }
 })

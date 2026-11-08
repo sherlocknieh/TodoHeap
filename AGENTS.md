@@ -76,7 +76,6 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `BreakdownStatusCard.vue` | 分解状态：进行中 / 待确认 / 成功 / 失败 |
-| `OptimizeProgressCard.vue` | 全局优化进度与变更摘要 |
 | `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
 
 ### 状态管理
@@ -89,7 +88,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `stores/todos.optimistic.js` | 乐观更新与级联（删父删子等） |
 | `stores/todos.rollback.js` | 失败回滚 |
 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
-| `stores/todos.breakdown.js` | 三个 AI 边缘函数的调用封装（分解 / 新建 / 优化） |
+| `stores/todos.breakdown.js` | 两个 AI 边缘函数的调用封装（分解 / 新建） |
 | `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
 | `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除 |
 | `stores/agent.js` | 对话 Agent：多会话、系统提示、工具循环、确认与本地持久化 |
@@ -99,7 +98,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 写操作链路：UI → `todos.js` action → 本地乐观更新并入队 → Supabase → 成功派发 `sync:id-replaced` / 失败回滚。
 
-对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。
+对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。全局优化是内置技能（新建会话 + 固定提示词），没有独立的边缘函数。
 
 ## Supabase
 
@@ -112,7 +111,6 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | --- | --- |
 | `breakdown_task` | 把选定任务拆成 3-6 个子任务，返回 JSON 数组 |
 | `new_task_ai` | 自然语言 → 新建任务树 |
-| `optimize_tasks` | 全局优化：调日期、拆解、聚合、生成执行建议（AI SDK + tool calling） |
 | `calendar_feed` | 日历订阅源：`?token=` 调用 `get_calendar_feed` RPC 输出 ICS，`verify_jwt = false` |
 | `llm_gateway` | 内置模型网关：校验用户 JWT 后用平台密钥转发 OpenAI 兼容请求；`GET` 返回实际可用模型（白名单或上游 `/models`）；订阅校验在 `authorizeRequest` 留空 |
 
