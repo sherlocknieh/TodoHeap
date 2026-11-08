@@ -3,10 +3,10 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { supabase, supabasePubKey, supabaseUrl } from '@/lib/supabase'
 import {
-  BUILTIN_MODELS,
   DEFAULT_LLM_CONFIG,
   LLM_MODES,
   LLM_PRESETS,
+  fetchGatewayModels,
   normalizeLlmConfig,
   streamChatCompletion
 } from '@/lib/llmProvider'
@@ -26,6 +26,9 @@ const readStoredConfig = () => {
 
 export const useLlmStore = defineStore('llm', () => {
   const config = ref(readStoredConfig())
+  const builtinModels = ref([])
+  const modelsLoading = ref(false)
+  const modelsWarning = ref('')
 
   const isBuiltin = computed(() => config.value.mode === 'builtin')
   const activeModel = computed(() => (isBuiltin.value ? config.value.builtinModel : config.value.model))
@@ -58,6 +61,35 @@ export const useLlmStore = defineStore('llm', () => {
     const token = data.session?.access_token
     if (!token) throw new Error('登录状态已失效，请重新登录')
     return token
+  }
+
+  // 模型列表由网关决定：优先平台白名单，其次上游 /models
+  const loadBuiltinModels = async ({ force = false } = {}) => {
+    if (modelsLoading.value) return builtinModels.value
+    if (!force && builtinModels.value.length) return builtinModels.value
+
+    modelsLoading.value = true
+    modelsWarning.value = ''
+    try {
+      const token = await getAccessToken()
+      const result = await fetchGatewayModels({
+        endpoint: BUILTIN_ENDPOINT,
+        apiKey: token,
+        extraHeaders: { apikey: supabasePubKey }
+      })
+      builtinModels.value = result.models
+      modelsWarning.value = result.warning
+      // 已保存的模型不在实际列表中时自动纠正，避免继续调用已下线的型号
+      if (result.models.length && !result.models.includes(config.value.builtinModel)) {
+        update({ builtinModel: result.models[0] })
+      }
+      return result.models
+    } catch (err) {
+      modelsWarning.value = err?.message || '读取模型列表失败'
+      return []
+    } finally {
+      modelsLoading.value = false
+    }
   }
 
   // 两种模式只在请求目标与凭证上不同，Agent 与工具层无需感知
@@ -118,12 +150,15 @@ export const useLlmStore = defineStore('llm', () => {
     config,
     modes: LLM_MODES,
     presets: LLM_PRESETS,
-    builtinModels: BUILTIN_MODELS,
+    builtinModels,
+    modelsLoading,
+    modelsWarning,
     isBuiltin,
     activeModel,
     isConfigured,
     update,
     reset,
+    loadBuiltinModels,
     chat,
     testConnection
   }

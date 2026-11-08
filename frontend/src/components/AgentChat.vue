@@ -165,6 +165,8 @@ watch(() => props.selectedTaskId, (id) => agent.setContext({ selectedTaskId: id 
 
 onMounted(() => {
   agent.init(authStore.user?.id)
+  // 内置模式下先校准模型列表，避免继续使用已下线的旧型号
+  if (llm.isBuiltin) llm.loadBuiltinModels()
   // 预取数据，工具调用时可直接命中本地缓存
   todoStore.fetchTodos()
   scheduleStore.fetchSchedules()

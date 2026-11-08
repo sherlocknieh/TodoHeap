@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_LLM_CONFIG,
   createStreamAccumulator,
+  fetchGatewayModels,
   normalizeLlmConfig,
   resolveChatUrl,
   streamChatCompletion
@@ -50,8 +51,54 @@ describe('normalizeLlmConfig', () => {
     expect(config.model).toBe('byok-model')
   })
 
-  it('内置模型缺省时回落到推荐模型', () => {
-    expect(normalizeLlmConfig({ mode: 'builtin' }).builtinModel).toBe(DEFAULT_LLM_CONFIG.builtinModel)
+  it('内置模型缺省时留空，等待网关返回可用列表', () => {
+    expect(normalizeLlmConfig({ mode: 'builtin' }).builtinModel).toBe('')
+  })
+})
+
+describe('fetchGatewayModels', () => {
+  it('用 GET 读取网关返回的模型列表', async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ models: ['deepseek-flash', 'deepseek-chat'], source: 'upstream' }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    ))
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const result = await fetchGatewayModels({
+        endpoint: 'https://example.supabase.co/functions/v1/llm_gateway',
+        apiKey: 'user-jwt',
+        extraHeaders: { apikey: 'publishable-key' }
+      })
+
+      expect(result.models).toEqual(['deepseek-flash', 'deepseek-chat'])
+      expect(result.warning).toBe('')
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toBe('https://example.supabase.co/functions/v1/llm_gateway')
+      expect(init.method).toBe('GET')
+      expect(init.headers).toMatchObject({
+        Authorization: 'Bearer user-jwt',
+        apikey: 'publishable-key'
+      })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('网关无法列出模型时返回 warning，供界面退回手动输入', async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ models: [], source: 'unavailable', warning: '请手动填写模型名' }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    ))
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const result = await fetchGatewayModels({ endpoint: 'https://example.com/gateway', apiKey: 'jwt' })
+      expect(result.models).toEqual([])
+      expect(result.warning).toBe('请手动填写模型名')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useLlmStore } from '@/stores/llm'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -16,14 +16,43 @@ const canSave = computed(() => (isBuiltin.value
   ? Boolean(draft.value.builtinModel)
   : Boolean(draft.value.baseUrl && draft.value.model)))
 
+// 已保存但不在网关返回列表中的模型仍保留在选项里，避免配置被静默丢弃
+const modelOptions = computed(() => {
+  const options = [...llm.builtinModels]
+  if (draft.value.builtinModel && !options.includes(draft.value.builtinModel)) {
+    options.unshift(draft.value.builtinModel)
+  }
+  return options
+})
+
 const setStatus = (type, message) => {
   status.value = { type, message }
+}
+
+// 读取网关实际提供的模型；保存值失效时同步为可用模型
+const loadModels = async (force = false) => {
+  const previous = llm.config.builtinModel
+  await llm.loadBuiltinModels({ force })
+
+  if (!draft.value.builtinModel && llm.builtinModels.length) {
+    draft.value.builtinModel = llm.config.builtinModel || llm.builtinModels[0]
+    return
+  }
+  // 用户没改过模型时跟随网关纠正；手动输入的值保持不动
+  if (draft.value.builtinModel === previous && llm.config.builtinModel !== previous) {
+    draft.value.builtinModel = llm.config.builtinModel
+  }
 }
 
 const switchMode = (mode) => {
   draft.value.mode = mode
   setStatus('', '')
+  if (mode === 'builtin') loadModels()
 }
+
+onMounted(() => {
+  if (draft.value.mode === 'builtin') loadModels()
+})
 
 // 切换预设时套用该服务商的地址与首个推荐模型
 const handlePresetChange = () => {
@@ -128,16 +157,28 @@ const handleReset = () => {
     </div>
 
     <div v-else class="space-y-4">
-      <label class="block space-y-1.5">
-        <span class="text-xs font-medium text-neutral-700 dark:text-neutral-300">内置模型</span>
-        <input v-model="draft.builtinModel" class="field" list="builtin-models" placeholder="选择或填写模型名称" autocomplete="off" />
-        <datalist id="builtin-models">
-          <option v-for="model in llm.builtinModels" :key="model" :value="model" />
-        </datalist>
-      </label>
+      <div class="flex items-end gap-2">
+        <label class="flex-1 space-y-1.5">
+          <span class="text-xs font-medium text-neutral-700 dark:text-neutral-300">内置模型</span>
+          <select v-if="modelOptions.length" v-model="draft.builtinModel" class="field" :disabled="llm.modelsLoading">
+            <option v-for="model in modelOptions" :key="model" :value="model">{{ model }}</option>
+          </select>
+          <input v-else v-model="draft.builtinModel" class="field"
+            placeholder="网关未返回列表，请手动填写模型名" autocomplete="off" />
+        </label>
+        <button type="button" class="btn-outline px-2 py-1.5 shrink-0" :disabled="llm.modelsLoading"
+          title="刷新模型列表" @click="loadModels(true)">
+          <AppIcon :name="llm.modelsLoading ? 'loader' : 'refresh'" :size="14"
+            :class="llm.modelsLoading ? 'animate-spin' : ''" />
+        </button>
+      </div>
+
+      <p v-if="llm.modelsWarning" class="text-[11px] leading-5 text-amber-700 dark:text-amber-300">
+        {{ llm.modelsWarning }}
+      </p>
 
       <p class="rounded-md border border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-600 dark:border-hairline-dark dark:text-neutral-400">
-        请求经 TodoHeap 网关转发，对话内容与工具结果会经过服务器。当前为网关骨架：订阅与额度校验尚未启用，所有已登录用户均可调用。
+        请求经 TodoHeap 网关转发，对话内容与工具结果会经过服务器。模型列表来自网关实际提供的范围。当前为网关骨架：订阅与额度校验尚未启用，所有已登录用户均可调用。
       </p>
     </div>
 

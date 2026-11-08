@@ -17,16 +17,13 @@ export const LLM_MODES = [
   { id: 'builtin', label: '内置模型', description: '经 TodoHeap 网关调用，订阅后可用' }
 ]
 
-// 内置模式可选的模型建议；实际可用范围由网关的 LLM_ALLOWED_MODELS 决定
-export const BUILTIN_MODELS = ['deepseek-flash', 'deepseek-chat', 'gpt-4.1-mini']
-
 export const DEFAULT_LLM_CONFIG = {
   mode: 'byok',
   presetId: 'openai',
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4.1-mini',
-  builtinModel: BUILTIN_MODELS[0],
+  builtinModel: '',
   temperature: 0.2
 }
 
@@ -45,9 +42,7 @@ export const normalizeLlmConfig = (source) => {
     baseUrl,
     apiKey: typeof input.apiKey === 'string' ? input.apiKey.trim() : '',
     model: typeof input.model === 'string' ? input.model.trim() : '',
-    builtinModel: typeof input.builtinModel === 'string' && input.builtinModel.trim()
-      ? input.builtinModel.trim()
-      : BUILTIN_MODELS[0],
+    builtinModel: typeof input.builtinModel === 'string' ? input.builtinModel.trim() : '',
     temperature: Number.isFinite(Number(input.temperature))
       ? Math.min(2, Math.max(0, Number(input.temperature)))
       : DEFAULT_LLM_CONFIG.temperature
@@ -112,8 +107,7 @@ export const createStreamAccumulator = () => {
   }
 }
 
-const readErrorMessage = (payload) => {
-  if (!payload) return ''
+const readErrorMessage = (payload) => {  if (!payload) return ''
   if (typeof payload === 'string') return payload
   if (payload.error?.message) return payload.error.message
   if (payload.message) return payload.message
@@ -132,6 +126,34 @@ const normalizeMessage = (message) => {
         arguments: call.function?.arguments || '{}'
       }
     })).filter((call) => call.function.name)
+  }
+}
+
+// 读取网关实际提供的模型；返回 warning 时由设置页退回手动填写
+export const fetchGatewayModels = async ({ endpoint, apiKey, extraHeaders, signal }) => {
+  const headers = { ...(extraHeaders || {}) }
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+  let response
+  try {
+    response = await fetch(endpoint, { method: 'GET', headers, signal })
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err
+    throw new LlmError('无法连接内置模型网关：请确认 llm_gateway 已部署')
+  }
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new LlmError(`网关返回 ${response.status}${text ? `：${text.slice(0, 200)}` : ''}`, {
+      status: response.status
+    })
+  }
+
+  const payload = await response.json().catch(() => null)
+  const list = Array.isArray(payload?.models) ? payload.models : []
+  return {
+    models: list.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()),
+    warning: typeof payload?.warning === 'string' ? payload.warning : ''
   }
 }
 
