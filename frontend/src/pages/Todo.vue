@@ -95,21 +95,30 @@ const activeViewLabel = computed(() => {
 	return '列表'
 })
 
-// 活动栏主入口：清单、日程与 AI 分别对应视图
+// 活动栏主入口：清单、日程与 AI 分别对应视图与侧栏内容
 const navEntries = [
 	{ id: 'list', label: '清单', icon: 'list' },
 	{ id: 'schedule', label: '日程', icon: 'calendar' },
 	{ id: 'ai', label: 'AI' }
 ]
 
-const isNavEntryActive = (id) => {
-	if (id === 'ai') return activeView.value === 'ai'
-	if (id === 'schedule') return activeView.value === 'schedule'
-	return activeView.value !== 'ai' && activeView.value !== 'schedule'
-}
+// 清单入口涵盖列表、树、堆、回收站
+const activeSection = computed(() => {
+	if (activeView.value === 'ai') return 'ai'
+	if (activeView.value === 'schedule') return 'schedule'
+	return 'list'
+})
 
+const isNavEntryActive = (id) => id === activeSection.value
+
+// 点击当前入口切换侧栏，点击其他入口切换视图并展开对应侧栏
 const openNavEntry = (entry) => {
+	if (activeSection.value === entry.id) {
+		showLeftSidebar.value = !showLeftSidebar.value
+		return
+	}
 	switchView(entry.id)
+	showLeftSidebar.value = true
 }
 
 const syncStatusLabel = computed(() => hasUnsyncedChanges.value ? '有待同步更改' : '已同步')
@@ -581,7 +590,7 @@ onUnmounted(() => {
 	<!-- 主界面 -->
 	<div class="h-screen flex flex-col overflow-hidden">
 		<!-- 主内容区 -->
-		<div class="flex-1 min-w-0 min-h-0 flex overflow-hidden">
+		<div class="relative flex-1 min-w-0 min-h-0 flex overflow-hidden">
 			<!-- 左侧活动栏 -->
 			<aside
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
@@ -644,11 +653,12 @@ onUnmounted(() => {
 				</div>
 			</aside>
 
-			<!-- 左栏：任务导航面板；树视图让思维导图占满活动栏以外区域 -->
-			<LeftSidebar v-if="activeView !== 'tree'" :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
-				:is-breaking-down="isBreakingDown"
+			<!-- 左栏：任务导航面板；树视图下覆盖在导图之上，避免改变导图宽度 -->
+			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
+				:is-breaking-down="isBreakingDown" :section="activeSection" :is-optimizing="isOptimizingTasks"
+				:overlay="activeView === 'tree'"
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
-				@breakdown-task="handleBreakdownTask" />
+				@breakdown-task="handleBreakdownTask" @optimize-tasks="handleOptimizeTasks" />
 
 			<!-- 中栏：主要视图内容 -->
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
