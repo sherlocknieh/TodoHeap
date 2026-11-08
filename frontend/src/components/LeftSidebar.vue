@@ -81,15 +81,15 @@ const switchView = (view) => {
           :key="view.id"
           @click="switchView(view.id)"
           :class="[
-            'w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 border-l-2',
+            'w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors flex items-center gap-2.5 border-l-2',
             activeView === view.id
-              ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-100 font-medium border-accent-500 dark:border-accent-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200'
+              ? 'bg-accent-100/80 text-accent-900 dark:bg-accent-500/20 dark:text-accent-100 font-semibold border-accent-600 dark:border-accent-400'
+              : 'border-transparent text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200'
           ]"
         >
           <AppIcon :name="view.icon" :size="15" class="opacity-70" />
           <span class="flex-1">{{ view.label }}</span>
-          <span v-if="view.count !== undefined" class="font-mono text-[11px] text-neutral-400">{{ view.count }}</span>
+          <span v-if="view.count !== undefined" class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ view.count }}</span>
         </button>
       </nav>
 
@@ -98,16 +98,16 @@ const switchView = (view) => {
         <p class="eyebrow px-2 pb-1.5">统计</p>
         <div class="px-2 space-y-1.5">
           <div class="flex items-baseline justify-between text-sm">
-            <span class="text-neutral-500 dark:text-neutral-500">总任务</span>
-            <span class="font-mono text-neutral-900 dark:text-neutral-200">{{ stats.total }}</span>
+            <span class="text-neutral-600 dark:text-neutral-400">总任务</span>
+            <span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ stats.total }}</span>
           </div>
           <div class="flex items-baseline justify-between text-sm">
-            <span class="text-neutral-500 dark:text-neutral-500">已完成</span>
+            <span class="text-neutral-600 dark:text-neutral-400">已完成</span>
             <span class="font-mono text-accent-700 dark:text-accent-400">{{ stats.completed }}</span>
           </div>
           <div class="flex items-baseline justify-between text-sm">
-            <span class="text-neutral-500 dark:text-neutral-500">进行中</span>
-            <span class="font-mono text-neutral-900 dark:text-neutral-200">{{ stats.pending }}</span>
+            <span class="text-neutral-600 dark:text-neutral-400">进行中</span>
+            <span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ stats.pending }}</span>
           </div>
         </div>
         <!-- 完成进度 -->
@@ -123,7 +123,7 @@ const switchView = (view) => {
       <section class="space-y-0.5">
         <p class="eyebrow px-2 pb-1.5">AI</p>
         <button
-          class="w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors flex items-center gap-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200 disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isOptimizing"
           @click="$emit('optimize-tasks')"
         >

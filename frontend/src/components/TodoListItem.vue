@@ -20,7 +20,7 @@
           class="shrink-0 grid place-items-center w-[15px] h-[15px] rounded-[3px] border transition-colors"
           :class="statusMap[item.id] === 'checked'
             ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
-            : 'border-neutral-300 text-transparent hover:border-neutral-400 dark:border-neutral-600 dark:hover:border-neutral-400'"
+            : 'border-neutral-400 text-transparent hover:border-neutral-500 dark:border-neutral-500 dark:hover:border-neutral-400'"
           :aria-pressed="statusMap[item.id] === 'checked'" @click.stop="cycleStatus(item)">
           <AppIcon name="check" :size="10" />
         </button>
@@ -39,7 +39,7 @@
             @keyup.esc="editingId = null" />
 
           <div v-if="editingId !== item.id && (item.deadline || item.difficulty != null)"
-            class="mt-0.5 flex flex-wrap items-center gap-1.5">
+            class="mt-1 flex flex-wrap items-center gap-1.5">
             <span v-if="item.deadline" class="chip">
               <AppIcon name="clock" :size="10" />{{ formatMetaDate(item.deadline) }}
             </span>

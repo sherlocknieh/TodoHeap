@@ -623,45 +623,45 @@ onUnmounted(() => {
 						</span>
 					</div>
 					<template v-else>
-						<div class="mx-auto max-w-3xl w-full px-6">
+						<div class="mx-auto max-w-3xl w-full px-6 pb-4 space-y-3">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									:is-breaking-down="isBreakingDown" @task-selected="handleTaskSelected"
 									@breakdown-task="handleBreakdownTask" />
 							</router-view>
+
+							<!-- 已完成任务：收在清单下方，与列表同宽同卡 -->
+							<section class="panel px-4 py-3">
+								<div class="flex items-center justify-between">
+									<span class="text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
+										已完成 <span class="ml-1 font-mono text-neutral-900 dark:text-neutral-100">{{ completedTodos.length }}</span>
+									</span>
+									<button @click="showCompletedPanel = !showCompletedPanel"
+										class="text-xs font-medium text-accent-700 hover:underline dark:text-accent-400 transition-colors">
+										{{ showCompletedPanel ? '收起' : '展开' }}
+									</button>
+								</div>
+								<Transition name="fade">
+									<div v-if="showCompletedPanel" class="mt-2 max-h-52 overflow-auto">
+										<ul class="space-y-px">
+											<li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)"
+												:class="[
+													'flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer transition-colors',
+													selectedTaskId === t.id
+														? 'bg-accent-50 text-accent-900 dark:bg-accent-500/10 dark:text-accent-100'
+														: 'text-neutral-600 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
+												]">
+												<input type="checkbox" checked
+													class="h-3.5 w-3.5 rounded border-accent-300 accent-accent-600 dark:accent-accent-400"
+													@click.stop @change="toggleCompletedTodo(t)" />
+												<span class="truncate">{{ t.title || '未命名任务' }}</span>
+											</li>
+										</ul>
+									</div>
+								</Transition>
+							</section>
 						</div>
 					</template>
-				</div>
-
-				<!-- 已完成任务 -->
-				<div class="mx-auto max-w-3xl w-full px-6">
-					<div class="border-t border-hairline dark:border-hairline-dark py-3">
-						<div class="flex items-center justify-between">
-							<span class="eyebrow">已完成 · {{ completedTodos.length }}</span>
-							<button @click="showCompletedPanel = !showCompletedPanel"
-								class="text-xs text-neutral-500 hover:text-accent-800 dark:hover:text-accent-200 transition-colors">
-								{{ showCompletedPanel ? '收起' : '展开' }}
-							</button>
-						</div>
-						<Transition name="fade">
-							<div v-if="showCompletedPanel" class="mt-2 max-h-52 overflow-auto">
-								<ul class="space-y-px">
-									<li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)"
-										:class="[
-											'flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer transition-colors',
-											selectedTaskId === t.id
-												? 'bg-accent-50 text-accent-900 dark:bg-accent-500/10 dark:text-accent-100'
-												: 'text-neutral-500 dark:text-neutral-500 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
-										]">
-										<input type="checkbox" checked
-											class="h-3.5 w-3.5 rounded border-accent-300 accent-accent-600 dark:accent-accent-400"
-											@click.stop @change="toggleCompletedTodo(t)" />
-										<span class="truncate">{{ t.title || '未命名任务' }}</span>
-									</li>
-								</ul>
-							</div>
-						</Transition>
-					</div>
 				</div>
 
 				<!-- 自然语言任务输入 -->

@@ -20,12 +20,12 @@
   --color-accent-950: #032c1b;
 
   /* 页面底色与卡片保持中性，靠明度差拉开层级；绿色只在交互与状态上出现 */
-  --color-canvas: #f5f6f6;
+  --color-canvas: #f1f3f3;
   --color-canvas-dark: #1b1b1b;
   --color-surface: #ffffff;
   --color-surface-dark: #262626;
-  --color-hairline: #e6ece9;
-  --color-hairline-dark: #3a3a3a;
+  --color-hairline: #dbe4e0;
+  --color-hairline-dark: #3f3f3f;
   --color-input: #eef1f1;
   --color-input-dark: #1a1a1a;
   --color-input-border: #d3ddd9;
@@ -93,12 +93,12 @@ html, body, #app {
 /* 组件基元：统一圆角、边框与层级，避免每处各写一套 */
 @layer components {
   .panel {
-    @apply rounded-xl border border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)]
+    @apply rounded-xl border border-hairline bg-surface shadow-[0_1px_3px_rgb(6_80_48/0.07)]
       dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none;
   }
 
   .eyebrow {
-    @apply text-[11px] font-medium tracking-[0.08em] text-neutral-500;
+    @apply text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400;
   }
 
   .field {
@@ -133,7 +133,7 @@ html, body, #app {
   }
 
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-hairline px-1.5 py-0.5
-      text-[11px] leading-4 text-neutral-600 dark:border-hairline-dark dark:text-neutral-400;
+    @apply inline-flex items-center gap-1 rounded-full border border-neutral-300 px-1.5 py-0.5
+      text-[11px] leading-4 text-neutral-700 dark:border-neutral-600 dark:text-neutral-300;
   }
 }

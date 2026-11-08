@@ -77,7 +77,7 @@ const canSubmit = computed(() => !props.loading && !!taskInput.value.trim())
           @input="adjustHeight"
         />
 
-        <div class="flex items-center justify-between gap-2 px-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+        <div class="flex items-center justify-between gap-2 px-0.5 text-[11px] text-neutral-600 dark:text-neutral-400">
           <span class="inline-flex items-center gap-1.5">
             <span class="h-1.5 w-1.5 rounded-full"
               :class="props.loading ? 'bg-accent-600 dark:bg-accent-400' : 'bg-neutral-300 dark:bg-neutral-600'"></span>

@@ -1,7 +1,7 @@
 <template>
-  <div class="text-neutral-900 dark:text-neutral-100">
+  <div class="panel p-4 text-neutral-900 dark:text-neutral-100">
     <!-- 快速添加 -->
-    <section class="flex items-center gap-2 border-b border-hairline dark:border-hairline-dark pb-2.5">
+    <section class="flex items-center gap-2 pb-1">
       <AppIcon name="plus" :size="15" class="text-neutral-400 dark:text-neutral-600" />
       <input
         v-model.trim="newTaskTitle"
