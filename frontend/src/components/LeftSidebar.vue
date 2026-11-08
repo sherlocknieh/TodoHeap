@@ -10,7 +10,7 @@ import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
 import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
-import { useResizablePanel } from '@/utils/resizablePanel'
+import { useResizablePanel, useResizableHeight } from '@/utils/resizablePanel'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -36,6 +36,13 @@ const { width: sidebarWidth, resizing: sidebarResizing, collapseArmed: sidebarCo
   min: 200,
   side: 'left',
   onCollapse: () => emit('close')
+})
+
+// 技能区高度可拖拽调整，拖拽条位于技能分组上缘
+const { height: skillsHeight, resizing: skillsResizing, start: startSkillsResize } = useResizableHeight({
+  key: 'skills-height',
+  initial: 240,
+  min: 120
 })
 
 const todoStore = useTodoStore()
@@ -155,9 +162,8 @@ const saveSkill = () => {
   cancelSkillForm()
 }
 
-const runSkill = (skill) => {
-  if (!skill.enabled) return
-  agent.runSkill(skill.id)
+const insertSkill = (skill) => {
+  agent.useSkill(skill.id)
   closeOnNarrowScreen()
 }
 
@@ -420,9 +426,16 @@ const switchView = (view) => {
 
         </div>
 
-        <!-- 技能：常驻底部分组，折叠后只保留标题行 -->
-        <section class="shrink-0 border-t border-hairline pt-2 dark:border-hairline-dark">
-          <div class="flex items-center gap-1 pl-1 pr-2">
+        <!-- 技能：常驻底部分组，上缘可拖拽调高，折叠后只保留标题行 -->
+        <div v-show="!collapsedSections.skills" class="shrink-0 -mt-1 h-2 flex items-center justify-center cursor-row-resize touch-none transition-colors"
+          :class="skillsResizing ? 'text-accent-600 dark:text-accent-400' : 'text-transparent hover:text-accent-400 dark:hover:text-accent-500'"
+          role="separator" aria-orientation="horizontal" title="拖拽调整技能区高度"
+          @pointerdown="startSkillsResize">
+          <div class="h-0.5 w-8 rounded-full bg-current"></div>
+        </div>
+        <section class="shrink-0 flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark"
+          :style="collapsedSections.skills ? null : { height: skillsHeight + 'px' }">
+          <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.skills" @click="toggleSection('skills')">
               <AppIcon :name="collapsedSections.skills ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
@@ -434,7 +447,7 @@ const switchView = (view) => {
             </button>
           </div>
 
-          <div v-show="!collapsedSections.skills" class="max-h-[50vh] overflow-auto space-y-0.5">
+          <div v-show="!collapsedSections.skills" class="flex-1 min-h-0 overflow-auto space-y-0.5">
             <form v-if="skillForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
               @submit.prevent="saveSkill">
               <input v-model="skillForm.name" class="field w-full px-1.5 py-1 text-xs"
@@ -465,17 +478,10 @@ const switchView = (view) => {
             <ul v-else class="space-y-0.5">
               <li v-for="skill in agent.skills" :key="skill.id"
                 class="group flex items-center gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
-                <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left" :title="skill.enabled ? '在新会话中执行' : '技能已停用'"
-                  @click="runSkill(skill)">
+                <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left" title="填入输入框"
+                  @click="insertSkill(skill)">
                   <AppIcon :name="skill.icon" :size="13" class="opacity-70" />
-                  <span class="truncate text-sm"
-                    :class="skill.enabled
-                      ? 'text-neutral-700 dark:text-neutral-300'
-                      : 'text-neutral-400 line-through dark:text-neutral-500'">{{ skill.name }}</span>
-                </button>
-                <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
-                  :title="skill.enabled ? '停用技能' : '启用技能'" @click.stop="agent.toggleSkill(skill.id)">
-                  <AppIcon :name="skill.enabled ? 'eye' : 'eyeOff'" :size="12" />
+                  <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">{{ skill.name }}</span>
                 </button>
                 <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
                   title="编辑技能" @click.stop="startEditSkill(skill)">

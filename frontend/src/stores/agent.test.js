@@ -211,43 +211,22 @@ describe('useAgentStore', () => {
     expect(agent.sessions.find((session) => session.id === firstId).messages).toHaveLength(0)
   })
 
-  it('运行技能会新建会话并发送技能指令', async () => {
-    mocks.chat.mockResolvedValueOnce({ content: '已优化', tool_calls: [] })
-
+  it('点选技能只填入输入框，不直接发送', () => {
     const agent = useAgentStore()
-    const result = await agent.runSkill('global-optimize')
+    expect(agent.useSkill('global-optimize')).toBe(true)
 
-    expect(result).toBe(true)
-    expect(agent.activeSession.title).toBe('全局任务优化')
-    expect(agent.messages[0]).toMatchObject({ role: 'user' })
-    expect(agent.messages[0].content).toContain('全局优化')
-    expect(agent.messages.at(-1).content).toBe('已优化')
-    expect(mocks.chat).toHaveBeenCalledTimes(1)
-  })
-
-  it('已有消息时会为技能新建会话', async () => {
-    mocks.chat
-      .mockResolvedValueOnce({ content: '旧会话回复', tool_calls: [] })
-      .mockResolvedValueOnce({ content: '已优化', tool_calls: [] })
-
-    const agent = useAgentStore()
-    await agent.send('旧话题')
-    const previousId = agent.activeSessionId
-
-    await agent.runSkill('global-optimize')
-
-    expect(agent.activeSessionId).not.toBe(previousId)
-    expect(agent.sessions.find((session) => session.id === previousId).messages).toHaveLength(2)
-  })
-
-  it('停用的技能不会启动', async () => {
-    const agent = useAgentStore()
-    agent.toggleSkill('global-optimize')
-    expect(agent.skills[0].enabled).toBe(false)
-
-    const result = await agent.runSkill('global-optimize')
-    expect(result).toBe(false)
+    expect(agent.draft).toContain('全局优化')
+    expect(agent.messages).toHaveLength(0)
     expect(mocks.chat).not.toHaveBeenCalled()
+  })
+
+  it('输入框已有内容时把技能指令追加在后面', () => {
+    const agent = useAgentStore()
+    agent.draft = '先看看今天'
+    agent.useSkill('global-optimize')
+
+    expect(agent.draft.startsWith('先看看今天')).toBe(true)
+    expect(agent.draft).toContain('全局优化')
   })
 
   it('同步技能的新增、修改与删除到用户设置', async () => {

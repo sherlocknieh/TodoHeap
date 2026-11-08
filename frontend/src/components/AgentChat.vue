@@ -20,7 +20,11 @@ const authStore = useAuthStore()
 const todoStore = useTodoStore()
 const scheduleStore = useScheduleStore()
 
-const draft = ref('')
+// 输入草稿放在 store，侧栏点选技能时直接填入这里
+const draft = computed({
+  get: () => agent.draft,
+  set: (value) => { agent.draft = value }
+})
 const inputRef = ref(null)
 const scrollRef = ref(null)
 const isComposing = ref(false)
@@ -123,13 +127,10 @@ const sendDraft = () => {
 
 const sendSuggestion = (item) => {
   if (agent.running) return
-  // 指向已启用的技能时走技能流程，否则把示例当作普通提问
+  // 指向技能时把技能指令填入输入框，普通示例直接发送
   if (item.skillId) {
-    const skill = agent.skills.find((entry) => entry.id === item.skillId && entry.enabled)
-    if (skill) {
-      agent.runSkill(skill.id)
-      return
-    }
+    const skill = agent.skills.find((entry) => entry.id === item.skillId)
+    if (skill && agent.useSkill(skill.id)) return
   }
   agent.send(item.text)
 }

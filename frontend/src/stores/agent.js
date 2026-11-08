@@ -147,6 +147,8 @@ export const useAgentStore = defineStore('agent', () => {
   const activeSessionId = ref(null)
   const running = ref(false)
   const error = ref('')
+  // 输入草稿由侧栏技能与聊天框共用，点选技能时填入这里
+  const draft = ref('')
   const pendingApproval = ref(null)
   const activeUserId = ref(null)
   const context = ref({ selectedTaskId: null })
@@ -268,10 +270,13 @@ export const useAgentStore = defineStore('agent', () => {
     return true
   }
 
-  const toggleSkill = (id) => {
+  // 点选技能只把指令填入输入框，是否发送由用户决定
+  const useSkill = (id) => {
     const skill = skills.value.find((item) => item.id === id)
-    if (!skill) return null
-    return updateSkill(id, { enabled: !skill.enabled })
+    if (!skill) return false
+    const current = draft.value.trim()
+    draft.value = current ? `${current}\n\n${skill.prompt}` : skill.prompt
+    return true
   }
 
   // 按用户恢复各自的会话，切换账号不会串上下文
@@ -578,31 +583,6 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
-  // 运行技能：复用空会话或新建会话，把技能指令作为首条消息发给 Agent
-  const runSkill = async (id) => {
-    const skill = skills.value.find((item) => item.id === id)
-    if (!skill || !skill.enabled) return false
-    if (running.value || pendingApproval.value) return false
-
-    const llm = useLlmStore()
-    if (!llm.isConfigured) {
-      error.value = '请先在设置 → 模型接入中配置模型'
-      return false
-    }
-
-    init(useAuthStore().user?.id)
-    if (!activeSession.value || messages.value.length > 0) newSession()
-
-    const session = activeSession.value
-    if (session) {
-      session.title = skill.name
-      session.updatedAt = nowIso()
-    }
-    persist()
-    await send(skill.prompt)
-    return true
-  }
-
   return {
     messages,
     sessions,
@@ -610,6 +590,7 @@ export const useAgentStore = defineStore('agent', () => {
     activeSession,
     running,
     error,
+    draft,
     pendingApproval,
     hasMessages,
     skills,
@@ -628,7 +609,6 @@ export const useAgentStore = defineStore('agent', () => {
     addSkill,
     updateSkill,
     deleteSkill,
-    toggleSkill,
-    runSkill
+    useSkill
   }
 })

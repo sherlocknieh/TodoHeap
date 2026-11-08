@@ -64,3 +64,52 @@ export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 
 	return { width, resizing, collapseArmed, start }
 }
+
+// 底部面板拖拽调高：向上拖增大高度，高度本地保留，限制在视口可用范围内
+export const useResizableHeight = ({ key, initial, min }) => {
+	const height = persistedRef(key, initial, {
+		validate: (value) => Number.isFinite(value) && value >= min
+	})
+	const resizing = ref(false)
+	let detach = null
+
+	// 给上方内容留出空间：最多占视口高度减去头部与输入区
+	const maxHeight = () => Math.max(min, window.innerHeight - 320)
+
+	const stop = () => {
+		if (!resizing.value) return
+		resizing.value = false
+		detach?.()
+		detach = null
+		document.body.classList.remove('select-none')
+	}
+
+	const start = (event) => {
+		if (event.pointerType === 'mouse' && event.button !== 0) return
+		event.preventDefault()
+		const startY = event.clientY
+		const startHeight = height.value
+
+		const move = (e) => {
+			// 忽略未按下按键的移动：窗口外松手不应改动高度
+			if (e.buttons === 0) return
+			const next = startHeight + (startY - e.clientY)
+			height.value = Math.min(Math.max(Math.round(next), min), maxHeight())
+		}
+
+		resizing.value = true
+		document.body.classList.add('select-none')
+		window.addEventListener('pointermove', move)
+		window.addEventListener('pointerup', stop)
+		window.addEventListener('pointercancel', stop)
+		detach = () => {
+			window.removeEventListener('pointermove', move)
+			window.removeEventListener('pointerup', stop)
+			window.removeEventListener('pointercancel', stop)
+		}
+	}
+
+	onBeforeUnmount(stop)
+
+	return { height, resizing, start }
+}

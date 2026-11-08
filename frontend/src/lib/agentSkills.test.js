@@ -3,7 +3,6 @@ import {
   DEFAULT_SKILLS,
   cloneDefaultSkills,
   createSkill,
-  normalizeSkill,
   normalizeSkills
 } from './agentSkills'
 
@@ -39,16 +38,10 @@ describe('agentSkills', () => {
     expect(skills[0].icon).toBe('sparkles')
   })
 
-  it('读取时把 enabled 归一化为布尔值', () => {
-    expect(normalizeSkill({ id: 'a', name: 'x', prompt: 'y' }).enabled).toBe(true)
-    expect(normalizeSkill({ id: 'a', name: 'x', prompt: 'y', enabled: false }).enabled).toBe(false)
-  })
-
-  it('新建技能默认启用并带唯一 id', () => {
+  it('新建技能带唯一 id', () => {
     const first = createSkill({ name: '周复盘', icon: 'chart', prompt: '总结本周' })
     const second = createSkill({ name: '周复盘', icon: 'chart', prompt: '总结本周' })
 
-    expect(first.enabled).toBe(true)
     expect(first.id).not.toBe(second.id)
   })
 })

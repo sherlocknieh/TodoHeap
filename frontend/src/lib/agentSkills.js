@@ -13,14 +13,13 @@ export const GLOBAL_OPTIMIZE_PROMPT = `请对当前用户的所有任务做一�
 5. 最后创建一条「下一步执行建议」任务。
 只调整确实需要改的内容，不要为了改动而改动；不要删除任务或清空回收站。完成后用简短中文说明本次改了什么。`
 
-// 内置技能只在用户从未保存过技能时出现，之后与其他技能一样可编辑、停用或删除
+// 内置技能只在用户从未保存过技能时出现，之后与其他技能一样可编辑或删除
 export const DEFAULT_SKILLS = [
   {
     id: 'global-optimize',
     name: '全局任务优化',
     icon: 'target',
-    prompt: GLOBAL_OPTIMIZE_PROMPT,
-    enabled: true
+    prompt: GLOBAL_OPTIMIZE_PROMPT
   }
 ]
 
@@ -40,8 +39,7 @@ export const normalizeSkill = (skill, fallbackId) => {
     id: typeof skill.id === 'string' && skill.id ? skill.id : (fallbackId || createSkillId()),
     name,
     icon: SKILL_ICONS.includes(skill.icon) ? skill.icon : DEFAULT_SKILL_ICON,
-    prompt,
-    enabled: skill.enabled !== false
+    prompt
   }
 }
 
@@ -61,8 +59,7 @@ export const createSkill = ({ name, icon = DEFAULT_SKILL_ICON, prompt } = {}) =>
   id: createSkillId(),
   name: cleanText(name, MAX_SKILL_NAME),
   icon: SKILL_ICONS.includes(icon) ? icon : DEFAULT_SKILL_ICON,
-  prompt: String(prompt ?? '').trim().slice(0, MAX_SKILL_PROMPT),
-  enabled: true
+  prompt: String(prompt ?? '').trim().slice(0, MAX_SKILL_PROMPT)
 })
 
 // 默认技能需要副本，避免调用方修改到模块级常量
