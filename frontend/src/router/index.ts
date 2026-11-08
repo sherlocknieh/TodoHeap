@@ -45,6 +45,7 @@ const router = createRouter({
         { path: 'tree', name: 'TreeView', component: () => import('@/pages/todo/TodoTree.vue'), meta: { title: 'TodoHeap - 树视图' } },
         { path: 'heap', name: 'HeapView', component: () => import('@/pages/todo/TodoHeap.vue'), meta: { title: 'TodoHeap - 堆视图' } },
         { path: 'ai', name: 'AIView', component: () => import('@/pages/todo/AIView.vue'), meta: { title: 'TodoHeap - AI' } },
+        { path: 'schedule', name: 'ScheduleView', component: () => import('@/pages/todo/ScheduleView.vue'), meta: { title: 'TodoHeap - 日程' } },
         { path: 'trash', name: 'TrashView', component: () => import('@/pages/todo/Trash.vue'), meta: { title: 'TodoHeap - 垃圾箱' } }
       ]
     },

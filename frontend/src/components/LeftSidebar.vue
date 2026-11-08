@@ -8,11 +8,10 @@ const props = defineProps({
   show: { type: Boolean, default: false },
   activeView: { type: String, default: 'list' },
   selectedTaskId: { type: Number, default: null },
-  isBreakingDown: { type: Boolean, default: false },
-  isOptimizing: { type: Boolean, default: false }
+  isBreakingDown: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task', 'optimize-tasks'])
+const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task'])
 
 // 为模板提供 `show` 绑定
 const show = computed(() => props.show)
@@ -117,19 +116,6 @@ const switchView = (view) => {
               :style="{ width: completionRate + '%' }"></div>
           </div>
         </div>
-      </section>
-
-      <!-- AI -->
-      <section class="space-y-0.5">
-        <p class="eyebrow px-2 pb-1.5">AI</p>
-        <button
-          class="w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors flex items-center gap-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="isOptimizing"
-          @click="$emit('optimize-tasks')"
-        >
-          <AppIcon name="sparkles" :size="15" class="opacity-70" />
-          <span>{{ isOptimizing ? '任务优化中…' : '全局任务优化' }}</span>
-        </button>
       </section>
     </div>
   </div>

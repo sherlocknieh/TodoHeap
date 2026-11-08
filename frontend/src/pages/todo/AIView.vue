@@ -13,7 +13,7 @@ const emit = defineEmits(['submit-task', 'optimize-tasks'])
 
 <template>
   <!-- AI 工作台：收拢自然语言建任务与全局优化两个入口 -->
-  <div class="panel p-4 space-y-4">
+  <div class="panel p-4 space-y-4 w-full max-w-xl mx-auto">
     <header class="flex items-start gap-2.5">
       <AppIcon name="sparkles" :size="18" class="mt-0.5 text-accent-700 dark:text-accent-400" />
       <div>

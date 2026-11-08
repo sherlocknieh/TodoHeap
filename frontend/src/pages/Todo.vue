@@ -36,6 +36,7 @@ const activeView = computed({
 		if (routeName === 'HeapView') return 'heap'
 		if (routeName === 'TrashView') return 'trash'
 		if (routeName === 'AIView') return 'ai'
+		if (routeName === 'ScheduleView') return 'schedule'
 		return 'list' // 默认是 ListView
 	},
 	set: (view) => {
@@ -44,7 +45,8 @@ const activeView = computed({
 			'tree': 'TreeView',
 			'heap': 'HeapView',
 			'trash': 'TrashView',
-			'ai': 'AIView'
+			'ai': 'AIView',
+			'schedule': 'ScheduleView'
 		}
 		router.push({ name: viewNames[view] })
 	}
@@ -89,25 +91,24 @@ const activeViewLabel = computed(() => {
 	if (activeView.value === 'heap') return '堆视图'
 	if (activeView.value === 'trash') return '回收站'
 	if (activeView.value === 'ai') return 'AI'
+	if (activeView.value === 'schedule') return '日程'
 	return '列表'
 })
 
-// 活动栏主入口：清单与 AI 对应视图，日程待上线
+// 活动栏主入口：清单、日程与 AI 分别对应视图
 const navEntries = [
 	{ id: 'list', label: '清单', icon: 'list' },
-	{ id: 'schedule', label: '日程（即将上线）', icon: 'calendar', disabled: true },
-	{ id: 'ai', label: 'AI', icon: 'sparkles' }
+	{ id: 'schedule', label: '日程', icon: 'calendar' },
+	{ id: 'ai', label: 'AI' }
 ]
 
-// 清单入口在列表、树、堆、回收站下都视为当前位置
 const isNavEntryActive = (id) => {
 	if (id === 'ai') return activeView.value === 'ai'
-	if (id === 'list') return activeView.value !== 'ai'
-	return false
+	if (id === 'schedule') return activeView.value === 'schedule'
+	return activeView.value !== 'ai' && activeView.value !== 'schedule'
 }
 
 const openNavEntry = (entry) => {
-	if (entry.disabled) return
 	switchView(entry.id)
 }
 
@@ -595,16 +596,15 @@ onUnmounted(() => {
 					<!-- 主入口 -->
 					<nav class="flex flex-col items-center gap-1 pt-1 border-t border-white/20 w-8">
 						<button v-for="entry in navEntries" :key="entry.id" @click="openNavEntry(entry)"
-							:disabled="entry.disabled" :title="entry.label"
+							:title="entry.label"
 							:class="[
 								'h-9 w-9 rounded-md flex items-center justify-center transition-colors',
-								entry.disabled
-									? 'text-white/35 cursor-not-allowed'
-									: isNavEntryActive(entry.id)
-										? 'bg-white/20 text-white'
-										: 'text-white/70 hover:bg-white/15 hover:text-white'
+								isNavEntryActive(entry.id)
+									? 'bg-white/20 text-white'
+									: 'text-white/70 hover:bg-white/15 hover:text-white'
 							]">
-							<AppIcon :name="entry.icon" />
+							<span v-if="entry.id === 'ai'" class="text-[11px] font-semibold tracking-tight">AI</span>
+							<AppIcon v-else :name="entry.icon" />
 						</button>
 					</nav>
 				</div>
@@ -646,9 +646,9 @@ onUnmounted(() => {
 
 			<!-- 左栏：任务导航面板 -->
 			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
-				:is-breaking-down="isBreakingDown" :is-optimizing="isOptimizingTasks"
+				:is-breaking-down="isBreakingDown"
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
-				@breakdown-task="handleBreakdownTask" @optimize-tasks="handleOptimizeTasks" />
+				@breakdown-task="handleBreakdownTask" />
 
 			<!-- 中栏：主要视图内容 -->
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
@@ -672,7 +672,8 @@ onUnmounted(() => {
 						</span>
 					</div>
 					<template v-else>
-						<div class="mx-auto max-w-3xl w-full px-6 pb-4 space-y-3">
+						<div class="mx-auto max-w-3xl w-full px-6 pb-4 space-y-3"
+							:class="activeView === 'ai' ? 'min-h-full flex flex-col justify-center' : ''">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									:is-breaking-down="isBreakingDown"
@@ -681,7 +682,7 @@ onUnmounted(() => {
 							</router-view>
 
 							<!-- 已完成任务：收在清单下方，与列表同宽同卡 -->
-							<section v-if="activeView !== 'ai'" class="panel px-4 py-3">
+							<section v-if="activeView !== 'ai' && activeView !== 'schedule'" class="panel px-4 py-3">
 								<div class="flex items-center justify-between">
 									<span class="text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
 										已完成 <span class="ml-1 font-mono text-neutral-900 dark:text-neutral-100">{{ completedTodos.length }}</span>
