@@ -13,7 +13,9 @@ import OptimizeProgressCard from '@/components/OptimizeProgressCard.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import AITaskInput from '@/components/AITaskInput.vue'
+import Settings from '@/pages/todo/Settings.vue'
 import { DEFAULT_USER_SETTINGS, fetchUserSettings } from '@/lib/userSettings'
+import { settingsPanelOpen } from '@/utils/settingsPanel'
 
 const router = useRouter()
 const route = useRoute()
@@ -214,7 +216,7 @@ const handleSignOut = async () => {
 }
 
 const openSettings = () => {
-	router.push({ name: 'settings' })
+	settingsPanelOpen.value = true
 	showUserMenu.value = false
 }
 
@@ -538,6 +540,8 @@ onUnmounted(() => {
 	// 移除页面离开警告
 	window.removeEventListener('beforeunload', handleBeforeUnload)
 	window.removeEventListener('sync:id-replaced', handleSelectedIdReplaced)
+	// 离开应用页时收起设置浮窗，避免下次进入时残留
+	settingsPanelOpen.value = false
 })
 </script>
 
@@ -700,5 +704,8 @@ onUnmounted(() => {
 				</button>
 			</div>
 		</footer>
+
+		<!-- 设置浮窗：覆盖在当前视图之上，不打断任务操作 -->
+		<Settings v-if="settingsPanelOpen" floating @close="settingsPanelOpen = false" />
 	</div>
 </template>

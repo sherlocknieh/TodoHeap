@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { settingsPanelOpen } from '@/utils/settingsPanel'
 
 // 路由配置
 const router = createRouter({
@@ -74,6 +75,10 @@ router.beforeEach(async (to, _from) => {
 router.afterEach((to) => {
   const title = (to.meta && (to.meta as any).title) || 'TodoHeap'
   document.title = title
+  // 设置浮窗只在应用页出现，导航到其它页面时收起
+  if (!String(to.path).startsWith('/app')) {
+    settingsPanelOpen.value = false
+  }
 })
 
 export default router
