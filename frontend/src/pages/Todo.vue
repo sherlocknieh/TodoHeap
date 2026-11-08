@@ -57,6 +57,8 @@ const selectedTaskId = persistedRef('selected-task', null, {
 const showDetailPanel = persistedRef('detail-open', false)
 // 侧栏显示状态：首次进入窄屏默认收起，之后沿用上次的开合
 const showLeftSidebar = persistedRef('sidebar-open', window.innerWidth >= 1024)
+// 活动栏显示状态：收起后由顶栏按钮开回
+const showActivityRail = persistedRef('rail-open', true)
 const windowWidth = ref(window.innerWidth)
 
 // 中栏滚动位置记忆：每个视图各存一份，刷新或切换回来后回到原处
@@ -65,15 +67,6 @@ const { save: saveMainScroll, restore: restoreMainScroll } = useScrollMemory(mai
 
 const showViewLoading = computed(() => {
 	return (activeView.value === 'tree' || activeView.value === 'heap') && todoStore.loading
-})
-
-const activeViewLabel = computed(() => {
-	if (activeView.value === 'tree') return '树视图'
-	if (activeView.value === 'heap') return '堆视图'
-	if (activeView.value === 'trash') return '回收站'
-	if (activeView.value === 'ai') return 'AI'
-	if (activeView.value === 'schedule') return '日程'
-	return '列表'
 })
 
 // 顶栏标题：主区域统一呈现当前视图名称
@@ -92,6 +85,17 @@ const topBarClass = computed(() => {
 	if (activeView.value === 'ai') return 'mx-auto w-full max-w-3xl px-6'
 	return 'mx-auto w-full max-w-3xl px-8'
 })
+
+// 底栏统计：全局完成进度，侧栏收起时也能一眼看到
+const taskStats = computed(() => {
+	const total = todoStore.todos.length
+	const completed = todoStore.todos.filter(todo => todo.completed_at).length
+	return { total, completed, pending: total - completed }
+})
+
+const completionRate = computed(() =>
+	taskStats.value.total ? Math.round((taskStats.value.completed / taskStats.value.total) * 100) : 0
+)
 
 // 活动栏主入口：清单、日程与 AI 分别对应视图与侧栏内容
 const navEntries = [
@@ -130,16 +134,25 @@ const realtimeStatusLabel = computed(() => {
 	if (status === 'TIMED_OUT') return '连接超时'
 	if (status === 'CLOSED') return '已断开'
 	if (status === 'NO_USER') return '未登录'
-	return status
+	return '未连接'
 })
 
-// 实时连接状态映射为状态点颜色
-const realtimeStatusClass = computed(() => {
+// 底栏只呈现一条最要紧的同步状态：断线 > 待同步 > 连接中 > 已同步
+const syncState = computed(() => {
 	const status = String(todoStore.realtimeStatus || 'UNKNOWN').toUpperCase()
-	if (status === 'SUBSCRIBED') return 'bg-emerald-600 dark:bg-emerald-400'
-	if (status === 'CONNECTING' || status === 'RECONNECTING') return 'bg-amber-500'
-	if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') return 'bg-rose-500'
-	return 'bg-neutral-300 dark:bg-neutral-600'
+	if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+		return { label: '连接异常', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' }
+	}
+	if (hasUnsyncedChanges.value) {
+		return { label: '待同步', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' }
+	}
+	if (status === 'CONNECTING' || status === 'RECONNECTING') {
+		return { label: '连接中', dot: 'bg-amber-500', text: 'text-neutral-500 dark:text-neutral-400' }
+	}
+	if (status === 'SUBSCRIBED') {
+		return { label: '已同步', dot: 'bg-emerald-600 dark:bg-emerald-400', text: 'text-neutral-500 dark:text-neutral-400' }
+	}
+	return { label: '未连接', dot: 'bg-neutral-300 dark:bg-neutral-600', text: 'text-neutral-500 dark:text-neutral-400' }
 })
 
 const viewProps = computed(() => {
@@ -308,10 +321,6 @@ const handleClickOutside = (event) => {
 	}
 }
 
-const toggleLeftPanel = () => {
-	showLeftSidebar.value = !showLeftSidebar.value
-}
-
 // 点击中栏区域时关闭详情面板（如果点击的不是任务项）
 const onMainAreaClick = (e) => {
 	// 检查是否点击了任务项（带有 data-task-item 属性的元素）
@@ -372,14 +381,14 @@ const runToastUndo = async () => {
 	<div class="h-screen flex flex-col overflow-hidden">
 		<!-- 主内容区 -->
 		<div class="relative flex-1 min-w-0 min-h-0 flex overflow-hidden">
-			<!-- 左侧活动栏 -->
-			<aside data-activity-rail
+			<!-- 左侧活动栏：可收起，由开关与顶栏按钮控制 -->
+			<aside v-if="showActivityRail" data-activity-rail
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
 				<div class="flex flex-col items-center">
-					<!-- 侧栏开关 -->
-					<button @click="toggleLeftPanel"
+					<!-- 收起活动栏 -->
+					<button @click="showActivityRail = false"
 						class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
-						title="切换侧栏">
+						title="收起活动栏">
 						<AppIcon name="sidebar" />
 					</button>
 
@@ -438,6 +447,7 @@ const runToastUndo = async () => {
 			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
 				:section="activeSection"
 				:overlay="activeView === 'tree'"
+				:rail-hidden="!showActivityRail"
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
 				/>
 
@@ -447,6 +457,11 @@ const runToastUndo = async () => {
 				<header
 					class="h-11 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
 					<div class="flex h-full items-center gap-3" :class="topBarClass">
+						<!-- 活动栏收起后，从这里开回 -->
+						<button v-if="!showActivityRail" @click="showActivityRail = true" title="显示活动栏"
+							class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200">
+							<AppIcon name="sidebar" :size="15" />
+						</button>
 						<h1
 							class="shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
 							{{ activeViewTitle }}
@@ -489,26 +504,36 @@ const runToastUndo = async () => {
 				@task-selected="handleTaskSelected" />
 		</div>
 
-		<!-- 状态栏：树视图全屏展示思维导图时隐藏 -->
+		<!-- 状态栏：当前视图与全局进度、同步状态、详情面板开关；树视图全屏展示思维导图时隐藏 -->
 		<footer v-if="activeView !== 'tree'"
-			class="h-7 shrink-0 border-t border-hairline dark:border-hairline-dark px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:text-neutral-500 select-none">
-			<div class="flex items-center gap-3 min-w-0">
-				<span class="truncate">{{ authStore.user?.email || '未登录' }}</span>
-				<span class="text-neutral-300 dark:text-neutral-700">·</span>
-				<span class="shrink-0">{{ activeViewLabel }}</span>
+			class="h-8 shrink-0 border-t border-hairline bg-surface px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 select-none">
+			<div class="flex items-center gap-2.5 min-w-0">
+				<span class="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">{{ activeViewTitle }}</span>
+				<template v-if="taskStats.total">
+					<span class="h-3 w-px shrink-0 bg-hairline dark:bg-hairline-dark"></span>
+					<span class="shrink-0 font-mono tabular-nums" title="未完成 / 全部任务">
+						<span class="text-neutral-700 dark:text-neutral-300">{{ taskStats.pending }}</span>
+						<span class="px-0.5 text-neutral-400 dark:text-neutral-600">/</span>{{ taskStats.total }}
+					</span>
+					<span class="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
+						:title="'已完成 ' + completionRate + '%'">
+						<span class="block h-full rounded-full bg-accent-500 transition-[width] duration-300"
+							:style="{ width: completionRate + '%' }"></span>
+					</span>
+				</template>
 			</div>
-			<div class="flex items-center gap-3 shrink-0">
-				<span class="flex items-center gap-1.5" :title="'实时连接：' + realtimeStatusLabel">
-					<span class="h-1.5 w-1.5 rounded-full" :class="realtimeStatusClass"></span>
-					<span class="hidden md:inline">{{ realtimeStatusLabel }}</span>
+			<div class="flex items-center gap-1 shrink-0">
+				<span class="flex items-center gap-1.5 rounded-md px-1.5 py-1" :class="syncState.text"
+					:title="'实时连接：' + realtimeStatusLabel + ' · ' + syncStatusLabel">
+					<span class="h-1.5 w-1.5 rounded-full" :class="syncState.dot"></span>
+					{{ syncState.label }}
 				</span>
-				<span class="flex items-center gap-1.5">
-					<span class="h-1.5 w-1.5 rounded-full"
-						:class="hasUnsyncedChanges ? 'bg-amber-500' : 'bg-emerald-600 dark:bg-emerald-400'"></span>
-					{{ syncStatusLabel }}
-				</span>
-				<button type="button" class="p-1 rounded hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
-					:title="detailPanelToggleLabel" @click="toggleDetailPanel">
+				<span class="h-3 w-px bg-hairline dark:bg-hairline-dark"></span>
+				<button type="button" class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
+					:class="showDetailPanel
+						? 'bg-accent-50 text-accent-700 dark:bg-accent-500/15 dark:text-accent-300'
+						: 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-white/5 dark:hover:text-neutral-200'"
+					:title="detailPanelToggleLabel" :aria-pressed="showDetailPanel" @click="toggleDetailPanel">
 					<AppIcon name="panelRight" :size="14" />
 				</button>
 			</div>

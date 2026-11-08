@@ -93,7 +93,7 @@ Imported events appear in the schedule view and can be deleted from there.
 - Data lives in Supabase (PostgreSQL) with row-level security per user
 - Writes made while offline are queued in the browser (localforage) and replayed in order once the connection returns
 - Multi-device edits use last-write-wins; there is no field-level merge
-- The status bar shows the realtime connection and whether unsynced changes exist
+- The status bar merges the realtime connection and the pending queue into one state: Synced, Pending, Connecting or Connection error; the left side shows the current view and overall completion
 
 ## Concepts
 
