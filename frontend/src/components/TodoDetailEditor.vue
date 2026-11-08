@@ -75,6 +75,54 @@
               @update:modelValue="onDetailsChange" />
           </div>
         </div>
+
+        <!-- 区块4: 子任务，可新建或链接已有任务 -->
+        <div class="shrink-0 border-t border-hairline dark:border-hairline-dark">
+          <div class="px-4 pt-2 pb-1 flex items-center justify-between">
+            <span class="eyebrow">子任务</span>
+            <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ childTodos.length }}</span>
+          </div>
+
+          <div class="max-h-40 overflow-auto px-2 pb-1">
+            <button v-for="child in childTodos" :key="child.id" type="button"
+              class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] transition-colors"
+              @click="emit('task-selected', child.id)">
+              <AppIcon :name="child.completed_at ? 'check' : 'chevronRight'" :size="13" class="opacity-60" />
+              <span class="flex-1 truncate"
+                :class="child.completed_at ? 'line-through text-neutral-400 dark:text-neutral-600' : ''">
+                {{ child.title || '未命名任务' }}
+              </span>
+            </button>
+            <p v-if="childTodos.length === 0" class="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-600">
+              还没有子任务
+            </p>
+          </div>
+
+          <div v-if="!isDeleted" class="px-3 pb-3 pt-1 space-y-1.5">
+            <div class="flex items-center gap-1.5">
+              <input v-model.trim="newChildTitle" type="text" class="field flex-1 text-xs" placeholder="新建子任务"
+                @keyup.enter="addChild" />
+              <button type="button" :disabled="!newChildTitle.trim()"
+                class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="添加子任务" @click="addChild">
+                <AppIcon name="plus" :size="14" />
+              </button>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <select v-model="linkTargetId" class="field flex-1 text-xs">
+                <option value="">链接已有任务…</option>
+                <option v-for="candidate in linkCandidates" :key="candidate.id" :value="candidate.id">
+                  {{ candidate.title || '未命名任务' }}
+                </option>
+              </select>
+              <button type="button" :disabled="!linkTargetId"
+                class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title="链接为子任务" @click="linkChild">
+                <AppIcon name="link" :size="14" />
+              </button>
+            </div>
+          </div>
+        </div>
       </template>
     </section>
   </div>
@@ -105,7 +153,7 @@ const props = defineProps({
   show: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'task-selected'])
 
 const handleEscKey = (e) => {
   if (e.key === 'Escape') {
@@ -133,6 +181,43 @@ const todo = computed(() => {
 const isDeleted = computed(() => {
   return todo.value?.deleted_at != null
 })
+
+// 子任务列表：只读展示，点击进入对应任务详情
+const childTodos = computed(() => {
+  const ids = Array.isArray(todo.value?.child_ids) ? todo.value.child_ids : []
+  return ids.map((id) => todoStore.findTodoById(id)).filter(Boolean)
+})
+
+// 可链接为子任务的任务：排除自身与已存在的子任务
+const linkCandidates = computed(() => {
+  if (!todo.value) return []
+  const childIds = new Set((todo.value.child_ids || []).map(String))
+  return todoStore.todos
+    .filter((item) => String(item.id) !== String(todo.value.id) && !childIds.has(String(item.id)))
+    .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
+})
+
+const newChildTitle = ref('')
+const linkTargetId = ref('')
+
+// 新建子任务后由 addTodo 把临时 ID 挂到当前任务的 child_ids
+const addChild = async () => {
+  const title = newChildTitle.value.trim()
+  if (!title || !todo.value || isDeleted.value) return
+  await todoStore.addTodo(title, { parent_id: todo.value.id })
+  newChildTitle.value = ''
+}
+
+// 链接已有任务：把目标 ID 并入当前任务的 child_ids，形成多父关系
+const linkChild = async () => {
+  if (!linkTargetId.value || !todo.value || isDeleted.value) return
+  const target = linkCandidates.value.find((item) => String(item.id) === String(linkTargetId.value))
+  if (!target) return
+
+  const nextIds = [...(todo.value.child_ids || []), target.id]
+  await todoStore.updateTodo(todo.value.id, { child_ids: nextIds })
+  linkTargetId.value = ''
+}
 
 // 格式化日期
 const formatDate = (dateStr) => {

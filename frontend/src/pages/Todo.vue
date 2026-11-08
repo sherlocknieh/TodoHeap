@@ -728,7 +728,8 @@ onUnmounted(() => {
 			</div>
 
 			<!-- 右栏：详情面板 -->
-			<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel" />
+			<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
+				@task-selected="handleTaskSelected" />
 		</div>
 
 		<!-- 状态栏：树视图全屏展示思维导图时隐藏 -->
