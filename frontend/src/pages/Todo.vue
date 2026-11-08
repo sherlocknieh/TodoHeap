@@ -406,11 +406,11 @@ const runToastUndo = async () => {
 				</div>
 
 				<!-- 主入口：清单 / 日程 / AI，占据中部剩余空间 -->
-				<nav class="flex flex-1 flex-col items-center gap-1 w-full pt-3" aria-label="主导航">
+				<nav class="flex flex-1 flex-col items-center w-full" aria-label="主导航">
 					<button v-for="entry in navEntries" :key="entry.id" @click="openNavEntry(entry)"
 						:title="entry.label" :aria-label="entry.label" :aria-current="isNavEntryActive(entry.id) ? 'true' : undefined"
 						:class="[
-							'w-full aspect-square rounded-md flex items-center justify-center transition-colors',
+							'w-full aspect-square flex items-center justify-center transition-colors',
 							isNavEntryActive(entry.id)
 								? 'bg-white/20 text-white'
 								: 'text-white/70 hover:bg-white/15 hover:text-white'
@@ -421,10 +421,10 @@ const runToastUndo = async () => {
 				</nav>
 
 				<!-- 账户与设置：贴底独立成组，与主入口用分隔线区隔 -->
-				<div class="flex w-full flex-col items-center gap-1 pt-2 border-t border-white/20">
+				<div class="flex w-full flex-col items-center border-t border-white/20">
 					<div class="relative w-full">
 						<button data-user-menu-trigger @click="showUserMenu = !showUserMenu"
-							class="w-full aspect-square rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
+							class="w-full aspect-square flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
 							title="用户菜单">
 							<AppIcon name="user" :size="18" />
 						</button>
@@ -448,7 +448,7 @@ const runToastUndo = async () => {
 					</div>
 
 					<button @click="openSettings"
-						class="w-full aspect-square rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
+						class="w-full aspect-square flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
 						title="设置">
 						<AppIcon name="sliders" :size="18" />
 					</button>
