@@ -439,22 +439,8 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     return { success: true, data }
   }
 
-  // 执行删除操作 (软删除)
-  const executeDelete = async (id) => {
-    const { error } = await supabase
-      .from('todos')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id)
-
-    if (error) {
-      if (error.code === '401' || error.message?.includes('JWT')) {
-        return { success: false, error: '认证已过期，请重新登录', needsRollback: false, isAuthError: true }
-      }
-      throw error
-    }
-
-    return { success: true }
-  }
+  // 执行删除操作 (软删除, 与批量删除共用同一实现)
+  const executeDelete = async (id) => executeBatchDelete({ ids: [id] })
 
   // 执行恢复操作
   const executeRestore = async (id) => {
