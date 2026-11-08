@@ -53,8 +53,20 @@
       </g>
     </svg>
 
+    <!-- 布局切换 -->
+    <div
+      class="absolute top-3 right-3 z-10 flex items-center gap-0.5 rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-0.5 text-[11px] shadow-sm"
+      @pointerdown.stop>
+      <button v-for="option in modeOptions" :key="option.value" :title="option.label"
+        class="px-2 py-1 rounded-md transition-colors"
+        :class="mode === option.value
+          ? 'bg-accent-700 text-white dark:bg-accent-400 dark:text-accent-950'
+          : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'"
+        @click.stop="mode = option.value">{{ option.text }}</button>
+    </div>
+
     <!-- 视图控件 -->
-    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1">
+    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop>
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         title="适应视图" @click.stop="fitView">
@@ -91,6 +103,11 @@ const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
+const mode = ref('tree')
+const modeOptions = [
+  { value: 'tree', text: '树', label: '展开树模式' },
+  { value: 'graph', text: '图', label: '有向图模式' }
+]
 
 // 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出
 const wrapLines = (text) => {
@@ -117,21 +134,28 @@ const wrapLines = (text) => {
   return visible
 }
 
-// 从左到右的层叠布局：子节点纵向排开，父节点对齐子节点跨度中心
-const layout = computed(() => {
+// 节点文案与高度统一在这里计算，两种布局共用
+const measureNode = (raw) => {
+  const lines = wrapLines(raw.title)
+  return {
+    ...raw,
+    lines,
+    height: paddingY * 2 + lines.length * lineHeight,
+    selected: String(raw.id) === String(props.selectedTaskId)
+  }
+}
+
+// 展开树：子节点纵向排开，父节点对齐子节点跨度中心
+const treeLayout = computed(() => {
   const nodes = []
   const edges = []
   let cursorY = 0
 
   const place = (raw, depth) => {
-    const lines = wrapLines(raw.title)
     const node = {
-      ...raw,
-      lines,
-      height: paddingY * 2 + lines.length * lineHeight,
+      ...measureNode(raw),
       x: depth * (nodeWidth + horizontalGap),
-      y: 0,
-      selected: String(raw.id) === String(props.selectedTaskId)
+      y: 0
     }
 
     const children = Array.isArray(raw.children) ? raw.children : []
@@ -170,7 +194,185 @@ const layout = computed(() => {
   return { nodes, edges, contentWidth, contentHeight }
 })
 
-const idSignature = computed(() => layout.value.nodes.map((node) => node.id).join('|'))
+// 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
+const buildGraphData = (forest) => {
+  const nodes = new Map()
+  const edges = []
+
+  const walk = (node, parentId) => {
+    const id = String(node.id)
+    if (!node.isRef && !nodes.has(id)) nodes.set(id, node)
+    if (parentId !== null) {
+      edges.push({ from: parentId, to: node.isRef ? String(node.targetId) : id, isRef: !!node.isRef })
+    }
+    if (!node.isRef) {
+      (node.children || []).forEach((child) => walk(child, id))
+    }
+  }
+
+  ;(forest || []).forEach((root) => walk(root, null))
+  return { nodes: [...nodes.values()], edges }
+}
+
+// 有向图：按强连通分量分层，环内节点顺序排列，回边从右侧绕回
+const graphLayout = computed(() => {
+  const { nodes: rawNodes, edges: rawEdges } = buildGraphData(props.nodes)
+  if (rawNodes.length === 0) return { nodes: [], edges: [], contentWidth: 0, contentHeight: 0 }
+
+  const nodes = rawNodes.map(measureNode)
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const adjacency = new Map(nodes.map((node) => [node.id, []]))
+
+  rawEdges.forEach((edge) => {
+    if (byId.has(edge.from) && byId.has(edge.to)) adjacency.get(edge.from).push(edge.to)
+  })
+
+  // Tarjan 求强连通分量
+  let counter = 0
+  const indices = new Map()
+  const lowlinks = new Map()
+  const stack = []
+  const onStack = new Set()
+  const components = []
+  const componentOf = new Map()
+
+  const connect = (id) => {
+    indices.set(id, counter)
+    lowlinks.set(id, counter)
+    counter += 1
+    stack.push(id)
+    onStack.add(id)
+
+    for (const next of adjacency.get(id)) {
+      if (!indices.has(next)) {
+        connect(next)
+        lowlinks.set(id, Math.min(lowlinks.get(id), lowlinks.get(next)))
+      } else if (onStack.has(next)) {
+        lowlinks.set(id, Math.min(lowlinks.get(id), indices.get(next)))
+      }
+    }
+
+    if (lowlinks.get(id) === indices.get(id)) {
+      const component = []
+      let member
+      do {
+        member = stack.pop()
+        onStack.delete(member)
+        component.push(member)
+        componentOf.set(member, components.length)
+      } while (member !== id)
+      components.push(component)
+    }
+  }
+
+  nodes.forEach((node) => {
+    if (!indices.has(node.id)) connect(node.id)
+  })
+
+  // 分量缩点后做最长路径分层
+  const componentEdges = Array.from({ length: components.length }, () => new Set())
+  rawEdges.forEach((edge) => {
+    const from = componentOf.get(edge.from)
+    const to = componentOf.get(edge.to)
+    if (from === undefined || to === undefined || from === to) return
+    componentEdges[from].add(to)
+  })
+
+  const indegree = new Array(components.length).fill(0)
+  componentEdges.forEach((targets) => targets.forEach((to) => { indegree[to] += 1 }))
+
+  const queue = []
+  indegree.forEach((count, index) => { if (count === 0) queue.push(index) })
+
+  const componentLayer = new Array(components.length).fill(0)
+  while (queue.length > 0) {
+    const current = queue.shift()
+    componentEdges[current].forEach((next) => {
+      componentLayer[next] = Math.max(componentLayer[next], componentLayer[current] + 1)
+      indegree[next] -= 1
+      if (indegree[next] === 0) queue.push(next)
+    })
+  }
+
+  // 环内节点按顺序占一层，让环方向仍然从左到右可读
+  const nodeLayer = new Map()
+  components.forEach((component, index) => {
+    const ordered = [...component].sort((a, b) => {
+      const diff = Number(a) - Number(b)
+      return Number.isFinite(diff) && diff !== 0 ? diff : String(a).localeCompare(String(b))
+    })
+    ordered.forEach((id, offset) => nodeLayer.set(id, componentLayer[index] + offset))
+  })
+
+  // 每层纵向堆叠，再整体垂直居中
+  const layers = new Map()
+  nodes.forEach((node) => {
+    const layer = nodeLayer.get(node.id) ?? 0
+    if (!layers.has(layer)) layers.set(layer, [])
+    layers.get(layer).push(node)
+  })
+
+  const layerKeys = [...layers.keys()].sort((a, b) => a - b)
+  const columnHeights = new Map()
+  let maxHeight = 0
+
+  layerKeys.forEach((layer) => {
+    const column = layers.get(layer).sort((a, b) => {
+      const diff = Number(a.id) - Number(b.id)
+      return Number.isFinite(diff) && diff !== 0 ? diff : String(a.id).localeCompare(String(b.id))
+    })
+    let cursorY = 0
+    column.forEach((node) => {
+      node.x = layer * (nodeWidth + horizontalGap)
+      node.y = cursorY
+      cursorY += node.height + verticalGap
+    })
+    const columnHeight = Math.max(cursorY - verticalGap, 0)
+    columnHeights.set(layer, columnHeight)
+    maxHeight = Math.max(maxHeight, columnHeight)
+  })
+
+  layerKeys.forEach((layer) => {
+    const offset = (maxHeight - columnHeights.get(layer)) / 2
+    layers.get(layer).forEach((node) => { node.y += offset })
+  })
+
+  const routedEdges = rawEdges.map((edge, index) => {
+    const from = byId.get(edge.from)
+    const to = byId.get(edge.to)
+    if (!from || !to) return null
+
+    const backward = (nodeLayer.get(to.id) ?? 0) <= (nodeLayer.get(from.id) ?? 0)
+    const startY = from.y + from.height / 2
+    const startX = from.x + nodeWidth
+    let path
+
+    if (from.id === to.id) {
+      // 自环：节点上方向外绕一圈
+      path = `M${from.x + nodeWidth * 0.35} ${from.y} C${from.x + nodeWidth * 0.2} ${from.y - 44}, ${from.x + nodeWidth * 0.8} ${from.y - 44}, ${from.x + nodeWidth * 0.65} ${from.y}`
+    } else if (backward) {
+      // 回边：从右侧绕回目标右侧，提示环或逆向引用
+      const endY = to.y + to.height / 2
+      const endX = to.x + nodeWidth
+      path = `M${startX} ${startY} C${startX + 70} ${startY}, ${endX + 70} ${endY}, ${endX} ${endY}`
+    } else {
+      const endY = to.y + to.height / 2
+      const endX = to.x
+      const bend = Math.max(24, (endX - startX) * 0.5)
+      path = `M${startX} ${startY} C${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`
+    }
+
+    return { key: `${edge.from}->${edge.to}-${index}`, isRef: edge.isRef || backward, d: path }
+  }).filter(Boolean)
+
+  const contentWidth = nodes.reduce((max, node) => Math.max(max, node.x + nodeWidth), 0)
+
+  return { nodes, edges: routedEdges, contentWidth, contentHeight: maxHeight }
+})
+
+const layout = computed(() => (mode.value === 'tree' ? treeLayout.value : graphLayout.value))
+
+const idSignature = computed(() => `${mode.value}:${layout.value.nodes.map((node) => node.id).join('|')}`)
 
 let hasInteracted = false
 
