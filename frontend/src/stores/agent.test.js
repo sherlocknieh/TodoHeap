@@ -155,6 +155,52 @@ describe('useAgentStore', () => {
     expect(agent.messages[1].toolCalls[0].status).toBe('success')
   })
 
+  it('支持新建、切换、重命名与删除会话', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '你好', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('第一句')
+
+    const firstId = agent.activeSessionId
+    expect(agent.activeSession.title).toBe('第一句')
+    expect(agent.messages).toHaveLength(2)
+
+    const secondId = agent.newSession()
+    expect(agent.activeSessionId).toBe(secondId)
+    expect(agent.messages).toHaveLength(0)
+    expect(agent.sessions).toHaveLength(2)
+
+    agent.renameSession(secondId, '第二个会话')
+    expect(agent.sessions.find((session) => session.id === secondId).title).toBe('第二个会话')
+
+    agent.switchSession(firstId)
+    expect(agent.activeSession.title).toBe('第一句')
+    expect(agent.messages).toHaveLength(2)
+
+    agent.deleteSession(firstId)
+    expect(agent.sessions.map((session) => session.id)).toEqual([secondId])
+    expect(agent.activeSessionId).toBe(secondId)
+    expect(agent.messages).toHaveLength(0)
+  })
+
+  it('清空当前会话不会删除其他会话', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('第一句')
+    const firstId = agent.activeSessionId
+    const secondId = agent.newSession()
+
+    agent.switchSession(firstId)
+    agent.clear()
+    expect(agent.messages).toHaveLength(0)
+    expect(agent.sessions).toHaveLength(2)
+
+    agent.switchSession(secondId)
+    expect(agent.messages).toHaveLength(0)
+    expect(agent.sessions.find((session) => session.id === firstId).messages).toHaveLength(0)
+  })
+
   it('模型调用失败时暴露可读错误并复位运行状态', async () => {
     mocks.chat.mockRejectedValueOnce(new Error('模型接口返回 401：invalid api key'))
 

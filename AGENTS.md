@@ -73,7 +73,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
 | `MindMapWrapper.vue` | simple-mind-map 封装，负责与 todos 树互转 |
 | `AITaskInput.vue` | 自然语言输入与分析进度 |
-| `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认 |
+| `AgentChat.vue` | 对话 Agent：多会话列表、消息流、工具执行记录、破坏性操作确认 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `BreakdownStatusCard.vue` | 分解状态：进行中 / 待确认 / 成功 / 失败 |
 | `OptimizeProgressCard.vue` | 全局优化进度与变更摘要 |
@@ -92,7 +92,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `stores/todos.breakdown.js` | 三个 AI 边缘函数的调用封装（分解 / 新建 / 优化） |
 | `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
 | `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除 |
-| `stores/agent.js` | 对话 Agent：系统提示、工具循环、确认与本地会话 |
+| `stores/agent.js` | 对话 Agent：多会话、系统提示、工具循环、确认与本地持久化 |
 | `stores/llm.js` | 模型配置（仅浏览器本地）与聊天入口 |
 | `stores/auth.ts` | Supabase Auth 会话 |
 | `stores/todos.*.test.js` | vitest 覆盖乐观更新与回滚 |

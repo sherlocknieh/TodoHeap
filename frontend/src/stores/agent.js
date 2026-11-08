@@ -1,4 +1,4 @@
-// 对话 Agent：组织系统提示、模型调用、工具执行与破坏性操作确认
+// 对话 Agent：多会话管理、系统提示、模型调用、工具执行与破坏性操作确认
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useAuthStore } from './auth'
@@ -7,10 +7,16 @@ import { useScheduleStore } from './schedules'
 import { useLlmStore } from './llm'
 import { createAgentToolRunner, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
 
-const STORAGE_PREFIX = 'todoheap.agent.v1.'
+const STORAGE_PREFIX = 'todoheap.agent.v2.'
+const LEGACY_STORAGE_PREFIX = 'todoheap.agent.v1.'
+const MAX_SESSIONS = 20
 const MAX_STEPS = 12
-const MAX_STORED_MESSAGES = 60
+const MAX_STORED_MESSAGES = 80
 const MAX_TOOL_RESULT_CHARS = 6000
+const MAX_TITLE_LENGTH = 28
+const DEFAULT_TITLE = '新对话'
+
+const nowIso = () => new Date().toISOString()
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
@@ -39,24 +45,87 @@ ${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selecte
 - 与任务管理无关的普通问题可以直接回答，不必调用工具。
 - 回答保持简洁，用纯文本和短列表，不要使用 **、# 等 Markdown 记号。`
 
-const loadStoredMessages = (userId) => {
-  if (typeof localStorage === 'undefined') return []
+const normalizeMessage = (message) => ({
+  id: message.id || createId(),
+  role: message.role,
+  content: typeof message.content === 'string' ? message.content : '',
+  toolCalls: Array.isArray(message.toolCalls) ? message.toolCalls : [],
+  createdAt: message.createdAt || nowIso(),
+  streaming: false
+})
+
+const normalizeMessages = (list) => (Array.isArray(list) ? list : [])
+  .filter((message) => message && (message.role === 'user' || message.role === 'assistant'))
+  .map(normalizeMessage)
+
+// 标题取第一条用户消息，避免会话列表全是“新对话”
+const titleFromMessages = (messages) => {
+  const firstUser = messages.find((message) => message.role === 'user')
+  const title = String(firstUser?.content || '').replace(/\s+/g, ' ').trim()
+  return title ? title.slice(0, MAX_TITLE_LENGTH) : DEFAULT_TITLE
+}
+
+const createSession = (title = DEFAULT_TITLE, messages = []) => ({
+  id: createId(),
+  title,
+  createdAt: nowIso(),
+  updatedAt: nowIso(),
+  messages
+})
+
+// 只保留最近若干条，并从用户消息处切分，避免留下孤立的 tool 结果
+const trimMessages = (list) => {
+  const items = Array.isArray(list) ? list : []
+  if (items.length <= MAX_STORED_MESSAGES) return items
+
+  const target = items.length - MAX_STORED_MESSAGES
+  const cut = items.findIndex((message, index) => index >= target && message.role === 'user')
+  return items.slice(cut === -1 ? target : cut)
+}
+
+// 优先读 v2；旧版单会话记录迁移成一个带标题的会话
+const loadStoredState = (userId) => {
+  if (typeof localStorage === 'undefined') return null
+  const key = userId || 'anon'
+
   try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${userId || 'anon'}`)
-    const parsed = raw ? JSON.parse(raw) : null
-    if (!Array.isArray(parsed)) return []
-    return parsed
-      .filter((message) => message && (message.role === 'user' || message.role === 'assistant'))
-      .map((message) => ({
-        id: message.id || createId(),
-        role: message.role,
-        content: typeof message.content === 'string' ? message.content : '',
-        toolCalls: Array.isArray(message.toolCalls) ? message.toolCalls : [],
-        createdAt: message.createdAt || new Date().toISOString()
-      }))
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const sessions = (Array.isArray(parsed?.sessions) ? parsed.sessions : [])
+        .filter((session) => session && session.id)
+        .map((session) => ({
+          id: session.id,
+          title: typeof session.title === 'string' && session.title.trim()
+            ? session.title.trim()
+            : DEFAULT_TITLE,
+          createdAt: session.createdAt || nowIso(),
+          updatedAt: session.updatedAt || session.createdAt || nowIso(),
+          messages: normalizeMessages(session.messages)
+        }))
+      if (sessions.length) return { sessions, activeId: parsed.activeId }
+    }
+
+    const legacyRaw = localStorage.getItem(`${LEGACY_STORAGE_PREFIX}${key}`)
+    if (legacyRaw) {
+      const legacyMessages = normalizeMessages(JSON.parse(legacyRaw))
+      if (legacyMessages.length) {
+        return {
+          sessions: [{
+            id: createId(),
+            title: titleFromMessages(legacyMessages),
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+            messages: legacyMessages
+          }]
+        }
+      }
+    }
   } catch {
-    return []
+    return null
   }
+
+  return null
 }
 
 const truncate = (value) => {
@@ -67,6 +136,8 @@ const truncate = (value) => {
 
 export const useAgentStore = defineStore('agent', () => {
   const messages = ref([])
+  const sessions = ref([])
+  const activeSessionId = ref(null)
   const running = ref(false)
   const error = ref('')
   const pendingApproval = ref(null)
@@ -76,37 +147,129 @@ export const useAgentStore = defineStore('agent', () => {
   let abortController = null
   let approvalResolver = null
 
+  const activeSession = computed(() => (
+    sessions.value.find((session) => session.id === activeSessionId.value) || null
+  ))
   const hasMessages = computed(() => messages.value.length > 0)
 
+  // 所有会话一起落盘；当前会话的实时消息与 session.messages 保持同一引用
   const persist = () => {
     if (typeof localStorage === 'undefined') return
     try {
-      const trimmed = messages.value.slice(-MAX_STORED_MESSAGES)
-      localStorage.setItem(
-        `${STORAGE_PREFIX}${activeUserId.value || 'anon'}`,
-        JSON.stringify(trimmed.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          toolCalls: message.toolCalls,
-          createdAt: message.createdAt
-        })))
-      )
+      const active = activeSession.value
+      if (active) {
+        active.messages = trimMessages(messages.value)
+        messages.value = active.messages
+      }
+
+      sessions.value.forEach((session) => {
+        session.messages = trimMessages(session.messages)
+      })
+      sessions.value = [...sessions.value]
+        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
+
+      localStorage.setItem(`${STORAGE_PREFIX}${activeUserId.value || 'anon'}`, JSON.stringify({
+        version: 2,
+        activeId: activeSessionId.value,
+        sessions: sessions.value
+      }))
+      localStorage.removeItem(`${LEGACY_STORAGE_PREFIX}${activeUserId.value || 'anon'}`)
     } catch {
       // 存储空间不足时放弃持久化，本次会话仍可继续
     }
   }
 
-  // 按用户恢复各自的对话，切换账号不会串上下文
+  // 按用户恢复各自的会话，切换账号不会串上下文
   const init = (userId) => {
     const key = userId || 'anon'
     if (activeUserId.value === key) return
     activeUserId.value = key
-    messages.value = loadStoredMessages(key)
+
+    const stored = loadStoredState(key)
+    if (stored?.sessions?.length) {
+      sessions.value = stored.sessions
+      const active = stored.sessions.find((session) => session.id === stored.activeId)
+        || stored.sessions[0]
+      activeSessionId.value = active.id
+      messages.value = active.messages
+    } else {
+      const session = createSession()
+      sessions.value = [session]
+      activeSessionId.value = session.id
+      messages.value = session.messages
+    }
+
+    error.value = ''
+    persist()
+  }
+
+  const newSession = () => {
+    if (running.value) stop()
+    persist()
+
+    // 超出上限时淘汰最久未使用的非当前会话
+    if (sessions.value.length >= MAX_SESSIONS) {
+      const victim = [...sessions.value]
+        .filter((session) => session.id !== activeSessionId.value)
+        .sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)))[0]
+      if (victim) sessions.value = sessions.value.filter((session) => session.id !== victim.id)
+    }
+
+    const session = createSession()
+    sessions.value.unshift(session)
+    activeSessionId.value = session.id
+    messages.value = session.messages
+    error.value = ''
+    persist()
+    return session.id
+  }
+
+  const switchSession = (id) => {
+    if (!id || id === activeSessionId.value) return
+    const target = sessions.value.find((session) => session.id === id)
+    if (!target) return
+
+    if (running.value) stop()
+    persist()
+    activeSessionId.value = id
+    messages.value = target.messages
+    error.value = ''
+    persist()
+  }
+
+  const renameSession = (id, title) => {
+    const session = sessions.value.find((item) => item.id === id)
+    if (!session) return
+    const next = String(title || '').trim().slice(0, 40)
+    session.title = next || '未命名对话'
+    persist()
+  }
+
+  const deleteSession = (id) => {
+    const index = sessions.value.findIndex((session) => session.id === id)
+    if (index === -1) return
+
+    if (running.value) stop()
+    const wasActive = activeSessionId.value === id
+    sessions.value.splice(index, 1)
+
+    if (sessions.value.length === 0) {
+      const session = createSession()
+      sessions.value = [session]
+      activeSessionId.value = session.id
+      messages.value = session.messages
+    } else if (wasActive) {
+      const next = sessions.value[0]
+      activeSessionId.value = next.id
+      messages.value = next.messages
+    }
+
+    error.value = ''
+    persist()
   }
 
   const clear = () => {
-    messages.value = []
+    messages.value.splice(0)
     error.value = ''
     persist()
   }
@@ -209,8 +372,21 @@ export const useAgentStore = defineStore('agent', () => {
     const authStore = useAuthStore()
     init(authStore.user?.id)
 
+    // 生成期间切换会话时，只把收尾逻辑作用在原会话上
+    const sessionId = activeSessionId.value
+    const sessionOfTurn = () => sessions.value.find((session) => session.id === sessionId)
+    const isCurrentSession = () => activeSessionId.value === sessionId
+
     error.value = ''
-    messages.value.push({ id: createId(), role: 'user', content, toolCalls: [], createdAt: new Date().toISOString() })
+    messages.value.push({ id: createId(), role: 'user', content, toolCalls: [], createdAt: nowIso() })
+
+    const session = activeSession.value
+    if (session) {
+      if (!session.title || session.title === DEFAULT_TITLE) {
+        session.title = content.replace(/\s+/g, ' ').slice(0, MAX_TITLE_LENGTH)
+      }
+      session.updatedAt = nowIso()
+    }
     persist()
 
     running.value = true
@@ -225,7 +401,7 @@ export const useAgentStore = defineStore('agent', () => {
       })
 
       for (let step = 0; step < MAX_STEPS; step += 1) {
-        if (signal.aborted) break
+        if (signal.aborted || !isCurrentSession()) break
 
         const history = toApiMessages()
         const assistant = {
@@ -233,7 +409,7 @@ export const useAgentStore = defineStore('agent', () => {
           role: 'assistant',
           content: '',
           toolCalls: [],
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso(),
           streaming: true
         }
         messages.value.push(assistant)
@@ -249,6 +425,9 @@ export const useAgentStore = defineStore('agent', () => {
 
         assistant.streaming = false
         assistant.content = (reply.content || assistant.content || '').trim()
+
+        if (!isCurrentSession()) break
+
         if (!reply.tool_calls?.length) {
           if (!assistant.content) {
             messages.value.pop()
@@ -268,7 +447,7 @@ export const useAgentStore = defineStore('agent', () => {
         persist()
 
         for (const call of assistant.toolCalls) {
-          if (signal.aborted) break
+          if (signal.aborted || !isCurrentSession()) break
           await runToolCall(runner, call)
         }
 
@@ -277,17 +456,20 @@ export const useAgentStore = defineStore('agent', () => {
         }
       }
     } catch (err) {
+      // 会话被切走时只收尾原会话，不影响新会话的消息
+      const target = isCurrentSession() ? messages.value : (sessionOfTurn()?.messages || [])
+      const last = target[target.length - 1]
+
       if (err?.name === 'AbortError') {
-        const last = messages.value[messages.value.length - 1]
         if (last?.role === 'assistant') {
           last.streaming = false
-          if (!last.content && !last.toolCalls?.length) messages.value.pop()
+          if (!last.content && !last.toolCalls?.length) target.pop()
         }
       } else {
-        error.value = err?.message || '模型调用失败'
-        const last = messages.value[messages.value.length - 1]
-        if (last?.role === 'assistant' && !last.content && !last.toolCalls?.length && last.streaming) {
-          messages.value.pop()
+        if (isCurrentSession()) error.value = err?.message || '模型调用失败'
+        if (last?.role === 'assistant' && last.streaming) {
+          last.streaming = false
+          if (!last.content && !last.toolCalls?.length) target.pop()
         }
       }
     } finally {
@@ -299,6 +481,9 @@ export const useAgentStore = defineStore('agent', () => {
 
   return {
     messages,
+    sessions,
+    activeSessionId,
+    activeSession,
     running,
     error,
     pendingApproval,
@@ -308,6 +493,10 @@ export const useAgentStore = defineStore('agent', () => {
     stop,
     clear,
     setContext,
-    resolveApproval
+    resolveApproval,
+    newSession,
+    switchSession,
+    renameSession,
+    deleteSession
   }
 })
