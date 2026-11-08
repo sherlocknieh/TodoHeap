@@ -250,6 +250,31 @@ export const createTodoOptimisticActions = ({
     return { success: true }
   }
 
+  // 一键清理已完成: 逐棵已完成子树走单条删除流程, 后代随父级级联进回收站
+  const deleteCompletedTodos = async () => {
+    const completedIds = todosRef.value
+      .filter(todo => todo.completed_at)
+      .map(todo => todo.id)
+    if (completedIds.length === 0) return { success: true, count: 0 }
+
+    // 父任务已完成时, 其后代必然由父级级联覆盖, 无需单独删除
+    const coveredIds = new Set()
+    completedIds.forEach((id) => {
+      collectDescendantIds(todosRef.value, id).forEach(childId => coveredIds.add(childId))
+    })
+
+    let count = 0
+    for (const id of completedIds) {
+      if (coveredIds.has(id)) continue
+
+      count += 1 + findDescendantIds(id).length
+      const result = await deleteTodo(id)
+      if (!result.success) return result
+    }
+
+    return { success: true, count }
+  }
+
   const restoreTodo = async (id) => {
     const syncQueue = getSyncQueue()
 
@@ -383,6 +408,7 @@ export const createTodoOptimisticActions = ({
     updateTodo,
     toggleDone,
     deleteTodo,
+    deleteCompletedTodos,
     restoreTodo,
     permanentDeleteTodo,
     emptyTrash,

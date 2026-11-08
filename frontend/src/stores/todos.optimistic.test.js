@@ -116,6 +116,44 @@ describe('createTodoOptimisticActions', () => {
     expect(trashTodosRef.value.map(item => item.id).sort()).toEqual([1, 2])
   })
 
+  it('deleteCompletedTodos 应逐棵已完成子树删除并入队', async () => {
+    todosRef.value = [
+      { id: 1, title: '已完成父', completed_at: '2026-01-01T00:00:00.000Z', child_ids: [2], deleted_at: null },
+      { id: 2, title: '已完成子', completed_at: '2026-01-01T00:00:00.000Z', child_ids: [3], deleted_at: null },
+      { id: 3, title: '未完成子', completed_at: null, child_ids: [], deleted_at: null },
+      { id: 4, title: '已完成孤立', completed_at: '2026-01-02T00:00:00.000Z', child_ids: [], deleted_at: null },
+      { id: 5, title: '进行中', completed_at: null, child_ids: [], deleted_at: null }
+    ]
+    trashTodosRef.value = []
+    trashLoadingRef.value = false
+
+    const result = await actions.deleteCompletedTodos()
+
+    expect(result).toEqual({ success: true, count: 4 })
+    expect(todosRef.value.map(item => item.id)).toEqual([5])
+    expect(trashTodosRef.value.map(item => item.id)).toEqual([4, 3, 2, 1])
+    // 父任务已完成时后代由级联覆盖，只有子树根入队
+    expect(syncQueue.enqueue).toHaveBeenCalledTimes(2)
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.DELETE,
+      targetId: 1
+    }))
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.DELETE,
+      targetId: 4
+    }))
+  })
+
+  it('deleteCompletedTodos 在没有已完成任务时不入队', async () => {
+    todosRef.value = [{ id: 1, title: '进行中', completed_at: null, child_ids: [], deleted_at: null }]
+
+    const result = await actions.deleteCompletedTodos()
+
+    expect(result).toEqual({ success: true, count: 0 })
+    expect(todosRef.value).toHaveLength(1)
+    expect(syncQueue.enqueue).not.toHaveBeenCalled()
+  })
+
   it('restoreAllTrash 应恢复所有任务并加入批量恢复队列', async () => {
     todosRef.value = [{ id: 10, title: '现有任务', deleted_at: null }]
     trashTodosRef.value = [

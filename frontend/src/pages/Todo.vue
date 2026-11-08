@@ -173,6 +173,22 @@ const toggleCompletedTodo = async (todo) => {
 	await todoStore.toggleDone(todo.id)
 }
 
+// 一键清除已完成：确认后整棵已完成子树移入回收站
+const clearCompletedTodos = async () => {
+	const total = completedTodos.value.length
+	if (total === 0) return
+	if (!window.confirm(`将 ${total} 个已完成任务及其子任务移入回收站？`)) return
+
+	const result = await todoStore.deleteCompletedTodos()
+	if (!result.success) return
+
+	// 当前选中的任务被级联删除时收起详情面板
+	if (selectedTaskId.value != null && !todoStore.todos.some(todo => todo.id === selectedTaskId.value)) {
+		closeDetailPanel()
+		selectedTaskId.value = null
+	}
+}
+
 const handleSelectedIdReplaced = (event) => {
 	const { tempId, realId } = event.detail || {}
 	if (tempId == null || realId == null) return
@@ -699,10 +715,17 @@ onUnmounted(() => {
 									<span class="text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
 										已完成 <span class="ml-1 font-mono text-neutral-900 dark:text-neutral-100">{{ completedTodos.length }}</span>
 									</span>
-									<button @click="showCompletedPanel = !showCompletedPanel"
-										class="text-xs font-medium text-accent-700 hover:underline dark:text-accent-400 transition-colors">
-										{{ showCompletedPanel ? '收起' : '展开' }}
-									</button>
+									<div class="flex items-center gap-1">
+										<button v-if="completedTodos.length" @click="clearCompletedTodos"
+											class="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
+											title="清除已完成任务">
+											<AppIcon name="trash" :size="14" />
+										</button>
+										<button @click="showCompletedPanel = !showCompletedPanel"
+											class="text-xs font-medium text-accent-700 hover:underline dark:text-accent-400 transition-colors">
+											{{ showCompletedPanel ? '收起' : '展开' }}
+										</button>
+									</div>
 								</div>
 								<Transition name="fade">
 									<div v-if="showCompletedPanel" class="mt-2 max-h-52 overflow-auto">
