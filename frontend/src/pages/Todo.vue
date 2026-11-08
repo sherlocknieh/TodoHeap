@@ -35,6 +35,7 @@ const activeView = computed({
 		if (routeName === 'TreeView') return 'tree'
 		if (routeName === 'HeapView') return 'heap'
 		if (routeName === 'TrashView') return 'trash'
+		if (routeName === 'AIView') return 'ai'
 		return 'list' // 默认是 ListView
 	},
 	set: (view) => {
@@ -42,7 +43,8 @@ const activeView = computed({
 			'list': 'ListView',
 			'tree': 'TreeView',
 			'heap': 'HeapView',
-			'trash': 'TrashView'
+			'trash': 'TrashView',
+			'ai': 'AIView'
 		}
 		router.push({ name: viewNames[view] })
 	}
@@ -86,8 +88,28 @@ const activeViewLabel = computed(() => {
 	if (activeView.value === 'tree') return '树视图'
 	if (activeView.value === 'heap') return '堆视图'
 	if (activeView.value === 'trash') return '回收站'
+	if (activeView.value === 'ai') return 'AI'
 	return '列表'
 })
+
+// 活动栏主入口：清单与 AI 对应视图，日程待上线
+const navEntries = [
+	{ id: 'list', label: '清单', icon: 'list' },
+	{ id: 'schedule', label: '日程（即将上线）', icon: 'calendar', disabled: true },
+	{ id: 'ai', label: 'AI', icon: 'sparkles' }
+]
+
+// 清单入口在列表、树、堆、回收站下都视为当前位置
+const isNavEntryActive = (id) => {
+	if (id === 'ai') return activeView.value === 'ai'
+	if (id === 'list') return activeView.value !== 'ai'
+	return false
+}
+
+const openNavEntry = (entry) => {
+	if (entry.disabled) return
+	switchView(entry.id)
+}
 
 const syncStatusLabel = computed(() => hasUnsyncedChanges.value ? '有待同步更改' : '已同步')
 
@@ -120,7 +142,16 @@ const aiStatusLabel = computed(() => {
 })
 
 const viewProps = computed(() => {
-	return activeView.value === 'heap' ? { todos: todoStore.todos } : {}
+	if (activeView.value === 'heap') return { todos: todoStore.todos }
+	// AI 视图自行承载输入与优化入口
+	if (activeView.value === 'ai') {
+		return {
+			loading: isAnalyzingTask.value,
+			progress: analyzeProgress.value,
+			isOptimizing: isOptimizingTasks.value
+		}
+	}
+	return {}
 })
 
 const completedTodos = computed(() => {
@@ -553,12 +584,30 @@ onUnmounted(() => {
 			<!-- 左侧活动栏 -->
 			<aside
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center justify-between py-2">
-				<!-- 侧栏开关 -->
-				<button @click="toggleLeftPanel"
-					class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
-					title="切换侧栏">
-					<AppIcon name="sidebar" />
-				</button>
+				<div class="flex flex-col items-center gap-1">
+					<!-- 侧栏开关 -->
+					<button @click="toggleLeftPanel"
+						class="h-9 w-9 rounded-md flex items-center justify-center text-white/80 hover:bg-white/15 hover:text-white transition-colors"
+						title="切换侧栏">
+						<AppIcon name="sidebar" />
+					</button>
+
+					<!-- 主入口 -->
+					<nav class="flex flex-col items-center gap-1 pt-1 border-t border-white/20 w-8">
+						<button v-for="entry in navEntries" :key="entry.id" @click="openNavEntry(entry)"
+							:disabled="entry.disabled" :title="entry.label"
+							:class="[
+								'h-9 w-9 rounded-md flex items-center justify-center transition-colors',
+								entry.disabled
+									? 'text-white/35 cursor-not-allowed'
+									: isNavEntryActive(entry.id)
+										? 'bg-white/20 text-white'
+										: 'text-white/70 hover:bg-white/15 hover:text-white'
+							]">
+							<AppIcon :name="entry.icon" />
+						</button>
+					</nav>
+				</div>
 
 				<!-- 账户与设置 -->
 				<div class="flex flex-col items-center gap-1">
@@ -626,12 +675,13 @@ onUnmounted(() => {
 						<div class="mx-auto max-w-3xl w-full px-6 pb-4 space-y-3">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
-									:is-breaking-down="isBreakingDown" @task-selected="handleTaskSelected"
-									@breakdown-task="handleBreakdownTask" />
+									:is-breaking-down="isBreakingDown"
+									@task-selected="handleTaskSelected" @breakdown-task="handleBreakdownTask"
+									@submit-task="handleAnalyzeTaskInput" @optimize-tasks="handleOptimizeTasks" />
 							</router-view>
 
 							<!-- 已完成任务：收在清单下方，与列表同宽同卡 -->
-							<section class="panel px-4 py-3">
+							<section v-if="activeView !== 'ai'" class="panel px-4 py-3">
 								<div class="flex items-center justify-between">
 									<span class="text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
 										已完成 <span class="ml-1 font-mono text-neutral-900 dark:text-neutral-100">{{ completedTodos.length }}</span>
@@ -664,8 +714,8 @@ onUnmounted(() => {
 					</template>
 				</div>
 
-				<!-- 自然语言任务输入 -->
-				<div v-if="!isBreakingDown" class="mx-auto max-w-3xl w-full px-6 pb-4">
+				<!-- 自然语言任务输入：AI 视图自带输入框，避免重复 -->
+				<div v-if="!isBreakingDown && activeView !== 'ai'" class="mx-auto max-w-3xl w-full px-6 pb-4">
 					<div class="panel p-2">
 						<AITaskInput :loading="isAnalyzingTask" :progress="analyzeProgress"
 							@submit-task="handleAnalyzeTaskInput" />
