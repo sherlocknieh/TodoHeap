@@ -20,12 +20,12 @@
   --color-accent-950: #032c1b;
 
   /* 页面底色与卡片保持中性，靠明度差拉开层级；绿色只在交互与状态上出现 */
-  --color-canvas: #f7f8f8;
-  --color-canvas-dark: #0b0b0b;
+  --color-canvas: #f5f6f6;
+  --color-canvas-dark: #1b1b1b;
   --color-surface: #ffffff;
-  --color-surface-dark: #151515;
-  --color-hairline: #e8eeeb;
-  --color-hairline-dark: #272727;
+  --color-surface-dark: #262626;
+  --color-hairline: #e6ece9;
+  --color-hairline-dark: #3a3a3a;
 }
 
 /* 跟随系统切换亮暗主题 */
