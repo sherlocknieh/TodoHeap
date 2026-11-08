@@ -38,6 +38,19 @@ supabase start          # local API on :54321, Studio on :54323
 supabase db reset       # re-apply every migration
 ```
 
+### Deployment variables
+
+The GitHub Pages build reads the frontend config from repository variables, never from `.env.local`.
+A missing `VITE_SUPABASE_PUB_KEY` ships a bundle whose key is empty and fails on load with
+`supabaseKey is required`, so the workflow validates both variables before building.
+
+Set them under `Settings → Secrets and variables → Actions → Variables`:
+
+| Variable | Value |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Project URL, e.g. `https://<project>.supabase.co` |
+| `VITE_SUPABASE_PUB_KEY` | The project's publishable key |
+
 ## Repository layout
 
 ```text

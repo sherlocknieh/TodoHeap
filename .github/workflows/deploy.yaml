@@ -42,9 +42,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUB_KEY: ${{ vars.VITE_SUPABASE_PUB_KEY }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_OAUTH_REDIRECT_URI: ${{ vars.VITE_OAUTH_REDIRECT_URI }}
         run: |
+          # 变量缺失会构建出连不上后端且难以排查的页面, 因此在构建前直接失败
+          [ -n "$VITE_SUPABASE_URL" ] && [ -n "$VITE_SUPABASE_PUB_KEY" ] || { echo "::error::缺少仓库变量 VITE_SUPABASE_URL 或 VITE_SUPABASE_PUB_KEY"; exit 1; }
           npm install
           npm run build
       
