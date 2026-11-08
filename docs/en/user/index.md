@@ -65,7 +65,7 @@ Breakdown can run in preview mode: generated subtasks are shown for confirmation
 | --- | --- | --- |
 | List | `/app/list` | Day-to-day editing, ordered execution |
 | Tree | `/app/tree` | Mind-map style structure work |
-| Schedule | `/app/schedule` | Tasks and calendar events grouped by date |
+| Schedule | `/app/schedule` | Calendar events grouped by date |
 | AI | `/app/ai` | Natural-language capture and global optimisation |
 | Trash | `/app/trash` | Restore or permanently delete |
 | Heap | `/app/heap` | Priority-ranked queue (sidebar entry currently hidden) |

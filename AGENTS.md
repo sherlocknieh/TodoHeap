@@ -43,7 +43,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `pages/todo/TodoList.vue` | 列表视图：快速添加 + 树形缩进的扁平列表 |
 | `pages/todo/TodoTree.vue` | 树视图，仅容器，实际渲染 `MindMapWrapper` |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
-| `pages/todo/ScheduleView.vue` | 日程视图：未完成任务按截止日期分组 |
+| `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组 |
 | `pages/todo/AIView.vue` | AI 工作台：自然语言建任务与全局优化入口 |
 | `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
 | `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、AI 偏好、滴答清单导入 |
