@@ -2,7 +2,7 @@
 
 export const LLM_PRESETS = [
   { id: 'openai', label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', models: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o'] },
-  { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-reasoner'] },
+  { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-flash', 'deepseek-chat', 'deepseek-reasoner'] },
   { id: 'moonshot', label: 'Moonshot / Kimi', baseUrl: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-8k', 'kimi-k2-0905-preview'] },
   { id: 'zhipu', label: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', models: ['glm-4.5', 'glm-4-flash'] },
   { id: 'dashscope', label: '阿里百炼', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', models: ['qwen-plus', 'qwen-max'] },
@@ -18,7 +18,7 @@ export const LLM_MODES = [
 ]
 
 // 内置模式可选的模型建议；实际可用范围由网关的 LLM_ALLOWED_MODELS 决定
-export const BUILTIN_MODELS = ['deepseek-chat', 'deepseek-v4-flash', 'gpt-4.1-mini']
+export const BUILTIN_MODELS = ['deepseek-flash', 'deepseek-chat', 'gpt-4.1-mini']
 
 export const DEFAULT_LLM_CONFIG = {
   mode: 'byok',

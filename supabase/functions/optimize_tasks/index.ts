@@ -189,10 +189,10 @@ Deno.serve(async (req: Request) => {
       fetch: deepseekFetch,
     });
 
-    const modelName = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-v4-flash";
+    const modelName = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-flash";
 
     if (modelName.includes("reasoner")) {
-      console.warn(`Warning: Model "${modelName}" supports thinking mode which may cause issues. Consider using "deepseek-v4-flash" instead.`);
+      console.warn(`Warning: Model "${modelName}" supports thinking mode which may cause issues. Consider using "deepseek-flash" instead.`);
     }
 
     const result = await generateText({

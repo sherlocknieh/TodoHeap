@@ -270,7 +270,7 @@ async function handler(req: Request) {
     ];
 
     const openai = createOpenAIClient();
-    const model = "deepseek-v4-flash";
+    const model = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-flash";
 
     // 4. 调用 AI API 并启用流式响应
     const stream = await openai.chat.completions.create({

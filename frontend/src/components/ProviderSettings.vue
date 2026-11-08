@@ -102,7 +102,7 @@ const handleReset = () => {
 
       <label class="space-y-1.5">
         <span class="text-xs font-medium text-neutral-700 dark:text-neutral-300">模型名称</span>
-        <input v-model="draft.model" class="field" list="llm-models" placeholder="如 deepseek-chat" autocomplete="off" />
+        <input v-model="draft.model" class="field" list="llm-models" placeholder="如 deepseek-flash" autocomplete="off" />
         <datalist id="llm-models">
           <option v-for="model in preset?.models || []" :key="model" :value="model" />
         </datalist>

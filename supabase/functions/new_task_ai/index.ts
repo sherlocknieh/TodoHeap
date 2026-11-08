@@ -235,7 +235,7 @@ Deno.serve(async (req: Request) => {
     // 初始化 AI 模型和消息列表
     // 系统提示词 → 当前用户和父 ID → 语言和规则 → 用户输入
     const openai = createOpenAIClient();
-    const model = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-v4-flash";
+    const model = Deno.env.get("DEEPSEEK_MODEL") || "deepseek-flash";
     const preferredLanguage = detectUserLanguage(body.query);
 
     // 拉取任务图, 用于校验父任务归属与根内可达性
