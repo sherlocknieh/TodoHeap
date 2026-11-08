@@ -7,6 +7,7 @@ const OperationType = {
   UPDATE: 'UPDATE',
   DELETE: 'DELETE',
   RESTORE: 'RESTORE',
+  BATCH_DELETE: 'BATCH_DELETE',
   BATCH_RESTORE: 'BATCH_RESTORE',
   BATCH_PERMANENT_DELETE: 'BATCH_PERMANENT_DELETE'
 }
@@ -76,6 +77,31 @@ describe('createTodoRollbackHandler', () => {
 
     vi.advanceTimersByTime(3000)
     expect(errorRef.value).toBeNull()
+  })
+
+  it('BATCH_DELETE 回滚应把任务从垃圾箱搬回清单', () => {
+    todosRef.value = [{ id: 3, title: '仍在清单的任务' }]
+    trashTodosRef.value = [
+      { id: 1, title: '已完成父', deleted_at: '2026-01-01T00:00:00.000Z' },
+      { id: 2, title: '已完成子', deleted_at: '2026-01-01T00:00:00.000Z' }
+    ]
+
+    handleRollback({
+      detail: {
+        item: { type: OperationType.BATCH_DELETE, targetId: 'batch-delete-completed' },
+        snapshot: {
+          todos: [
+            { id: 1, title: '已完成父', deleted_at: null },
+            { id: 2, title: '已完成子', deleted_at: null }
+          ],
+          removedIds: [1, 2]
+        }
+      }
+    })
+
+    expect(trashTodosRef.value).toEqual([])
+    expect(todosRef.value.map(item => item.id)).toEqual([3, 1, 2])
+    expect(errorRef.value).toBe('清除已完成任务失败，已恢复')
   })
 
   it('BATCH_RESTORE 回滚应恢复 todos 与 trash 快照', () => {

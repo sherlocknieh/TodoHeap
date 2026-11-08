@@ -250,7 +250,7 @@ export const createTodoOptimisticActions = ({
     return { success: true }
   }
 
-  // 一键清理已完成: 逐棵已完成子树走单条删除流程, 后代随父级级联进回收站
+  // 一键清理已完成: 只把每棵已完成子树的根入队, 后代由服务端级联软删除
   const deleteCompletedTodos = async () => {
     const completedIds = todosRef.value
       .filter(todo => todo.completed_at)
@@ -262,17 +262,47 @@ export const createTodoOptimisticActions = ({
     completedIds.forEach((id) => {
       collectDescendantIds(todosRef.value, id).forEach(childId => coveredIds.add(childId))
     })
+    const rootIds = completedIds.filter(id => !coveredIds.has(id))
 
-    let count = 0
-    for (const id of completedIds) {
-      if (coveredIds.has(id)) continue
+    const idsToRemove = new Set()
+    rootIds.forEach((id) => {
+      idsToRemove.add(id)
+      findDescendantIds(id).forEach(childId => idsToRemove.add(childId))
+    })
 
-      count += 1 + findDescendantIds(id).length
-      const result = await deleteTodo(id)
-      if (!result.success) return result
+    const syncQueue = getSyncQueue()
+    const removedSnapshots = collectTodosByIds(todosRef.value, [...idsToRemove])
+    if (removedSnapshots.length === 0) return { success: true, count: 0 }
+
+    const deletedAt = new Date().toISOString()
+    syncQueue.saveSnapshot('batch-delete-completed', {
+      todos: removedSnapshots,
+      removedIds: [...idsToRemove]
+    })
+
+    removeTodosByIds(todosRef, idsToRemove)
+    if (trashTodosRef.value.length > 0 || !trashLoadingRef.value) {
+      prependUniqueTodos(
+        trashTodosRef,
+        removedSnapshots.map(todo => ({ ...todo, deleted_at: deletedAt }))
+      )
     }
 
-    return { success: true, count }
+    // 临时任务还没有服务端记录, 只留在本地回收站
+    const serverIds = rootIds
+      .map(id => syncQueue.getRealId(id))
+      .filter(realId => !syncQueue.isTempId(realId))
+    if (serverIds.length > 0) {
+      await syncQueue.enqueue({
+        type: OperationType.BATCH_DELETE,
+        targetId: 'batch-delete-completed',
+        payload: { ids: serverIds, deleted_at: deletedAt }
+      })
+    } else {
+      syncQueue.clearSnapshot('batch-delete-completed')
+    }
+
+    return { success: true, count: idsToRemove.size }
   }
 
   const restoreTodo = async (id) => {

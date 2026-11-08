@@ -18,6 +18,7 @@ export const OperationType = {
   DELETE: 'DELETE',
   RESTORE: 'RESTORE',
   PERMANENT_DELETE: 'PERMANENT_DELETE',
+  BATCH_DELETE: 'BATCH_DELETE',
   BATCH_RESTORE: 'BATCH_RESTORE',
   BATCH_PERMANENT_DELETE: 'BATCH_PERMANENT_DELETE'
 }
@@ -338,6 +339,9 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
         case OperationType.PERMANENT_DELETE:
           return await executePermanentDelete(realTargetId, payload)
         
+        case OperationType.BATCH_DELETE:
+          return await executeBatchDelete(payload)
+        
         case OperationType.BATCH_RESTORE:
           return await executeBatchRestore(payload)
         
@@ -484,6 +488,32 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     const { error } = await supabase
       .from('todos')
       .delete()
+      .in('id', ids)
+
+    if (error) {
+      if (error.code === '401' || error.message?.includes('JWT')) {
+        return { success: false, error: '认证已过期，请重新登录', needsRollback: false, isAuthError: true }
+      }
+      throw error
+    }
+
+    return { success: true }
+  }
+
+  // 执行批量软删除操作 (级联由服务端触发器完成, 一次请求处理多棵子树)
+  const executeBatchDelete = async (payload) => {
+    const rawIds = Array.isArray(payload.ids) ? payload.ids : []
+    // 临时ID还没有服务端记录, 只处理已落地的 ID
+    const ids = rawIds
+      .map(tempId => getRealId(tempId))
+      .filter(realId => !isTempId(realId))
+    if (ids.length === 0) {
+      return { success: true }
+    }
+
+    const { error } = await supabase
+      .from('todos')
+      .update({ deleted_at: payload.deleted_at || new Date().toISOString() })
       .in('id', ids)
 
     if (error) {

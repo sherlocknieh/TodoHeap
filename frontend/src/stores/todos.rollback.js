@@ -63,6 +63,17 @@ export const createTodoRollbackHandler = ({
       restoreTrashSnapshot(item.targetId, snapshot)
       errorRef.value = '恢复任务失败'
     },
+    [OperationType.BATCH_DELETE]: (_, snapshot) => {
+      if (snapshot) {
+        const removedIds = new Set(snapshot.removedIds || [])
+        trashTodosRef.value = trashTodosRef.value.filter(t => !removedIds.has(t.id))
+        const existingIds = new Set(todosRef.value.map(t => t.id))
+        ;(snapshot.todos || []).forEach((todo) => {
+          if (!existingIds.has(todo.id)) todosRef.value.push(todo)
+        })
+      }
+      errorRef.value = '清除已完成任务失败，已恢复'
+    },
     [OperationType.BATCH_PERMANENT_DELETE]: (_, snapshot) => {
       if (snapshot && Array.isArray(snapshot)) {
         trashTodosRef.value = snapshot

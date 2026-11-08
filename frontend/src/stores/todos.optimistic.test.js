@@ -8,6 +8,7 @@ const OperationType = {
   DELETE: 'DELETE',
   RESTORE: 'RESTORE',
   PERMANENT_DELETE: 'PERMANENT_DELETE',
+  BATCH_DELETE: 'BATCH_DELETE',
   BATCH_RESTORE: 'BATCH_RESTORE',
   BATCH_PERMANENT_DELETE: 'BATCH_PERMANENT_DELETE'
 }
@@ -132,15 +133,12 @@ describe('createTodoOptimisticActions', () => {
     expect(result).toEqual({ success: true, count: 4 })
     expect(todosRef.value.map(item => item.id)).toEqual([5])
     expect(trashTodosRef.value.map(item => item.id)).toEqual([4, 3, 2, 1])
-    // 父任务已完成时后代由级联覆盖，只有子树根入队
-    expect(syncQueue.enqueue).toHaveBeenCalledTimes(2)
+    // 父任务已完成时后代由级联覆盖，只有子树根进入一次批量删除
+    expect(syncQueue.enqueue).toHaveBeenCalledTimes(1)
     expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
-      type: OperationType.DELETE,
-      targetId: 1
-    }))
-    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
-      type: OperationType.DELETE,
-      targetId: 4
+      type: OperationType.BATCH_DELETE,
+      targetId: 'batch-delete-completed',
+      payload: expect.objectContaining({ ids: [1, 4] })
     }))
   })
 
@@ -152,6 +150,22 @@ describe('createTodoOptimisticActions', () => {
     expect(result).toEqual({ success: true, count: 0 })
     expect(todosRef.value).toHaveLength(1)
     expect(syncQueue.enqueue).not.toHaveBeenCalled()
+  })
+
+  it('deleteCompletedTodos 对尚未落库的临时任务只做本地清理', async () => {
+    todosRef.value = [
+      { id: -1, title: '新完成任务', completed_at: '2026-01-03T00:00:00.000Z', child_ids: [], deleted_at: null }
+    ]
+    trashTodosRef.value = []
+    trashLoadingRef.value = false
+
+    const result = await actions.deleteCompletedTodos()
+
+    expect(result).toEqual({ success: true, count: 1 })
+    expect(todosRef.value).toEqual([])
+    expect(trashTodosRef.value.map(item => item.id)).toEqual([-1])
+    expect(syncQueue.enqueue).not.toHaveBeenCalled()
+    expect(syncQueue.clearSnapshot).toHaveBeenCalledWith('batch-delete-completed')
   })
 
   it('restoreAllTrash 应恢复所有任务并加入批量恢复队列', async () => {
