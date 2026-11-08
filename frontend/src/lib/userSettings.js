@@ -1,15 +1,13 @@
 import { supabase } from '@/lib/supabase'
 
-export const DEFAULT_USER_SETTINGS = {
-  autoApplyAITasks: false
-}
+// 用户设置当前只承载日历订阅令牌等界面状态；AI 偏好已随快捷功能移除
+export const DEFAULT_USER_SETTINGS = {}
 
 export const normalizeUserSettings = (settings) => {
   const source = settings && typeof settings === 'object' ? settings : {}
   return {
     ...DEFAULT_USER_SETTINGS,
-    ...source,
-    autoApplyAITasks: Boolean(source.autoApplyAITasks)
+    ...source
   }
 }
 

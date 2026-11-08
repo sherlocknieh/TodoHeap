@@ -11,7 +11,7 @@
         <header class="flex items-start justify-between mb-6">
           <div>
             <h1 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">设置</h1>
-            <p class="mt-0.5 text-xs text-neutral-500">账户、模型与 AI 偏好</p>
+            <p class="mt-0.5 text-xs text-neutral-500">账户、模型与日历</p>
           </div>
           <div class="flex items-center gap-1 -mr-2">
             <button v-if="floating"
@@ -85,33 +85,6 @@
                   @click="handleDeleteAccount" :disabled="isDeletingAccount">
                   <AppIcon name="trash" :size="14" />
                   <span>{{ isDeletingAccount ? '删除中…' : '删除账户' }}</span>
-                </button>
-              </div>
-            </section>
-
-            <!-- 偏好 -->
-            <section v-else-if="activeTab === 'preferences'" class="space-y-4">
-              <p class="eyebrow">AI 偏好</p>
-
-              <div class="flex items-start justify-between gap-6">
-                <div>
-                  <p class="text-sm text-neutral-900 dark:text-neutral-100">AI 分解后自动添加任务</p>
-                  <p class="mt-0.5 text-xs text-neutral-500">开启后，分解结果直接写入任务列表，不再进入待确认状态。</p>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input v-model="settingsForm.autoApplyAITasks" type="checkbox" class="sr-only peer" />
-                  <div class="w-9 h-5 rounded-full bg-neutral-300 dark:bg-neutral-700 peer-checked:bg-accent-600 transition-colors"></div>
-                  <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
-                </label>
-              </div>
-
-              <p v-if="settingsError" class="text-xs text-rose-600 dark:text-rose-400">{{ settingsError }}</p>
-              <p v-if="settingsSuccess" class="text-xs text-accent-700 dark:text-accent-400">{{ settingsSuccess }}</p>
-
-              <div class="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-                <span v-if="settingsLoading" class="text-xs text-neutral-500">读取中…</span>
-                <button class="btn-primary" :disabled="settingsLoading || settingsSaving" @click="handleSaveSettings">
-                  {{ settingsSaving ? '保存中…' : '保存' }}
                 </button>
               </div>
             </section>
@@ -243,6 +216,8 @@
 
             <!-- 日历：ICS 导入导出与只读订阅链接 -->
             <section v-else-if="activeTab === 'calendar'" class="space-y-6">
+              <p v-if="settingsError" class="text-xs text-rose-600 dark:text-rose-400">{{ settingsError }}</p>
+
               <div>
                 <p class="eyebrow mb-2">导出日程</p>
                 <p class="text-xs leading-relaxed text-neutral-500">
@@ -427,7 +402,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
 import { useScheduleStore } from '@/stores/schedules'
 import { supabase } from '@/lib/supabase'
-import { DEFAULT_USER_SETTINGS, fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
+import { DEFAULT_USER_SETTINGS, fetchUserSettings } from '@/lib/userSettings'
 import {
   buildCalendarFeedUrl,
   disableCalendarFeed,
@@ -495,7 +470,6 @@ const handleKeydown = (event) => {
 // 标签配置
 const tabs = [
   { id: 'account', label: '账户安全', icon: 'lock' },
-  { id: 'preferences', label: '偏好设置', icon: 'sliders' },
   { id: 'provider', label: '模型接入', icon: 'key' },
   { id: 'calendar', label: '日历', icon: 'calendar' },
   { id: 'import', label: '导入数据', icon: 'upload' }
@@ -513,9 +487,7 @@ const passwordSuccess = ref('')
 const isChangingPassword = ref(false)
 const isDeletingAccount = ref(false)
 const settingsLoading = ref(false)
-const settingsSaving = ref(false)
 const settingsError = ref('')
-const settingsSuccess = ref('')
 const settingsForm = ref({ ...DEFAULT_USER_SETTINGS })
 
 // 导入数据：文件解析结果、预览选项与逐条写入进度
@@ -602,7 +574,6 @@ const closePasswordModal = () => {
 
 const loadSettings = async () => {
   settingsError.value = ''
-  settingsSuccess.value = ''
   settingsLoading.value = true
 
   try {
@@ -621,29 +592,6 @@ const loadSettings = async () => {
   }
 }
 
-const handleSaveSettings = async () => {
-  settingsError.value = ''
-  settingsSuccess.value = ''
-  settingsSaving.value = true
-
-  try {
-    const userId = authStore.user?.id
-    const result = await saveUserSettings(userId, settingsForm.value)
-    if (!result.success) {
-      settingsError.value = result.error?.message || '保存设置失败'
-      return
-    }
-    settingsForm.value = { ...result.data }
-    settingsSuccess.value = '设置已保存'
-    setTimeout(() => {
-      settingsSuccess.value = ''
-    }, 1800)
-  } catch (err) {
-    settingsError.value = '保存设置失败'
-  } finally {
-    settingsSaving.value = false
-  }
-}
 
 // 读取并解析文件：只做预览，不写数据库
 const loadImportFile = async (file) => {

@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAgentStore } from '@/stores/agent'
 import { useAuthStore } from '@/stores/auth'
-import { useLlmStore } from '@/stores/llm'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -11,14 +10,13 @@ const props = defineProps({
   show: { type: Boolean, default: false },
   activeView: { type: String, default: 'list' },
   selectedTaskId: { type: Number, default: null },
-  isBreakingDown: { type: Boolean, default: false },
   // 当前活动栏入口，决定侧栏内容
   section: { type: String, default: 'list' },
   // 覆盖在内容之上，不挤压主视图（树视图使用）
   overlay: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['close', 'switch-view', 'create-task', 'breakdown-task'])
+const emit = defineEmits(['close', 'switch-view', 'create-task'])
 
 // 为模板提供 `show` 绑定
 const show = computed(() => props.show)
@@ -26,7 +24,6 @@ const show = computed(() => props.show)
 const todoStore = useTodoStore()
 const agent = useAgentStore()
 const authStore = useAuthStore()
-const llm = useLlmStore()
 
 const editingSessionId = ref(null)
 const editingTitle = ref('')
@@ -79,13 +76,6 @@ const cancelSessionRename = () => {
 const deleteSession = (id) => {
   if (editingSessionId.value === id) cancelSessionRename()
   agent.deleteSession(id)
-}
-
-// 全局优化是内置技能：新建会话后由 Agent 按固定指令执行
-const handleOptimize = () => {
-  if (!llm.isConfigured || agent.running) return
-  closeOnNarrowScreen()
-  agent.optimizeTasks()
 }
 
 // 会话列表只显示时间与消息数，按当天/更早两种格式
@@ -320,24 +310,10 @@ const switchView = (view) => {
           </ul>
         </section>
 
-        <!-- AI 操作 -->
-        <section class="space-y-0.5">
-          <p class="eyebrow px-2 pb-1.5">操作</p>
-          <button
-            class="w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors flex items-center gap-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="!llm.isConfigured || agent.running"
-            :title="llm.isConfigured ? '让 Agent 按内置指令优化全部任务' : '请先在设置中接入模型'"
-            @click="handleOptimize"
-          >
-            <AppIcon name="sparkles" :size="15" class="opacity-70" />
-            <span>{{ agent.running ? 'Agent 运行中…' : '全局任务优化' }}</span>
-          </button>
-        </section>
-
         <section class="space-y-0.5">
           <p class="eyebrow px-2 pb-1.5">说明</p>
           <p class="px-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            直接告诉 Agent 要做什么，它会读写任务、日程与偏好；会话按话题分开保存，模型可在「设置 → 模型接入」中切换。
+            直接告诉 Agent 要做什么，它会读写任务与日程；会话按话题分开保存，模型可在「设置 → 模型接入」中切换。
           </p>
         </section>
       </template>

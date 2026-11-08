@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
-vi.mock('@/lib/userSettings', () => ({
-  fetchUserSettings: vi.fn(async () => ({ success: true, data: { autoApplyAITasks: false } })),
-  saveUserSettings: vi.fn(async (_userId, settings) => ({ success: true, data: settings }))
-}))
-
 import { createAgentToolRunner, DESTRUCTIVE_TOOLS } from './agentTools'
 
 let nextTempId
@@ -203,15 +198,6 @@ describe('createAgentToolRunner', () => {
     })
     expect(valid.ok).toBe(true)
     expect(valid.schedule.id).toBe(100)
-  })
-
-  it('读取与更新用户偏好', async () => {
-    const read = await runner.run('get_settings', {})
-    expect(read.settings.autoApplyAITasks).toBe(false)
-
-    const updated = await runner.run('update_settings', { autoApplyAITasks: true })
-    expect(updated.ok).toBe(true)
-    expect(updated.settings.autoApplyAITasks).toBe(true)
   })
 
   it('破坏性工具集中声明，交由界面确认', () => {

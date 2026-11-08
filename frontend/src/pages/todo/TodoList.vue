@@ -77,7 +77,6 @@
         :key="node.id"
         :node="node"
         :selected-task-id="props.selectedTaskId"
-        :is-breaking-down="props.isBreakingDown"
         :selection-mode="selectionMode"
         :selected-ids="selectedIds"
         @toggle-done="toggleDone"
@@ -85,7 +84,6 @@
         @add-subtask="addSubtask"
         @edit-subtask="editSubtask"
         @task-selected="handleTaskSelected"
-        @breakdown-task="$emit('breakdown-task', $event)"
         @toggle-select="toggleSelect"
         @set-deadline="setDeadline"
         @move-todo="moveTodo"
@@ -193,16 +191,12 @@ const props = defineProps({
   selectedTaskId: {
     type: Number,
     default: null
-  },
-  isBreakingDown: {
-    type: Boolean,
-    default: false
   }
 })
 
 const todoStore = useTodoStore()
 const authStore = useAuthStore()
-const emit = defineEmits(['task-selected', 'breakdown-task', 'notify'])
+const emit = defineEmits(['task-selected', 'notify'])
 
 const newTaskTitle = ref('')
 const loading = computed(() => todoStore.loading)

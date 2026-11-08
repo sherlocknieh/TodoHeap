@@ -1,5 +1,4 @@
-// Agent 工具集：把任务、日程与用户偏好的读写能力暴露给任意 OpenAI 兼容模型
-import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
+// Agent 工具集：把任务与日程的读写能力暴露给任意 OpenAI 兼容模型
 
 // 破坏性操作先由界面确认，避免模型直接清空数据
 export const DESTRUCTIVE_TOOLS = new Set([
@@ -212,24 +211,6 @@ export const AGENT_TOOL_DEFINITIONS = [
       parameters: objectSchema({ id: integer('日程 id') }, ['id'])
     }
   },
-  {
-    type: 'function',
-    function: {
-      name: 'get_settings',
-      description: '读取用户偏好，如 AI 分解后是否自动添加任务。',
-      parameters: objectSchema({})
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'update_settings',
-      description: '更新用户偏好。',
-      parameters: objectSchema({
-        autoApplyAITasks: { type: 'boolean', description: 'AI 分解后自动添加任务，不进入待确认' }
-      })
-    }
-  }
 ]
 
 const toNumber = (value) => Number(value)
@@ -635,25 +616,6 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore }) =
       const result = await scheduleStore.deleteSchedule(schedule.id)
       if (!result.success) throw new Error(result.error || '删除日程失败')
       return { ok: true, deleted: { id: schedule.id, title: schedule.title } }
-    },
-
-    async get_settings() {
-      const result = await fetchUserSettings(requireUserId())
-      if (!result.success) throw new Error(result.error?.message || '读取偏好失败')
-      return { ok: true, settings: result.data }
-    },
-
-    async update_settings(args) {
-      const userId = requireUserId()
-      const current = await fetchUserSettings(userId)
-      if (!current.success) throw new Error(current.error?.message || '读取偏好失败')
-
-      const next = { ...current.data }
-      if ('autoApplyAITasks' in args) next.autoApplyAITasks = Boolean(args.autoApplyAITasks)
-
-      const result = await saveUserSettings(userId, next)
-      if (!result.success) throw new Error(result.error?.message || '保存偏好失败')
-      return { ok: true, settings: result.data }
     }
   }
 

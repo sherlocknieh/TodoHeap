@@ -42,9 +42,7 @@ const TOOL_LABELS = {
   list_schedules: '查看日程',
   create_schedule: '创建日程',
   update_schedule: '更新日程',
-  delete_schedule: '删除日程',
-  get_settings: '读取偏好',
-  update_settings: '更新偏好'
+  delete_schedule: '删除日程'
 }
 
 const SUGGESTIONS = [
@@ -189,7 +187,7 @@ onMounted(() => {
         <div>
           <h1 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">对话 Agent</h1>
           <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            用一句话管理任务、日程和偏好。
+            用一句话管理任务与日程。
           </p>
         </div>
       </div>

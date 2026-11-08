@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from './auth'
 
 import { useSyncQueueStore, OperationType } from './syncQueue'
-import { createBreakdownActions } from './todos.breakdown'
 import { createTodosRealtimeManager } from './todos.realtime'
 import { createTodoOptimisticActions } from './todos.optimistic'
 import { createTodoRollbackHandler } from './todos.rollback'
@@ -20,6 +19,7 @@ export const useTodoStore = defineStore('todos', () => {
   const isFetched = ref(false)  // 记录是否已经成功获取过一次数据
   const trashTodos = ref([])
   const trashLoading = ref(false)
+  const isTrashFetched = ref(false)  // 记录回收站是否已经成功获取过一次数据
   const realtimeStatus = ref('IDLE')
 
   // 获取同步队列 store
@@ -104,6 +104,7 @@ export const useTodoStore = defineStore('todos', () => {
     todos.value = []
     trashTodos.value = []
     isFetched.value = false
+    isTrashFetched.value = false
     error.value = null
     realtimeStatus.value = 'NO_USER'
   }
@@ -216,7 +217,6 @@ export const useTodoStore = defineStore('todos', () => {
     if (trashLoading.value) return { success: true }
     
     trashLoading.value = true
-    error.value = null
     try {
       const { data, error: fetchError } = await supabase
         .from('todos')
@@ -226,9 +226,10 @@ export const useTodoStore = defineStore('todos', () => {
 
       if (fetchError) throw fetchError
       trashTodos.value = data || []
+      isTrashFetched.value = true
       return { success: true }
     } catch (err) {
-      error.value = err.message
+      // 回收站没有独立的错误展示区, 失败信息随返回值交给调用方, 不污染列表的全局错误
       console.error('Fetch trash error:', err)
       return { success: false, error: err.message }
     } finally {
@@ -236,11 +237,12 @@ export const useTodoStore = defineStore('todos', () => {
     }
   }
 
+  // 首次进入回收站前拉取; 已拉取过则直接复用缓存, 后续变化由乐观更新与 Realtime 维护
+  const ensureTrashFetched = async () => {
+    if (isTrashFetched.value) return { success: true }
+    return fetchTrash()
+  }
 
-  const { invokeBreakdown, applyPendingTasks, invokeAnalyzeAndCreate } = createBreakdownActions({
-    getSyncQueue,
-    addTodo
-  })
 
   const { setupRealtimeSubscription, cleanupRealtimeSubscription } = createTodosRealtimeManager({
     supabaseClient: supabase,
@@ -248,7 +250,7 @@ export const useTodoStore = defineStore('todos', () => {
     getUserId: () => useAuthStore().user?.id,
     todosRef: todos,
     trashTodosRef: trashTodos,
-    trashLoadingRef: trashLoading,
+    isTrashFetchedRef: isTrashFetched,
     setRealtimeStatus: (status) => {
       realtimeStatus.value = status || 'UNKNOWN'
     }
@@ -335,6 +337,7 @@ export const useTodoStore = defineStore('todos', () => {
     // 垃圾箱状态
     trashTodos,
     trashLoading,
+    isTrashFetched,
     // 计算属性
     treeNodes,
     trashTreeNodes,
@@ -347,11 +350,9 @@ export const useTodoStore = defineStore('todos', () => {
     deleteTodo,
     deleteCompletedTodos,
     clearError,
-    invokeBreakdown,
-    invokeAnalyzeAndCreate,
-    applyPendingTasks,
     // 垃圾箱方法
     fetchTrash,
+    ensureTrashFetched,
     restoreTodo,
     permanentDeleteTodo,
     emptyTrash,

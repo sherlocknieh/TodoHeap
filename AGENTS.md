@@ -46,7 +46,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组 |
 | `pages/todo/AIView.vue` | AI 工作台：对话式 Agent，可读写任务、日程与偏好 |
 | `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
-| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、AI 偏好、模型接入、滴答清单导入 |
+| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、模型接入、日历、滴答清单导入 |
 | `pages/{Home,Login,ResetPassword,404}.vue` | 落地页与认证页 |
 | `lib/supabase.ts` | 唯一 Supabase client，读 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUB_KEY` |
 | `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
@@ -67,15 +67,13 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 文件 | 职责 |
 | --- | --- |
 | `AppIcon.vue` | 线性图标全集（`name` + `size`），全站唯一图标来源 |
-| `LeftSidebar.vue` | 视图切换、统计、AI 会话列表与全局优化入口 |
-| `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单、AI 分解入口 |
+| `LeftSidebar.vue` | 视图切换、统计、AI 会话列表 |
+| `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单 |
 | `TodoDetailEditor.vue` | 右栏详情：标题、起止时间、难度、Markdown 描述 |
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
 | `MindMapWrapper.vue` | simple-mind-map 封装，负责与 todos 树互转 |
-| `AITaskInput.vue` | 自然语言输入与分析进度 |
 | `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
-| `BreakdownStatusCard.vue` | 分解状态：进行中 / 待确认 / 成功 / 失败 |
 | `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
 
 ### 状态管理
@@ -88,7 +86,6 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `stores/todos.optimistic.js` | 乐观更新与级联（删父删子等） |
 | `stores/todos.rollback.js` | 失败回滚 |
 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
-| `stores/todos.breakdown.js` | 两个 AI 边缘函数的调用封装（分解 / 新建） |
 | `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
 | `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除 |
 | `stores/agent.js` | 对话 Agent：多会话、系统提示、工具循环、确认与本地持久化 |
@@ -109,8 +106,6 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 | 边缘函数 | 作用 |
 | --- | --- |
-| `breakdown_task` | 把选定任务拆成 3-6 个子任务，返回 JSON 数组 |
-| `new_task_ai` | 自然语言 → 新建任务树 |
 | `calendar_feed` | 日历订阅源：`?token=` 调用 `get_calendar_feed` RPC 输出 ICS，`verify_jwt = false` |
 | `llm_gateway` | 内置模型网关：校验用户 JWT 后用平台密钥转发 OpenAI 兼容请求；`GET` 返回实际可用模型（白名单或上游 `/models`）；订阅校验在 `authorizeRequest` 留空 |
 

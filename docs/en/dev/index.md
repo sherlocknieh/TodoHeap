@@ -64,7 +64,7 @@ frontend/src/
 
 supabase/
 ├── migrations/       # source of truth for the schema, append only
-└── functions/        # breakdown_task, new_task_ai, llm_gateway
+└── functions/        # llm_gateway
 ```
 
 ## Goals
@@ -95,8 +95,6 @@ Write path: UI → store action → optimistic update + enqueue → Supabase →
 
 | Function | Purpose |
 | --- | --- |
-| `breakdown_task` | Split a task into 3–6 subtasks, returns JSON |
-| `new_task_ai` | Natural language → new task tree |
 | `llm_gateway` | Built-in model proxy; validates the user JWT and forwards to the platform model |
 
 Secrets stay in Supabase secrets and GitHub Actions; the frontend only ever holds the publishable key.

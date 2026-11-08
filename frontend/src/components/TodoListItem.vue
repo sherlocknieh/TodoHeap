@@ -105,12 +105,6 @@
             </button>
             <div v-if="showMoreMenuId === item.id"
               class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1" ref="moreMenuRef">
-              <button :disabled="isBreakingDown"
-                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                @click.stop="breakdownTask(item.id); closeMoreMenu()">
-                <AppIcon name="sparkles" :size="13" />
-                <span>AI 分解</span>
-              </button>
               <button
                 class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                 @click.stop="emitAddSubtask(item.id); closeMoreMenu()">
@@ -141,7 +135,6 @@ import { draggingTodoId as draggingId, dropIndicator, resetDragState } from '@/u
 const props = defineProps({
   node: Object,
   selectedTaskId: Number,
-  isBreakingDown: { type: Boolean, default: false },
   // 多选模式：用勾选框替换完成状态与行内操作
   selectionMode: { type: Boolean, default: false },
   selectedIds: { type: Array, default: () => [] }
@@ -153,7 +146,6 @@ const emit = defineEmits([
   'add-subtask',
   'edit-subtask',
   'task-selected',
-  'breakdown-task',
   'toggle-select',
   'set-deadline',
   'move-todo'
@@ -167,11 +159,6 @@ const emitAddSubtask = (parentId) => {
 }
 const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
 const emitTaskSelected = (id) => emit('task-selected', id)
-
-// 分解任务
-const breakdownTask = (id) => {
-  emit('breakdown-task', id)
-}
 
 // 展平树结构为带层级的数组，并保留 children 信息和 parent_id
 function flattenTree(node, level = 0, arr = [], parent_id = null) {

@@ -16,7 +16,7 @@ Open the [TodoHeap app](https://sherlocknieh.github.io/TodoHeap/) and sign up wi
 
 Type a title in the input at the top of the list view and press Enter. The task is created immediately as not completed.
 
-When the goal is still vague, describe it in the AI input at the bottom instead — the AI analyses it and generates a task tree for you.
+When the goal is still vague, open the AI view and describe it to the agent — it decides whether to build a task tree.
 
 ### Edit
 
@@ -53,7 +53,7 @@ Deleting a task moves it to the trash, where it can be restored or permanently r
 
 ### Chat agent
 
-The AI view is a chat agent that can read and write your tasks, schedules and preferences on request.
+The AI view is a chat agent that can read and write your tasks and schedules on request.
 
 Conversations are organised into sessions in the AI sidebar: use it to create, switch, rename or delete them. A new session is titled from its first message, sessions are stored in this browser only, and the previous single-conversation history is migrated automatically.
 
@@ -63,15 +63,7 @@ A built-in option is also available: choose **Built-in model** instead of a pers
 
 Destructive actions (deleting tasks, clearing completed tasks, emptying the trash) are always shown for confirmation before they run.
 
-### Other AI actions
-
-| Feature | What it does |
-| --- | --- |
-| Task breakdown | Split an existing task into 3–6 actionable subtasks |
-| Task analysis | Turn a natural-language sentence into a task tree |
-| One-click optimisation | Create a session and let the agent adjust dates, break down and aggregate tasks in one pass |
-
-Breakdown can run in preview mode: generated subtasks are shown for confirmation before they are written to the database. Enable auto-apply in **Settings → AI preferences** to skip that step.
+You can also ask the agent to break an existing task down, turn a sentence into a task tree, or run a one-click optimisation. Everything happens in the chat: there are no separate AI buttons in the list or task detail panels.
 
 ## Views
 
@@ -80,7 +72,7 @@ Breakdown can run in preview mode: generated subtasks are shown for confirmation
 | List | `/app/list` | Day-to-day editing, ordered execution |
 | Tree | `/app/tree` | Mind-map style structure work |
 | Schedule | `/app/schedule` | Calendar events grouped by date |
-| AI | `/app/ai` | Chat agent: manage tasks, schedules and preferences by conversation |
+| AI | `/app/ai` | Chat agent: manage tasks and schedules by conversation |
 | Trash | `/app/trash` | Restore or permanently delete |
 | Heap | `/app/heap` | Priority-ranked queue (sidebar entry currently hidden) |
 

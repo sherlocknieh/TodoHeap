@@ -8,12 +8,9 @@ import { useSyncQueueStore } from '@/stores/syncQueue'
 import { storeToRefs } from 'pinia'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import AppIcon from '@/components/AppIcon.vue'
-import BreakdownStatusCard from '@/components/BreakdownStatusCard.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
-import AITaskInput from '@/components/AITaskInput.vue'
 import Settings from '@/pages/todo/Settings.vue'
-import { DEFAULT_USER_SETTINGS, fetchUserSettings } from '@/lib/userSettings'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
 
 const router = useRouter()
@@ -53,20 +50,6 @@ const activeView = computed({
 
 const showUserMenu = ref(false)
 const selectedTaskId = ref(null)
-const isBreakingDown = ref(false)
-const isAnalyzingTask = ref(false)
-const analyzeProgress = ref({
-	visible: false,
-	stage: '',
-	message: '',
-	elapsedSec: 0,
-	createdCount: 0
-})
-const breakdownMessage = ref('')
-const breakdownMessageType = ref('') // 'success' or 'error'
-const breakdownProgress = ref({ count: 0, tasks: [] }) // 分解进度
-const pendingTasks = ref([]) // 待确认的任务列表（用于预览模式）
-const userSettings = ref({ ...DEFAULT_USER_SETTINGS })
 const showDetailPanel = ref(false) // 窄屏下默认不显示详情面板
 // 侧栏显示状态：窄屏默认收起，避免浮层遮住清单
 const showLeftSidebar = ref(window.innerWidth >= 1024)
@@ -133,12 +116,6 @@ const realtimeStatusClass = computed(() => {
 	return 'bg-neutral-300 dark:bg-neutral-600'
 })
 
-const aiStatusLabel = computed(() => {
-	if (isBreakingDown.value) return '任务分解中...'
-	if (isAnalyzingTask.value) return analyzeProgress.value.message || 'AI 分析中...'
-	return '空闲'
-})
-
 const viewProps = computed(() => {
 	if (activeView.value === 'heap') return { todos: todoStore.todos }
 	return {}
@@ -194,13 +171,9 @@ onMounted(async () => {
 	// 确保认证初始化完成
 	await authStore.initAuth()
 
-	// 如果已登录，获取待办事项
+	// 如果已登录，同时拉取待办与回收站，避免进入回收站时再等一次网络
 	if (authStore.isAuthenticated) {
-		await todoStore.fetchTodos()
-		const settingsResult = await fetchUserSettings(authStore.user?.id)
-		if (settingsResult.success) {
-			userSettings.value = { ...settingsResult.data }
-		}
+		await Promise.all([todoStore.fetchTodos(), todoStore.ensureTrashFetched()])
 		// 初始化 Realtime 订阅
 		todoStore.setupRealtimeSubscription()
 	}
@@ -277,165 +250,6 @@ const createNewTask = async () => {
 	}
 }
 
-const handleBreakdownTask = async (taskId) => {
-	if (!taskId) {
-		showBreakdownMessage('请先选择一个任务', 'error')
-		return
-	}
-
-	isBreakingDown.value = true
-	breakdownMessage.value = ''
-	breakdownMessageType.value = ''
-	breakdownProgress.value = { count: 0, tasks: [] }
-	pendingTasks.value = []
-
-	try {
-		const query = '继续分解'
-
-		// 使用流式接收，每收到一个子任务就更新进度
-		const onTaskReceived = ({ task, index, totalSoFar }) => {
-			breakdownProgress.value.count = totalSoFar
-			breakdownProgress.value.tasks = [...breakdownProgress.value.tasks, task].sort((a, b) => {
-				const aOrder = Number.isFinite(a.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY
-				const bOrder = Number.isFinite(b.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY
-				if (aOrder !== bOrder) return aOrder - bOrder
-				const aIndex = Number.isFinite(a.index) ? a.index : Number.POSITIVE_INFINITY
-				const bIndex = Number.isFinite(b.index) ? b.index : Number.POSITIVE_INFINITY
-				if (aIndex !== bIndex) return aIndex - bIndex
-				return String(a.title || '').localeCompare(String(b.title || ''))
-			})
-		}
-
-		const result = await todoStore.invokeBreakdown(
-			todoStore.treeNodes,
-			taskId,
-			query,
-			onTaskReceived,
-			Boolean(userSettings.value.autoApplyAITasks)
-		)
-
-		if (result.success) {
-			if (userSettings.value.autoApplyAITasks) {
-				showBreakdownMessage(`成功添加 ${result.addedCount || 0} 个子任务`, 'success')
-				pendingTasks.value = []
-				breakdownProgress.value = { count: 0, tasks: [] }
-			} else {
-				// 预览模式：保存待确认的任务，显示确认界面
-				pendingTasks.value = result.pendingTasks || []
-				breakdownMessageType.value = 'pending'
-				// 不清空进度，保持显示任务列表供用户确认
-			}
-		} else {
-			showBreakdownMessage(`任务分解失败: ${result.error}`, 'error')
-		}
-	} finally {
-		isBreakingDown.value = false
-	}
-}
-
-const handleAnalyzeTaskInput = async (taskText) => {
-	if (!taskText || isAnalyzingTask.value) return
-
-	isAnalyzingTask.value = true
-	analyzeProgress.value.visible = true
-	analyzeProgress.value.stage = 'prepare'
-	analyzeProgress.value.message = '准备分析任务...'
-	analyzeProgress.value.elapsedSec = 0
-	analyzeProgress.value.createdCount = 0
-	startAnalyzeTimer()
-	try {
-		const result = await todoStore.invokeAnalyzeAndCreate(taskText, null, (progress) => {
-			analyzeProgress.value.stage = progress?.stage || ''
-			analyzeProgress.value.message = progress?.message || ''
-			if (typeof progress?.createdCount === 'number') {
-				analyzeProgress.value.createdCount = progress.createdCount
-			}
-		})
-		if (result.success) {
-			await todoStore.fetchTodos()
-			showBreakdownMessage(`已创建 ${result.createdCount} 个任务`, 'success')
-		} else {
-			showBreakdownMessage(`任务分析失败: ${result.error || '未知错误'}`, 'error')
-		}
-	} finally {
-		stopAnalyzeTimer()
-		isAnalyzingTask.value = false
-		setTimeout(() => {
-			resetAnalyzeProgress()
-		}, 1200)
-	}
-}
-
-// 确认保存待确认的任务
-const handleConfirmTasks = async () => {
-	if (pendingTasks.value.length === 0) return
-
-	const result = await todoStore.applyPendingTasks(pendingTasks.value)
-
-	if (result.success) {
-		showBreakdownMessage(`成功添加 ${result.addedCount} 个子任务`, 'success')
-	} else {
-		showBreakdownMessage('保存任务失败', 'error')
-	}
-
-	// 清空状态
-	pendingTasks.value = []
-	breakdownProgress.value = { count: 0, tasks: [] }
-}
-
-// 取消待确认的任务
-const handleCancelTasks = () => {
-	pendingTasks.value = []
-	breakdownProgress.value = { count: 0, tasks: [] }
-	breakdownMessage.value = ''
-	breakdownMessageType.value = ''
-}
-
-const showBreakdownMessage = (message, type) => {
-	breakdownMessage.value = message
-	breakdownMessageType.value = type
-	// 3秒后自动清除消息
-	setTimeout(() => {
-		breakdownMessage.value = ''
-		breakdownMessageType.value = ''
-	}, 3000)
-}
-
-let analyzeTimer = null
-
-const resetAnalyzeProgress = () => {
-	analyzeProgress.value = {
-		visible: false,
-		stage: '',
-		message: '',
-		elapsedSec: 0,
-		createdCount: 0
-	}
-}
-
-const startAnalyzeTimer = () => {
-	if (analyzeTimer) {
-		clearInterval(analyzeTimer)
-	}
-	analyzeTimer = setInterval(() => {
-		analyzeProgress.value.elapsedSec += 1
-
-		if (analyzeProgress.value.stage === 'prepare' && analyzeProgress.value.elapsedSec >= 6) {
-			analyzeProgress.value.message = '正在初始化会话与请求参数...'
-		}
-
-		if (analyzeProgress.value.stage === 'request' && analyzeProgress.value.elapsedSec >= 20) {
-			analyzeProgress.value.message = '边缘函数执行中，正在等待返回...'
-		}
-	}, 1000)
-}
-
-const stopAnalyzeTimer = () => {
-	if (!analyzeTimer) return
-	clearInterval(analyzeTimer)
-	analyzeTimer = null
-}
-
 // 点击外部关闭用户菜单
 const handleClickOutside = (event) => {
 	if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
@@ -465,7 +279,6 @@ const onMainAreaClick = (e) => {
 
 
 onUnmounted(() => {
-	stopAnalyzeTimer()
 	document.removeEventListener('click', handleClickOutside)
 	// 清理 Realtime 订阅
 	todoStore.cleanupRealtimeSubscription()
@@ -574,20 +387,13 @@ const runToastUndo = async () => {
 
 			<!-- 左栏：任务导航面板；树视图下覆盖在导图之上，避免改变导图宽度 -->
 			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
-				:is-breaking-down="isBreakingDown" :section="activeSection"
+				:section="activeSection"
 				:overlay="activeView === 'tree'"
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
-				@breakdown-task="handleBreakdownTask" />
+				/>
 
 			<!-- 中栏：主要视图内容 -->
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
-				<!-- AI 分解与优化状态：Agent 视图自带对话状态，不显示这些卡片 -->
-				<div v-if="activeView !== 'tree' && activeView !== 'ai'" class="mx-auto mt-4 mb-3 max-w-3xl w-full px-6">
-					<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
-						:status="breakdownMessageType" :task-count="breakdownProgress.count"
-						:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks" @cancel="handleCancelTasks" />
-				</div>
-
 				<!-- 清单内容 -->
 				<div class="flex-1 min-h-0" :class="['tree', 'ai'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
 					@click="onMainAreaClick">
@@ -607,22 +413,11 @@ const runToastUndo = async () => {
 									: 'mx-auto max-w-3xl w-full px-8 pb-6'">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
-									:is-breaking-down="isBreakingDown"
-									@task-selected="handleTaskSelected" @breakdown-task="handleBreakdownTask"
-									@submit-task="handleAnalyzeTaskInput"
+									@task-selected="handleTaskSelected"
 									@notify="handleNotify" @open-sidebar="showLeftSidebar = true" />
 							</router-view>
 						</div>
 					</template>
-				</div>
-
-				<!-- 自然语言任务输入：AI 视图自带输入框，树视图保持全屏 -->
-				<div v-if="!isBreakingDown && (activeView === 'list' || activeView === 'heap')"
-					class="mx-auto w-full max-w-3xl border-t border-hairline px-8 pt-3 pb-4 dark:border-hairline-dark">
-					<div class="rounded-lg border border-hairline bg-surface px-3 py-2 dark:border-hairline-dark dark:bg-surface-dark">
-						<AITaskInput :loading="isAnalyzingTask" :progress="analyzeProgress"
-							@submit-task="handleAnalyzeTaskInput" />
-					</div>
 				</div>
 			</div>
 
@@ -638,8 +433,6 @@ const runToastUndo = async () => {
 				<span class="truncate">{{ authStore.user?.email || '未登录' }}</span>
 				<span class="text-neutral-300 dark:text-neutral-700">·</span>
 				<span class="shrink-0">{{ activeViewLabel }}</span>
-				<span class="hidden sm:inline text-neutral-300 dark:text-neutral-700">·</span>
-				<span class="hidden sm:inline truncate">{{ aiStatusLabel }}</span>
 			</div>
 			<div class="flex items-center gap-3 shrink-0">
 				<span class="flex items-center gap-1.5" :title="'实时连接：' + realtimeStatusLabel">
