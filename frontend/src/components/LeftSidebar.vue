@@ -269,7 +269,7 @@ const switchView = (view) => {
     :style="{ width: sidebarWidth + 'px' }"
   >
     <!-- 头部 -->
-    <header class="shrink-0 h-11 px-3 flex items-center justify-between border-b border-hairline dark:border-hairline-dark">
+    <header class="shrink-0 h-12 px-3 flex items-center justify-between border-b border-hairline dark:border-hairline-dark">
       <span class="eyebrow">{{ sectionTitle }}</span>
       <button
         @click="$emit('close')"

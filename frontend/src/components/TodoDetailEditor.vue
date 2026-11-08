@@ -14,7 +14,7 @@
       @pointerdown="startResize"
     ></div>
     <!-- 面板关闭按钮（移动端/桌面端通用） -->
-    <div class="shrink-0 h-11 flex items-center justify-between px-3 border-b border-hairline dark:border-hairline-dark">
+    <div class="shrink-0 h-12 flex items-center justify-between px-3 border-b border-hairline dark:border-hairline-dark">
       <span class="eyebrow">任务详情</span>
       <button type="button"
         class="p-1.5 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"

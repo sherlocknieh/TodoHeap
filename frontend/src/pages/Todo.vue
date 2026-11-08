@@ -398,10 +398,10 @@ const runToastUndo = async () => {
 			<!-- 左侧活动栏：顶部 Logo 回主页，收起开关在底栏 -->
 			<aside v-if="showActivityRail" data-activity-rail
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center">
-				<!-- 品牌区：高度与顶栏一致，下边框与顶栏底边对齐 -->
-				<div class="h-11 w-full flex items-center justify-center border-b border-white/20">
+				<!-- 品牌区：与顶栏同高，下边框与顶栏底边对齐 -->
+				<div class="h-12 w-full flex items-center justify-center border-b border-white/20">
 					<RouterLink to="/" title="回到主页" class="h-full w-full flex items-center justify-center">
-						<img :src="logoSrc" alt="TodoHeap" class="h-6 w-6" />
+						<img :src="logoSrc" alt="TodoHeap" class="h-7 w-7" />
 					</RouterLink>
 				</div>
 
@@ -467,7 +467,7 @@ const runToastUndo = async () => {
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
 				<!-- 顶栏：承载当前视图标题，页面操作入口通过 Teleport 注入右侧 -->
 				<header
-					class="h-11 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
+					class="h-12 shrink-0 border-b border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark">
 					<div class="flex h-full items-center gap-3 px-3 @container">
 						<!-- 导航收起后，从底栏开回 -->
 						<h1
