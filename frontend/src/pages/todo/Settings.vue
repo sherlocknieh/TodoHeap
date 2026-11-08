@@ -412,6 +412,7 @@ import {
   rotateCalendarFeedToken
 } from '@/lib/calendarTransfer'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
+import { persistedRef, readUiState } from '@/utils/uiState'
 import {
   TICKTICK_IMPORT_MAX_BYTES,
   parseTickTickFile,
@@ -475,8 +476,12 @@ const tabs = [
   { id: 'import', label: '导入数据', icon: 'upload' }
 ]
 
-// 标签切换；支持 /settings?tab=calendar 这类直达链接
-const activeTab = ref(tabs.some((tab) => tab.id === route.query.tab) ? route.query.tab : 'account')
+// 标签切换；优先跟随 /settings?tab=calendar 这类直达链接，否则沿用上次停留的标签
+const isValidTab = (id) => tabs.some((tab) => tab.id === id)
+const initialTab = isValidTab(route.query.tab) ? route.query.tab : readUiState('settings-tab', 'account')
+const activeTab = persistedRef('settings-tab', isValidTab(initialTab) ? initialTab : 'account', {
+  validate: isValidTab
+})
 
 // 账户设置
 const showPasswordModal = ref(false)

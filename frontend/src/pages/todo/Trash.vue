@@ -1,9 +1,8 @@
 <template>
   <div class="h-full flex flex-col min-h-0" ref="trashContainerRef">
-    <!-- 头部 -->
-    <header class="shrink-0 flex items-center gap-3 border-b border-hairline pb-3 dark:border-hairline-dark">
-      <h1 class="shrink-0 whitespace-nowrap text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">回收站</h1>
-      <p class="ml-auto min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
+    <!-- 页面操作：已删除数量与恢复、清空入口放进主区域顶栏 -->
+    <Teleport defer to="#main-topbar-actions">
+      <p class="min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
         <span class="font-mono">{{ trashTodos.length }}</span> 个已删除任务
       </p>
       <div class="flex shrink-0 items-center gap-2">
@@ -30,7 +29,7 @@
           </button>
         </template>
       </div>
-    </header>
+    </Teleport>
 
     <!-- 加载中 -->
     <div v-if="trashLoading" class="flex-1 flex items-center justify-center gap-2 text-sm text-neutral-500">
@@ -45,7 +44,8 @@
     </div>
 
     <!-- 任务列表 -->
-    <ul v-else class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-hairline dark:divide-hairline-dark">
+    <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-hairline dark:divide-hairline-dark"
+      @scroll.passive="saveTrashScroll">
       <template v-for="item in flatTrashList" :key="item.id">
         <li v-if="shouldShowItem(item)" :data-task-item="item.id" :data-task-id="item.id" :class="[
           'group flex items-center gap-2.5 rounded-md py-2.5 pr-3 cursor-pointer transition-colors',
@@ -248,9 +248,10 @@
 </style>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { useTodoStore } from '@/stores/todos'
+import { persistedRef, useScrollMemory } from '@/utils/uiState'
 
 const props = defineProps({
   selectedTaskId: {
@@ -330,16 +331,26 @@ function shouldShowItem(item) {
   return expandedMap.value[item.parent_id] !== false
 }
 
-// 展开/折叠状态
-const expandedMap = ref({})
+// 展开/折叠状态本地保留，刷新后仍停在原来的层级
+const expandedMap = persistedRef('trash-expanded', {})
 
-// 初始化所有节点为展开状态
-onMounted(() => {
-  flatTrashList.value.forEach(item => {
+// 列表变化时按当前任务重建状态：沿用已有折叠选择，新任务默认展开
+watch(flatTrashList, (list) => {
+  if (!list.length) return
+  const next = {}
+  list.forEach(item => {
     if (item.children && item.children.length) {
-      expandedMap.value[item.id] = true
+      next[item.id] = expandedMap.value[item.id] !== false
     }
   })
+  expandedMap.value = next
+}, { immediate: true })
+
+// 列表滚动位置，刷新或来回切换后回到原处
+const trashListRef = ref(null)
+const { save: saveTrashScroll, restore: restoreTrashScroll } = useScrollMemory(trashListRef, () => 'trash')
+watch(trashLoading, (loading) => {
+  if (!loading) nextTick(restoreTrashScroll)
 })
 
 const toggleExpand = (id) => {

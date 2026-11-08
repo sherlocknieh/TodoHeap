@@ -95,6 +95,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
+import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -116,8 +117,6 @@ const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
-const mode = ref('tree')
-const direction = ref('down')
 
 const modeOptions = [
   { value: 'tree', text: '树', label: '展开树模式' },
@@ -130,6 +129,14 @@ const directionOptions = [
   { value: 'up', icon: 'chevronUp', label: '从下到上' },
   { value: 'left', icon: 'chevronLeft', label: '从右到左' }
 ]
+
+// 布局模式与方向属于阅读偏好，刷新后沿用上次选择
+const mode = persistedRef('mindmap-mode', 'tree', {
+  validate: (value) => modeOptions.some((option) => option.value === value)
+})
+const direction = persistedRef('mindmap-direction', 'down', {
+  validate: (value) => directionOptions.some((option) => option.value === value)
+})
 
 const isVertical = computed(() => direction.value === 'down' || direction.value === 'up')
 const isForward = computed(() => direction.value === 'down' || direction.value === 'right')
@@ -487,6 +494,26 @@ const layoutSignature = computed(() =>
 
 let hasInteracted = false
 
+// 上次离开时的平移与缩放：尺寸未变时直接沿用，不重新适配
+const savedView = readUiState('mindmap-view', null)
+const restoredView = Boolean(savedView
+  && Number.isFinite(savedView.x)
+  && Number.isFinite(savedView.y)
+  && Number.isFinite(savedView.scale)
+  && savedView.scale > 0)
+if (restoredView) {
+  Object.assign(view, savedView)
+  hasInteracted = true
+}
+
+// 平移缩放后记住视口；连续操作时合并成一次写入
+let saveViewTimer = null
+watch(view, () => {
+  if (!hasInteracted) return
+  clearTimeout(saveViewTimer)
+  saveViewTimer = setTimeout(() => writeUiState('mindmap-view', { ...view }), 200)
+}, { deep: true })
+
 const fitView = () => {
   const el = container.value
   if (!el) return
@@ -556,15 +583,23 @@ onMounted(() => {
     if (!hasInteracted) fitView()
   })
   if (container.value) resizeObserver.observe(container.value)
-  nextTick(fitView)
+  if (!restoredView) nextTick(fitView)
 })
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  if (saveViewTimer) clearTimeout(saveViewTimer)
 })
 
-// 模式、方向或任务增删后重新适配视图；仅标题变化时保持当前缩放与位置
-watch(layoutSignature, () => nextTick(fitView))
+// 模式、方向或任务增删后重新适配视图；恢复的视口先让数据落位，不打断离开时的位置
+let skipNextAutoFit = restoredView
+watch(layoutSignature, () => {
+  if (skipNextAutoFit) {
+    skipNextAutoFit = false
+    return
+  }
+  nextTick(fitView)
+})
 </script>
 
 <style scoped>

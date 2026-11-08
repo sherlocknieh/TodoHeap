@@ -1,6 +1,6 @@
 <template>
 	<!-- 堆视图：形状表示层级，分数决定颜色 -->
-	<div class="h-full overflow-y-auto pt-6">
+	<div ref="heapScrollRef" class="h-full overflow-y-auto pt-6" @scroll.passive="saveHeapScroll">
 		<div v-if="heapNodes.length === 0" class="py-20 text-center">
 			<p class="text-sm text-neutral-500">暂无任务</p>
 		</div>
@@ -102,9 +102,10 @@ const getNodeRadius = (level) => {
 	const r = base - level * 6;
 	return r > min ? r : min;
 }
-import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
+import { computed, watch, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { calculatePrioritiesForAll, getPriorityLevelName, getPriorityLevelColor, getUrgencyLevelName } from '@/utils/priorityCalculator'
 import AppIcon from '@/components/AppIcon.vue'
+import { useScrollMemory } from '@/utils/uiState'
 
 const props = defineProps({
 	todos: { type: Array, default: () => [] },
@@ -115,6 +116,10 @@ const emit = defineEmits(['task-selected'])
 
 // 点击空白区域处理
 const heapContainerRef = ref(null)
+
+// 堆视图的滚动位置，刷新后回到原来的高度
+const heapScrollRef = ref(null)
+const { save: saveHeapScroll, restore: restoreHeapScroll } = useScrollMemory(heapScrollRef, () => 'heap')
 
 const outsideClickHandler = (e) => {
 	const el = heapContainerRef.value
@@ -250,6 +255,11 @@ const selectTask = (taskId) => {
 	console.log('选中任务ID:', taskId)
 	emit('task-selected', taskId)
 }
+
+// 任务渲染出来后把滚动位置落回上次离开处
+watch(() => heapNodes.value.length, (length) => {
+	if (length) nextTick(restoreHeapScroll)
+}, { immediate: true })
 </script>
 
 
