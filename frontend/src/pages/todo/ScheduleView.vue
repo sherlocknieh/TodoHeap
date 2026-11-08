@@ -3,36 +3,31 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedules'
 import { exportSchedulesIcs, readIcsFile } from '@/lib/calendarTransfer'
-import { SCHEDULE_RANGES, scheduleRangeOf } from '@/utils/scheduleRange'
+import { toDateTimeLocalValue } from '@/utils/deadline'
+import { parseDateKey, toDateKey } from '@/utils/scheduleRange'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
 const scheduleStore = useScheduleStore()
 
-// 侧栏点击的时间段筛选，通过路由 query 传递
-const activeRange = computed(() => {
-  const value = route.query.range
-  return SCHEDULE_RANGES.includes(value) ? value : ''
-})
+const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 
-const RANGE_LABELS = { today: '今天', future: '以后', past: '已过去' }
-const activeRangeLabel = computed(() => RANGE_LABELS[activeRange.value] || '')
+// 选中日期由路由 query 承载，刷新或从侧栏跳转后仍停在同一天
+const selectedDate = computed(() => parseDateKey(route.query.date) || new Date())
+const selectedKey = computed(() => toDateKey(selectedDate.value))
+const todayKey = toDateKey(new Date())
+const isToday = computed(() => selectedKey.value === todayKey)
 
-const clearRange = () => {
-  router.replace({ name: 'ScheduleView', query: {} })
+const goToDate = (date) => {
+  if (!date) return
+  router.replace({ name: 'ScheduleView', query: { date: toDateKey(date) } })
 }
 
-const startOfDay = (value) => {
-  const date = new Date(value)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-// 以本地日期为分组键，避免跨时区把同一自然日拆开
-const dayKey = (value) => {
-  const date = new Date(value)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+const shiftDay = (delta) => {
+  const next = new Date(selectedDate.value)
+  next.setDate(next.getDate() + delta)
+  goToDate(next)
 }
 
 const formatMonthDay = (value) => {
@@ -42,15 +37,10 @@ const formatMonthDay = (value) => {
 
 const weekdayLabel = (value) => ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][new Date(value).getDay()]
 
-// 近期日期用相对说法，其余直接给月日与星期
-const groupLabel = (value) => {
-  const today = startOfDay(new Date())
-  const diffDays = Math.round((startOfDay(value) - today) / 86400000)
-  if (diffDays < 0) return `已过去 · ${formatMonthDay(value)}`
-  if (diffDays === 0) return '今天'
-  if (diffDays === 1) return '明天'
-  return `${formatMonthDay(value)} · ${weekdayLabel(value)}`
-}
+const selectedLabel = computed(() => {
+  const date = selectedDate.value
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 · ${weekdayLabel(date)}`
+})
 
 const timeLabel = (value) => {
   const date = new Date(value)
@@ -60,42 +50,44 @@ const timeLabel = (value) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
-// 日程事件显示时间区间；整日事件（起止都是零点且相差一天）标为全天
-const eventTimeLabel = (event) => {
+// 卡片左侧的时间列；整日事件（起止零点且跨一天）只显示一次「全天」
+const eventTimes = (event) => {
   const start = new Date(event.start_at)
   const end = new Date(event.end_at)
   if (start.getHours() === 0 && start.getMinutes() === 0
-    && end.getTime() - start.getTime() === 86400000) return '全天'
-  const startText = timeLabel(event.start_at)
-  const endText = timeLabel(event.end_at)
-  if (!startText) return ''
-  return endText ? `${startText}–${endText}` : startText
+    && end.getTime() - start.getTime() === 86400000) return { start: '全天', end: '' }
+  return { start: timeLabel(event.start_at), end: timeLabel(event.end_at) }
 }
 
-// 日程页只展示 schedules 中的日历事件，按开始日期分组
-const schedule = computed(() => {
-  const buckets = new Map()
+// 跨天事件归入开始日，与月历圆点口径保持一致
+const dayEvents = computed(() => scheduleStore.schedules
+  .filter((event) => toDateKey(event.start_at) === selectedKey.value)
+  .sort((a, b) => new Date(a.start_at) - new Date(b.start_at)))
 
+// 每天的事件数，用作月历上的圆点
+const eventCountByDay = computed(() => {
+  const counts = new Map()
   for (const event of scheduleStore.schedules) {
-    if (activeRange.value && scheduleRangeOf(event) !== activeRange.value) continue
-    const key = dayKey(event.start_at)
-    if (!buckets.has(key)) {
-      buckets.set(key, { key, label: groupLabel(event.start_at), events: [] })
-    }
-    buckets.get(key).events.push(event)
+    const key = toDateKey(event.start_at)
+    counts.set(key, (counts.get(key) || 0) + 1)
   }
+  return counts
+})
 
-  const dated = [...buckets.values()]
-    .sort((a, b) => a.key.localeCompare(b.key))
-    .map((group) => ({
-      ...group,
-      events: [...group.events].sort((a, b) => new Date(a.start_at) - new Date(b.start_at))
-    }))
+// 月历只渲染选中日期所在月份，周一起头
+const monthGrid = computed(() => {
+  const base = selectedDate.value
+  const year = base.getFullYear()
+  const month = base.getMonth()
+  const leading = (new Date(year, month, 1).getDay() + 6) % 7
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells = Array.from({ length: leading }, () => null)
 
-  return {
-    dated,
-    total: dated.reduce((sum, group) => sum + group.events.length, 0)
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const key = toDateKey(new Date(year, month, day))
+    cells.push({ key, day, count: eventCountByDay.value.get(key) || 0 })
   }
+  return { label: `${year}年${month + 1}月`, cells }
 })
 
 // 导入日历：先预览再写入，成功后 store 会立即反映到列表
@@ -188,6 +180,69 @@ const handleDeleteEvent = async (event) => {
   }
 }
 
+// 编辑日程：卡片按钮打开同一份草稿，保存后写回 schedules
+const editingEvent = ref(null)
+const editForm = ref({ title: '', notes: '', start_at: '', end_at: '' })
+const editError = ref('')
+const isSavingEdit = ref(false)
+
+const openEdit = (event) => {
+  editingEvent.value = event
+  editError.value = ''
+  editForm.value = {
+    title: event.title || '',
+    notes: event.notes || '',
+    start_at: toDateTimeLocalValue(event.start_at),
+    end_at: toDateTimeLocalValue(event.end_at)
+  }
+}
+
+const closeEdit = () => {
+  editingEvent.value = null
+  editError.value = ''
+}
+
+const saveEdit = async () => {
+  if (!editingEvent.value || isSavingEdit.value) return
+
+  const title = editForm.value.title.trim()
+  const start = new Date(editForm.value.start_at)
+  const end = new Date(editForm.value.end_at)
+  if (!title) {
+    editError.value = '填写日程标题'
+    return
+  }
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    editError.value = '填写开始和结束时间'
+    return
+  }
+  if (end <= start) {
+    editError.value = '结束时间需要晚于开始时间'
+    return
+  }
+
+  isSavingEdit.value = true
+  const result = await scheduleStore.updateSchedule(editingEvent.value.id, {
+    title,
+    notes: editForm.value.notes.trim() || null,
+    start_at: start.toISOString(),
+    end_at: end.toISOString()
+  })
+  isSavingEdit.value = false
+  if (!result.success) {
+    editError.value = result.error || '保存日程失败'
+    return
+  }
+  closeEdit()
+}
+
+// 删除入口收进编辑弹窗，避免卡片上误触
+const deleteEditingEvent = async () => {
+  const event = editingEvent.value
+  closeEdit()
+  await handleDeleteEvent(event)
+}
+
 onMounted(() => {
   scheduleStore.fetchSchedules()
 })
@@ -199,7 +254,7 @@ onMounted(() => {
     <header class="flex flex-wrap items-center gap-2 pb-1">
       <AppIcon name="calendar" :size="15" class="text-neutral-400 dark:text-neutral-600" />
       <h1 class="text-sm font-semibold">日程</h1>
-      <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ schedule.total }} 个日程</span>
+      <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ dayEvents.length }} 个日程</span>
 
       <div class="ml-auto flex items-center gap-1.5">
         <label class="btn-outline cursor-pointer">
@@ -218,11 +273,44 @@ onMounted(() => {
       </div>
     </header>
 
-    <!-- 时间段筛选：窄屏侧栏收起时也能看到并清除 -->
-    <p v-if="activeRange" class="mt-2 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-      <span class="chip">仅看 {{ activeRangeLabel }}</span>
-      <button class="transition-colors hover:text-neutral-800 dark:hover:text-neutral-200" @click="clearRange">显示全部</button>
-    </p>
+    <!-- 日期导航：左右翻页切换前后一天，点「今天」回到当天 -->
+    <section class="mt-3 rounded-md border border-hairline dark:border-hairline-dark">
+      <div class="flex items-center gap-1.5 px-3 py-2">
+        <button class="rounded p-1 text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
+          aria-label="前一天" @click="shiftDay(-1)">
+          <AppIcon name="chevronLeft" :size="15" />
+        </button>
+        <span class="text-sm font-medium">{{ selectedLabel }}</span>
+        <button class="rounded p-1 text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
+          aria-label="后一天" @click="shiftDay(1)">
+          <AppIcon name="chevronRight" :size="15" />
+        </button>
+        <button v-if="!isToday" class="btn-outline ml-auto" @click="goToDate(new Date())">今天</button>
+      </div>
+
+      <!-- 月历总览：圆点标记有日程的日子，点击直接切到那天 -->
+      <div class="border-t border-hairline px-3 py-2 dark:border-hairline-dark">
+        <p class="pb-1 text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">{{ monthGrid.label }}</p>
+        <div class="grid max-w-md grid-cols-7 gap-1 text-center">
+          <span v-for="weekday in WEEKDAYS" :key="weekday" class="py-0.5 text-[10px] text-neutral-400 dark:text-neutral-600">{{ weekday }}</span>
+          <template v-for="(cell, index) in monthGrid.cells" :key="index">
+            <span v-if="!cell" aria-hidden="true"></span>
+            <button v-else type="button"
+              class="relative flex h-8 flex-col items-center justify-center rounded text-xs transition-colors"
+              :class="cell.key === selectedKey
+                ? 'bg-accent-600 text-white'
+                : cell.key === todayKey
+                  ? 'text-accent-700 ring-1 ring-inset ring-accent-300 dark:text-accent-300 dark:ring-accent-700'
+                  : 'text-neutral-600 hover:bg-accent-50 dark:text-neutral-400 dark:hover:bg-accent-500/10'"
+              @click="goToDate(parseDateKey(cell.key))">
+              {{ cell.day }}
+              <span v-if="cell.count" class="absolute bottom-0.5 h-1 w-1 rounded-full"
+                :class="cell.key === selectedKey ? 'bg-white' : 'bg-accent-500'"></span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </section>
 
     <p v-if="importError" class="mt-2 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
       <AppIcon name="alert" :size="12" />
@@ -256,32 +344,96 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 空状态：筛选无结果时提示切换时间段 -->
-    <section v-if="schedule.total === 0" class="py-16 text-center">
-      <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ activeRange ? '这个时间段还没有日程' : '还没有日程事件' }}</p>
-      <button v-if="activeRange" class="btn-outline mt-3" @click="clearRange">显示全部日程</button>
-      <p v-else class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">导入 ICS 日历后，事件会出现在这里</p>
+    <!-- 当天日程：时间在左、内容在右，notes 一并展示 -->
+    <section class="mt-4">
+      <p class="px-1 pb-1.5 text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
+        当天日程
+        <span class="ml-1 font-mono text-neutral-400 dark:text-neutral-600">{{ dayEvents.length }}</span>
+      </p>
+      <!-- 首次载入时先给状态，避免空状态一闪而过 -->
+      <div v-if="scheduleStore.loading" class="flex items-center justify-center gap-2 py-10 text-sm text-neutral-500 dark:text-neutral-400">
+        <AppIcon name="loader" :size="14" class="animate-spin" />
+        <span>读取日程…</span>
+      </div>
+
+      <ul v-else-if="dayEvents.length" class="space-y-2">
+        <li v-for="event in dayEvents" :key="event.id"
+          class="group flex items-center gap-3 rounded-md border border-hairline bg-neutral-50/60 px-3 py-2.5 transition-colors hover:border-accent-400 hover:bg-accent-50/40 dark:border-hairline-dark dark:bg-neutral-900/40 dark:hover:border-accent-600 dark:hover:bg-accent-500/[0.06]">
+          <div class="flex w-14 shrink-0 flex-col font-mono text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
+            <span>{{ eventTimes(event).start }}</span>
+            <span class="text-neutral-400 dark:text-neutral-600">{{ eventTimes(event).end }}</span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm text-neutral-900 dark:text-neutral-100">{{ event.title || '未命名日程' }}</p>
+            <p v-if="event.notes" class="mt-0.5 line-clamp-2 text-xs text-neutral-500 dark:text-neutral-400">{{ event.notes }}</p>
+          </div>
+          <button class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:text-accent-700 focus:opacity-100 group-hover:opacity-100 dark:hover:text-accent-300"
+            aria-label="编辑日程" @click="openEdit(event)">
+            <AppIcon name="edit" :size="13" />
+          </button>
+        </li>
+      </ul>
+
+      <!-- 空状态：当天没有安排 -->
+      <div v-else class="rounded-md border border-dashed border-neutral-200 py-10 text-center dark:border-neutral-800">
+        <AppIcon name="calendar" :size="18" class="mx-auto text-neutral-300 dark:text-neutral-700" />
+        <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{{ isToday ? '今天没有日程' : '这天没有日程' }}</p>
+        <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">用左右箭头或上面的月历切换日期</p>
+      </div>
     </section>
 
-    <div v-else class="mt-2 space-y-4">
-      <section v-for="group in schedule.dated" :key="group.key" class="space-y-1">
-        <p class="px-1 text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
-          {{ group.label }}
-          <span class="ml-1 font-mono text-neutral-400 dark:text-neutral-600">{{ group.events.length }}</span>
-        </p>
-        <ul class="space-y-px">
-          <li v-for="event in group.events" :key="`event-${event.id}`"
-            class="group flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-neutral-600 transition-colors hover:bg-accent-50/70 dark:text-neutral-400 dark:hover:bg-accent-500/[0.06]">
-            <AppIcon name="calendar" :size="13" class="shrink-0 text-accent-600 dark:text-accent-400" />
-            <span class="flex-1 truncate">{{ event.title || '未命名日程' }}</span>
-            <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ eventTimeLabel(event) }}</span>
-            <button class="rounded p-0.5 text-neutral-400 opacity-0 transition-opacity hover:text-rose-600 focus:opacity-100 group-hover:opacity-100 dark:hover:text-rose-400"
-              aria-label="删除日程" @click="handleDeleteEvent(event)">
-              <AppIcon name="trash" :size="12" />
+    <!-- 编辑弹窗：标题、时间与备注可改，删除入口也收在这里 -->
+    <Teleport to="body">
+      <div v-if="editingEvent" class="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950/45 p-4 backdrop-blur-sm"
+        @click.self="closeEdit">
+        <div class="panel w-full max-w-md p-5" role="dialog" aria-modal="true" aria-label="编辑日程">
+          <header class="flex items-center justify-between pb-3">
+            <h2 class="text-sm font-semibold">编辑日程</h2>
+            <button class="rounded p-1 text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
+              aria-label="关闭" @click="closeEdit">
+              <AppIcon name="close" :size="15" />
             </button>
-          </li>
-        </ul>
-      </section>
-    </div>
+          </header>
+
+          <div class="space-y-3">
+            <label class="block">
+              <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">标题</span>
+              <input v-model="editForm.title" class="field" type="text" placeholder="日程标题" />
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="block">
+                <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">开始</span>
+                <input v-model="editForm.start_at" class="field" type="datetime-local" />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">结束</span>
+                <input v-model="editForm.end_at" class="field" type="datetime-local" />
+              </label>
+            </div>
+            <label class="block">
+              <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">备注</span>
+              <textarea v-model="editForm.notes" class="field resize-none" rows="3" placeholder="地点、参与人或其他说明"></textarea>
+            </label>
+            <p v-if="editError" class="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+              <AppIcon name="alert" :size="12" />
+              <span>{{ editError }}</span>
+            </p>
+          </div>
+
+          <footer class="mt-4 flex items-center gap-2">
+            <button class="btn-outline text-rose-600 dark:text-rose-400" :disabled="isSavingEdit" @click="deleteEditingEvent">
+              <AppIcon name="trash" :size="13" />
+              <span>删除</span>
+            </button>
+            <div class="ml-auto flex items-center gap-2">
+              <button class="btn-outline" @click="closeEdit">取消</button>
+              <button class="btn-primary" :disabled="isSavingEdit" @click="saveEdit">
+                <span>{{ isSavingEdit ? '保存中…' : '保存' }}</span>
+              </button>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
