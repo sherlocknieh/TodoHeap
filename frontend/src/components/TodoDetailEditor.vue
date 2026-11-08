@@ -1,12 +1,12 @@
 <template>
   <div v-if="show" data-detail-panel :class="[
-    'relative max-w-full h-full min-h-0 overflow-hidden bg-surface dark:bg-surface-dark flex flex-col z-20 border-l border-hairline dark:border-hairline-dark',
+    'relative max-w-full h-full min-h-0 bg-surface dark:bg-surface-dark flex flex-col z-20 border-l border-hairline dark:border-hairline-dark',
     // 已删除任务时整个面板显示禁用光标
     isDeleted ? 'cursor-not-allowed' : ''
   ]" :style="{ width: panelWidth + 'px' }">
-    <!-- 左缘拖拽条：拖过最小宽度后继续拖一段才收起详情面板；进入收起待命时加深提示 -->
+    <!-- 左缘拖拽条：骑在面板边界线上，而非占据面板内侧；进入收起待命时加深提示 -->
     <div
-      class="absolute inset-y-0 left-0 z-40 w-2 cursor-col-resize touch-none transition-colors"
+      class="absolute inset-y-0 -left-1 z-40 w-2 cursor-col-resize touch-none transition-colors"
       :class="panelCollapseArmed ? 'bg-accent-700/60' : panelResizing ? 'bg-accent-500/50' : 'hover:bg-accent-500/30'"
       role="separator"
       aria-orientation="vertical"
@@ -22,7 +22,7 @@
         <AppIcon name="close" :size="15" />
       </button>
     </div>
-    <section class="flex-1 min-h-0 flex flex-col">
+    <section class="flex-1 min-h-0 flex flex-col overflow-hidden">
       <!-- 空状态显示 -->
       <div v-if="!todo" class="flex-1 h-full flex items-center justify-center px-6 text-center text-neutral-400 dark:text-neutral-600">
         <div>

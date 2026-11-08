@@ -32,6 +32,8 @@ export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 		const startWidth = width.value
 
 		const move = (e) => {
+			// 忽略未按下按键的移动：窗口外松手或外部合成的移动不应改动宽度
+			if (e.buttons === 0) return
 			const delta = side === 'left' ? e.clientX - startX : startX - e.clientX
 			const next = startWidth + delta
 			// 越过最小宽度后先停在最小宽度，再拖够半个最小宽度才收起
