@@ -11,7 +11,7 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: () => import('@/pages/Home.vue'),
-      meta: { requiresAuth: false, title: 'TodoHeap - 任务堆' }
+      meta: { requiresAuth: false, title: 'TodoHeap · 把模糊的任务排进日程' }
     },
     // 登录页
     {

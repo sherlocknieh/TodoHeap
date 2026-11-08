@@ -17,18 +17,18 @@ const openApp = () => {
 const features = [
   {
     icon: 'sparkles',
-    title: 'AI 自动分解',
-    desc: '把含糊的大目标拆成能立刻动手的小任务，每一步都有明确边界。'
+    title: '对话 Agent',
+    desc: '一句话说清想做的事，Agent 负责拆解、估时与调整，管理过程几乎不用亲手操作。'
   },
   {
-    icon: 'layers',
-    title: '堆结构排序',
-    desc: '按优先级排出先后，最该做的那件始终在顶部，省掉反复权衡。'
+    icon: 'tree',
+    title: '任务树',
+    desc: '列表与思维导图两种形态，无限层级，拆到多细都能看清彼此的关系。'
   },
   {
-    icon: 'cloud',
-    title: '云端同步',
-    desc: '本地先写，联网自动同步，多设备看到的是同一份清单。'
+    icon: 'calendar',
+    title: '落进日程',
+    desc: '未完成的任务按截止日期铺进日程，支持 ICS 导入导出与只读订阅链接。'
   }
 ]
 </script>
@@ -49,17 +49,18 @@ const features = [
 
     <main class="flex-1">
       <section class="w-full px-6 md:px-10 lg:px-16 pt-24 pb-20">
-        <p class="eyebrow text-accent-700 dark:text-accent-400">任务管理</p>
+        <p class="eyebrow text-accent-700 dark:text-accent-400">从任务到日程</p>
         <h1 class="mt-4 text-4xl sm:text-5xl font-semibold leading-[1.15] tracking-tight">
-          把大任务拆小，<br class="hidden sm:block" />
-          只做此刻最该做的那一件。
+          把模糊的任务，<br class="hidden sm:block" />
+          变成排得进日程的下一步。
         </h1>
         <p class="mt-6 max-w-xl text-base leading-7 text-neutral-500 dark:text-neutral-400">
-          TodoHeap 用 AI 分解任务，用堆结构决定先后顺序。你不必在等价的清单里反复挑选，随时知道下一步做什么。
+          TodoHeap 用对话 Agent 理解任务、拆成可执行的步骤并排好先后，再铺进日程。
+          你不必决定从哪开始，只要按推荐的顺序做完今天的那一件。
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-3">
-          <button class="btn-primary px-4 py-2" @click="openApp">{{ auth.isAuthenticated ? '进入应用' : '开始使用' }}</button>
-          <a href="/TodoHeap/docs/zh/" class="btn-outline px-4 py-2">阅读文档</a>
+          <button class="btn-primary px-4 py-2" @click="openApp">{{ auth.isAuthenticated ? '进入应用' : '免费开始使用' }}</button>
+          <a href="/TodoHeap/docs/zh/" class="btn-outline px-4 py-2">看看怎么用</a>
         </div>
       </section>
 
@@ -77,7 +78,7 @@ const features = [
     <footer class="border-t border-hairline dark:border-hairline-dark">
       <div
         class="w-full px-6 md:px-10 lg:px-16 py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-500">
-        <span>© 2026 TodoHeap</span>
+        <span>© 2026 TodoHeap · 把模糊的任务排进日程</span>
         <nav class="flex items-center gap-4">
           <a href="/TodoHeap/docs/zh/user/" class="hover:text-accent-800 dark:hover:text-accent-200">使用指南</a>
           <a href="/TodoHeap/docs/zh/dev/" class="hover:text-accent-800 dark:hover:text-accent-200">开发文档</a>
