@@ -141,8 +141,8 @@ const handleOAuth = async (provider) => {
 
 
 <template>
-  <!-- 登录/注册：单一列，信息层级靠字号与留白 -->
-  <div class="min-h-screen flex items-center justify-center p-6">
+  <!-- 登录/注册：表单收进独立卡片，与页面底色拉开层级 -->
+  <div class="min-h-screen flex items-center justify-center p-6 bg-neutral-100 dark:bg-neutral-950">
     <div class="w-full max-w-sm">
       <router-link to="/"
         class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
@@ -150,111 +150,114 @@ const handleOAuth = async (provider) => {
         <span>返回主页</span>
       </router-link>
 
-      <div class="mt-10 mb-6">
-        <h1 class="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">TodoHeap</h1>
-        <p class="mt-1 text-sm text-neutral-500">任务堆，始终知道下一步做什么</p>
-      </div>
-
-      <!-- 登录 / 注册 -->
-      <div class="flex gap-5 border-b border-neutral-200 dark:border-neutral-800 mb-6">
-        <button :class="[
-          'pb-2 -mb-px text-sm border-b-2 transition-colors',
-          !isSignUp
-            ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100 font-medium'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
-        ]" @click="isSignUp = false">
-          登录
-        </button>
-        <button :class="[
-          'pb-2 -mb-px text-sm border-b-2 transition-colors',
-          isSignUp
-            ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100 font-medium'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
-        ]" @click="isSignUp = true">
-          注册
-        </button>
-      </div>
-
-      <form @submit.prevent="handleAuth" class="space-y-4">
-        <div>
-          <label for="email" class="text-xs text-neutral-500">邮箱</label>
-          <div class="relative mt-1">
-            <AppIcon name="mail" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input id="email" v-model="email" type="email" placeholder="you@example.com" required :disabled="loading"
-              class="field pl-8" />
-          </div>
+      <div
+        class="mt-8 rounded-lg border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-black/40">
+        <div class="mb-6">
+          <h1 class="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">TodoHeap</h1>
+          <p class="mt-1 text-sm text-neutral-500">任务堆，始终知道下一步做什么</p>
         </div>
 
-        <div>
-          <label for="password" class="text-xs text-neutral-500">密码</label>
-          <div class="relative mt-1">
-            <AppIcon name="lock" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="至少 6 个字符"
-              required :disabled="loading" class="field pl-8 pr-14" />
-            <button type="button"
-              class="absolute right-2 top-1/2 -translate-y-1/2 px-1 text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
-              @click.prevent="showPassword = !showPassword">
-              {{ showPassword ? '隐藏' : '显示' }}
-            </button>
-          </div>
-          <p v-if="isSignUp" class="mt-1.5 text-[11px] text-neutral-400">密码至少需要 6 个字符</p>
-          <button v-else type="button" :disabled="loading"
-            class="mt-1.5 text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
-            @click="handleResetPassword">
-            忘记密码？
+        <!-- 登录 / 注册 -->
+        <div class="flex gap-5 border-b border-neutral-200 dark:border-neutral-800 mb-6">
+          <button :class="[
+            'pb-2 -mb-px text-sm border-b-2 transition-colors',
+            !isSignUp
+              ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100 font-medium'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+          ]" @click="isSignUp = false">
+            登录
+          </button>
+          <button :class="[
+            'pb-2 -mb-px text-sm border-b-2 transition-colors',
+            isSignUp
+              ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100 font-medium'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+          ]" @click="isSignUp = true">
+            注册
           </button>
         </div>
 
-        <div v-if="isSignUp">
-          <label for="confirmPassword" class="text-xs text-neutral-500">确认密码</label>
-          <div class="relative mt-1">
-            <AppIcon name="lock" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input id="confirmPassword" v-model="confirmPassword" type="password" placeholder="再次输入密码" required
-              :disabled="loading" class="field pl-8" />
+        <form @submit.prevent="handleAuth" class="space-y-4">
+          <div>
+            <label for="email" class="text-xs text-neutral-500">邮箱</label>
+            <div class="relative mt-1">
+              <AppIcon name="mail" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input id="email" v-model="email" type="email" placeholder="you@example.com" required :disabled="loading"
+                class="field pl-8" />
+            </div>
           </div>
+
+          <div>
+            <label for="password" class="text-xs text-neutral-500">密码</label>
+            <div class="relative mt-1">
+              <AppIcon name="lock" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="至少 6 个字符"
+                required :disabled="loading" class="field pl-8 pr-14" />
+              <button type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 px-1 text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+                @click.prevent="showPassword = !showPassword">
+                {{ showPassword ? '隐藏' : '显示' }}
+              </button>
+            </div>
+            <p v-if="isSignUp" class="mt-1.5 text-[11px] text-neutral-400">密码至少需要 6 个字符</p>
+            <button v-else type="button" :disabled="loading"
+              class="mt-1.5 text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+              @click="handleResetPassword">
+              忘记密码？
+            </button>
+          </div>
+
+          <div v-if="isSignUp">
+            <label for="confirmPassword" class="text-xs text-neutral-500">确认密码</label>
+            <div class="relative mt-1">
+              <AppIcon name="lock" :size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <input id="confirmPassword" v-model="confirmPassword" type="password" placeholder="再次输入密码" required
+                :disabled="loading" class="field pl-8" />
+            </div>
+          </div>
+
+          <p v-if="errorMsg" class="flex items-start gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+            <AppIcon name="alert" :size="12" class="mt-0.5" />
+            <span>{{ errorMsg }}</span>
+          </p>
+          <p v-if="successMsg" class="flex items-start gap-1.5 text-xs text-accent-700 dark:text-accent-400">
+            <AppIcon name="check" :size="12" class="mt-0.5" />
+            <span>{{ successMsg }}</span>
+          </p>
+
+          <button type="submit" :disabled="loading" class="btn-primary w-full py-2">
+            <AppIcon v-if="loading" name="loader" :size="14" class="animate-spin" />
+            <span>{{ loading ? '处理中…' : (isSignUp ? '创建账号' : '登录') }}</span>
+          </button>
+        </form>
+
+        <div class="my-5 flex items-center gap-3 text-[11px] text-neutral-400">
+          <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
+          <span>或</span>
+          <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
         </div>
 
-        <p v-if="errorMsg" class="flex items-start gap-1.5 text-xs text-rose-600 dark:text-rose-400">
-          <AppIcon name="alert" :size="12" class="mt-0.5" />
-          <span>{{ errorMsg }}</span>
-        </p>
-        <p v-if="successMsg" class="flex items-start gap-1.5 text-xs text-accent-700 dark:text-accent-400">
-          <AppIcon name="check" :size="12" class="mt-0.5" />
-          <span>{{ successMsg }}</span>
-        </p>
-
-        <button type="submit" :disabled="loading" class="btn-primary w-full py-2">
-          <AppIcon v-if="loading" name="loader" :size="14" class="animate-spin" />
-          <span>{{ loading ? '处理中…' : (isSignUp ? '创建账号' : '登录') }}</span>
+        <button type="button" @click="handleOAuth('github')" :disabled="loading" class="btn-outline w-full py-2">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path
+              d="M12 .297a12 12 0 00-3.79 23.4c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.35-1.77-1.35-1.77-1.1-.75.08-.74.08-.74 1.22.09 1.86 1.26 1.86 1.26 1.08 1.85 2.83 1.32 3.52 1.01.11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.16 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 016 0c2.28-1.55 3.29-1.23 3.29-1.23.67 1.64.26 2.86.13 3.16.77.84 1.23 1.9 1.23 3.22 0 4.62-2.8 5.64-5.47 5.94.43.37.82 1.1.82 2.22v3.29c0 .32.22.7.83.58A12 12 0 0012 .297" />
+          </svg>
+          <span>使用 GitHub 登录</span>
         </button>
-      </form>
 
-      <div class="my-5 flex items-center gap-3 text-[11px] text-neutral-400">
-        <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
-        <span>或</span>
-        <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
+        <p class="mt-6 text-center text-xs text-neutral-500">
+          <template v-if="!isSignUp">
+            还没有账号？
+            <button type="button" class="text-neutral-900 hover:underline dark:text-neutral-100"
+              @click="isSignUp = true">注册</button>
+          </template>
+          <template v-else>
+            已有账号？
+            <button type="button" class="text-neutral-900 hover:underline dark:text-neutral-100"
+              @click="isSignUp = false">登录</button>
+          </template>
+        </p>
       </div>
-
-      <button type="button" @click="handleOAuth('github')" :disabled="loading" class="btn-outline w-full py-2">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path
-            d="M12 .297a12 12 0 00-3.79 23.4c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.35-1.77-1.35-1.77-1.1-.75.08-.74.08-.74 1.22.09 1.86 1.26 1.86 1.26 1.08 1.85 2.83 1.32 3.52 1.01.11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.16 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 016 0c2.28-1.55 3.29-1.23 3.29-1.23.67 1.64.26 2.86.13 3.16.77.84 1.23 1.9 1.23 3.22 0 4.62-2.8 5.64-5.47 5.94.43.37.82 1.1.82 2.22v3.29c0 .32.22.7.83.58A12 12 0 0012 .297" />
-        </svg>
-        <span>使用 GitHub 登录</span>
-      </button>
-
-      <p class="mt-6 text-center text-xs text-neutral-500">
-        <template v-if="!isSignUp">
-          还没有账号？
-          <button type="button" class="text-neutral-900 hover:underline dark:text-neutral-100"
-            @click="isSignUp = true">注册</button>
-        </template>
-        <template v-else>
-          已有账号？
-          <button type="button" class="text-neutral-900 hover:underline dark:text-neutral-100"
-            @click="isSignUp = false">登录</button>
-        </template>
-      </p>
     </div>
   </div>
 </template>
