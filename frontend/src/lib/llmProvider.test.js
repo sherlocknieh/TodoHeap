@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_LLM_CONFIG,
   createStreamAccumulator,
   normalizeLlmConfig,
-  resolveChatUrl
+  resolveChatUrl,
+  streamChatCompletion
 } from './llmProvider'
 
 describe('resolveChatUrl', () => {
@@ -36,6 +37,52 @@ describe('normalizeLlmConfig', () => {
   it('温度限制在 0 到 2 之间', () => {
     expect(normalizeLlmConfig({ temperature: 9 }).temperature).toBe(2)
     expect(normalizeLlmConfig({ temperature: -1 }).temperature).toBe(0)
+  })
+
+  it('默认使用自带密钥模式', () => {
+    expect(normalizeLlmConfig({ baseUrl: 'https://api.example.com/v1', model: 'demo' }).mode).toBe('byok')
+  })
+
+  it('内置模式使用独立的内置模型字段', () => {
+    const config = normalizeLlmConfig({ mode: 'builtin', model: 'byok-model', builtinModel: 'deepseek-chat' })
+    expect(config.mode).toBe('builtin')
+    expect(config.builtinModel).toBe('deepseek-chat')
+    expect(config.model).toBe('byok-model')
+  })
+
+  it('内置模型缺省时回落到推荐模型', () => {
+    expect(normalizeLlmConfig({ mode: 'builtin' }).builtinModel).toBe(DEFAULT_LLM_CONFIG.builtinModel)
+  })
+})
+
+describe('streamChatCompletion', () => {
+  it('指定 endpoint 时直接使用，并透传额外请求头', async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ choices: [{ message: { content: 'ok' } }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    ))
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const result = await streamChatCompletion({
+        endpoint: 'https://example.supabase.co/functions/v1/llm_gateway',
+        apiKey: 'user-jwt',
+        extraHeaders: { apikey: 'publishable-key' },
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'hi' }]
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toBe('https://example.supabase.co/functions/v1/llm_gateway')
+      expect(init.headers).toMatchObject({
+        Authorization: 'Bearer user-jwt',
+        apikey: 'publishable-key'
+      })
+      expect(result.content).toBe('ok')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 

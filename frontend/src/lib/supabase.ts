@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 // 获取环境变量 (来自 .env 文件)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+export const supabasePubKey = import.meta.env.VITE_SUPABASE_PUB_KEY
 
 // 变量缺失时在此暴露原因, 避免 supabase-js 抛出难以定位的 "supabaseKey is required"
 if (!supabaseUrl || !supabasePubKey) {

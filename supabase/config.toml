@@ -390,3 +390,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # 日历订阅链接不带 JWT，由 URL 中的随机令牌鉴权
 [functions.calendar_feed]
 verify_jwt = false
+
+# 内置模型网关只接受已登录用户，平台先校验 JWT，函数内再解析用户身份
+[functions.llm_gateway]
+verify_jwt = true

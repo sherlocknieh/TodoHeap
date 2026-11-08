@@ -11,10 +11,18 @@ const status = ref({ type: '', message: '' })
 const saving = ref(false)
 
 const preset = computed(() => llm.presets.find((item) => item.id === draft.value.presetId) || null)
-const canSave = computed(() => Boolean(draft.value.baseUrl && draft.value.model))
+const isBuiltin = computed(() => draft.value.mode === 'builtin')
+const canSave = computed(() => (isBuiltin.value
+  ? Boolean(draft.value.builtinModel)
+  : Boolean(draft.value.baseUrl && draft.value.model)))
 
 const setStatus = (type, message) => {
   status.value = { type, message }
+}
+
+const switchMode = (mode) => {
+  draft.value.mode = mode
+  setStatus('', '')
 }
 
 // 切换预设时套用该服务商的地址与首个推荐模型
@@ -27,7 +35,7 @@ const handlePresetChange = () => {
 
 const handleSave = () => {
   if (!canSave.value) {
-    setStatus('error', 'Base URL 与模型名称不能为空')
+    setStatus('error', isBuiltin.value ? '请选择内置模型' : 'Base URL 与模型名称不能为空')
     return false
   }
   llm.update(draft.value)
@@ -61,11 +69,30 @@ const handleReset = () => {
     <div>
       <p class="eyebrow">模型接入</p>
       <p class="mt-1 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-        对话 Agent 直接调用你选择的模型服务。配置只保存在本机浏览器，不会上传到服务器。
+        对话 Agent 需要一个可用的模型。可以自带密钥直连服务商，也可以使用 TodoHeap 内置模型。
       </p>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2">
+    <!-- 两种模式只在请求目标与凭证上不同，Agent 能力一致 -->
+    <div class="grid gap-2 sm:grid-cols-2">
+      <button
+        v-for="mode in llm.modes"
+        :key="mode.id"
+        type="button"
+        class="rounded-lg border px-3 py-2.5 text-left transition-colors"
+        :class="draft.mode === mode.id
+          ? 'border-accent-500 bg-accent-50 dark:border-accent-400 dark:bg-accent-500/10'
+          : 'border-hairline hover:border-accent-300 dark:border-hairline-dark dark:hover:border-accent-500/40'"
+        @click="switchMode(mode.id)">
+        <span class="flex items-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          <AppIcon :name="mode.id === 'builtin' ? 'sparkles' : 'key'" :size="13" />
+          {{ mode.label }}
+        </span>
+        <span class="mt-0.5 block text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">{{ mode.description }}</span>
+      </button>
+    </div>
+
+    <div v-if="!isBuiltin" class="grid gap-4 sm:grid-cols-2">
       <label class="space-y-1.5">
         <span class="text-xs font-medium text-neutral-700 dark:text-neutral-300">服务商</span>
         <select v-model="draft.presetId" class="field" @change="handlePresetChange">
@@ -100,7 +127,22 @@ const handleReset = () => {
       </label>
     </div>
 
-    <p class="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+    <div v-else class="space-y-4">
+      <label class="block space-y-1.5">
+        <span class="text-xs font-medium text-neutral-700 dark:text-neutral-300">内置模型</span>
+        <input v-model="draft.builtinModel" class="field" list="builtin-models" placeholder="选择或填写模型名称" autocomplete="off" />
+        <datalist id="builtin-models">
+          <option v-for="model in llm.builtinModels" :key="model" :value="model" />
+        </datalist>
+      </label>
+
+      <p class="rounded-md border border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-600 dark:border-hairline-dark dark:text-neutral-400">
+        请求经 TodoHeap 网关转发，对话内容与工具结果会经过服务器。当前为网关骨架：订阅与额度校验尚未启用，所有已登录用户均可调用。
+      </p>
+    </div>
+
+    <p v-if="!isBuiltin"
+      class="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
       密钥保存在浏览器本地存储中，请使用可随时撤销、限额专用的密钥。
     </p>
 

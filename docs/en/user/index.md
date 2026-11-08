@@ -55,7 +55,9 @@ Deleting a task moves it to the trash, where it can be restored or permanently r
 
 The AI view is a chat agent that can read and write your tasks, schedules and preferences on request.
 
-To connect a model, open **Settings → Model access** and pick a provider preset (OpenAI, DeepSeek, Kimi, GLM, Qwen, Gemini, OpenRouter, local Ollama) or enter any OpenAI-compatible Base URL and model name. The configuration is stored only in this browser; some providers must allow browser requests (CORS) for the connection test to pass.
+To connect a model, open **Settings → Model access** and pick a provider preset (OpenAI, DeepSeek, Kimi, GLM, Qwen, Gemini, OpenRouter, local Ollama) or enter any OpenAI-compatible Base URL and model name. With a personal key the configuration is stored only in this browser; some providers must allow browser requests (CORS) for the connection test to pass.
+
+A built-in option is also available: choose **Built-in model** instead of a personal key. Requests are proxied by the TodoHeap gateway with a server-side key, so no key is stored in the browser. The gateway is currently a skeleton — subscription and quota checks are not enabled yet, and any signed-in user can call it.
 
 Destructive actions (deleting tasks, clearing completed tasks, emptying the trash) are always shown for confirmation before they run.
 

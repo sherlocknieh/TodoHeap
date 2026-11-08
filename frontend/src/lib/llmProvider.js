@@ -12,11 +12,21 @@ export const LLM_PRESETS = [
   { id: 'custom', label: '自定义（OpenAI 兼容）', baseUrl: '', models: [] }
 ]
 
+export const LLM_MODES = [
+  { id: 'byok', label: '自带 API Key', description: '直连你选择的服务商，密钥只存本机' },
+  { id: 'builtin', label: '内置模型', description: '经 TodoHeap 网关调用，订阅后可用' }
+]
+
+// 内置模式可选的模型建议；实际可用范围由网关的 LLM_ALLOWED_MODELS 决定
+export const BUILTIN_MODELS = ['gpt-4.1-mini', 'deepseek-chat']
+
 export const DEFAULT_LLM_CONFIG = {
+  mode: 'byok',
   presetId: 'openai',
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4.1-mini',
+  builtinModel: BUILTIN_MODELS[0],
   temperature: 0.2
 }
 
@@ -30,10 +40,14 @@ export const normalizeLlmConfig = (source) => {
     || LLM_PRESETS.find((preset) => preset.id !== 'custom' && preset.baseUrl && preset.baseUrl === baseUrl)
 
   return {
+    mode: input.mode === 'builtin' ? 'builtin' : 'byok',
     presetId: matchedPreset?.id || 'custom',
     baseUrl,
     apiKey: typeof input.apiKey === 'string' ? input.apiKey.trim() : '',
     model: typeof input.model === 'string' ? input.model.trim() : '',
+    builtinModel: typeof input.builtinModel === 'string' && input.builtinModel.trim()
+      ? input.builtinModel.trim()
+      : BUILTIN_MODELS[0],
     temperature: Number.isFinite(Number(input.temperature))
       ? Math.min(2, Math.max(0, Number(input.temperature)))
       : DEFAULT_LLM_CONFIG.temperature
@@ -124,7 +138,9 @@ const normalizeMessage = (message) => {
 // 调用一次 OpenAI 兼容聊天接口；流式返回时通过 onDelta 实时反馈文本
 export const streamChatCompletion = async ({
   baseUrl,
+  endpoint,
   apiKey,
+  extraHeaders,
   model,
   temperature = 0.2,
   messages,
@@ -134,7 +150,7 @@ export const streamChatCompletion = async ({
 }) => {
   if (!model) throw new LlmError('请先填写模型名称')
 
-  const headers = { 'Content-Type': 'application/json' }
+  const headers = { 'Content-Type': 'application/json', ...(extraHeaders || {}) }
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
 
   const body = {
@@ -148,7 +164,7 @@ export const streamChatCompletion = async ({
     body.tool_choice = 'auto'
   }
 
-  const url = resolveChatUrl(baseUrl)
+  const url = endpoint || resolveChatUrl(baseUrl)
   let response
   try {
     response = await fetch(url, {

@@ -188,7 +188,7 @@ onMounted(() => {
         <button class="chip hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
           :title="llm.isConfigured ? '模型已接入，点击修改' : '尚未接入模型'" @click="openProviderSettings">
           <AppIcon name="key" :size="12" />
-          <span class="max-w-[9rem] truncate">{{ llm.isConfigured ? llm.config.model : '未接入模型' }}</span>
+          <span class="max-w-[11rem] truncate">{{ llm.isConfigured ? (llm.isBuiltin ? `内置 · ${llm.activeModel}` : llm.activeModel) : '未接入模型' }}</span>
         </button>
         <button v-if="agent.hasMessages && !agent.running" class="p-1.5 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
           title="清空对话" @click="agent.clear()">
@@ -204,7 +204,7 @@ onMounted(() => {
         <div>
           <p class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">接入第三方大模型</p>
           <p class="mx-auto mt-1 max-w-sm text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            支持 OpenAI 兼容接口，如 DeepSeek、Kimi、GLM、Qwen、Gemini、OpenRouter 或本地 Ollama。密钥只保存在本机浏览器。
+            可以自带密钥直连 OpenAI 兼容服务（如 DeepSeek、Kimi、GLM、Qwen、Gemini、OpenRouter、本地 Ollama），也可以使用 TodoHeap 内置模型。
           </p>
         </div>
         <button class="btn-primary mx-auto" @click="openProviderSettings">配置模型</button>
@@ -309,7 +309,7 @@ onMounted(() => {
       <p class="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
         Enter 发送，Shift+Enter 换行
         <span class="text-neutral-300 dark:text-neutral-700">·</span>
-        当前模型：{{ llm.config.model || '未配置' }}
+        当前模型：{{ llm.activeModel || '未配置' }}
       </p>
     </div>
   </div>

@@ -1,14 +1,18 @@
-// 模型接入状态：配置只保存在本机浏览器，读取后由 Agent 直接调用
+// 模型接入状态：自带密钥只存本机，内置模型经 Supabase 网关转发
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { supabase, supabasePubKey, supabaseUrl } from '@/lib/supabase'
 import {
+  BUILTIN_MODELS,
   DEFAULT_LLM_CONFIG,
+  LLM_MODES,
   LLM_PRESETS,
   normalizeLlmConfig,
   streamChatCompletion
 } from '@/lib/llmProvider'
 
 const STORAGE_KEY = 'todoheap.llm.v1'
+const BUILTIN_ENDPOINT = `${supabaseUrl}/functions/v1/llm_gateway`
 
 const readStoredConfig = () => {
   if (typeof localStorage === 'undefined') return { ...DEFAULT_LLM_CONFIG }
@@ -23,7 +27,11 @@ const readStoredConfig = () => {
 export const useLlmStore = defineStore('llm', () => {
   const config = ref(readStoredConfig())
 
-  const isConfigured = computed(() => Boolean(config.value.baseUrl && config.value.model))
+  const isBuiltin = computed(() => config.value.mode === 'builtin')
+  const activeModel = computed(() => (isBuiltin.value ? config.value.builtinModel : config.value.model))
+  const isConfigured = computed(() => (isBuiltin.value
+    ? Boolean(config.value.builtinModel)
+    : Boolean(config.value.baseUrl && config.value.model)))
 
   const persist = () => {
     if (typeof localStorage === 'undefined') return
@@ -44,10 +52,36 @@ export const useLlmStore = defineStore('llm', () => {
     persist()
   }
 
-  const chat = async ({ messages, tools, onDelta, signal }) => {
-    if (!isConfigured.value) throw new Error('请先在设置 → 模型接入中配置模型')
+  // 内置模式用当前会话的 JWT 作为凭证，网关据此识别用户与订阅状态
+  const getAccessToken = async () => {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) throw new Error('登录状态已失效，请重新登录')
+    return token
+  }
+
+  // 两种模式只在请求目标与凭证上不同，Agent 与工具层无需感知
+  const request = async ({ messages, tools, temperature = config.value.temperature, onDelta, signal }) => {
+    if (isBuiltin.value) {
+      const token = await getAccessToken()
+      return streamChatCompletion({
+        endpoint: BUILTIN_ENDPOINT,
+        apiKey: token,
+        extraHeaders: { apikey: supabasePubKey },
+        model: config.value.builtinModel,
+        temperature,
+        messages,
+        tools,
+        onDelta,
+        signal
+      })
+    }
+
     return streamChatCompletion({
-      ...config.value,
+      baseUrl: config.value.baseUrl,
+      apiKey: config.value.apiKey,
+      model: config.value.model,
+      temperature,
       messages,
       tools,
       onDelta,
@@ -55,13 +89,17 @@ export const useLlmStore = defineStore('llm', () => {
     })
   }
 
-  // 发一条最小请求验证地址、密钥与模型名是否可用
+  const chat = async ({ messages, tools, onDelta, signal }) => {
+    if (!isConfigured.value) throw new Error('请先在设置 → 模型接入中配置模型')
+    return request({ messages, tools, onDelta, signal })
+  }
+
+  // 发一条最小请求验证地址、凭证与模型名是否可用
   const testConnection = async () => {
-    if (!isConfigured.value) return { success: false, error: '请先填写 Base URL 与模型名称' }
+    if (!isConfigured.value) return { success: false, error: '请先完成模型配置' }
     const startedAt = Date.now()
     try {
-      const result = await streamChatCompletion({
-        ...config.value,
+      const result = await request({
         messages: [{ role: 'user', content: '只回复 ok' }],
         temperature: 0
       })
@@ -78,7 +116,11 @@ export const useLlmStore = defineStore('llm', () => {
 
   return {
     config,
+    modes: LLM_MODES,
     presets: LLM_PRESETS,
+    builtinModels: BUILTIN_MODELS,
+    isBuiltin,
+    activeModel,
     isConfigured,
     update,
     reset,
