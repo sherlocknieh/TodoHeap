@@ -71,10 +71,10 @@
         <div v-if="!item._isRef && !selectionMode"
           class="flex shrink-0 items-center gap-0.5">
           <div class="relative">
-            <button v-if="!item.deadline"
-              class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            <button v-if="!item.deadline" type="button"
+              class="chip text-neutral-400 hover:border-accent-500 hover:text-accent-700 dark:text-neutral-500 dark:hover:text-accent-300 transition-colors"
               data-deadline-trigger title="设置截止时间" @click.stop="toggleDeadlineMenu(item)">
-              <AppIcon name="calendar" :size="14" />
+              <AppIcon name="calendar" :size="10" />截止
             </button>
             <div v-if="showDeadlineMenuId === item.id" data-deadline-menu
               class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 py-1">
