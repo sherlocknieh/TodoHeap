@@ -87,6 +87,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 `todos` 表：`id, user_id, parent_id, title, description, start_date, deadline, difficulty(工时, DECIMAL(5,2)), status(todo|doing|done), priority(0-4), sort_order, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`）。
 `user_settings` 表：用户偏好，如 `autoApplyAITasks`。
+`schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, start_at, end_at, all_day, status(planned|done|cancelled), created_at, updated_at`；已启 RLS 与 Realtime。
 
 | 边缘函数 | 作用 |
 | --- | --- |
@@ -106,5 +107,5 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 ## 改动的验证
 
 - 前端：`cd frontend && npm run build`；涉及 store 再 `npm test`
-- 数据库：新增 `supabase/migrations/<timestamp>_*.sql`，**不要修改历史迁移**
+- 数据库：结构以 `supabase/migrations/20261108000000_init_schema.sql` 为基线；后续变更新增 `<timestamp>_*.sql`，**不要修改基线**
 - 文档：`cd docs && npm run build`（配置已关闭 `ignoreDeadLinks`，死链会直接中断构建）
