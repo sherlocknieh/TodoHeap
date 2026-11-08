@@ -123,7 +123,8 @@
             title="标记为未完成" @click.stop="toggleCompletedTodo(t)">
             <AppIcon name="check" :size="10" />
           </button>
-          <span class="truncate text-neutral-400 line-through dark:text-neutral-500">{{ t.title || '未命名任务' }}</span>
+          <MiddleEllipsis :text="t.title || '未命名任务'"
+            class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
         </li>
       </ul>
     </section>
@@ -185,6 +186,7 @@ import { collectDescendantIds } from '@/utils/taskGraph'
 import { DEADLINE_PRESETS, resolveDeadlinePreset } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
 import TodoListItem from '@/components/TodoListItem.vue'
+import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps({

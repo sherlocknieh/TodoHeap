@@ -43,12 +43,13 @@
         <div class="flex min-w-0 flex-1 items-center gap-2">
           <div class="min-w-0 flex-1">
             <span v-if="editingId !== item.id" :class="[
-              'block text-sm leading-6 text-neutral-800 dark:text-neutral-200 break-words',
+              'flex min-w-0 items-center gap-1 overflow-hidden text-sm leading-6 text-neutral-800 dark:text-neutral-200',
               { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
             ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
               <AppIcon v-if="item._isRef" name="link" :size="11"
-                class="inline-block mr-1 -mt-0.5 text-neutral-400 dark:text-neutral-500" />
-              <span :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }">{{ item.title || '未命名任务' }}</span>
+                class="shrink-0 text-neutral-400 dark:text-neutral-500" />
+              <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
+                :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }" />
             </span>
             <input v-else :id="'edit-input-' + item.id" v-model="editingText"
               class="w-full bg-transparent text-sm leading-6 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
@@ -143,6 +144,7 @@
 <script setup>
 import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
+import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue } from '@/utils/deadline'
 import { draggingTodoId as draggingId, dropIndicator, resetDragState } from '@/utils/todoDrag'
 
