@@ -22,8 +22,8 @@ const todoStore = useTodoStore()
 // 统计信息
 const stats = computed(() => ({
   total: todoStore.todos.length,
-  completed: todoStore.todos.filter(todo => todo.status === 'done').length,
-  pending: todoStore.todos.filter(todo => todo.status !== 'done').length,
+  completed: todoStore.todos.filter(todo => todo.completed_at).length,
+  pending: todoStore.todos.filter(todo => !todo.completed_at).length,
   trashed: todoStore.trashTodos.length
 }))
 

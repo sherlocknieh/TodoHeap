@@ -47,7 +47,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `pages/{Home,Login,ResetPassword,404}.vue` | 落地页与认证页 |
 | `lib/supabase.ts` | 唯一 Supabase client，读 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUB_KEY` |
 | `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
-| `utils/priorityCalculator.js` | 堆视图打分（优先级 + 截止时间 + 难度），纯函数 |
+| `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
 | `utils/detailPanelContext.js` | provide/inject key，供深层组件打开详情面板 |
 | `style.css` | Tailwind v4 入口 + 设计令牌（`accent-*` 色阶）+ 基元类 |
 
@@ -85,9 +85,9 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 ## Supabase
 
-`todos` 表：`id, user_id, parent_id, title, description, start_date, deadline, difficulty(工时, DECIMAL(5,2)), status(todo|doing|done), priority(0-4), sort_order, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`）。
+`todos` 表：`id, user_id, parent_id, title, details, deadline, difficulty(工时, DECIMAL(5,2)), sort_order, completed_at, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
 `user_settings` 表：用户偏好，如 `autoApplyAITasks`。
-`schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, start_at, end_at, all_day, status(planned|done|cancelled), created_at, updated_at`；已启 RLS 与 Realtime。
+`schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, start_at, end_at, created_at, updated_at`；已启 RLS 与 Realtime。
 
 | 边缘函数 | 作用 |
 | --- | --- |
@@ -100,7 +100,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 ## 约定
 
 - **UI**：颜色只用 `neutral-*` 与 `accent-*`，配 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` 基元；图标一律用 `AppIcon`，**不要用 emoji**；圆角以 `rounded-md` 为主，避免大阴影与渐变。
-- **完成状态判定用 `status === 'done'`**，不存在 `completed` 字段。
+- **完成状态判定用 `completed_at` 是否为空**，不存在 `status` / `completed` 字段。
 - 中文注释描述"这段代码负责什么"，不写步骤流水账。
 - 部署路径带 `/TodoHeap/` 前缀，资源引用不要写死站点根路径。
 

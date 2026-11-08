@@ -79,7 +79,6 @@
             <span class="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
               {{ formatDate(item.deleted_at) }}
             </span>
-            <span v-if="item.priority > 0" class="chip font-mono">P{{ item.priority }}</span>
           </div>
 
           <!-- 行内操作 -->

@@ -98,15 +98,14 @@ const addTodo = async () => {
   const title = newTaskTitle.value.trim()
   if (!title) return
 
-  await todoStore.addTodo(title, { priority: 1, deadline: null })
+  await todoStore.addTodo(title, { deadline: null })
 
   newTaskTitle.value = ''
 }
 
 const addSubtask = async (parentId, startEditCb) => {
   const result = await todoStore.addTodo('(新任务)', {
-    parent_id: parentId,
-    priority: 0
+    parent_id: parentId
   })
   if (result.success && result.data) {
     startEditCb(result.data.id, result.data.title)

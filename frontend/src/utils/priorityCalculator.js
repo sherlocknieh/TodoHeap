@@ -7,68 +7,44 @@
  * 计算任务的综合优先级
  * 
  * 优先级维度：
- * 1. 基础优先级 (0-3): 用户手动设置，权重最高
- * 2. 截止日期紧急度: 根据距离截止时间的天数
- * 3. 任务进度: 已完成比例越高，优先级越低
- * 4. 子任务数量: 有更多子任务的父任务优先级更高（更复杂）
- * 5. 任务状态: 进行中 > 待办 > 已完成
- * 
+ * 1. 截止日期紧急度: 根据距离截止时间的天数
+ * 2. 任务进度: 已完成比例越高，优先级越低
+ * 3. 子任务数量: 有更多子任务的父任务优先级更高（更复杂）
+ *
  * 最终公式：
- * finalScore = baseScore * 100 + urgencyScore * 30 + progressScore * 20 + complexityScore * 10 + statusScore * 5
+ * finalScore = urgencyScore * 100 + progressScore * 20 + complexityScore * 10
  */
 
 export function calculatePriority(todo, allTodos = []) {
   const scores = {
-    base: calculateBaseScore(todo),
     urgency: calculateUrgencyScore(todo),
-    progress: calculateProgressScore(todo),
-    complexity: calculateComplexityScore(todo, allTodos),
-    status: calculateStatusScore(todo)
+    progress: calculateProgressScore(todo, allTodos),
+    complexity: calculateComplexityScore(todo, allTodos)
   }
 
   // 权重配置（可根据业务需求调整）
   const weights = {
-    base: 100,
-    urgency: 30,
+    urgency: 100,
     progress: 20,
-    complexity: 10,
-    status: 5
+    complexity: 10
   }
 
   const finalScore =
-    scores.base * weights.base +
     scores.urgency * weights.urgency +
     scores.progress * weights.progress +
-    scores.complexity * weights.complexity +
-    scores.status * weights.status
+    scores.complexity * weights.complexity
 
   return {
     finalScore,
     scores,
     weights,
     breakdown: {
-      baseLevel: todo.priority || 0,
       daysUntilDeadline: calculateDaysUntilDeadline(todo),
-      progressPercent: todo.progress || 0,
+      progressPercent: calculateProgressPercent(todo, allTodos),
       childCount: countChildren(todo.id, allTodos),
-      status: todo.status
+      completed: Boolean(todo.completed_at)
     }
   }
-}
-
-/**
- * 基础优先级分数 (0-3 -> 0-1)
- * 用户手动设置的优先级
- */
-function calculateBaseScore(todo) {
-  const level = todo.priority || 0
-  const scores = {
-    0: 0.25,  // 低优先级
-    1: 0.50,  // 中优先级
-    2: 0.75,  // 高优先级
-    3: 1.0    // 紧急
-  }
-  return scores[level] || 0.25
 }
 
 /**
@@ -112,11 +88,23 @@ function calculateUrgencyScore(todo) {
 }
 
 /**
+ * 任务进度百分比: 有子任务时按直接子任务完成比例, 否则按自身完成状态
+ */
+function calculateProgressPercent(todo, allTodos) {
+  const children = allTodos ? allTodos.filter(child => child.parent_id === todo.id) : []
+  if (children.length > 0) {
+    const doneCount = children.filter(child => child.completed_at).length
+    return Math.round((doneCount / children.length) * 100)
+  }
+  return todo.completed_at ? 100 : 0
+}
+
+/**
  * 任务进度分数 (0-1)
  * 进度越高，优先级越低（因为快完成了）
  */
-function calculateProgressScore(todo) {
-  const progress = todo.progress || 0
+function calculateProgressScore(todo, allTodos) {
+  const progress = calculateProgressPercent(todo, allTodos)
   // 反向映射：100% 进度 -> 0分，0% 进度 -> 0.5分
   return Math.max(0, 0.5 - (progress / 100) * 0.5)
 }
@@ -141,20 +129,6 @@ function calculateComplexityScore(todo, allTodos) {
   }
 
   return 1.0 // 很多子任务
-}
-
-/**
- * 任务状态分数 (0-1)
- * 进行中 > 待办 > 已完成
- */
-function calculateStatusScore(todo) {
-  const statusScores = {
-    doing: 1.0,   // 正在进行，优先级最高
-    todo: 0.7,    // 待办，中等优先级
-    done: 0,      // 已完成，不优先
-    deleted: -1   // 已删除，最低
-  }
-  return statusScores[todo.status] || 0
 }
 
 /**
@@ -198,9 +172,9 @@ export function calculatePrioritiesForAll(todos) {
     return todos.map(todo => ({
       ...todo,
       priorityInfo: {
-        finalScore: (todo.priority || 0) * 100,
-        scores: { base: todo.priority || 0 },
-        breakdown: { baseLevel: todo.priority || 0 }
+        finalScore: 0,
+        scores: {},
+        breakdown: {}
       }
     }))
   }
@@ -210,9 +184,9 @@ export function calculatePrioritiesForAll(todos) {
  * 获取优先级等级名称
  */
 export function getPriorityLevelName(score) {
-  if (score >= 300) return '紧急'
-  if (score >= 200) return '高'
-  if (score >= 100) return '中'
+  if (score >= 100) return '紧急'
+  if (score >= 70) return '高'
+  if (score >= 40) return '中'
   return '低'
 }
 
@@ -220,9 +194,9 @@ export function getPriorityLevelName(score) {
  * 获取优先级等级颜色
  */
 export function getPriorityLevelColor(score) {
-  if (score >= 300) return '#ef4444' // 红色
-  if (score >= 200) return '#f59e0b' // 橙色
-  if (score >= 100) return '#eab308' // 黄色
+  if (score >= 100) return '#ef4444' // 红色
+  if (score >= 70) return '#f59e0b' // 橙色
+  if (score >= 40) return '#eab308' // 黄色
   return '#22c55e' // 绿色
 }
 

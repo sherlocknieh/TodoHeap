@@ -51,7 +51,7 @@ describe('createTodoOptimisticActions', () => {
   })
 
   it('addTodo 在已登录时应创建临时任务并入同步队列', async () => {
-    const result = await actions.addTodo('  新任务  ', { priority: 3, parent_id: 9 })
+    const result = await actions.addTodo('  新任务  ', { parent_id: 9 })
 
     expect(result.success).toBe(true)
     expect(result.data.id).toBe(-1)
@@ -63,23 +63,22 @@ describe('createTodoOptimisticActions', () => {
       payload: expect.objectContaining({
         title: '新任务',
         user_id: 'user-1',
-        priority: 3,
         parent_id: 9
       })
     }))
   })
 
   it('updateTodo 对临时任务应只更新队列 payload 并持久化', async () => {
-    todosRef.value = [{ id: -1, title: '原任务', status: 'todo', updated_at: 'old' }]
-    syncQueue.queue = [{ type: OperationType.ADD, targetId: -1, payload: { title: '原任务', status: 'todo' } }]
+    todosRef.value = [{ id: -1, title: '原任务', completed_at: null, updated_at: 'old' }]
+    syncQueue.queue = [{ type: OperationType.ADD, targetId: -1, payload: { title: '原任务', completed_at: null } }]
 
-    const result = await actions.updateTodo(-1, { title: '已修改', status: 'doing' })
+    const result = await actions.updateTodo(-1, { title: '已修改', completed_at: '2026-01-01T00:00:00.000Z' })
 
     expect(result.success).toBe(true)
     expect(todosRef.value[0].title).toBe('已修改')
     expect(syncQueue.persistQueue).toHaveBeenCalled()
     expect(syncQueue.enqueue).not.toHaveBeenCalled()
-    expect(syncQueue.queue[0].payload).toMatchObject({ title: '已修改', status: 'doing' })
+    expect(syncQueue.queue[0].payload).toMatchObject({ title: '已修改', completed_at: '2026-01-01T00:00:00.000Z' })
   })
 
   it('deleteTodo 应级联移除后代并写入垃圾箱与同步队列', async () => {

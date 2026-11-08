@@ -14,7 +14,7 @@ Open the [TodoHeap app](https://sherlocknieh.github.io/TodoHeap/) and sign up wi
 
 ### Create
 
-Type a title in the input at the top of the list view and press Enter. The task is created immediately with status `todo`.
+Type a title in the input at the top of the list view and press Enter. The task is created immediately as not completed.
 
 When the goal is still vague, describe it in the AI input at the bottom instead — the AI analyses it and generates a task tree for you.
 
@@ -25,13 +25,13 @@ Click a task to open the detail panel on the right. Everything saves on blur:
 | Field | Notes |
 | --- | --- |
 | Title | inline editable |
-| Start / deadline | date and time pickers |
+| Deadline | date and time picker |
 | Difficulty | estimated hours, 0.25 step |
-| Description | Markdown editor |
+| Details | Markdown editor |
 
 ### Complete
 
-Click the checkbox on the left of a task to switch between todo and done. Completed tasks move to the "Completed" section at the bottom of the list, where you can restore them by unchecking.
+Click the checkbox on the left of a task to switch between incomplete and complete. Completed tasks move to the "Completed" section at the bottom of the list, where you can restore them by unchecking.
 
 ### Rename
 

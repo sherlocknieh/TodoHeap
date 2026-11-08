@@ -124,7 +124,7 @@ const viewProps = computed(() => {
 })
 
 const completedTodos = computed(() => {
-  return (todoStore.todos || []).filter(t => (t.status === 'done'))
+  return (todoStore.todos || []).filter(t => t.completed_at)
 })
 
 const toggleCompletedTodo = async (todo) => {
@@ -242,8 +242,7 @@ const handleTaskSelected = (taskId) => {
 const createNewTask = async () => {
 	try {
 		const result = await todoStore.addTodo('新任务', {
-			description: '',
-			completed: false
+			details: ''
 		})
 		if (result) {
 			selectedTaskId.value = result.id

@@ -66,8 +66,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
 
       const toBreakdownTask = (taskPayload) => ({
         title: taskPayload.title,
-        status: taskPayload.status || 'todo',
-        priority: taskPayload.priority ?? 1,
+        details: taskPayload.details || null,
         parent_id: realParentId,
         deadline: taskPayload.deadline || null,
         sort_order: taskPayload.sort_order
@@ -116,8 +115,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
               if (autoApply) {
                 // 立即添加任务
                 const result = await addTodo(taskData.title, {
-                  status: taskData.status,
-                  priority: taskData.priority,
+                  details: taskData.details,
                   parent_id: taskData.parent_id,
                   deadline: taskData.deadline,
                   sort_order: taskData.sort_order
@@ -174,8 +172,7 @@ export const createBreakdownActions = ({ getSyncQueue, addTodo }) => {
 
     for (const task of pendingTasks) {
       const result = await addTodo(task.title, {
-        status: task.status,
-        priority: task.priority,
+        details: task.details,
         parent_id: task.parent_id,
         deadline: task.deadline,
         sort_order: task.sort_order

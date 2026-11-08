@@ -4,19 +4,15 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { corsHeaders } from "../_shared/cors.ts";
 
-type TodoStatus = "todo" | "doing" | "done";
-
 type TodoRow = {
   id: number;
   user_id: string;
   parent_id: number | null;
   title: string;
-  description: string | null;
-  status: TodoStatus;
-  priority: number | null;
+  details: string | null;
   deadline: string | null;
-  start_date: string | null;
   difficulty: number | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -35,7 +31,6 @@ type OptimizeChanges = {
 type UpdateTaskScheduleInput = {
   task_id: number;
   deadline?: string | null;
-  start_date?: string | null;
   reason?: string;
 };
 
@@ -43,11 +38,8 @@ type BreakdownTaskInput = {
   parent_task_id: number;
   children: Array<{
     title: string;
-    description?: string | null;
+    details?: string | null;
     deadline?: string | null;
-    start_date?: string | null;
-    priority?: number;
-    status?: TodoStatus;
     sort_order?: number;
     difficulty?: number | null;
   }>;
@@ -61,10 +53,8 @@ type AggregateTasksInput = {
 
 type RecommendationTaskInput = {
   title: string;
-  description: string;
+  details: string;
   deadline?: string | null;
-  start_date?: string | null;
-  priority?: number;
   sort_order?: number;
   difficulty?: number | null;
   parent_id?: number | null;
@@ -73,16 +63,14 @@ type RecommendationTaskInput = {
 const optimizationSystemPrompt = `你是一个专业的任务优化操作员。
 你的职责是通过调用工具对现有的任务树进行全面优化。
 
-- 调整合适任务的日期（截止日期 deadline 和开始日期 start_date）。
-- 为每个任务提供合理的优先级建议（priority，范围0-4）和难度评估（difficulty，单位工时）。
+- 调整合适任务的截止日期（deadline）。
+- 为每个任务提供合理的难度评估（difficulty，单位工时）。
 - 父任务的工时应当为直接子任务工时的总和。
 - 将紧密相关的任务合并到同一个父任务下。
 - 最后额外创建一个根任务，标题为"优化总结"，在详情中详述你做了哪些优化。
 
 硬性规则：
 - 仅使用提供的工具调用来进行操作。
-- 保持任务状态在 todo/doing/done 之间。
-- 优先级必须在 0-4 范围内。
 - 除非绝对必要，否则不要修改已完成的任务。
 - 保持更改实用且最少化。
 `;
@@ -109,22 +97,10 @@ function sanitizeIsoDatetime(value: unknown): string | null {
   return new Date(ts).toISOString();
 }
 
-function sanitizePriority(value: unknown): number {
-  const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n)) return 1;
-  if (n < 0) return 0;
-  if (n > 4) return 4;
-  return Math.round(n);
-}
-
-function sanitizeStatus(value: unknown): TodoStatus {
-  return value === "doing" || value === "done" ? value : "todo";
-}
-
 async function fetchActiveTodos(supabase: SupabaseClient, userId: string): Promise<TodoRow[]> {
   const { data, error } = await supabase
     .from("todos")
-    .select("id, user_id, parent_id, title, description, status, priority, deadline, start_date, difficulty, created_at, updated_at")
+    .select("id, user_id, parent_id, title, details, deadline, difficulty, completed_at, created_at, updated_at")
     .eq("user_id", userId)
     .is("deleted_at", null)
     .order("id", { ascending: true });
@@ -255,17 +231,16 @@ Deno.serve(async (req: Request) => {
       ].join("\n\n"),
       tools: {
         update_task_schedule: tool({
-          description: "调整任务的 deadline/start_date",
+          description: "调整任务的截止日期",
           parameters: z.object({
             task_id: z.number().int(),
             deadline: z.string().nullable().optional(),
-            start_date: z.string().nullable().optional(),
             reason: z.string().max(300).optional(),
           }),
           execute: async (input: UpdateTaskScheduleInput) => {
             const { data: existed, error: findError } = await supabase
               .from("todos")
-              .select("id, status")
+              .select("id")
               .eq("id", input.task_id)
               .eq("user_id", user.id)
               .is("deleted_at", null)
@@ -277,7 +252,6 @@ Deno.serve(async (req: Request) => {
 
             const patch = {
               deadline: sanitizeIsoDatetime(input.deadline),
-              start_date: sanitizeIsoDatetime(input.start_date),
             };
 
             const { data, error } = await supabase
@@ -286,7 +260,7 @@ Deno.serve(async (req: Request) => {
               .eq("id", input.task_id)
               .eq("user_id", user.id)
               .is("deleted_at", null)
-              .select("id, deadline, start_date")
+              .select("id, deadline")
               .single();
 
             if (error) {
@@ -307,11 +281,8 @@ Deno.serve(async (req: Request) => {
             parent_task_id: z.number().int(),
             children: z.array(z.object({
               title: z.string().min(1).max(200),
-              description: z.string().max(500).nullable().optional(),
+              details: z.string().max(500).nullable().optional(),
               deadline: z.string().nullable().optional(),
-              start_date: z.string().nullable().optional(),
-              priority: z.number().int().min(0).max(4).optional(),
-              status: z.enum(["todo", "doing", "done"]).optional(),
               sort_order: z.number().optional(),
               difficulty: z.number().nullable().optional(),
             })).min(1).max(10),
@@ -333,11 +304,8 @@ Deno.serve(async (req: Request) => {
               user_id: user.id,
               parent_id: input.parent_task_id,
               title: child.title.trim().slice(0, 200),
-              description: child.description?.trim() || null,
+              details: child.details?.trim() || null,
               deadline: sanitizeIsoDatetime(child.deadline),
-              start_date: sanitizeIsoDatetime(child.start_date),
-              priority: sanitizePriority(child.priority),
-              status: sanitizeStatus(child.status),
               sort_order: typeof child.sort_order === "number" ? child.sort_order : null,
               difficulty: typeof child.difficulty === "number" ? child.difficulty : null,
             }));
@@ -428,10 +396,8 @@ Deno.serve(async (req: Request) => {
           description: "创建一条建议型任务（需详述执行建议）",
           parameters: z.object({
             title: z.string().min(1).max(200),
-            description: z.string().min(10).max(1200),
+            details: z.string().min(10).max(1200),
             deadline: z.string().nullable().optional(),
-            start_date: z.string().nullable().optional(),
-            priority: z.number().int().min(0).max(4).optional(),
             sort_order: z.number().optional(),
             difficulty: z.number().nullable().optional(),
             parent_id: z.number().int().nullable().optional(),
@@ -455,11 +421,8 @@ Deno.serve(async (req: Request) => {
             const payload = {
               user_id: user.id,
               title: input.title.trim().slice(0, 200),
-              description: input.description.trim().slice(0, 1200),
+              details: input.details.trim().slice(0, 1200),
               deadline: sanitizeIsoDatetime(input.deadline),
-              start_date: sanitizeIsoDatetime(input.start_date),
-              priority: sanitizePriority(input.priority),
-              status: "todo" as const,
               parent_id: parentId,
               sort_order: typeof input.sort_order === "number" ? input.sort_order : null,
               difficulty: typeof input.difficulty === "number" ? input.difficulty : null,
@@ -468,7 +431,7 @@ Deno.serve(async (req: Request) => {
             const { data, error } = await supabase
               .from("todos")
               .insert(payload)
-              .select("id, title, description")
+              .select("id, title, details")
               .single();
 
             if (error) {

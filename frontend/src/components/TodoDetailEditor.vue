@@ -31,16 +31,6 @@
           ]" placeholder="任务标题" @input="markDirty('title')" @blur="saveIfNeeded('title')" />
           <div class="mt-3 grid grid-cols-1 gap-2.5">
             <label class="text-[11px] text-neutral-500">
-              开始时间
-              <input
-                v-model="draftStartDate"
-                type="datetime-local"
-                :disabled="isDeleted"
-                class="field mt-1"
-                @blur="saveDateField('start_date', draftStartDate)"
-              />
-            </label>
-            <label class="text-[11px] text-neutral-500">
               截止时间
               <input
                 v-model="draftDeadline"
@@ -80,9 +70,9 @@
             'flex-1 min-h-0',
             isDeleted ? 'pointer-events-none deleted-content' : ''
           ]">
-            <MilkdownEditor :key="editorKey" v-model="draftDescription" :readonly="isDeleted"
-              placeholder="输入内容，支持 Markdown 语法..." class="h-full" @blur="handleDescriptionBlur"
-              @update:modelValue="onDescriptionChange" />
+            <MilkdownEditor :key="editorKey" v-model="draftDetails" :readonly="isDeleted"
+              placeholder="输入内容，支持 Markdown 语法..." class="h-full" @blur="handleDetailsBlur"
+              @update:modelValue="onDetailsChange" />
           </div>
         </div>
       </template>
@@ -151,16 +141,15 @@ const formatDate = (dateStr) => {
 }
 
 const draftTitle = ref('')
-const draftDescription = ref('')
+const draftDetails = ref('')
 const draftDeadline = ref('')
-const draftStartDate = ref('')
 const draftDifficulty = ref('')
 
 const initialTitle = ref('')
-const initialDescription = ref('')
+const initialDetails = ref('')
 
 const dirtyTitle = ref(false)
-const dirtyDescription = ref(false)
+const dirtyDetails = ref(false)
 
 const lastSavedAt = ref('')
 
@@ -168,29 +157,29 @@ const lastSavedAt = ref('')
 const editorKey = ref(0)
 
 let debounceTimer = null
-const debouncedSaveDescription = debounce(async () => {
+const debouncedSaveDetails = debounce(async () => {
   if (!todo.value || isDeleted.value) return
-  markDirty('description')
-  if (!dirtyDescription.value) return
-  await savePayload({ description: draftDescription.value })
+  markDirty('details')
+  if (!dirtyDetails.value) return
+  await savePayload({ details: draftDetails.value })
 }, 500)
 
 // 处理描述内容变化
-const onDescriptionChange = (value) => {
-  draftDescription.value = value
-  markDirty('description')
+const onDetailsChange = (value) => {
+  draftDetails.value = value
+  markDirty('details')
   // 触发防抖保存
-  debouncedSaveDescription()
+  debouncedSaveDetails()
 }
 
 // 处理描述区域失焦 - 立即保存（取消防抖等待）
-const handleDescriptionBlur = async () => {
+const handleDetailsBlur = async () => {
   // 取消防抖定时器，立即保存
   if (debounceTimer) {
     clearTimeout(debounceTimer)
     debounceTimer = null
   }
-  await saveIfNeeded('description')
+  await saveIfNeeded('details')
 }
 
 let clearSavedTimer = null
@@ -224,10 +213,10 @@ const savePayload = async (payload) => {
       dirtyTitle.value = false
     }
 
-    if (payload.description !== undefined) {
-      initialDescription.value = payload.description
-      draftDescription.value = payload.description
-      dirtyDescription.value = false
+    if (payload.details !== undefined) {
+      initialDetails.value = payload.details
+      draftDetails.value = payload.details
+      dirtyDetails.value = false
     }
 
     lastSavedAt.value = new Date().toLocaleString()
@@ -272,29 +261,27 @@ const saveDifficultyField = async () => {
 const resetDraftFromTodo = () => {
   if (!todo.value) {
     draftTitle.value = ''
-    draftDescription.value = ''
+    draftDetails.value = ''
     draftDeadline.value = ''
-    draftStartDate.value = ''
     draftDifficulty.value = ''
     initialTitle.value = ''
-    initialDescription.value = ''
+    initialDetails.value = ''
     dirtyTitle.value = false
-    dirtyDescription.value = false
+    dirtyDetails.value = false
     lastSavedAt.value = ''
     editorKey.value++ // 强制重新创建编辑器
     return
   }
 
   initialTitle.value = todo.value.title || ''
-  initialDescription.value = todo.value.description || ''
+  initialDetails.value = todo.value.details || ''
   draftTitle.value = initialTitle.value
-  draftDescription.value = initialDescription.value
+  draftDetails.value = initialDetails.value
   draftDeadline.value = toDateTimeLocal(todo.value.deadline)
-  draftStartDate.value = toDateTimeLocal(todo.value.start_date)
   draftDifficulty.value = todo.value.difficulty == null ? '' : String(todo.value.difficulty)
 
   dirtyTitle.value = false
-  dirtyDescription.value = false
+  dirtyDetails.value = false
   editorKey.value++ // 强制重新创建编辑器以加载新内容
 }
 
@@ -319,19 +306,15 @@ watch(
       draftTitle.value = newTodo.title || ''
       initialTitle.value = newTodo.title || ''
     }
-    if (!dirtyDescription.value && newTodo.description !== draftDescription.value) {
-      draftDescription.value = newTodo.description || ''
-      initialDescription.value = newTodo.description || ''
+    if (!dirtyDetails.value && newTodo.details !== draftDetails.value) {
+      draftDetails.value = newTodo.details || ''
+      initialDetails.value = newTodo.details || ''
       editorKey.value++ // 强制刷新编辑器
     }
 
     const nextDeadline = toDateTimeLocal(newTodo.deadline)
     if (nextDeadline !== draftDeadline.value) {
       draftDeadline.value = nextDeadline
-    }
-    const nextStartDate = toDateTimeLocal(newTodo.start_date)
-    if (nextStartDate !== draftStartDate.value) {
-      draftStartDate.value = nextStartDate
     }
     const nextDifficulty = newTodo.difficulty == null ? '' : String(newTodo.difficulty)
     if (nextDifficulty !== draftDifficulty.value) {
@@ -345,12 +328,12 @@ const markDirty = (field) => {
   if (field === 'title') {
     dirtyTitle.value = draftTitle.value !== initialTitle.value
   } else {
-    dirtyDescription.value = draftDescription.value !== initialDescription.value
+    dirtyDetails.value = draftDetails.value !== initialDetails.value
   }
 }
 
 // 计算属性：是否有未保存的更改
-const isDirty = computed(() => dirtyTitle.value || dirtyDescription.value)
+const isDirty = computed(() => dirtyTitle.value || dirtyDetails.value)
 
 
 
@@ -364,9 +347,9 @@ const saveIfNeeded = async (field) => {
     await savePayload({ title: draftTitle.value })
     return
   }
-  markDirty('description')
-  if (!dirtyDescription.value) return
-  await savePayload({ description: draftDescription.value })
+  markDirty('details')
+  if (!dirtyDetails.value) return
+  await savePayload({ details: draftDetails.value })
 }
 
 

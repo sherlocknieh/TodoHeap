@@ -146,12 +146,6 @@ watch(() => props.todos, (newVal) => {
 	console.log('TodoHeap 收到任务:', newVal)
 }, { immediate: true })
 
-const statusLabel = {
-	todo: '待办',
-	doing: '进行中',
-	done: '已完成'
-}
-
 // 计算所有任务的综合优先级并排序
 const sortedTodos = computed(() => {
 	if (!props.todos || props.todos.length === 0) return []
@@ -169,7 +163,7 @@ const sortedTodos = computed(() => {
 const heapNodes = computed(() => {
 	const todos = sortedTodos.value.filter(t => {
 		// 只保留未完成的叶子节点（没有子任务）
-		const isNotDone = t.status !== 'done'
+		const isNotDone = !t.completed_at
 		const childCount = t.priorityInfo?.breakdown?.childCount ?? 0
 		const isLeaf = childCount === 0
 		return isNotDone && isLeaf

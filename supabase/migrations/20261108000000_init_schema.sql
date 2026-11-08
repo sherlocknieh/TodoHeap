@@ -11,13 +11,11 @@ CREATE TABLE todos (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     parent_id BIGINT REFERENCES todos(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
-    description TEXT,
-    start_date TIMESTAMPTZ DEFAULT NULL,
+    details TEXT,
     deadline TIMESTAMPTZ DEFAULT NULL,
-    difficulty DECIMAL(5,2) DEFAULT NULL,                                  -- 工时
-    status TEXT DEFAULT 'todo' CHECK (status IN ('todo', 'doing', 'done')),
-    priority INTEGER DEFAULT 0 CHECK (priority BETWEEN 0 AND 4),          -- 0=无 1=低 2=中 3=高 4=紧急
-    sort_order INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,           -- 手动排序序号
+    difficulty DECIMAL(5,2) DEFAULT NULL,   -- 任务难度, 按工时估计
+    completed_at TIMESTAMPTZ DEFAULT NULL,  -- 完成时间, 非空表示已完成
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL
@@ -43,8 +41,6 @@ CREATE TABLE schedules (
     notes TEXT,
     start_at TIMESTAMPTZ NOT NULL,
     end_at TIMESTAMPTZ NOT NULL,
-    all_day BOOLEAN NOT NULL DEFAULT FALSE,
-    status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'done', 'cancelled')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT schedules_time_range CHECK (end_at > start_at)
@@ -56,9 +52,10 @@ COMMENT ON TABLE schedules IS '日程表: 独立日历事件，可关联任务';
 -- 索引: 覆盖最常用的用户维度、父子维度与时间范围查询
 -- ---------------------------------------------------------------------------
 
-CREATE INDEX idx_todos_user_active ON todos(user_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_todos_user_active ON todos(user_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_todos_user_parent ON todos(user_id, parent_id);
-CREATE INDEX idx_todos_priority ON todos(user_id, priority, deadline) WHERE deleted_at IS NULL;
+CREATE INDEX idx_todos_parent ON todos(parent_id);
+CREATE INDEX idx_todos_deadline ON todos(user_id, deadline) WHERE deleted_at IS NULL;
 
 CREATE INDEX idx_schedules_user_range ON schedules(user_id, start_at);
 CREATE INDEX idx_schedules_todo ON schedules(todo_id) WHERE todo_id IS NOT NULL;
@@ -183,6 +180,10 @@ $$;
 
 CREATE TRIGGER trg_user_settings_updated_at
     BEFORE UPDATE ON user_settings
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE TRIGGER trg_todos_updated_at
+    BEFORE UPDATE ON todos
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 CREATE TRIGGER trg_schedules_updated_at

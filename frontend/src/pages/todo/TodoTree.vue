@@ -56,7 +56,7 @@ const onNodeContentChange = async ({ id, text }) => {
 const onNodeInsert = async ({ text, parentId }) => {
 	if (!text || !parentId) return // 如果文本或父 ID 缺失，直接返回
 	try {
-		await todoStore.addTodo(text, { parent_id: parentId, status: 'todo' }) // 添加新待办事项
+		await todoStore.addTodo(text, { parent_id: parentId }) // 添加新待办事项
 	} catch (err) {
 		console.error('Add todo from mindmap failed:', err) // 记录添加失败的错误
 	}
@@ -150,7 +150,7 @@ const onDataChangeDetail = (details) => {
 						}
 					}
 
-					const res = await todoStore.addTodo(text, { parent_id: parentId || null, status: 'todo' })
+					const res = await todoStore.addTodo(text, { parent_id: parentId || null })
 					
 					if (res.success) {
 						uidToIdMap.value.set(uid, res.data.id)
@@ -212,7 +212,7 @@ const mindMapData = computed(() => {
 			todo.title || '未命名任务', // 任务标题
 			todo.id.toString(), // 任务 ID 作为 UID
 			{
-				status: todo.status || 'todo', // 任务状态
+				completed_at: todo.completed_at || null, // 完成时间
 				id: todo.id // 任务 ID
 			}
 		),

@@ -16,14 +16,11 @@ const systemPrompt = `你是一个专业的任务规划助手。
 2) 仅创建一个根任务，根任务详情中写用户的原始输入。
 2) 在每个子任务标题前添加序号前缀，如 "1. "、"2. " 等，以确保正确的显示顺序。
 3) 支持多级嵌套：parent_id 可以指向根任务或任何下级任务。
-4) 使用与用户输入相同的语言来填写任务标题、描述和最终总结。
+4) 使用与用户输入相同的语言来填写任务标题、详情和最终总结。
 5) 为每个任务估算 sort_order（从 1 开始的序号）和 difficulty（估算工时，如 0.5、1、2.5）。
 `;
 
 // ==================== 类型定义 ====================
-// 任务状态：待做、进行中、已完成
-type TodoStatus = "todo" | "doing" | "done";
-
 // 处理接收到的 HTTP 请求体结构
 interface RequestBody {
   query: string;           // 用户输入的任务描述
@@ -32,11 +29,9 @@ interface RequestBody {
 
 // AI 工具调用时传递的参数结构
 interface CreateTodoArgs {
-  title: string;              // 任务标题（必填）
-  description?: string | null; // 任务描述
+  title: string;               // 任务标题（必填）
+  details?: string | null;     // 任务详情
   deadline?: string | null;    // 截止日期
-  status?: TodoStatus;         // 任务状态
-  priority?: number;           // 优先级 0-4
   parent_id?: number | null;   // 父任务 ID
   sort_order?: number | null;  // 排序序号
   difficulty?: number | null;  // 估算工时
@@ -59,13 +54,11 @@ const createTodoTool = {
       type: "object",
       properties: {
         title: { type: "string", minLength: 1, maxLength: 200 },
-        description: { type: ["string", "null"], maxLength: 500 },
+        details: { type: ["string", "null"], maxLength: 500 },
         deadline: {
           type: ["string", "null"],
           description: "ISO 8601 datetime like 2026-04-17T09:00:00Z or null"
         },
-        status: { type: "string", enum: ["todo", "doing", "done"] },
-        priority: { type: "integer", minimum: 0, maximum: 4 },
         parent_id: { type: ["integer", "null"] },
         sort_order: { type: ["number", "null"] },
         difficulty: { type: ["number", "null"] }
@@ -105,20 +98,6 @@ function createSupabaseClient(req: Request) {
 }
 
 // ==================== 数据验证函数 ====================
-// 验证和规范化任务状态：只接受 doing 或 done，其他默认为 todo
-function sanitizeStatus(value: unknown): TodoStatus {
-  return value === "doing" || value === "done" ? value : "todo";
-}
-
-// 验证和规范化优先级：确保在 0-4 之间
-function sanitizePriority(value: unknown): number {
-  const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n)) return 1;
-  if (n < 0) return 0;
-  if (n > 4) return 4;
-  return Math.round(n);
-}
-
 // 验证和规范化排序序号：只接受有效的数字或 null
 function sanitizeSortOrder(value: unknown): number | null {
   if (value == null) return null;
@@ -154,8 +133,8 @@ function sanitizeTitle(value: unknown): string {
   return t.slice(0, 200);
 }
 
-// 验证和规范化任务描述：长度限制 1-500 字符
-function sanitizeDescription(value: unknown): string | null {
+// 验证和规范化任务详情：长度限制 1-500 字符
+function sanitizeDetails(value: unknown): string | null {
   if (value == null) return null;
   if (typeof value !== "string") return null;
   const text = value.trim();
@@ -379,10 +358,8 @@ Deno.serve(async (req: Request) => {
         const payload = {
           user_id: user.id,
           title: sanitizeTitle(parsedArgs.title),
-          description: sanitizeDescription(parsedArgs.description),
+          details: sanitizeDetails(parsedArgs.details),
           deadline: sanitizeDeadline(parsedArgs.deadline),
-          status: sanitizeStatus(parsedArgs.status),
-          priority: sanitizePriority(parsedArgs.priority),
           parent_id: finalParentId,
           sort_order: sanitizeSortOrder(parsedArgs.sort_order),
           difficulty: sanitizeDifficulty(parsedArgs.difficulty),
@@ -392,7 +369,7 @@ Deno.serve(async (req: Request) => {
         const { data, error } = await supabase
           .from("todos")
           .insert(payload)
-          .select("id, title, description, deadline, status, priority, parent_id, sort_order, difficulty, created_at")
+          .select("id, title, details, deadline, parent_id, sort_order, difficulty, created_at")
           .single();
 
         if (error) {

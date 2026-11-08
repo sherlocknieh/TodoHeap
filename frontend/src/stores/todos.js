@@ -114,9 +114,6 @@ export const useTodoStore = defineStore('todos', () => {
     const titleDiff = todoTitleCollator.compare(String(a.title || ''), String(b.title || ''))
     if (titleDiff !== 0) return titleDiff
 
-    const priorityDiff = (b.priority ?? 0) - (a.priority ?? 0)
-    if (priorityDiff !== 0) return priorityDiff
-
     const aIsTemp = a.id < 0
     const bIsTemp = b.id < 0
     if (aIsTemp && !bIsTemp) return 1
@@ -198,7 +195,6 @@ export const useTodoStore = defineStore('todos', () => {
         .from('todos')
         .select('*')
         .is('deleted_at', null)
-        .order('priority', { ascending: false })
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
 
@@ -284,11 +280,10 @@ export const useTodoStore = defineStore('todos', () => {
       (item) => ({
         id: item.id,
         title: item.title,
-        status: item.status || 'todo',
-        priority: item.priority ?? 0,
+        details: item.details || '',
+        completed_at: item.completed_at || null,
         parent_id: item.parent_id,
         deadline: item.deadline || null,
-        start_date: item.start_date || null,
         sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
         difficulty: item.difficulty ?? null,
         created_at: item.created_at || null,
@@ -316,11 +311,10 @@ export const useTodoStore = defineStore('todos', () => {
       (item) => ({
         id: item.id,
         title: item.title,
-        status: item.status || 'todo',
-        priority: item.priority ?? 0,
+        details: item.details || '',
+        completed_at: item.completed_at || null,
         parent_id: item.parent_id,
         deadline: item.deadline || null,
-        start_date: item.start_date || null,
         sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
         difficulty: item.difficulty ?? null,
         deleted_at: item.deleted_at,
@@ -332,18 +326,6 @@ export const useTodoStore = defineStore('todos', () => {
         node._depth = depth
       }
     )
-  })
-
-  // Getters - 堆视图分组
-  const columns = computed(() => {
-    const grouped = { todo: [], doing: [], done: [] }
-    todos.value.forEach((item) => {
-      const status = item.status === 'doing' ? 'doing' : item.status === 'done' ? 'done' : 'todo'
-      grouped[status].push(item)
-    })
-
-    Object.values(grouped).forEach((arr) => arr.sort(compareTodos))
-    return grouped
   })
 
   return {
@@ -359,7 +341,6 @@ export const useTodoStore = defineStore('todos', () => {
     // 计算属性
     treeNodes,
     trashTreeNodes,
-    columns,
     // 方法
     fetchTodos,
     addTodo,

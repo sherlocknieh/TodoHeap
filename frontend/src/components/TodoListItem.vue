@@ -29,7 +29,7 @@
         <div class="flex-1 min-w-0">
           <span v-if="editingId !== item.id" :class="[
             'block text-sm leading-6 text-neutral-800 dark:text-neutral-200 break-words',
-            { 'line-through text-neutral-400 dark:text-neutral-600': item.status === 'done' }
+            { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at }
           ]" @dblclick.stop="startEdit(item.id, item.title)">
             {{ item.title || '未命名任务' }}
           </span>
@@ -38,13 +38,8 @@
             @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')"
             @keyup.esc="editingId = null" />
 
-          <div v-if="editingId !== item.id && (item.priority > 0 || item.start_date || item.deadline || item.difficulty != null)"
+          <div v-if="editingId !== item.id && (item.deadline || item.difficulty != null)"
             class="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <span v-if="item.priority > 0"
-              class="chip font-mono border-accent-200 bg-accent-50 text-accent-800 dark:border-accent-500/40 dark:bg-accent-500/10 dark:text-accent-300">P{{ item.priority }}</span>
-            <span v-if="item.start_date" class="chip">
-              <AppIcon name="calendar" :size="10" />{{ formatMetaDate(item.start_date) }}
-            </span>
             <span v-if="item.deadline" class="chip">
               <AppIcon name="clock" :size="10" />{{ formatMetaDate(item.deadline) }}
             </span>
@@ -142,7 +137,7 @@ const flatMap = computed(() => {
 
 const isItemVisible = (item) => {
   // 隐藏已完成项（优先使用本地状态映射）
-  if (statusMap.value[item.id] === 'checked' || item.status === 'done') return false
+  if (statusMap.value[item.id] === 'checked' || item.completed_at) return false
   if (!item.parent_id) return true
 
   // 祖先链任一节点折叠时隐藏，避免祖先折叠但后代仍显示
@@ -180,7 +175,7 @@ const statusMap = ref({})
 
 function initStatusMap() {
   flatList.value.forEach(item => {
-    if (item.status === 'done') statusMap.value[item.id] = 'checked'
+    if (item.completed_at) statusMap.value[item.id] = 'checked'
     else statusMap.value[item.id] = 'unchecked'
   })
 }
@@ -192,7 +187,7 @@ watch(flatList, (newList) => {
 
   // 同步已有节点状态，避免远程更新后 UI 状态滞后
   newList.forEach(item => {
-    if (item.status === 'done') statusMap.value[item.id] = 'checked'
+    if (item.completed_at) statusMap.value[item.id] = 'checked'
     else statusMap.value[item.id] = 'unchecked'
 
     if (item.children && item.children.length && !(item.id in expandedMap.value)) {
@@ -214,7 +209,7 @@ watch(flatList, (newList) => {
 })
 
 function cycleStatus(item) {
-  const cur = statusMap.value[item.id] || (item.status === 'done' ? 'checked' : 'unchecked')
+  const cur = statusMap.value[item.id] || (item.completed_at ? 'checked' : 'unchecked')
   const next = cur === 'checked' ? 'unchecked' : 'checked'
   statusMap.value[item.id] = next
   emitToggleDone(item)

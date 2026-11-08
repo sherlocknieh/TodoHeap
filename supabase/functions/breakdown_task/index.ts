@@ -3,14 +3,14 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 // 系统提示词：定义 AI 助手的角色和输出格式
 // 要求 AI 将选定的目标任务拆解为合理的子任务列表（3-6个）
-// 强制输出格式为纯 JSON 数组，包含 title, description, sort_order, difficulty 和 deadline 字段
+// 强制输出格式为纯 JSON 数组，包含 title, details, sort_order, difficulty 和 deadline 字段
 const systemPrompt = `你是一个专业的任务分解助手。
 你的职责是根据提供的目标任务和上下文信息，生成合理数量的子任务列表。
 子任务数量应该实用且合理，通常在 3-6 个之间，具体取决于目标任务的复杂度和范围。
 
 数组中的每个子任务对象必须包含以下所有字段：
 - title: 清晰、可执行的任务标题（5-200 字符）, 子任务标题应该以数字序号开头（如 "1. ", "2. "）以明确顺序关系
-- description: 任务的简短描述（可选，0-500 字符）
+- details: 任务的简短详情（可选，0-500 字符）
 - sort_order: 子任务在列表中的顺序，从 1 开始
 - difficulty: 完成此任务的估算工时（小数形式，如 0.5、1、2.5），或 null 如果不适用
 - deadline: ISO 8601 格式的可选截止日期，或 null 表示无截止日期
@@ -19,35 +19,19 @@ const systemPrompt = `你是一个专业的任务分解助手。
 
 示例响应格式：
 [
-  {"title": "1.第一个子任务", "description": "这是第一个子任务的说明", "sort_order": 1, "difficulty": 1.5, "deadline": "2024-12-31T23:59:59Z"},
-  {"title": "2.第二个子任务", "description": "这是第二个子任务的说明", "sort_order": 2, "difficulty": 2, "deadline": "2025-01-31T23:59:59Z"},
-  {"title": "3.第三个子任务", "description": "这是第三个子任务的说明", "sort_order": 3, "difficulty": null, "deadline": null}
+  {"title": "1.第一个子任务", "details": "这是第一个子任务的说明", "sort_order": 1, "difficulty": 1.5, "deadline": "2024-12-31T23:59:59Z"},
+  {"title": "2.第二个子任务", "details": "这是第二个子任务的说明", "sort_order": 2, "difficulty": 2, "deadline": "2025-01-31T23:59:59Z"},
+  {"title": "3.第三个子任务", "details": "这是第三个子任务的说明", "sort_order": 3, "difficulty": null, "deadline": null}
 ]
 
 只输出 JSON 数组，不要包含任何 Markdown 标记或其他解释。
 `;
 
-// 任务状态枚举
-enum Status {
-  todo = "todo",     // 待办
-  doing = "doing",   // 进行中
-  done = "done",     // 已完成
-  deleted = "deleted", // 已删除
-}
-
-// 任务优先级枚举
-enum Priority {
-  low = 0,    // 低
-  medium = 1, // 中
-  high = 2,   // 高
-}
-
 // 任务树节点接口
 interface treeNode {
   id: number;
   title: string;
-  status: Status;
-  priority: Priority;
+  completed_at?: string | null;
   deadline?: string | null;
   children?: treeNode[];
 }
@@ -66,7 +50,7 @@ interface OpenAIMessage {
 }
 
 
-// 将任务树结构序列化为易于 AI 理解的文本字符串包含层级缩进、状态、优先级等信息
+// 将任务树结构序列化为易于 AI 理解的文本字符串包含层级缩进、完成状态等信息
 function dumpTree(tree: treeNode | treeNode[] | null | undefined): string {
   if (!tree) {
     return "Empty tree";
@@ -79,15 +63,11 @@ function dumpTree(tree: treeNode | treeNode[] | null | undefined): string {
     }
     
     const indent = "  ".repeat(level);
-    const priorityText = node.priority === 2 ? "高" : node.priority === 1 ? "中" : "低";
-    const statusText = node.status === "todo" ? "待办" :
-                      node.status === "doing" ? "进行中" :
-                      node.status === "done" ? "已完成" : "已删除";
-    
+    const statusText = node.completed_at ? "已完成" : "未完成";
+
     result += `${indent}📋 任务: ${node.title}\n`;
     result += `${indent}   ID: ${node.id}\n`;
     result += `${indent}   状态: ${statusText}\n`;
-    result += `${indent}   优先级: ${priorityText}\n`;
     result += `${indent}   截止日期: ${node.deadline || "无"}\n`;
     
     if (node.children && node.children.length > 0) {
@@ -168,7 +148,7 @@ function createOpenAIClient(): OpenAI {
 interface ParsedResult {
   tasks: Array<{
     title: string;
-    description?: string;
+    details?: string;
     sort_order?: number;
     difficulty?: number | null;
     deadline: string | null;
@@ -224,7 +204,7 @@ function tryParseIncrementalTasks(content: string, startIndex: number): ParsedRe
           if (task.title && typeof task.title === "string") {
             tasks.push({
               title: task.title,
-              description: task.description,
+              details: task.details,
               sort_order: typeof task.sort_order === "number" ? task.sort_order : undefined,
               difficulty: typeof task.difficulty === "number" ? task.difficulty : null,
               deadline: task.deadline || null

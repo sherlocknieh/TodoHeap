@@ -96,12 +96,10 @@ export const createTodoOptimisticActions = ({
       id: tempId,
       title: title.trim(),
       user_id: auth.user.id,
-      status: options.status || 'todo',
-      priority: options.priority ?? 0,
+      completed_at: null,
       parent_id: options.parent_id || null,
       deadline: options.deadline || null,
-      start_date: options.start_date || null,
-      description: options.description || null,
+      details: options.details || null,
       sort_order: Number.isFinite(options.sort_order) ? options.sort_order : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -122,12 +120,10 @@ export const createTodoOptimisticActions = ({
       payload: {
         title: newTodo.title,
         user_id: newTodo.user_id,
-        status: newTodo.status,
-        priority: newTodo.priority,
+        completed_at: newTodo.completed_at,
         parent_id: newTodo.parent_id,
         deadline: newTodo.deadline,
-        start_date: newTodo.start_date,
-        description: newTodo.description,
+        details: newTodo.details,
         sort_order: newTodo.sort_order,
         difficulty: newTodo.difficulty
       }
@@ -172,12 +168,10 @@ export const createTodoOptimisticActions = ({
         payload: {
           title: current.title,
           user_id: current.user_id,
-          status: current.status,
-          priority: current.priority,
+          completed_at: current.completed_at,
           parent_id: current.parent_id,
           deadline: current.deadline,
-          start_date: current.start_date,
-          description: current.description,
+          details: current.details,
           sort_order: current.sort_order,
           difficulty: current.difficulty
         }
@@ -198,8 +192,9 @@ export const createTodoOptimisticActions = ({
     const todo = findTodoById(id)
     if (!todo) return { success: false, error: '任务不存在' }
 
-    const nextStatus = todo.status === 'done' ? 'todo' : 'done'
-    return updateTodo(id, { status: nextStatus })
+    return updateTodo(id, {
+      completed_at: todo.completed_at ? null : new Date().toISOString()
+    })
   }
 
   const deleteTodo = async (id) => {
