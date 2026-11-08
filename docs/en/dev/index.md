@@ -63,7 +63,7 @@ frontend/src/
 └── style.css         # Tailwind entry + design tokens
 
 supabase/
-├── migrations/       # source of truth for the schema, append only
+├── migrations/       # source of truth for the schema, ordered by timestamp
 └── functions/        # llm_gateway
 ```
 
@@ -107,7 +107,7 @@ cd frontend && pnpm build         # output goes to repository-root dist/
 cd docs && pnpm dev               # documentation site on :5201
 ```
 
-- **Change the schema**: add a new file under `supabase/migrations/` with a timestamp prefix, then `supabase db push`. Never edit an existing migration.
+- **Change the schema**: edit a file under `supabase/migrations/` (the project is experimental, so rewriting them and resetting the database is fine), then `supabase db push`.
 - **Update the UI**: colours come from `neutral-*` plus the `accent-*` scale in `style.css`; use `AppIcon` instead of emoji; prefer `rounded-md` and hairline borders over shadows and gradients.
 - **Deployment**: pushing to `main` with changes under `docs/` or `frontend/` triggers `.github/workflows/deploy.yaml`, which builds both and publishes to GitHub Pages under `/TodoHeap/`.
 
