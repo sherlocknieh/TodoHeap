@@ -5,6 +5,7 @@
 ## 一句话
 
 AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Realtime / Edge Functions）。
+产品目标是把模糊任务转化为可执行、可调整的日程，完整方案见 `docs/zh/dev/00.goals.md`。
 仓库含三个可独立安装的子项目：`frontend/`（应用）、`docs/`（VitePress 文档）、`supabase/`（迁移与边缘函数）。
 
 ## 目录地图
@@ -37,11 +38,13 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 文件 | 职责 |
 | --- | --- |
 | `main.ts`、`App.vue` | 入口，仅 `<RouterView />` |
-| `router/index.ts` | hash 路由；`/app` 需登录，子路由 `list` / `tree` / `heap` / `trash`；`/settings` 是顶层路由 |
+| `router/index.ts` | hash 路由；`/app` 需登录，子路由 `list` / `tree` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
 | `pages/Todo.vue` | 工作区外壳：活动栏、侧栏、中栏、详情面板、状态栏；子视图由 `<router-view>` 注入 |
 | `pages/todo/TodoList.vue` | 列表视图：快速添加 + 树形缩进的扁平列表 |
 | `pages/todo/TodoTree.vue` | 树视图，仅容器，实际渲染 `MindMapWrapper` |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
+| `pages/todo/ScheduleView.vue` | 日程视图：未完成任务按截止日期分组 |
+| `pages/todo/AIView.vue` | AI 工作台：自然语言建任务与全局优化入口 |
 | `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
 | `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、AI 偏好、滴答清单导入 |
 | `pages/{Home,Login,ResetPassword,404}.vue` | 落地页与认证页 |
@@ -49,7 +52,10 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
 | `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
 | `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
+| `utils/taskGraph.js` | 任务图遍历：后代收集、多父查找、森林展开（支持环） |
 | `utils/detailPanelContext.js` | provide/inject key，供深层组件打开详情面板 |
+| `utils/settingsPanel.js` | 设置浮窗的共享状态 |
+| `utils/handleAuthCallback.ts` | 认证回调处理 |
 | `style.css` | Tailwind v4 入口 + 设计令牌（`accent-*` 色阶）+ 基元类 |
 
 组件（`frontend/src/components/`）：

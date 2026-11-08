@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "TodoHeap"
-  text: "AI 驱动的任务分解工具"
-  tagline: "AI 驱动的智能任务管理：自动分解、优先排序与可视化。"
+  text: "AI 驱动的任务与日程管理"
+  tagline: "把模糊任务拆成可执行的步骤，再铺进日程：自动分解、优先排序与可视化。"
   image:
     src: /logo.png
     alt: Logo
@@ -22,7 +22,7 @@ features:
       src: /icons/ai.svg
       alt: ''
     title: AI 自动分解
-    details: 使用人工智能自动将复杂任务分解成可执行的子任务，减轻管理负担
+    details: 用自然语言描述目标，AI 自动拆成可执行的子任务并组织成任务树
   - icon:
       src: /icons/tree.svg
       alt: ''
@@ -37,7 +37,7 @@ features:
       src: /icons/sort.svg
       alt: ''
     title: 优先级排序
-    details: 依据截止时间、难度与进度加权计算得分，堆视图按分排序
+    details: 依据截止时间、完成进度与子任务复杂度实时打分，堆视图按分排序
   - icon:
       src: /icons/sync.svg
       alt: ''
@@ -46,6 +46,6 @@ features:
   - icon:
       src: /icons/focus.svg
       alt: ''
-    title: 专注执行
-    details: 专注于任务执行本身，让系统处理复杂的优化和安排
+    title: 从任务到日程
+    details: 按截止日期把未完成任务铺进日程视图，明确接下来几天做什么；自动排程与 ICS 导出在规划中
 ---

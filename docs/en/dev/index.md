@@ -67,6 +67,10 @@ supabase/
 └── functions/        # breakdown_task, new_task_ai, optimize_tasks
 ```
 
+## Goals
+
+[Vision and Approach](./00.goals.md) explains the problem, the target audience, the task-to-schedule loop and the Planner–Executor–Reviewer design, and maps the plan against what is implemented today.
+
 ## Architecture
 
 ### Frontend shell

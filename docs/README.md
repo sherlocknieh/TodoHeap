@@ -7,30 +7,29 @@
 
 ```
 docs/
-├── .vitepress/
-│   ├── config.mts          # VitePress 配置文件
-│   └── vitepress-env.d.ts  # TypeScript 环境声明
+├── .vitepress/             # VitePress 配置与类型声明
+├── public/                 # logo、截图与图标
 ├── zh/                     # 中文文档
-│   ├── index.md           # 首页
+│   ├── index.md            # 首页
 │   ├── user/               # 用户指南
 │   │   ├── index.md
-│   │   ├── task-management.md
-│   │   ├── views.md
-│   │   ├── ai-features.md
-│   │   ├── sync-offline.md
-│   │   └── faq.md
-│   ├── dev/                # 开发文档
-│   │   ├── index.md
-│   │   ├── setup.md
-│   │   ├── development.md
-│   │   └── architecture.md
-│   └── test/               # 测试文档
-│       └── index.md
+│   │   ├── 01.task-management.md
+│   │   ├── 02.ai-features.md
+│   │   ├── 03.views.md
+│   │   ├── 04.sync-offline.md
+│   │   └── 05.faq.md
+│   └── dev/                # 开发文档
+│       ├── index.md
+│       ├── 00.goals.md     # 项目愿景与方案
+│       ├── 01.setup.md
+│       ├── 02.architecture.md
+│       └── 03.development.md
 └── en/                     # 英文文档
     ├── index.md
     ├── user/index.md
-    ├── dev/index.md
-    └── test/index.md
+    └── dev/
+        ├── index.md
+        └── 00.goals.md
 ```
 
 ## 添加新文档

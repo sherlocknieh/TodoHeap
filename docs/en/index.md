@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "TodoHeap"
-  text: "AI-driven Smart Task Management Tool"
-  tagline: "AI-driven tool for smart task management with automatic decomposition, priority sorting, and visualization."
+  text: "AI-driven Task and Schedule Management"
+  tagline: "Turn vague tasks into executable steps, then into a schedule: decomposition, prioritization and visualization."
   image:
     src: /logo.png
     alt: Logo
@@ -22,7 +22,7 @@ features:
       src: /icons/ai.svg
       alt: ''
     title: AI Automatic Decomposition
-    details: AI automatically decomposes complex tasks into executable subtasks, reducing management burden.
+    details: Describe a goal in natural language and AI breaks it into executable subtasks organized as a task tree.
   - icon:
       src: /icons/tree.svg
       alt: ''
@@ -37,7 +37,7 @@ features:
       src: /icons/sort.svg
       alt: ''
     title: Priority Sorting
-    details: Automatically calculate the optimal priority based on multiple dimensions such as difficulty, urgency, etc.
+    details: Score tasks in real time from deadline urgency, completion progress and subtask complexity; the heap view sorts by score.
   - icon:
       src: /icons/sync.svg
       alt: ''
@@ -46,7 +46,7 @@ features:
   - icon:
       src: /icons/focus.svg
       alt: ''
-    title: Focused Execution
-    details: Focus on task execution itself, letting the system handle complex optimizations and scheduling.
+    title: From Tasks to Schedule
+    details: Lay unfinished tasks out by deadline in the schedule view so the coming days are clear. Automatic scheduling and ICS export are planned.
 ---
 
