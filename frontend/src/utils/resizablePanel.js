@@ -1,9 +1,7 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { persistedRef } from './uiState'
 
-// 面板边缘拖拽调宽：宽度本地保留，拖过最小宽度后再多拖一段才收起面板
-const COLLAPSE_DISTANCE = 64
-
+// 面板边缘拖拽调宽：宽度本地保留，拖过最小宽度后还要再拖一段才收起面板
 export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 	const width = persistedRef(key, initial, {
 		validate: (value) => Number.isFinite(value) && value >= min
@@ -11,6 +9,8 @@ export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 	const resizing = ref(false)
 	// 已拖到最小宽度、继续拖就会收起，用于给出即将收起的提示
 	const collapseArmed = ref(false)
+	// 越过最小宽度后还需继续拖动的距离：半个最小宽度，手抖不会误关
+	const collapseDistance = min / 2
 	let detach = null
 
 	// 给主内容留出空间，两侧各自拖宽也不会把中栏挤没
@@ -34,8 +34,8 @@ export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
 		const move = (e) => {
 			const delta = side === 'left' ? e.clientX - startX : startX - e.clientX
 			const next = startWidth + delta
-			// 越过最小宽度后先停在最小宽度，再拖够缓冲距离才收起
-			if (next < min - COLLAPSE_DISTANCE) {
+			// 越过最小宽度后先停在最小宽度，再拖够半个最小宽度才收起
+			if (next < min - collapseDistance) {
 				width.value = startWidth
 				stop()
 				onCollapse()
