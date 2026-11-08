@@ -67,7 +67,7 @@ const canSubmit = computed(() => !props.loading && !!taskInput.value.trim())
         <textarea
           ref="textareaRef"
           v-model="taskInput"
-          class="w-full min-h-9 resize-none bg-transparent px-1 py-1.5 text-sm leading-6 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 outline-none disabled:opacity-50"
+          class="field min-h-9 resize-none py-1.5 leading-6 disabled:opacity-50"
           placeholder="用一句话描述要做的事，AI 会拆成可执行的任务"
           rows="1"
           :disabled="props.loading"
@@ -77,7 +77,7 @@ const canSubmit = computed(() => !props.loading && !!taskInput.value.trim())
           @input="adjustHeight"
         />
 
-        <div class="flex items-center justify-between gap-2 px-1 text-[11px] text-neutral-500 dark:text-neutral-500">
+        <div class="flex items-center justify-between gap-2 px-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
           <span class="inline-flex items-center gap-1.5">
             <span class="h-1.5 w-1.5 rounded-full"
               :class="props.loading ? 'bg-accent-600 dark:bg-accent-400' : 'bg-neutral-300 dark:bg-neutral-600'"></span>

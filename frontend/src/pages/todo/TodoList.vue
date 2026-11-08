@@ -7,7 +7,7 @@
         v-model.trim="newTaskTitle"
         @keyup.enter="addTodo"
         placeholder="写下任务，回车添加"
-        class="flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-600"
+        class="field flex-1"
       />
       <span class="hidden sm:inline font-mono text-[11px] text-neutral-400 dark:text-neutral-600">Enter</span>
       <button

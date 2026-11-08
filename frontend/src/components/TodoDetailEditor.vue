@@ -36,7 +36,7 @@
                 v-model="draftStartDate"
                 type="datetime-local"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-hairline dark:border-hairline-dark bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
+                class="field mt-1"
                 @blur="saveDateField('start_date', draftStartDate)"
               />
             </label>
@@ -46,7 +46,7 @@
                 v-model="draftDeadline"
                 type="datetime-local"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-hairline dark:border-hairline-dark bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
+                class="field mt-1"
                 @blur="saveDateField('deadline', draftDeadline)"
               />
             </label>
@@ -58,7 +58,7 @@
                 step="0.25"
                 min="0"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-hairline dark:border-hairline-dark bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
+                class="field mt-1"
                 @blur="saveDifficultyField"
               />
             </label>
