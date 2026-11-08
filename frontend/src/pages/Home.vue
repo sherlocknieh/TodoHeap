@@ -29,9 +29,9 @@ const features = [
 
 <template>
   <!-- 落地页：以文字层级承担主要信息，不做装饰性堆叠 -->
-  <div class="min-h-screen flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
+  <div class="min-h-screen flex flex-col bg-canvas dark:bg-canvas-dark text-neutral-900 dark:text-neutral-100">
     <header
-      class="sticky top-0 z-40 border-b border-neutral-200 dark:border-neutral-800 bg-white/85 dark:bg-neutral-950/85 backdrop-blur">
+      class="sticky top-0 z-40 border-b border-hairline dark:border-hairline-dark bg-surface/85 dark:bg-surface-dark/85 backdrop-blur">
       <div class="w-full px-6 md:px-10 lg:px-16 h-14 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <img src="/logo.png" alt="TodoHeap" class="w-6 h-6 rounded" />
@@ -43,7 +43,7 @@ const features = [
 
     <main class="flex-1">
       <section class="w-full px-6 md:px-10 lg:px-16 pt-24 pb-20">
-        <p class="eyebrow">任务管理</p>
+        <p class="eyebrow text-accent-700 dark:text-accent-400">任务管理</p>
         <h1 class="mt-4 text-4xl sm:text-5xl font-semibold leading-[1.15] tracking-tight">
           把大任务拆小，<br class="hidden sm:block" />
           只做此刻最该做的那一件。
@@ -57,7 +57,7 @@ const features = [
         </div>
       </section>
 
-      <section class="border-t border-neutral-200 dark:border-neutral-800">
+      <section class="border-t border-hairline dark:border-hairline-dark">
         <div class="w-full px-6 md:px-10 lg:px-16 py-14 grid sm:grid-cols-3 gap-10">
           <div v-for="feature in features" :key="feature.title">
             <AppIcon :name="feature.icon" :size="18" class="text-accent-700 dark:text-accent-400" />
@@ -68,13 +68,13 @@ const features = [
       </section>
     </main>
 
-    <footer class="border-t border-neutral-200 dark:border-neutral-800">
+    <footer class="border-t border-hairline dark:border-hairline-dark">
       <div
         class="w-full px-6 md:px-10 lg:px-16 py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-500">
         <span>© 2026 TodoHeap</span>
         <nav class="flex items-center gap-4">
-          <a href="/TodoHeap/docs/zh/user/" class="hover:text-neutral-900 dark:hover:text-neutral-200">使用指南</a>
-          <a href="/TodoHeap/docs/zh/dev/" class="hover:text-neutral-900 dark:hover:text-neutral-200">开发文档</a>
+          <a href="/TodoHeap/docs/zh/user/" class="hover:text-accent-800 dark:hover:text-accent-200">使用指南</a>
+          <a href="/TodoHeap/docs/zh/dev/" class="hover:text-accent-800 dark:hover:text-accent-200">开发文档</a>
         </nav>
       </div>
     </footer>

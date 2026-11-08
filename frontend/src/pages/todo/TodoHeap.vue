@@ -20,7 +20,7 @@
 							:style="{ fill: getNodeColor(node) }" />
 						<text v-for="node in heapTree" :key="`score-${node.index}`" :x="getNodeX(node.index)"
 							:y="getNodeY(node.index) + 2" class="heap-score" text-anchor="middle"
-							dominant-baseline="middle">
+							dominant-baseline="middle" :style="{ fill: getNodeTextColor(node) }">
 							{{ Math.round(node.priorityInfo.finalScore) }}
 						</text>
 					</g>
@@ -29,14 +29,14 @@
 
 			<!-- 按优先级排序 -->
 			<div class="panel self-start overflow-hidden">
-				<div class="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800">
+				<div class="px-3 py-2 border-b border-hairline dark:border-hairline-dark">
 					<span class="eyebrow">按优先级排序</span>
 				</div>
 				<div v-for="(node, idx) in heapTree" :key="node.id" data-task-item :class="[
-					'flex items-start gap-3 px-3 py-2 border-b border-neutral-100 dark:border-neutral-900 last:border-0 cursor-pointer border-l-2 transition-colors',
+					'flex items-start gap-3 px-3 py-2 border-b border-hairline dark:border-hairline-dark last:border-0 cursor-pointer border-l-2 transition-colors',
 					selectedTaskId === node.id
-						? 'bg-neutral-50 dark:bg-neutral-900 border-l-accent-600 dark:border-l-accent-400'
-						: 'border-l-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900'
+						? 'bg-accent-50 dark:bg-accent-500/10 border-l-accent-600 dark:border-l-accent-400'
+						: 'border-l-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
 				]" @click="selectTask(node.id)">
 					<span class="w-5 shrink-0 pt-0.5 font-mono text-xs text-neutral-400">{{ idx + 1 }}</span>
 					<div class="flex-1 min-w-0">
@@ -79,7 +79,6 @@
 	font-family: var(--font-mono);
 	font-weight: 600;
 	font-size: 12px;
-	fill: #fff;
 	pointer-events: none;
 	text-anchor: middle;
 	dominant-baseline: central;
@@ -88,6 +87,14 @@
 
 <script setup>
 // 不同层级节点半径，level越小越大
+// 分数文字按节点底色的明暗取黑或白，浅色节点上也读得清
+const getNodeTextColor = (node) => {
+	const hex = getNodeColor(node).replace('#', '')
+	const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+	const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+	return luminance > 0.55 ? '#0b2a1c' : '#ffffff'
+}
+
 const getNodeRadius = (level) => {
 	// 0层最大，后续每层递减，最小20，最大40
 	const base = 40;

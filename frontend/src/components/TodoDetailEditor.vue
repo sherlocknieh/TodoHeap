@@ -1,14 +1,14 @@
 <template>
   <div v-if="show" data-detail-panel :class="[
-    'w-80 max-w-full h-full min-h-0 overflow-hidden bg-white dark:bg-neutral-950 flex flex-col z-20 border-l border-neutral-200 dark:border-neutral-800',
+    'w-80 max-w-full h-full min-h-0 overflow-hidden bg-surface dark:bg-surface-dark flex flex-col z-20 border-l border-hairline dark:border-hairline-dark',
     // 已删除任务时整个面板显示禁用光标
     isDeleted ? 'cursor-not-allowed' : ''
   ]">
     <!-- 面板关闭按钮（移动端/桌面端通用） -->
-    <div class="shrink-0 h-11 flex items-center justify-between px-3 border-b border-neutral-200 dark:border-neutral-800">
+    <div class="shrink-0 h-11 flex items-center justify-between px-3 border-b border-hairline dark:border-hairline-dark">
       <span class="eyebrow">任务详情</span>
       <button type="button"
-        class="p-1.5 -mr-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+        class="p-1.5 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
         title="关闭" @click="emit('close')">
         <AppIcon name="close" :size="15" />
       </button>
@@ -36,7 +36,7 @@
                 v-model="draftStartDate"
                 type="datetime-local"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
+                class="mt-1 w-full rounded border border-hairline dark:border-hairline-dark bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
                 @blur="saveDateField('start_date', draftStartDate)"
               />
             </label>
@@ -46,7 +46,7 @@
                 v-model="draftDeadline"
                 type="datetime-local"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
+                class="mt-1 w-full rounded border border-hairline dark:border-hairline-dark bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
                 @blur="saveDateField('deadline', draftDeadline)"
               />
             </label>
@@ -58,7 +58,7 @@
                 step="0.25"
                 min="0"
                 :disabled="isDeleted"
-                class="mt-1 w-full rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
+                class="mt-1 w-full rounded border border-hairline dark:border-hairline-dark bg-transparent px-2 py-1 text-sm text-neutral-800 dark:text-neutral-200 outline-none focus:border-accent-600 dark:focus:border-accent-400"
                 @blur="saveDifficultyField"
               />
             </label>
@@ -66,7 +66,7 @@
         </div>
 
         <!-- 分割线 -->
-        <div class="shrink-0 border-t border-neutral-200 dark:border-neutral-800"></div>
+        <div class="shrink-0 border-t border-hairline dark:border-hairline-dark"></div>
 
         <!-- 区块3: 任务描述 - Milkdown 编辑器（占满剩余空间） -->
         <!--

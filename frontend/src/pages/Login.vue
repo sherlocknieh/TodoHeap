@@ -142,36 +142,36 @@ const handleOAuth = async (provider) => {
 
 <template>
   <!-- 登录/注册：表单收进独立卡片，与页面底色拉开层级 -->
-  <div class="min-h-screen flex items-center justify-center p-6 bg-neutral-100 dark:bg-neutral-950">
+  <div class="min-h-screen flex items-center justify-center p-6 bg-canvas dark:bg-canvas-dark">
     <div class="w-full max-w-sm">
       <router-link to="/"
-        class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
+        class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-accent-800 dark:hover:text-accent-300 transition-colors">
         <AppIcon name="chevronLeft" :size="13" />
         <span>返回主页</span>
       </router-link>
 
       <div
-        class="mt-8 rounded-lg border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-black/40">
+        class="mt-8 rounded-2xl border border-hairline bg-surface p-6 shadow-[0_18px_40px_-28px_rgb(6_80_48/0.45)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-black/40">
         <div class="mb-6">
           <h1 class="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">TodoHeap</h1>
           <p class="mt-1 text-sm text-neutral-500">任务堆，始终知道下一步做什么</p>
         </div>
 
         <!-- 登录 / 注册 -->
-        <div class="flex gap-5 border-b border-neutral-200 dark:border-neutral-800 mb-6">
+        <div class="flex gap-5 border-b border-hairline dark:border-hairline-dark mb-6">
           <button :class="[
             'pb-2 -mb-px text-sm border-b-2 transition-colors',
             !isSignUp
-              ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100 font-medium'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+              ? 'border-accent-600 dark:border-accent-400 text-accent-800 dark:text-accent-300 font-medium'
+              : 'border-transparent text-neutral-500 hover:text-accent-800 dark:hover:text-accent-300'
           ]" @click="isSignUp = false">
             登录
           </button>
           <button :class="[
             'pb-2 -mb-px text-sm border-b-2 transition-colors',
             isSignUp
-              ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100 font-medium'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
+              ? 'border-accent-600 dark:border-accent-400 text-accent-800 dark:text-accent-300 font-medium'
+              : 'border-transparent text-neutral-500 hover:text-accent-800 dark:hover:text-accent-300'
           ]" @click="isSignUp = true">
             注册
           </button>
@@ -194,14 +194,14 @@ const handleOAuth = async (provider) => {
               <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="至少 6 个字符"
                 required :disabled="loading" class="field pl-8 pr-14" />
               <button type="button"
-                class="absolute right-2 top-1/2 -translate-y-1/2 px-1 text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+                class="absolute right-2 top-1/2 -translate-y-1/2 px-1 text-[11px] text-neutral-500 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
                 @click.prevent="showPassword = !showPassword">
                 {{ showPassword ? '隐藏' : '显示' }}
               </button>
             </div>
             <p v-if="isSignUp" class="mt-1.5 text-[11px] text-neutral-400">密码至少需要 6 个字符</p>
             <button v-else type="button" :disabled="loading"
-              class="mt-1.5 text-[11px] text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+              class="mt-1.5 text-[11px] text-neutral-500 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
               @click="handleResetPassword">
               忘记密码？
             </button>
@@ -232,9 +232,9 @@ const handleOAuth = async (provider) => {
         </form>
 
         <div class="my-5 flex items-center gap-3 text-[11px] text-neutral-400">
-          <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
+          <span class="h-px flex-1 bg-hairline dark:bg-hairline-dark"></span>
           <span>或</span>
-          <span class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></span>
+          <span class="h-px flex-1 bg-hairline dark:bg-hairline-dark"></span>
         </div>
 
         <button type="button" @click="handleOAuth('github')" :disabled="loading" class="btn-outline w-full py-2">
@@ -248,12 +248,12 @@ const handleOAuth = async (provider) => {
         <p class="mt-6 text-center text-xs text-neutral-500">
           <template v-if="!isSignUp">
             还没有账号？
-            <button type="button" class="text-neutral-900 hover:underline dark:text-neutral-100"
+            <button type="button" class="text-accent-800 hover:underline dark:text-accent-300"
               @click="isSignUp = true">注册</button>
           </template>
           <template v-else>
             已有账号？
-            <button type="button" class="text-neutral-900 hover:underline dark:text-neutral-100"
+            <button type="button" class="text-accent-800 hover:underline dark:text-accent-300"
               @click="isSignUp = false">登录</button>
           </template>
         </p>

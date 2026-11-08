@@ -73,7 +73,7 @@ const visible = computed(() => props.isProcessing || props.message || props.stat
 
       <!-- 子任务预览 -->
       <TransitionGroup v-if="tasks.length > 0" tag="ul" name="task-list"
-        class="mt-2 border-t border-neutral-200 dark:border-neutral-800 pt-2 space-y-1 max-h-52 overflow-auto">
+        class="mt-2 border-t border-hairline dark:border-hairline-dark pt-2 space-y-1 max-h-52 overflow-auto">
         <li v-for="task in tasks" :key="task.id"
           class="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
           <AppIcon :name="isProcessing ? 'check' : 'clock'" :size="11"

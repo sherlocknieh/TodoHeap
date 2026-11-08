@@ -90,7 +90,7 @@ const canSubmit = computed(() => !props.loading && !!taskInput.value.trim())
       </div>
 
       <button
-        class="shrink-0 p-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        class="shrink-0 p-2 rounded-lg bg-accent-700 text-white hover:bg-accent-800 dark:bg-accent-400 dark:text-accent-950 dark:hover:bg-accent-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         :disabled="!canSubmit"
         title="智能添加"
         @click="handleSubmit"
@@ -102,7 +102,7 @@ const canSubmit = computed(() => !props.loading && !!taskInput.value.trim())
     <!-- 分析进度 -->
     <div
       v-if="props.progress?.visible"
-      class="border-t border-neutral-200 dark:border-neutral-800 pt-2 px-1 text-xs text-neutral-600 dark:text-neutral-400"
+      class="border-t border-hairline dark:border-hairline-dark pt-2 px-1 text-xs text-neutral-600 dark:text-neutral-400"
     >
       <div class="flex items-center justify-between gap-2">
         <p class="inline-flex items-center gap-1.5 min-w-0">

@@ -2,7 +2,7 @@
   <div class="h-full flex flex-col min-h-0" ref="trashContainerRef">
     <!-- 头部 -->
     <header
-      class="shrink-0 h-12 px-4 flex items-center justify-between gap-3 border-b border-neutral-200 dark:border-neutral-800">
+      class="shrink-0 h-12 px-4 flex items-center justify-between gap-3 border-b border-hairline dark:border-hairline-dark">
       <div class="flex items-baseline gap-2 min-w-0">
         <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">回收站</h2>
         <span class="text-xs text-neutral-500">{{ trashTodos.length }} 个已删除任务</span>
@@ -46,17 +46,17 @@
     </div>
 
     <!-- 任务列表 -->
-    <ul v-else class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-900">
+    <ul v-else class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-hairline dark:divide-hairline-dark">
       <template v-for="item in flatTrashList" :key="item.id">
         <li v-if="shouldShowItem(item)" :data-task-item="item.id" :data-task-id="item.id" :class="[
           'group flex items-center gap-2 py-1.5 pr-3 cursor-pointer border-l-2 transition-colors',
           selectedTaskId === item.id
-            ? 'bg-neutral-50 dark:bg-neutral-900 border-accent-600 dark:border-accent-400'
-            : 'border-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900'
+            ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-600 dark:border-accent-400'
+            : 'border-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
         ]" :style="{ paddingLeft: (10 + item._level * 18) + 'px' }" @click="selectTask(item.id)">
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"
-            class="p-0.5 rounded text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+            class="p-0.5 rounded text-neutral-400 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
             @click.stop="toggleExpand(item.id)">
             <AppIcon :name="expandedMap[item.id] ? 'chevronDown' : 'chevronRight'" :size="13" />
           </button>
@@ -85,7 +85,7 @@
           <!-- 行内操作 -->
           <div class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <button
-              class="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+              class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
               @click.stop="handleRestoreWithCheck(item.id)" title="恢复任务">
               <AppIcon name="undo" :size="14" />
             </button>

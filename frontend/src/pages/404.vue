@@ -1,6 +1,6 @@
 <template>
   <!-- 404 页面 -->
-  <div class="min-h-screen flex items-center justify-center p-6 bg-white dark:bg-neutral-950">
+  <div class="min-h-screen flex items-center justify-center p-6 bg-canvas dark:bg-canvas-dark">
     <div class="text-center">
       <p class="font-mono text-xs tracking-[0.2em] text-neutral-400">404</p>
       <h1 class="mt-3 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">页面未找到</h1>

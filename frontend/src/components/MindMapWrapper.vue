@@ -1,13 +1,13 @@
 <template>
   <!-- 思维导图容器 -->
   <div ref="mindMapContainer"
-    class="mindmap-canvas min-h-100 h-full w-full border border-neutral-200 dark:border-neutral-800 rounded-md relative overflow-hidden"
+    class="mindmap-canvas min-h-100 h-full w-full border border-hairline dark:border-hairline-dark rounded-md relative overflow-hidden"
     @click.stop>
     <!-- 控件层 -->
     <div class="absolute bottom-3 right-3 z-10">
       <button
         @click="fitView"
-        class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         title="适应视图"
       >
         <AppIcon name="target" :size="14" />

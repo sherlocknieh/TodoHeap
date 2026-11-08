@@ -1,7 +1,7 @@
 <template>
   <div class="text-neutral-900 dark:text-neutral-100">
     <!-- 快速添加 -->
-    <section class="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2.5">
+    <section class="flex items-center gap-2 border-b border-hairline dark:border-hairline-dark pb-2.5">
       <AppIcon name="plus" :size="15" class="text-neutral-400 dark:text-neutral-600" />
       <input
         v-model.trim="newTaskTitle"
@@ -11,7 +11,7 @@
       />
       <span class="hidden sm:inline font-mono text-[11px] text-neutral-400 dark:text-neutral-600">Enter</span>
       <button
-        class="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors disabled:opacity-40"
+        class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40"
         :disabled="!newTaskTitle.trim()"
         title="添加任务"
         @click="addTodo"

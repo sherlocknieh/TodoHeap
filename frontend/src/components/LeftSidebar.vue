@@ -55,16 +55,16 @@ const switchView = (view) => {
   <div
     v-if="show"
     :class="[
-      'absolute top-0 left-0 bottom-0 w-64 max-w-[85vw] bg-white dark:bg-neutral-950 flex flex-col z-30 border-r border-neutral-200 dark:border-neutral-800',
+      'absolute top-0 left-0 bottom-0 w-64 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
       'lg:static lg:z-10 lg:shadow-none'
     ]"
   >
     <!-- 头部 -->
-    <header class="shrink-0 h-11 px-3 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800">
+    <header class="shrink-0 h-11 px-3 flex items-center justify-between border-b border-hairline dark:border-hairline-dark">
       <span class="eyebrow">任务导航</span>
       <button
         @click="$emit('close')"
-        class="p-1.5 -mr-1.5 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors lg:hidden"
+        class="p-1.5 -mr-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors lg:hidden"
         title="关闭侧栏"
       >
         <AppIcon name="close" :size="15" />
@@ -81,10 +81,10 @@ const switchView = (view) => {
           :key="view.id"
           @click="switchView(view.id)"
           :class="[
-            'w-full text-left px-2 py-1.5 rounded text-sm transition-colors flex items-center gap-2 border-l-2',
+            'w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 border-l-2',
             activeView === view.id
-              ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium border-accent-600 dark:border-accent-400'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-neutral-200'
+              ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-100 font-medium border-accent-500 dark:border-accent-400'
+              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200'
           ]"
         >
           <AppIcon :name="view.icon" :size="15" class="opacity-70" />
@@ -103,7 +103,7 @@ const switchView = (view) => {
           </div>
           <div class="flex items-baseline justify-between text-sm">
             <span class="text-neutral-500 dark:text-neutral-500">已完成</span>
-            <span class="font-mono text-neutral-900 dark:text-neutral-200">{{ stats.completed }}</span>
+            <span class="font-mono text-accent-700 dark:text-accent-400">{{ stats.completed }}</span>
           </div>
           <div class="flex items-baseline justify-between text-sm">
             <span class="text-neutral-500 dark:text-neutral-500">进行中</span>
@@ -112,8 +112,8 @@ const switchView = (view) => {
         </div>
         <!-- 完成进度 -->
         <div class="px-2 pt-2">
-          <div class="h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-            <div class="h-full bg-accent-600 dark:bg-accent-400 transition-[width] duration-300"
+          <div class="h-1.5 rounded-full bg-accent-100 dark:bg-accent-500/15 overflow-hidden">
+            <div class="h-full rounded-full bg-accent-500 dark:bg-accent-400 transition-[width] duration-300"
               :style="{ width: completionRate + '%' }"></div>
           </div>
         </div>
@@ -123,7 +123,7 @@ const switchView = (view) => {
       <section class="space-y-0.5">
         <p class="eyebrow px-2 pb-1.5">AI</p>
         <button
-          class="w-full text-left px-2 py-1.5 rounded text-sm transition-colors flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200 disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isOptimizing"
           @click="$emit('optimize-tasks')"
         >

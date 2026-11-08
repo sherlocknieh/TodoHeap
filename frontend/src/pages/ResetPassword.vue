@@ -68,7 +68,7 @@ const handleUpdatePassword = async () => {
   <div class="min-h-screen flex items-center justify-center p-6">
     <div class="w-full max-w-sm">
       <router-link to="/login"
-        class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
+        class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-accent-800 dark:hover:text-accent-200 transition-colors">
         <AppIcon name="chevronLeft" :size="13" />
         <span>返回登录</span>
       </router-link>

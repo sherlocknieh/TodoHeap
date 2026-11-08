@@ -1,15 +1,15 @@
 <template>
-  <ul class="divide-y divide-neutral-100 dark:divide-neutral-900">
+  <ul class="divide-y divide-hairline dark:divide-hairline-dark">
     <template v-for="item in flatList">
       <li v-if="isItemVisible(item)" :key="item.id" data-task-item :class="[
         'group flex items-center gap-2 py-1.5 pr-2 cursor-pointer border-l-2 transition-colors',
         selectedTaskId === item.id
-          ? 'bg-neutral-50 dark:bg-neutral-900 border-accent-600 dark:border-accent-400'
-          : 'border-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900'
+          ? 'bg-accent-50 dark:bg-accent-500/10 border-accent-500 dark:border-accent-400'
+          : 'border-transparent hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
       ]" :style="{ paddingLeft: (6 + item._level * 18) + 'px' }" @click="selectTask(item.id)">
         <!-- 展开/折叠 -->
         <button v-if="item.children && item.children.length"
-          class="p-0.5 rounded text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors"
+          class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
           @click.stop="toggleExpand(item.id)">
           <AppIcon :name="expandedMap[item.id] ? 'chevronDown' : 'chevronRight'" :size="13" />
         </button>
@@ -19,7 +19,7 @@
         <button type="button"
           class="shrink-0 grid place-items-center w-[15px] h-[15px] rounded-[3px] border transition-colors"
           :class="statusMap[item.id] === 'checked'
-            ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-500 dark:border-accent-500'
+            ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
             : 'border-neutral-300 text-transparent hover:border-neutral-400 dark:border-neutral-600 dark:hover:border-neutral-400'"
           :aria-pressed="statusMap[item.id] === 'checked'" @click.stop="cycleStatus(item)">
           <AppIcon name="check" :size="10" />
@@ -40,7 +40,8 @@
 
           <div v-if="editingId !== item.id && (item.priority > 0 || item.start_date || item.deadline || item.difficulty != null)"
             class="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <span v-if="item.priority > 0" class="chip font-mono">P{{ item.priority }}</span>
+            <span v-if="item.priority > 0"
+              class="chip font-mono border-accent-200 bg-accent-50 text-accent-800 dark:border-accent-500/40 dark:bg-accent-500/10 dark:text-accent-300">P{{ item.priority }}</span>
             <span v-if="item.start_date" class="chip">
               <AppIcon name="calendar" :size="10" />{{ formatMetaDate(item.start_date) }}
             </span>
@@ -54,7 +55,7 @@
         <!-- 行内操作 -->
         <div class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           <button
-            class="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+            class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
             title="添加子任务" @click.stop="emitAddSubtask(item.id)">
             <AppIcon name="plus" :size="14" />
           </button>
@@ -65,20 +66,20 @@
           </button>
           <div class="relative">
             <button
-              class="p-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+              class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
               title="更多操作" @click.stop="toggleMoreMenu(item.id, $event)">
               <AppIcon name="sliders" :size="14" />
             </button>
             <div v-if="showMoreMenuId === item.id"
               class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1" ref="moreMenuRef">
               <button :disabled="isBreakingDown"
-                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 @click.stop="breakdownTask(item.id); closeMoreMenu()">
                 <AppIcon name="sparkles" :size="13" />
                 <span>AI 分解</span>
               </button>
               <button
-                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                 @click.stop="emitAddSubtask(item.id); closeMoreMenu()">
                 <AppIcon name="plus" :size="13" />
                 <span>添加子任务</span>

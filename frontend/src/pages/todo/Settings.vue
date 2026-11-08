@@ -15,16 +15,16 @@
           </div>
           <div class="flex items-center gap-1 -mr-2">
             <button v-if="floating"
-              class="p-2 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+              class="p-2 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
               @click="handleExpand" title="在整页打开" aria-label="在整页打开">
               <AppIcon name="expand" :size="16" />
             </button>
             <button v-else
-              class="p-2 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+              class="p-2 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
               @click="handleFloat" title="切换为浮窗" aria-label="切换为浮窗">
               <AppIcon name="shrink" :size="16" />
             </button>
-            <button class="p-2 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+            <button class="p-2 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
               @click="handleClose" aria-label="关闭设置">
               <AppIcon name="close" :size="16" />
             </button>
@@ -37,8 +37,8 @@
             <button v-for="tab in tabs" :key="tab.id" :class="[
               'flex items-center gap-2 px-2.5 py-1.5 text-sm rounded border-l-2 transition-colors text-left',
               activeTab === tab.id
-                ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium border-accent-600 dark:border-accent-400'
-                : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-neutral-200'
+                ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-100 font-medium border-accent-600 dark:border-accent-400'
+                : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200'
             ]" role="tab" :aria-selected="activeTab === tab.id" @click="activeTab = tab.id">
               <AppIcon :name="tab.icon" :size="15" class="opacity-70" />
               <span>{{ tab.label }}</span>
@@ -126,7 +126,7 @@
           <div class="panel w-11/12 max-w-sm p-5 shadow-xl">
             <div class="flex items-start justify-between mb-4">
               <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">修改密码</h2>
-              <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 transition-colors"
+              <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
                 @click="closePasswordModal" aria-label="关闭">
                 <AppIcon name="close" :size="14" />
               </button>

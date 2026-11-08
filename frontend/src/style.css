@@ -1,22 +1,31 @@
 @import "tailwindcss";
 
-/* 设计令牌：中性灰阶为底，单一墨绿强调色，克制使用彩色 */
+/* 设计令牌：白底 + 清新绿为唯一强调色，彩色只出现在交互与状态上 */
 @theme {
   --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
     "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
 
-  --color-accent-50: #f4f8f7;
-  --color-accent-100: #e6eeec;
-  --color-accent-200: #ccdcd8;
-  --color-accent-300: #a6c2bc;
-  --color-accent-400: #7aa29b;
-  --color-accent-500: #578379;
-  --color-accent-600: #42665e;
-  --color-accent-700: #36534d;
-  --color-accent-800: #2d443f;
-  --color-accent-900: #273934;
-  --color-accent-950: #14201d;
+  /* 主色：明亮绿，500 用于装饰，700 用于需要白字压底的实心块 */
+  --color-accent-50: #f2fdf6;
+  --color-accent-100: #dcfbe8;
+  --color-accent-200: #b7f4cf;
+  --color-accent-300: #7fe8ad;
+  --color-accent-400: #42d386;
+  --color-accent-500: #13b566;
+  --color-accent-600: #089150;
+  --color-accent-700: #067a46;
+  --color-accent-800: #066139;
+  --color-accent-900: #065030;
+  --color-accent-950: #032c1b;
+
+  /* 页面底色与卡片保持中性，靠明度差拉开层级；绿色只在交互与状态上出现 */
+  --color-canvas: #f7f8f8;
+  --color-canvas-dark: #0b0b0b;
+  --color-surface: #ffffff;
+  --color-surface-dark: #151515;
+  --color-hairline: #e8eeeb;
+  --color-hairline-dark: #272727;
 }
 
 /* 跟随系统切换亮暗主题 */
@@ -37,7 +46,7 @@ html, body, #app {
 
 @layer base {
   body {
-    @apply bg-white text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100;
+    @apply bg-canvas text-neutral-900 antialiased dark:bg-canvas-dark dark:text-neutral-100;
     font-family: var(--font-sans);
     -webkit-tap-highlight-color: transparent;
   }
@@ -49,7 +58,7 @@ html, body, #app {
   /* 细窄滚动条，避免抢视觉重心 */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgb(0 0 0 / 0.18) transparent;
+    scrollbar-color: rgb(6 80 48 / 0.18) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -62,7 +71,7 @@ html, body, #app {
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: rgb(0 0 0 / 0.16);
+    background-color: rgb(6 80 48 / 0.16);
     border-radius: 9999px;
   }
 
@@ -80,7 +89,8 @@ html, body, #app {
 /* 组件基元：统一圆角、边框与层级，避免每处各写一套 */
 @layer components {
   .panel {
-    @apply rounded-md border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900;
+    @apply rounded-xl border border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)]
+      dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none;
   }
 
   .eyebrow {
@@ -88,36 +98,38 @@ html, body, #app {
   }
 
   .field {
-    @apply w-full rounded-md border border-neutral-200 bg-transparent px-3 py-1.5 text-sm text-neutral-900 outline-none
-      transition-colors placeholder:text-neutral-400 focus:border-accent-600 focus:ring-2 focus:ring-accent-600/15
-      dark:border-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-600 dark:focus:border-accent-400;
+    @apply w-full rounded-lg border border-hairline bg-surface px-3 py-1.5 text-sm text-neutral-900 outline-none
+      transition-colors placeholder:text-neutral-400 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20
+      dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-100 dark:placeholder:text-neutral-600
+      dark:focus:border-accent-400;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium
       transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
-      transition-colors disabled:cursor-not-allowed disabled:opacity-50 bg-neutral-900 text-white hover:bg-neutral-700
-      dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50 bg-accent-700 text-white
+      hover:bg-accent-800 dark:bg-accent-400 dark:text-accent-950 dark:hover:bg-accent-300;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
-      transition-colors disabled:cursor-not-allowed disabled:opacity-50 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900
-      dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50 text-neutral-600 hover:bg-accent-50 hover:text-accent-800
+      dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200;
   }
 
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
-      transition-colors disabled:cursor-not-allowed disabled:opacity-50 border border-neutral-200 text-neutral-700 hover:bg-neutral-50
-      dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50 border border-hairline text-neutral-700
+      hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800
+      dark:border-hairline-dark dark:text-neutral-300 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10;
   }
 
   .chip {
-    @apply inline-flex items-center gap-1 rounded border border-neutral-200 px-1.5 py-0.5
-      text-[11px] leading-4 text-neutral-600 dark:border-neutral-800 dark:text-neutral-400;
+    @apply inline-flex items-center gap-1 rounded-full border border-hairline px-1.5 py-0.5
+      text-[11px] leading-4 text-neutral-600 dark:border-hairline-dark dark:text-neutral-400;
   }
 }

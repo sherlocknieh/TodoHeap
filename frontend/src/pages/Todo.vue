@@ -553,10 +553,10 @@ onUnmounted(() => {
 		<div class="flex-1 min-w-0 min-h-0 flex overflow-hidden">
 			<!-- 左侧活动栏 -->
 			<aside
-				class="w-12 shrink-0 border-r border-neutral-200 dark:border-neutral-800 flex flex-col items-center justify-between py-2">
+				class="w-12 shrink-0 border-r border-hairline dark:border-hairline-dark flex flex-col items-center justify-between py-2">
 				<!-- 侧栏开关 -->
 				<button @click="toggleLeftPanel"
-					class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+					class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
 					title="切换侧栏">
 					<AppIcon name="sidebar" />
 				</button>
@@ -565,7 +565,7 @@ onUnmounted(() => {
 				<div class="flex flex-col items-center gap-1">
 					<div class="relative">
 						<button data-user-menu-trigger @click="showUserMenu = !showUserMenu"
-							class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+							class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
 							title="用户菜单">
 							<AppIcon name="user" />
 						</button>
@@ -576,11 +576,11 @@ onUnmounted(() => {
 							<div v-if="showUserMenu" ref="userMenuRef"
 								class="absolute left-full bottom-0 ml-2 w-56 panel shadow-lg z-50 overflow-hidden">
 								<p
-									class="px-3 py-2 text-xs text-neutral-500 border-b border-neutral-200 dark:border-neutral-800 truncate">
+									class="px-3 py-2 text-xs text-neutral-500 border-b border-hairline dark:border-hairline-dark truncate">
 									{{ authStore.user?.email || '未登录' }}
 								</p>
 								<button @click="handleSignOut"
-									class="w-full px-3 py-2 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+									class="w-full px-3 py-2 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors">
 									<AppIcon name="logout" />
 									<span>退出登录</span>
 								</button>
@@ -589,7 +589,7 @@ onUnmounted(() => {
 					</div>
 
 					<button @click="openSettings"
-						class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+						class="h-9 w-9 rounded-md flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
 						title="设置">
 						<AppIcon name="sliders" />
 					</button>
@@ -636,11 +636,11 @@ onUnmounted(() => {
 
 				<!-- 已完成任务 -->
 				<div class="mx-auto max-w-3xl w-full px-6">
-					<div class="border-t border-neutral-200 dark:border-neutral-800 py-3">
+					<div class="border-t border-hairline dark:border-hairline-dark py-3">
 						<div class="flex items-center justify-between">
 							<span class="eyebrow">已完成 · {{ completedTodos.length }}</span>
 							<button @click="showCompletedPanel = !showCompletedPanel"
-								class="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 transition-colors">
+								class="text-xs text-neutral-500 hover:text-accent-800 dark:hover:text-accent-200 transition-colors">
 								{{ showCompletedPanel ? '收起' : '展开' }}
 							</button>
 						</div>
@@ -651,11 +651,11 @@ onUnmounted(() => {
 										:class="[
 											'flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer transition-colors',
 											selectedTaskId === t.id
-												? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100'
-												: 'text-neutral-500 dark:text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900'
+												? 'bg-accent-50 text-accent-900 dark:bg-accent-500/10 dark:text-accent-100'
+												: 'text-neutral-500 dark:text-neutral-500 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]'
 										]">
 										<input type="checkbox" checked
-											class="h-3.5 w-3.5 rounded border-neutral-300 accent-neutral-900 dark:accent-neutral-100"
+											class="h-3.5 w-3.5 rounded border-accent-300 accent-accent-600 dark:accent-accent-400"
 											@click.stop @change="toggleCompletedTodo(t)" />
 										<span class="truncate">{{ t.title || '未命名任务' }}</span>
 									</li>
@@ -680,7 +680,7 @@ onUnmounted(() => {
 
 		<!-- 状态栏 -->
 		<footer
-			class="h-7 shrink-0 border-t border-neutral-200 dark:border-neutral-800 px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:text-neutral-500 select-none">
+			class="h-7 shrink-0 border-t border-hairline dark:border-hairline-dark px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:text-neutral-500 select-none">
 			<div class="flex items-center gap-3 min-w-0">
 				<span class="truncate">{{ authStore.user?.email || '未登录' }}</span>
 				<span class="text-neutral-300 dark:text-neutral-700">·</span>
@@ -698,7 +698,7 @@ onUnmounted(() => {
 						:class="hasUnsyncedChanges ? 'bg-amber-500' : 'bg-emerald-600 dark:bg-emerald-400'"></span>
 					{{ syncStatusLabel }}
 				</span>
-				<button type="button" class="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+				<button type="button" class="p-1 rounded hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
 					:title="detailPanelToggleLabel" @click="toggleDetailPanel">
 					<AppIcon name="panelRight" :size="14" />
 				</button>

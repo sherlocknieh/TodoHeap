@@ -223,7 +223,7 @@ export function getPriorityLevelColor(score) {
   if (score >= 300) return '#ef4444' // 红色
   if (score >= 200) return '#f59e0b' // 橙色
   if (score >= 100) return '#eab308' // 黄色
-  return '#84cc16' // 绿色
+  return '#22c55e' // 绿色
 }
 
 /**
