@@ -212,7 +212,7 @@ const switchView = (view) => {
         <section class="space-y-0.5">
           <p class="eyebrow px-2 pb-1.5">说明</p>
           <p class="px-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            用一句话描述目标，AI 会拆成可执行任务；也可以让 AI 重新排序当前清单。
+            直接告诉 Agent 要做什么，它会读写任务、日程与偏好；模型可在「设置 → 模型接入」中切换。
           </p>
         </section>
       </template>

@@ -44,13 +44,15 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `pages/todo/TodoTree.vue` | 树视图，仅容器，实际渲染 `MindMapWrapper` |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
 | `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组 |
-| `pages/todo/AIView.vue` | AI 工作台：自然语言建任务与全局优化入口 |
+| `pages/todo/AIView.vue` | AI 工作台：对话式 Agent，可读写任务、日程与偏好 |
 | `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
-| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、AI 偏好、滴答清单导入 |
+| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、AI 偏好、模型接入、滴答清单导入 |
 | `pages/{Home,Login,ResetPassword,404}.vue` | 落地页与认证页 |
 | `lib/supabase.ts` | 唯一 Supabase client，读 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUB_KEY` |
 | `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
 | `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
+| `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
+| `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好 |
 | `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
 | `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
 | `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
@@ -71,6 +73,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
 | `MindMapWrapper.vue` | simple-mind-map 封装，负责与 todos 树互转 |
 | `AITaskInput.vue` | 自然语言输入与分析进度 |
+| `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认 |
+| `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `BreakdownStatusCard.vue` | 分解状态：进行中 / 待确认 / 成功 / 失败 |
 | `OptimizeProgressCard.vue` | 全局优化进度与变更摘要 |
 | `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
@@ -87,11 +91,15 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
 | `stores/todos.breakdown.js` | 三个 AI 边缘函数的调用封装（分解 / 新建 / 优化） |
 | `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
-| `stores/schedules.js` | 日程事件拉取、批量写入与删除 |
+| `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除 |
+| `stores/agent.js` | 对话 Agent：系统提示、工具循环、确认与本地会话 |
+| `stores/llm.js` | 模型配置（仅浏览器本地）与聊天入口 |
 | `stores/auth.ts` | Supabase Auth 会话 |
 | `stores/todos.*.test.js` | vitest 覆盖乐观更新与回滚 |
 
 写操作链路：UI → `todos.js` action → 本地乐观更新并入队 → Supabase → 成功派发 `sync:id-replaced` / 失败回滚。
+
+对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型配置只存浏览器本地。
 
 ## Supabase
 

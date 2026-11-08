@@ -51,6 +51,16 @@ Deleting a task moves it to the trash, where it can be restored or permanently r
 
 ## AI features
 
+### Chat agent
+
+The AI view is a chat agent that can read and write your tasks, schedules and preferences on request.
+
+To connect a model, open **Settings → Model access** and pick a provider preset (OpenAI, DeepSeek, Kimi, GLM, Qwen, Gemini, OpenRouter, local Ollama) or enter any OpenAI-compatible Base URL and model name. The configuration is stored only in this browser; some providers must allow browser requests (CORS) for the connection test to pass.
+
+Destructive actions (deleting tasks, clearing completed tasks, emptying the trash) are always shown for confirmation before they run.
+
+### Shortcuts
+
 | Feature | What it does |
 | --- | --- |
 | Task breakdown | Split an existing task into 3–6 actionable subtasks |
@@ -66,7 +76,7 @@ Breakdown can run in preview mode: generated subtasks are shown for confirmation
 | List | `/app/list` | Day-to-day editing, ordered execution |
 | Tree | `/app/tree` | Mind-map style structure work |
 | Schedule | `/app/schedule` | Calendar events grouped by date |
-| AI | `/app/ai` | Natural-language capture and global optimisation |
+| AI | `/app/ai` | Chat agent: manage tasks, schedules and preferences by conversation |
 | Trash | `/app/trash` | Restore or permanently delete |
 | Heap | `/app/heap` | Priority-ranked queue (sidebar entry currently hidden) |
 

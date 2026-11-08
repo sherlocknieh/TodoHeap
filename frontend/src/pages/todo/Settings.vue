@@ -11,7 +11,7 @@
         <header class="flex items-start justify-between mb-6">
           <div>
             <h1 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">设置</h1>
-            <p class="mt-0.5 text-xs text-neutral-500">账户与 AI 偏好</p>
+            <p class="mt-0.5 text-xs text-neutral-500">账户、模型与 AI 偏好</p>
           </div>
           <div class="flex items-center gap-1 -mr-2">
             <button v-if="floating"
@@ -114,6 +114,11 @@
                   {{ settingsSaving ? '保存中…' : '保存' }}
                 </button>
               </div>
+            </section>
+
+            <!-- 模型接入：配置第三方 OpenAI 兼容服务，供对话 Agent 使用 -->
+            <section v-else-if="activeTab === 'provider'" class="space-y-4">
+              <ProviderSettings />
             </section>
 
             <!-- 导入：先预览文件内容，再按清单分组写入任务树 -->
@@ -440,6 +445,7 @@ import {
   executeTickTickImport
 } from '@/lib/ticktickImport'
 import AppIcon from '@/components/AppIcon.vue'
+import ProviderSettings from '@/components/ProviderSettings.vue'
 
 const props = defineProps({
   floating: { type: Boolean, default: false }
@@ -490,6 +496,7 @@ const handleKeydown = (event) => {
 const tabs = [
   { id: 'account', label: '账户安全', icon: 'lock' },
   { id: 'preferences', label: '偏好设置', icon: 'sliders' },
+  { id: 'provider', label: '模型接入', icon: 'key' },
   { id: 'calendar', label: '日历', icon: 'calendar' },
   { id: 'import', label: '导入数据', icon: 'upload' }
 ]

@@ -29,7 +29,7 @@ export const useScheduleStore = defineStore('schedules', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('schedules')
-        .select('id, title, notes, start_at, end_at, updated_at')
+        .select('id, title, notes, start_at, end_at, todo_id, updated_at')
         .eq('user_id', auth.userId)
         .order('start_at', { ascending: true })
 
@@ -58,12 +58,13 @@ export const useScheduleStore = defineStore('schedules', () => {
         title: event.title,
         notes: event.notes ?? null,
         start_at: event.start_at,
-        end_at: event.end_at
+        end_at: event.end_at,
+        todo_id: event.todo_id ?? null
       }))
       const { data, error: insertError } = await supabase
         .from('schedules')
         .insert(rows)
-        .select('id, title, notes, start_at, end_at, updated_at')
+        .select('id, title, notes, start_at, end_at, todo_id, updated_at')
 
       if (insertError) throw insertError
       schedules.value = [...schedules.value, ...(data || [])]
@@ -71,6 +72,36 @@ export const useScheduleStore = defineStore('schedules', () => {
       return { success: true, data: data || [] }
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : '写入日程失败' }
+    }
+  }
+
+  // 修改单条日程：先落到本地，请求失败再回滚
+  const updateSchedule = async (id, updates) => {
+    const auth = requireUserId()
+    if (!auth.ok) return { success: false, error: auth.error }
+
+    const index = schedules.value.findIndex((item) => item.id === id)
+    if (index === -1) return { success: false, error: '日程不存在' }
+
+    const snapshot = { ...schedules.value[index] }
+    schedules.value[index] = { ...snapshot, ...updates }
+
+    try {
+      const { data, error: updateError } = await supabase
+        .from('schedules')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', auth.userId)
+        .select('id, title, notes, start_at, end_at, todo_id, updated_at')
+        .single()
+
+      if (updateError) throw updateError
+      schedules.value[index] = data
+      schedules.value = [...schedules.value].sort((a, b) => a.start_at.localeCompare(b.start_at))
+      return { success: true, data }
+    } catch (err) {
+      schedules.value[index] = snapshot
+      return { success: false, error: err instanceof Error ? err.message : '更新日程失败' }
     }
   }
 
@@ -103,6 +134,7 @@ export const useScheduleStore = defineStore('schedules', () => {
     isFetched,
     fetchSchedules,
     createSchedules,
+    updateSchedule,
     deleteSchedule
   }
 })

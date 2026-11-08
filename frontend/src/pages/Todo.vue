@@ -153,14 +153,6 @@ const aiStatusLabel = computed(() => {
 
 const viewProps = computed(() => {
 	if (activeView.value === 'heap') return { todos: todoStore.todos }
-	// AI 视图自行承载输入与优化入口
-	if (activeView.value === 'ai') {
-		return {
-			loading: isAnalyzingTask.value,
-			progress: analyzeProgress.value,
-			isOptimizing: isOptimizingTasks.value
-		}
-	}
 	return {}
 })
 
@@ -678,8 +670,8 @@ onUnmounted(() => {
 
 			<!-- 中栏：主要视图内容 -->
 			<div class="flex-1 flex flex-col min-w-0 min-h-0">
-				<!-- AI 分解与优化状态 -->
-				<div v-if="activeView !== 'tree'" class="mx-auto mt-4 mb-3 max-w-3xl w-full px-6">
+				<!-- AI 分解与优化状态：Agent 视图自带对话状态，不显示这些卡片 -->
+				<div v-if="activeView !== 'tree' && activeView !== 'ai'" class="mx-auto mt-4 mb-3 max-w-3xl w-full px-6">
 					<BreakdownStatusCard :is-processing="isBreakingDown" :message="breakdownMessage"
 						:status="breakdownMessageType" :task-count="breakdownProgress.count"
 						:tasks="breakdownProgress.tasks" @confirm="handleConfirmTasks" @cancel="handleCancelTasks" />
@@ -690,7 +682,7 @@ onUnmounted(() => {
 				</div>
 
 				<!-- 清单内容 -->
-				<div class="flex-1 min-h-0" :class="activeView === 'tree' ? 'overflow-hidden' : 'overflow-auto'"
+				<div class="flex-1 min-h-0" :class="['tree', 'ai'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
 					@click="onMainAreaClick">
 					<div v-if="showViewLoading" class="flex items-center justify-center h-96 meta-text">
 						<span class="inline-flex items-center gap-2">
@@ -701,7 +693,9 @@ onUnmounted(() => {
 					<template v-else>
 						<div :class="activeView === 'tree'
 							? 'h-full'
-							: ['mx-auto max-w-3xl w-full px-6 pb-4 space-y-3', activeView === 'ai' ? 'min-h-full flex flex-col justify-center' : '']">
+							: activeView === 'ai'
+								? 'mx-auto max-w-3xl w-full px-6 pb-4 h-full flex flex-col min-h-0'
+								: 'mx-auto max-w-3xl w-full px-6 pb-4 space-y-3'">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									:is-breaking-down="isBreakingDown"
