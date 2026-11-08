@@ -288,8 +288,8 @@ onMounted(() => {
 
       <!-- 月历总览：圆点标记有日程的日子，点击直接切到那天 -->
       <div class="border-t border-hairline px-3 py-2 dark:border-hairline-dark">
-        <p class="pb-1 text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">{{ monthGrid.label }}</p>
-        <div class="grid max-w-md grid-cols-7 gap-1 text-center">
+        <p class="mx-auto max-w-md pb-1 text-center text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">{{ monthGrid.label }}</p>
+        <div class="mx-auto grid max-w-md grid-cols-7 gap-1 text-center">
           <span v-for="weekday in WEEKDAYS" :key="weekday" class="py-0.5 text-[10px] text-neutral-400 dark:text-neutral-600">{{ weekday }}</span>
           <template v-for="(cell, index) in monthGrid.cells" :key="index">
             <span v-if="!cell" aria-hidden="true"></span>
