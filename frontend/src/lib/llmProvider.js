@@ -18,7 +18,7 @@ export const LLM_MODES = [
 ]
 
 // 内置模式可选的模型建议；实际可用范围由网关的 LLM_ALLOWED_MODELS 决定
-export const BUILTIN_MODELS = ['gpt-4.1-mini', 'deepseek-chat']
+export const BUILTIN_MODELS = ['deepseek-chat', 'deepseek-v4-flash', 'gpt-4.1-mini']
 
 export const DEFAULT_LLM_CONFIG = {
   mode: 'byok',

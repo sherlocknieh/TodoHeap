@@ -36,11 +36,17 @@ async function handler(req: Request) {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const apiKey = Deno.env.get("LLM_API_KEY");
+  // 优先用 LLM_*；未配置时复用既有 AI 函数使用的 DeepSeek 密钥，便于直接联调
+  const platformKey = Deno.env.get("LLM_API_KEY");
+  const deepseekKey = Deno.env.get("DEEPSEEK_API_KEY");
+  const apiKey = platformKey || deepseekKey;
   if (!apiKey) {
     return jsonResponse({ error: "网关未配置 LLM_API_KEY" }, 500);
   }
-  const baseUrl = (Deno.env.get("LLM_BASE_URL") || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const explicitBaseUrl = Deno.env.get("LLM_BASE_URL") || Deno.env.get("DEEPSEEK_BASE_URL");
+  const baseUrl = (
+    explicitBaseUrl || (platformKey ? "https://api.openai.com/v1" : "https://api.deepseek.com")
+  ).replace(/\/+$/, "");
 
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
