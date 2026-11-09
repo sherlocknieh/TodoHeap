@@ -59,7 +59,14 @@ const systemPrompt = computed(() => (
   latestRequest.value?.messages?.find((message) => message.role === 'system')?.content || ''
 ))
 
-const rawRequest = computed(() => (latestRequest.value ? JSON.stringify(latestRequest.value, null, 2) : ''))
+// 原始消息取会话记录，展开时剔除大块的请求快照
+const rawMessages = computed(() => agent.messages)
+
+const rawMessageJson = (message) => {
+  const { requests, ...rest } = message
+  return JSON.stringify(rest, null, 2)
+}
+
 
 const breakdown = computed(() => {
   const stats = contextStats.value
@@ -81,16 +88,20 @@ const formatTokens = (value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k`
 
 const formatNumber = (value) => Number(value || 0).toLocaleString()
 
-// 快照不落盘，刷新后会缺失，提示需要重新发送才能生成
-const emptyHint = computed(() => (agent.messages.length
-  ? '请求快照只保留在当前页面，发送新消息后会重新记录。'
-  : '发送一条消息后，这里会展示本轮实际发送的上下文。'))
+const EMPTY_RAW_HINT = '发送一条消息后，这里会展示会话消息记录。'
 
 const formatDateTime = (iso) => {
   const date = new Date(iso)
   if (!iso || Number.isNaN(date.getTime())) return '—'
   const pad = (value) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const formatShortTime = (iso) => {
+  const date = new Date(iso)
+  if (!iso || Number.isNaN(date.getTime())) return ''
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 // 导出当前会话（含内存中的请求快照），便于离线排查
@@ -276,24 +287,36 @@ const exportSession = () => {
         </p>
       </section>
 
-      <!-- 原始数据与导出 -->
+      <!-- 原始消息：最近一次请求逐条列出，每条独立展开 -->
       <section class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
         <div class="flex items-center justify-between">
-          <p class="eyebrow">原始数据</p>
+          <p class="eyebrow">原始消息</p>
           <button type="button" :disabled="!agent.messages.length"
             class="inline-flex items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
             @click="exportSession">
             <AppIcon name="download" :size="12" /> 导出会话
           </button>
         </div>
-        <details v-if="latestRequest" class="rounded-lg border border-hairline dark:border-hairline-dark">
-          <summary class="cursor-pointer px-2.5 py-1.5 text-[11px] text-neutral-600 dark:text-neutral-400">
-            最近一次请求 JSON
-          </summary>
-          <pre class="max-h-64 overflow-auto border-t border-hairline p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:text-neutral-300">{{ rawRequest }}</pre>
-        </details>
+        <template v-if="rawMessages.length">
+          <p class="text-[11px] text-neutral-500 dark:text-neutral-400">会话消息 · {{ rawMessages.length }} 条</p>
+          <div class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+            <details v-for="message in rawMessages" :key="message.id"
+              class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
+              <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+                <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ message.role }}</span>
+                <span class="min-w-0 flex-1 truncate text-neutral-400 dark:text-neutral-500" :title="message.id">
+                  • {{ message.id }}
+                </span>
+                <span class="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatShortTime(message.createdAt) }}</span>
+                <AppIcon name="chevronDown" :size="12"
+                  class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ rawMessageJson(message) }}</pre>
+            </details>
+          </div>
+        </template>
         <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
-          {{ emptyHint }}
+          {{ EMPTY_RAW_HINT }}
         </p>
       </section>
 
