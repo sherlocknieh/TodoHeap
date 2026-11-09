@@ -150,6 +150,8 @@ export const useAgentStore = defineStore('agent', () => {
   // 输入草稿由侧栏技能与聊天框共用，点选技能时填入这里
   const draft = ref('')
   const pendingApproval = ref(null)
+  // 点选技能后记录其工具白名单，只作用于紧接着发送的这一轮
+  const activeSkillId = ref(null)
   const activeUserId = ref(null)
   const context = ref({ selectedTaskId: null })
   const skills = ref(cloneDefaultSkills())
@@ -270,12 +272,13 @@ export const useAgentStore = defineStore('agent', () => {
     return true
   }
 
-  // 点选技能只把指令填入输入框，是否发送由用户决定
+  // 点选技能把指令填入输入框，并记下它的工具白名单等用户发送
   const useSkill = (id) => {
     const skill = skills.value.find((item) => item.id === id)
     if (!skill) return false
     const current = draft.value.trim()
     draft.value = current ? `${current}\n\n${skill.prompt}` : skill.prompt
+    activeSkillId.value = skill.id
     return true
   }
 
@@ -310,6 +313,7 @@ export const useAgentStore = defineStore('agent', () => {
 
   const newSession = () => {
     if (running.value) stop()
+    activeSkillId.value = null
     persist()
 
     // 超出上限时淘汰最久未使用的非当前会话
@@ -335,6 +339,7 @@ export const useAgentStore = defineStore('agent', () => {
     if (!target) return
 
     if (running.value) stop()
+    activeSkillId.value = null
     persist()
     activeSessionId.value = id
     messages.value = target.messages
@@ -464,7 +469,8 @@ export const useAgentStore = defineStore('agent', () => {
     persist()
   }
 
-  const send = async (text) => {    const content = String(text || '').trim()
+  const send = async (text) => {
+    const content = String(text || '').trim()
     if (!content || running.value || pendingApproval.value) return
 
     const llm = useLlmStore()
@@ -472,6 +478,13 @@ export const useAgentStore = defineStore('agent', () => {
       error.value = '请先在设置 → 模型接入中配置模型'
       return
     }
+
+    // 先取出技能白名单：init 会重新加载默认技能，可能覆盖刚点选的条目
+    const skill = activeSkillId.value
+      ? skills.value.find((item) => item.id === activeSkillId.value)
+      : null
+    const allowedTools = skill?.tools?.length ? new Set(skill.tools) : null
+    activeSkillId.value = null
 
     const authStore = useAuthStore()
     init(authStore.user?.id)
@@ -503,6 +516,9 @@ export const useAgentStore = defineStore('agent', () => {
         scheduleStore: useScheduleStore(),
         authStore
       })
+      const tools = allowedTools
+        ? runner.definitions.filter((definition) => allowedTools.has(definition.function.name))
+        : runner.definitions
 
       for (let step = 0; step < MAX_STEPS; step += 1) {
         if (signal.aborted || !isCurrentSession()) break
@@ -518,14 +534,21 @@ export const useAgentStore = defineStore('agent', () => {
         }
         messages.value.push(assistant)
 
-        const reply = await llm.chat({
-          messages: history,
-          tools: runner.definitions,
-          signal,
-          onDelta: (delta) => {
-            assistant.content += delta
-          }
-        })
+        // 流式内容单独累积：失败重试时要判断是否已经输出过文本
+        let streamed = ''
+        const onDelta = (delta) => {
+          streamed += delta
+          assistant.content = streamed
+        }
+
+        let reply
+        try {
+          reply = await llm.chat({ messages: history, tools, signal, onDelta })
+        } catch (err) {
+          // 只有尚未输出内容时才重试一次，避免把已生成的文本再流一遍
+          if (err?.name === 'AbortError' || signal.aborted || streamed) throw err
+          reply = await llm.chat({ messages: history, tools, signal, onDelta })
+        }
 
         assistant.streaming = false
         assistant.content = (reply.content || assistant.content || '').trim()
@@ -556,7 +579,7 @@ export const useAgentStore = defineStore('agent', () => {
         }
 
         if (step === MAX_STEPS - 1) {
-          error.value = '已达到单轮工具调用上限，请继续输入以推进任务'
+          error.value = `本轮已达到 ${MAX_STEPS} 步工具调用上限，已完成的操作均已保存；回复“继续”即可接着处理`
         }
       }
     } catch (err) {

@@ -109,11 +109,38 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'complete_todo',
-      description: '设置任务的完成状态。',
+      description: '设置一个或多个任务的完成状态，批量时用 ids。',
       parameters: objectSchema({
-        id: integer('任务 id'),
+        id: nullableInteger('单个任务 id'),
+        ids: {
+          type: 'array',
+          items: { type: 'integer' },
+          description: '要批量处理的任务 id 列表'
+        },
         completed: { type: 'boolean', description: 'true 标记完成，false 恢复未完成' }
-      }, ['id', 'completed'])
+      }, ['completed'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'link_todo',
+      description: '把已有任务链接为另一个任务的子任务，保留它原有的父任务（多父关系）。',
+      parameters: objectSchema({
+        parent_id: integer('父任务 id'),
+        child_id: integer('要链接的子任务 id')
+      }, ['parent_id', 'child_id'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'unlink_todo',
+      description: '取消两个任务之间的父子链接，只从父任务移除引用，任务本身与其他父关系保留。',
+      parameters: objectSchema({
+        parent_id: integer('父任务 id'),
+        child_id: integer('要取消链接的子任务 id')
+      }, ['parent_id', 'child_id'])
     }
   },
   {
@@ -213,6 +240,30 @@ export const AGENT_TOOL_DEFINITIONS = [
   },
 ]
 
+// 工具中文名同时供聊天记录与技能编辑使用，保持展示文案只有一处
+export const AGENT_TOOL_LABELS = {
+  list_todos: '查看任务',
+  get_todo: '读取任务',
+  create_todo: '创建任务',
+  update_todo: '更新任务',
+  move_todo: '移动任务',
+  complete_todo: '切换完成状态',
+  link_todo: '链接子任务',
+  unlink_todo: '取消链接',
+  delete_todo: '删除任务',
+  delete_completed_todos: '清理已完成',
+  restore_todo: '恢复任务',
+  permanent_delete_todo: '永久删除任务',
+  empty_trash: '清空回收站',
+  list_trash: '查看回收站',
+  list_schedules: '查看日程',
+  create_schedule: '创建日程',
+  update_schedule: '更新日程',
+  delete_schedule: '删除日程'
+}
+
+export const AGENT_TOOL_NAMES = AGENT_TOOL_DEFINITIONS.map((definition) => definition.function.name)
+
 const toNumber = (value) => Number(value)
 
 const normalizeDate = (value, label = '时间') => {
@@ -234,18 +285,22 @@ const normalizeInteger = (value, label = '序号') => {
   return number === null ? null : Math.trunc(number)
 }
 
-// 建立 id → 任务、子 id → 父 id 的索引，用于描述任务所在路径
+// 建立 id → 任务、子 id → 首个父 id、子 id → 全部父 id 的索引，用于描述任务所在路径
 const indexTodos = (todos) => {
   const byId = new Map()
   todos.forEach((todo) => byId.set(toNumber(todo.id), todo))
   const parentOf = new Map()
+  const parentsOf = new Map()
   todos.forEach((todo) => {
     ;(todo.child_ids || []).forEach((childId) => {
       const key = toNumber(childId)
       if (!parentOf.has(key)) parentOf.set(key, toNumber(todo.id))
+      const parents = parentsOf.get(key) || []
+      parents.push(toNumber(todo.id))
+      parentsOf.set(key, parents)
     })
   })
-  return { byId, parentOf }
+  return { byId, parentOf, parentsOf }
 }
 
 const buildPath = (id, byId, parentOf) => {
@@ -260,7 +315,7 @@ const buildPath = (id, byId, parentOf) => {
   return titles.join(' / ')
 }
 
-const serializeTodo = (todo, { byId, parentOf, includeDetails = false } = {}) => {
+const serializeTodo = (todo, { byId, parentOf, parentsOf, includeDetails = false } = {}) => {
   const id = toNumber(todo.id)
   return {
     id,
@@ -272,6 +327,7 @@ const serializeTodo = (todo, { byId, parentOf, includeDetails = false } = {}) =>
     difficulty: todo.difficulty ?? null,
     sort_order: todo.sort_order ?? null,
     parent_id: parentOf.get(id) ?? null,
+    parent_ids: parentsOf?.get(id) || [],
     child_ids: (todo.child_ids || []).map(toNumber),
     ...(includeDetails ? { details: todo.details || '' } : {})
   }
@@ -335,7 +391,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore }) =
   const handlers = {
     async list_todos(args) {
       await ensureTodos()
-      const { byId, parentOf } = indexTodos(todoStore.todos)
+      const { byId, parentOf, parentsOf } = indexTodos(todoStore.todos)
       const mode = args.completed === 'done' || args.completed === 'all' ? args.completed : 'active'
       const query = String(args.query || '').trim().toLowerCase()
       const now = Date.now()
@@ -362,21 +418,21 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore }) =
         truncated: filtered.length > limit,
         tasks: filtered
           .slice(0, limit)
-          .map((todo) => serializeTodo(todo, { byId, parentOf, includeDetails: Boolean(args.include_details) }))
+          .map((todo) => serializeTodo(todo, { byId, parentOf, parentsOf, includeDetails: Boolean(args.include_details) }))
       }
     },
 
     async get_todo(args) {
       await ensureTodos()
       const todo = findTodo(args.id)
-      const { byId, parentOf } = indexTodos(todoStore.todos)
+      const { byId, parentOf, parentsOf } = indexTodos(todoStore.todos)
       const children = (todo.child_ids || [])
         .map((childId) => byId.get(toNumber(childId)))
         .filter(Boolean)
-        .map((child) => serializeTodo(child, { byId, parentOf }))
+        .map((child) => serializeTodo(child, { byId, parentOf, parentsOf }))
       return {
         ok: true,
-        task: { ...serializeTodo(todo, { byId, parentOf, includeDetails: true }), details: todo.details || '' },
+        task: { ...serializeTodo(todo, { byId, parentOf, parentsOf, includeDetails: true }), details: todo.details || '' },
         children
       }
     },
@@ -483,16 +539,87 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore }) =
 
     async complete_todo(args) {
       await ensureTodos()
-      const todo = findTodo(args.id)
+      const ids = [...new Set([
+        ...(Array.isArray(args.ids) ? args.ids : []),
+        ...(args.id != null ? [args.id] : [])
+      ])]
+      if (!ids.length) throw new Error('需要提供 id 或 ids')
+
       const completed = Boolean(args.completed)
-      if (Boolean(todo.completed_at) === completed) {
-        return { ok: true, unchanged: true, task: { id: todo.id, title: todo.title, completed } }
+      const completedAt = completed ? new Date().toISOString() : null
+      const changed = []
+      const unchanged = []
+      const failed = []
+
+      for (const rawId of ids) {
+        try {
+          const todo = findTodo(rawId)
+          if (Boolean(todo.completed_at) === completed) {
+            unchanged.push({ id: toNumber(todo.id), title: todo.title })
+            continue
+          }
+          const result = await todoStore.updateTodo(todo.id, { completed_at: completedAt })
+          if (!result.success) throw new Error(result.error || '更新完成状态失败')
+          changed.push({ id: toNumber(todo.id), title: todo.title })
+        } catch (err) {
+          failed.push({ id: rawId, error: err?.message || String(err) })
+        }
       }
-      const result = await todoStore.updateTodo(todo.id, {
-        completed_at: completed ? new Date().toISOString() : null
-      })
-      if (!result.success) throw new Error(result.error || '更新完成状态失败')
-      return { ok: true, task: { id: todo.id, title: todo.title, completed } }
+
+      if (!changed.length && failed.length) {
+        throw new Error(failed.map((item) => `任务 ${item.id}：${item.error}`).join('；'))
+      }
+      // 部分失败仍算执行成功，具体失败项通过 failed 告诉模型
+      return { ok: true, completed, updated: changed, unchanged, failed }
+    },
+
+    async link_todo(args) {
+      await ensureTodos()
+      const parent = findTodo(args.parent_id)
+      const child = findTodo(args.child_id)
+      if (toNumber(parent.id) === toNumber(child.id)) throw new Error('任务不能链接到自己')
+
+      const childIds = parent.child_ids || []
+      if (childIds.map(toNumber).includes(toNumber(child.id))) {
+        return {
+          ok: true,
+          unchanged: true,
+          parent: { id: toNumber(parent.id), title: parent.title },
+          child: { id: toNumber(child.id), title: child.title }
+        }
+      }
+
+      const result = await todoStore.updateTodo(parent.id, { child_ids: [...childIds, child.id] })
+      if (!result.success) throw new Error(result.error || '链接失败')
+      return {
+        ok: true,
+        parent: { id: toNumber(parent.id), title: parent.title },
+        child: { id: toNumber(child.id), title: child.title }
+      }
+    },
+
+    async unlink_todo(args) {
+      await ensureTodos()
+      const parent = findTodo(args.parent_id)
+      const child = findTodo(args.child_id)
+      const childIds = parent.child_ids || []
+      const nextIds = childIds.filter((id) => toNumber(id) !== toNumber(child.id))
+      if (nextIds.length === childIds.length) {
+        return {
+          ok: true,
+          unchanged: true,
+          parent: { id: toNumber(parent.id), title: parent.title },
+          child: { id: toNumber(child.id), title: child.title }
+        }
+      }
+
+      const result = await todoStore.updateTodo(parent.id, { child_ids: nextIds })
+      if (!result.success) throw new Error(result.error || '取消链接失败')
+      return {
+        ok: true,
+        parent: { id: toNumber(parent.id), title: parent.title },
+        child: { id: toNumber(child.id), title: child.title }
+      }
     },
 
     async delete_todo(args) {

@@ -38,6 +38,16 @@ describe('agentSkills', () => {
     expect(skills[0].icon).toBe('sparkles')
   })
 
+  it('工具白名单只保留已知工具并去重', () => {
+    const [restricted] = normalizeSkills([
+      { id: 'a', name: '只看任务', prompt: '列出任务', tools: ['list_todos', 'unknown', 'list_todos'] }
+    ])
+    expect(restricted.tools).toEqual(['list_todos'])
+
+    const [unrestricted] = normalizeSkills([{ id: 'b', name: '不限工具', prompt: '指令' }])
+    expect(unrestricted.tools).toEqual([])
+  })
+
   it('新建技能带唯一 id', () => {
     const first = createSkill({ name: '周复盘', icon: 'chart', prompt: '总结本周' })
     const second = createSkill({ name: '周复盘', icon: 'chart', prompt: '总结本周' })

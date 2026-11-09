@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
 import { useScheduleStore } from '@/stores/schedules'
 import AppIcon from '@/components/AppIcon.vue'
+import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
 
 const router = useRouter()
 const agent = useAgentStore()
@@ -30,25 +31,6 @@ const scrollRef = ref(null)
 const isComposing = ref(false)
 const expandedCalls = ref(new Set())
 
-const TOOL_LABELS = {
-  list_todos: '查看任务',
-  get_todo: '读取任务',
-  create_todo: '创建任务',
-  update_todo: '更新任务',
-  move_todo: '移动任务',
-  complete_todo: '切换完成状态',
-  delete_todo: '删除任务',
-  delete_completed_todos: '清理已完成',
-  restore_todo: '恢复任务',
-  permanent_delete_todo: '永久删除任务',
-  empty_trash: '清空回收站',
-  list_trash: '查看回收站',
-  list_schedules: '查看日程',
-  create_schedule: '创建日程',
-  update_schedule: '更新日程',
-  delete_schedule: '删除日程'
-}
-
 const SUGGESTIONS = [
   { icon: 'list', text: '今天有哪些任务最该先做？' },
   { icon: 'sparkles', text: '把「准备季度汇报」拆成 5 个子任务，下周五前完成' },
@@ -57,7 +39,7 @@ const SUGGESTIONS = [
   { icon: 'target', text: '帮我做一次全局任务优化', skillId: 'global-optimize' }
 ]
 
-const toolLabel = (name) => TOOL_LABELS[name] || name
+const toolLabel = (name) => AGENT_TOOL_LABELS[name] || name
 
 const parseArguments = (call) => {
   if (call.args) return call.args

@@ -248,13 +248,41 @@ describe('useAgentStore', () => {
       expect.objectContaining({ skills: agent.skills }))
   })
 
-  it('模型调用失败时暴露可读错误并复位运行状态', async () => {
-    mocks.chat.mockRejectedValueOnce(new Error('模型接口返回 401：invalid api key'))
+  it('模型调用失败后自动重试一次', async () => {
+    mocks.chat
+      .mockRejectedValueOnce(new Error('网络中断'))
+      .mockResolvedValueOnce({ content: '重试成功', tool_calls: [] })
 
     const agent = useAgentStore()
     await agent.send('你好')
 
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(agent.error).toBe('')
+    expect(agent.messages.at(-1).content).toBe('重试成功')
+  })
+
+  it('重试仍失败时暴露可读错误并复位运行状态', async () => {
+    mocks.chat.mockRejectedValue(new Error('模型接口返回 401：invalid api key'))
+
+    const agent = useAgentStore()
+    await agent.send('你好')
+
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
     expect(agent.error).toContain('401')
     expect(agent.running).toBe(false)
+  })
+
+  it('点选技能后按技能白名单过滤本轮可用工具', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
+
+    const agent = useAgentStore()
+    const skill = agent.addSkill({ name: '只看任务', prompt: '列出全部任务', tools: ['list_todos', 'unknown'] })
+    expect(skill.tools).toEqual(['list_todos'])
+
+    agent.useSkill(skill.id)
+    await agent.send('列出全部任务')
+
+    const tools = mocks.chat.mock.calls[0][0].tools
+    expect(tools.map((item) => item.function.name)).toEqual(['list_todos'])
   })
 })

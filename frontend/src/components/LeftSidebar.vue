@@ -9,6 +9,7 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
+import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
 import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { useResizablePanel, useResizableHeight } from '@/utils/resizablePanel'
 
@@ -130,15 +131,32 @@ const deleteSession = (id) => {
   agent.deleteSession(id)
 }
 
+// 技能可限定的工具清单，顺序与工具定义一致
+const TOOL_OPTIONS = Object.entries(AGENT_TOOL_LABELS).map(([name, label]) => ({ name, label }))
+
 const startNewSkill = () => {
   skillError.value = ''
   expandSection('skills')
-  skillForm.value = { id: null, name: '', icon: DEFAULT_SKILL_ICON, prompt: '' }
+  skillForm.value = { id: null, name: '', icon: DEFAULT_SKILL_ICON, prompt: '', tools: [] }
 }
 
 const startEditSkill = (skill) => {
   skillError.value = ''
-  skillForm.value = { id: skill.id, name: skill.name, icon: skill.icon, prompt: skill.prompt }
+  skillForm.value = {
+    id: skill.id,
+    name: skill.name,
+    icon: skill.icon,
+    prompt: skill.prompt,
+    tools: [...(skill.tools || [])]
+  }
+}
+
+// 空列表表示不限制，选中的工具会作为该技能的工具白名单
+const toggleSkillTool = (name) => {
+  const form = skillForm.value
+  if (!form) return
+  const tools = form.tools || []
+  form.tools = tools.includes(name) ? tools.filter((item) => item !== name) : [...tools, name]
 }
 
 const cancelSkillForm = () => {
@@ -465,6 +483,19 @@ const switchView = (view) => {
               <textarea v-model="skillForm.prompt" rows="4"
                 class="field w-full resize-none px-1.5 py-1 text-xs leading-5"
                 :maxlength="MAX_SKILL_PROMPT" placeholder="写给 Agent 的指令，例如：把本周任务按优先级重新排序"></textarea>
+              <div>
+                <p class="mb-1 text-[11px] text-neutral-500 dark:text-neutral-400">只允许使用的工具，不选表示全部</p>
+                <div class="flex max-h-24 flex-wrap gap-1 overflow-auto">
+                  <button v-for="tool in TOOL_OPTIONS" :key="tool.name" type="button"
+                    class="chip transition-colors"
+                    :class="skillForm.tools?.includes(tool.name)
+                      ? 'border-accent-500 bg-accent-50 text-accent-700 dark:border-accent-500 dark:bg-accent-500/10 dark:text-accent-300'
+                      : 'border-neutral-300 hover:border-accent-400 dark:border-neutral-600'"
+                    @click="toggleSkillTool(tool.name)">
+                    {{ tool.label }}
+                  </button>
+                </div>
+              </div>
               <p v-if="skillError" class="text-[11px] text-rose-600 dark:text-rose-400">{{ skillError }}</p>
               <div class="flex justify-end gap-1.5">
                 <button type="button" class="btn-ghost text-xs" @click="cancelSkillForm">取消</button>
@@ -478,7 +509,8 @@ const switchView = (view) => {
             <ul v-else class="space-y-0.5">
               <li v-for="skill in agent.skills" :key="skill.id"
                 class="group flex items-center gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
-                <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left" title="填入输入框"
+                <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left"
+                  :title="skill.tools?.length ? `填入输入框（仅限 ${skill.tools.length} 个工具）` : '填入输入框'"
                   @click="insertSkill(skill)">
                   <AppIcon :name="skill.icon" :size="13" class="opacity-70" />
                   <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">{{ skill.name }}</span>

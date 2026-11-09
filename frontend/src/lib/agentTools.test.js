@@ -182,6 +182,53 @@ describe('createAgentToolRunner', () => {
     expect(todoStore.todos.find((item) => item.id === 4).child_ids).toContain(2)
   })
 
+  it('批量完成时跳过已完成任务并汇总失败项', async () => {
+    const result = await runner.run('complete_todo', { ids: [1, 3, 999], completed: true })
+
+    expect(result.ok).toBe(true)
+    expect(result.updated.map((item) => item.id)).toEqual([1])
+    expect(result.unchanged.map((item) => item.id)).toEqual([3])
+    expect(result.failed).toHaveLength(1)
+    expect(todoStore.todos.find((item) => item.id === 1).completed_at).toBeTruthy()
+  })
+
+  it('未提供任务 id 时提示需要 id 或 ids', async () => {
+    const result = await runner.run('complete_todo', { completed: true })
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('ids')
+  })
+
+  it('链接任务时保留原有父任务，重复链接不重复写入', async () => {
+    const linked = await runner.run('link_todo', { parent_id: 4, child_id: 2 })
+    expect(linked.ok).toBe(true)
+    expect(todoStore.todos.find((item) => item.id === 4).child_ids).toContain(2)
+    expect(todoStore.todos.find((item) => item.id === 1).child_ids).toContain(2)
+
+    const listed = await runner.run('list_todos', { completed: 'all' })
+    expect(listed.tasks.find((task) => task.id === 2).parent_ids).toEqual([1, 4])
+
+    const again = await runner.run('link_todo', { parent_id: 1, child_id: 2 })
+    expect(again.unchanged).toBe(true)
+    expect(todoStore.updateTodo).toHaveBeenCalledTimes(1)
+  })
+
+  it('取消链接只移除父任务引用，任务本身保留', async () => {
+    const result = await runner.run('unlink_todo', { parent_id: 1, child_id: 2 })
+
+    expect(result.ok).toBe(true)
+    expect(todoStore.todos.find((item) => item.id === 1).child_ids).not.toContain(2)
+    expect(todoStore.todos.find((item) => item.id === 2)).toBeTruthy()
+  })
+
+  it('拒绝把任务链接到自己', async () => {
+    const result = await runner.run('link_todo', { parent_id: 1, child_id: 1 })
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('自己')
+    expect(todoStore.updateTodo).not.toHaveBeenCalled()
+  })
+
   it('创建日程时校验时间顺序', async () => {
     const invalid = await runner.run('create_schedule', {
       title: '倒序日程',
