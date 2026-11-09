@@ -30,6 +30,7 @@ const inputRef = ref(null)
 const scrollRef = ref(null)
 const isComposing = ref(false)
 const expandedCalls = ref(new Set())
+const expandedRequests = ref(new Set())
 
 const SUGGESTIONS = [
   { icon: 'list', text: '今天有哪些任务最该先做？' },
@@ -93,6 +94,37 @@ const prettyResult = (call) => {
   } catch {
     return String(call.result)
   }
+}
+
+const isRequestExpanded = (id) => expandedRequests.value.has(id)
+
+const toggleRequest = (id) => {
+  const next = new Set(expandedRequests.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedRequests.value = next
+}
+
+// 还原每次请求的实际内容，保留系统提示与工具结果的原始换行
+const formatRequest = (request) => {
+  const lines = [
+    `model: ${request.model || '未记录'}`,
+    `temperature: ${request.temperature ?? '默认'}`,
+    `tools: ${request.tools?.length ? request.tools.join(', ') : '（无）'}`,
+    ''
+  ]
+  ;(request.messages || []).forEach((message, index) => {
+    lines.push(`#${index + 1} ${message.role}`)
+    if (message.content) lines.push(message.content)
+    if (Array.isArray(message.tool_calls)) {
+      message.tool_calls.forEach((call) => {
+        lines.push(`tool_call ${call.function?.name}(${call.function?.arguments || '{}'})`)
+      })
+    }
+    if (message.tool_call_id) lines.push(`tool_call_id: ${message.tool_call_id}`)
+    lines.push('')
+  })
+  return lines.join('\n').trimEnd()
 }
 
 const canSend = computed(() => Boolean(draft.value.trim()) && !agent.running)
@@ -214,10 +246,28 @@ onMounted(() => {
       </section>
 
       <template v-for="message in agent.messages" :key="message.id">
-        <!-- 用户消息 -->
-        <div v-if="message.role === 'user'" class="flex justify-end">
-          <div class="max-w-[85%] rounded-lg bg-accent-700 px-3 py-2 text-sm leading-6 text-white whitespace-pre-wrap break-words dark:bg-accent-500 dark:text-accent-950">
-            {{ message.content }}
+        <!-- 用户消息：可展开查看这一轮实际发给模型的全部提示词 -->
+        <div v-if="message.role === 'user'" class="space-y-1.5">
+          <div class="flex justify-end">
+            <div class="max-w-[85%] rounded-lg bg-accent-700 px-3 py-2 text-sm leading-6 text-white whitespace-pre-wrap break-words dark:bg-accent-500 dark:text-accent-950">
+              {{ message.content }}
+            </div>
+          </div>
+          <div v-if="message.requests?.length" class="flex justify-end">
+            <button
+              class="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-neutral-500 transition-colors hover:text-accent-700 dark:text-neutral-400 dark:hover:text-accent-300"
+              :aria-expanded="isRequestExpanded(message.id)" @click="toggleRequest(message.id)">
+              <AppIcon name="eye" :size="12" />
+              {{ isRequestExpanded(message.id) ? '收起请求' : `查看请求 · ${message.requests.length} 次` }}
+            </button>
+          </div>
+          <div v-if="isRequestExpanded(message.id)" class="space-y-1.5">
+            <div v-for="(request, index) in message.requests" :key="index" class="panel p-2.5">
+              <p class="mb-1 text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                第 {{ index + 1 }} 次请求 · {{ request.model || '未记录模型' }} · {{ request.tools?.length || 0 }} 个工具
+              </p>
+              <pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">{{ formatRequest(request) }}</pre>
+            </div>
           </div>
         </div>
 

@@ -185,11 +185,12 @@ export const useAgentStore = defineStore('agent', () => {
       sessions.value = [...sessions.value]
         .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
 
+      // 请求快照只用于当前页面查看，落盘会随对话轮次成倍膨胀
       localStorage.setItem(`${STORAGE_PREFIX}${activeUserId.value || 'anon'}`, JSON.stringify({
         version: 2,
         activeId: activeSessionId.value,
         sessions: sessions.value
-      }))
+      }, (key, value) => (key === 'requests' ? undefined : value)))
       localStorage.removeItem(`${LEGACY_STORAGE_PREFIX}${activeUserId.value || 'anon'}`)
     } catch {
       // 存储空间不足时放弃持久化，本次会话仍可继续
@@ -495,7 +496,9 @@ export const useAgentStore = defineStore('agent', () => {
     const isCurrentSession = () => activeSessionId.value === sessionId
 
     error.value = ''
-    messages.value.push({ id: createId(), role: 'user', content, toolCalls: [], createdAt: nowIso() })
+    // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
+    const userMessage = { id: createId(), role: 'user', content, toolCalls: [], requests: [], createdAt: nowIso() }
+    messages.value.push(userMessage)
 
     const session = activeSession.value
     if (session) {
@@ -524,6 +527,13 @@ export const useAgentStore = defineStore('agent', () => {
         if (signal.aborted || !isCurrentSession()) break
 
         const history = toApiMessages()
+        // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
+        userMessage.requests.push({
+          model: llm.activeModel,
+          temperature: llm.config?.temperature,
+          tools: tools.map((definition) => definition.function.name),
+          messages: history
+        })
         const assistant = {
           id: createId(),
           role: 'assistant',

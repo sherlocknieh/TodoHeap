@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./llm', () => ({
   useLlmStore: () => ({
     isConfigured: true,
-    config: { model: 'test-model' },
+    activeModel: 'test-model',
+    config: { model: 'test-model', temperature: 0.2 },
     chat: mocks.chat
   })
 }))
@@ -125,6 +126,26 @@ describe('useAgentStore', () => {
     const secondCallMessages = mocks.chat.mock.calls[1][0].messages
     expect(secondCallMessages.at(-1)).toMatchObject({ role: 'tool', tool_call_id: 'call_list_todos' })
     expect(secondCallMessages.some((message) => message.role === 'assistant' && message.tool_calls)).toBe(true)
+  })
+
+  it('在用户消息上记录每一轮实际发送给模型的完整请求', async () => {
+    mocks.chat
+      .mockResolvedValueOnce(toolCallResponse('list_todos', {}))
+      .mockResolvedValueOnce({ content: '你有 1 条任务。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('我有哪些任务')
+
+    const userMessage = agent.messages[0]
+    expect(userMessage.requests).toHaveLength(2)
+
+    const [first, second] = userMessage.requests
+    expect(first.model).toBe('test-model')
+    expect(first.temperature).toBe(0.2)
+    expect(first.messages[0]).toMatchObject({ role: 'system' })
+    expect(first.tools).toContain('list_todos')
+    expect(second.messages.at(-1)).toMatchObject({ role: 'tool', tool_call_id: 'call_list_todos' })
+    expect(second.tools).toEqual(first.tools)
   })
 
   it('破坏性操作先等待确认，取消后不执行并让模型收尾', async () => {
