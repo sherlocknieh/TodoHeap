@@ -68,6 +68,13 @@
         </div>
 
         <!-- 行内操作 -->
+        <div v-if="item._isRef && !selectionMode" class="flex shrink-0 items-center gap-0.5">
+          <button type="button"
+            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 opacity-0 transition-all hover:bg-accent-50 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            title="取消链接" aria-label="取消链接" @click.stop="emitUnlink(item)">
+            <AppIcon name="unlink" :size="13" />
+          </button>
+        </div>
         <div v-if="!item._isRef && !selectionMode"
           class="flex shrink-0 items-center gap-0.5">
           <div class="relative">
@@ -148,11 +155,14 @@ const emit = defineEmits([
   'task-selected',
   'toggle-select',
   'set-deadline',
-  'move-todo'
+  'move-todo',
+  'unlink-task'
 ])
 
 const emitToggleDone = (item) => emit('toggle-done', item)
 const emitDeleteTodo = (id) => emit('delete-todo', id)
+// 回边行没有真实父节点，用渲染它的节点作为父级解除引用
+const emitUnlink = (item) => emit('unlink-task', { parentId: item.parent_id, childId: item._refTargetId })
 const emitAddSubtask = (parentId) => {
   expandedMap.value[parentId] = true
   emit('add-subtask', parentId, startEdit)

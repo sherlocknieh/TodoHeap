@@ -42,6 +42,8 @@ Double-click a task title: Enter saves, Esc cancels.
 Tasks support unlimited nesting: each task stores its `child_ids`. A task can appear under multiple parents, and cycles are allowed; the list and tree views show the first occurrence in full and mark later references as back-links.
 
 - Add a child: the `+` button on a task row
+- Link an existing task: pick it in the detail panel to attach it as a child, creating an extra parent relationship
+- Unlink: hover a child row in the detail panel or a back-link row in the list view and click the unlink icon; only that parent-child reference is removed and the task itself stays
 - Change hierarchy: insert or re-parent nodes in the tree view
 - Collapse: click the arrow on the left of a parent task
 

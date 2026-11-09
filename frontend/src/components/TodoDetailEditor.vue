@@ -93,16 +93,24 @@
           </div>
 
           <div class="max-h-40 overflow-auto px-2 pb-1">
-            <button v-for="child in directChildren" :key="child.id" type="button"
-              class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] transition-colors"
-              @click="emit('task-selected', child.id)">
-              <span class="h-1.5 w-1.5 rounded-full shrink-0"
-                :class="child.completed_at ? 'bg-accent-500 dark:bg-accent-400' : 'bg-neutral-300 dark:bg-neutral-600'"></span>
-              <span class="flex-1 truncate"
-                :class="child.completed_at ? 'line-through text-neutral-400 dark:text-neutral-600' : ''">
-                {{ child.title || '未命名任务' }}
-              </span>
-            </button>
+            <div v-for="child in directChildren" :key="child.id"
+              class="group flex items-center gap-1 rounded-lg hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] transition-colors">
+              <button type="button"
+                class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm text-neutral-700 dark:text-neutral-300"
+                @click="emit('task-selected', child.id)">
+                <span class="h-1.5 w-1.5 rounded-full shrink-0"
+                  :class="child.completed_at ? 'bg-accent-500 dark:bg-accent-400' : 'bg-neutral-300 dark:bg-neutral-600'"></span>
+                <span class="flex-1 truncate"
+                  :class="child.completed_at ? 'line-through text-neutral-400 dark:text-neutral-600' : ''">
+                  {{ child.title || '未命名任务' }}
+                </span>
+              </button>
+              <button v-if="!isDeleted" type="button"
+                class="mr-1 grid h-6 w-6 shrink-0 place-items-center rounded text-neutral-400 opacity-0 transition-opacity hover:bg-accent-100 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+                title="取消链接" aria-label="取消链接" @click.stop="unlinkChild(child)">
+                <AppIcon name="unlink" :size="13" />
+              </button>
+            </div>
             <p v-if="directChildren.length === 0" class="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-600">
               还没有子任务
             </p>
@@ -237,6 +245,13 @@ const linkChild = async () => {
   const nextIds = [...(todo.value.child_ids || []), target.id]
   await todoStore.updateTodo(todo.value.id, { child_ids: nextIds })
   linkTargetId.value = ''
+}
+
+// 取消链接：只从当前任务的 child_ids 移除引用，子任务本身与其他父关系不受影响
+const unlinkChild = async (child) => {
+  if (!todo.value || isDeleted.value) return
+  const nextIds = (todo.value.child_ids || []).filter((id) => String(id) !== String(child.id))
+  await todoStore.updateTodo(todo.value.id, { child_ids: nextIds })
 }
 
 // 格式化日期

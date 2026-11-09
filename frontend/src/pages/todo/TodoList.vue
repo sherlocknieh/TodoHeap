@@ -86,6 +86,7 @@
         @toggle-select="toggleSelect"
         @set-deadline="setDeadline"
         @move-todo="moveTodo"
+        @unlink-task="unlinkTask"
       />
       <p v-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
         没有进行中的任务，已完成的收在下方
@@ -402,6 +403,24 @@ const moveTodo = async ({ id, targetId, position }) => {
   if (!result.success && result.error) {
     emit('notify', { message: result.error })
   }
+}
+
+// 取消链接：把目标任务从父任务的 child_ids 中摘除，任务本身与其他父关系保留
+const unlinkTask = async ({ parentId, childId }) => {
+  const parent = todoStore.findTodoById(parentId)
+  if (!parent || childId == null) return
+
+  const previousIds = [...(parent.child_ids || [])]
+  const nextIds = previousIds.filter(id => String(id) !== String(childId))
+  if (nextIds.length === previousIds.length) return
+
+  const result = await todoStore.updateTodo(parentId, { child_ids: nextIds })
+  if (!result.success) return
+
+  emit('notify', {
+    message: '已取消链接',
+    undo: () => todoStore.updateTodo(parentId, { child_ids: previousIds })
+  })
 }
 
 const handleTaskSelected = (taskId) => {
