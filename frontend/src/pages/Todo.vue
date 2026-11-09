@@ -9,6 +9,7 @@ import { storeToRefs } from 'pinia'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
+import AgentContextPanel from '@/components/AgentContextPanel.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
@@ -194,7 +195,12 @@ const toggleDetailPanel = () => {
 	showDetailPanel.value = !showDetailPanel.value
 }
 
-const detailPanelToggleLabel = computed(() => showDetailPanel.value ? '隐藏详情面板' : '显示详情面板')
+// AI 视图下同一位置承载对话上下文，其他视图仍是任务详情
+const detailPanelToggleLabel = computed(() => {
+	const isAi = activeView.value === 'ai'
+	const target = isAi ? '对话上下文' : '详情面板'
+	return showDetailPanel.value ? `隐藏${target}` : `显示${target}`
+})
 
 provide(TODO_DETAIL_PANEL_CONTEXT, {
 	openDetailPanel
@@ -519,8 +525,10 @@ const runToastUndo = async () => {
 				</div>
 			</div>
 
-			<!-- 右栏：详情面板 -->
-			<TodoDetailEditor :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
+			<!-- 右栏：AI 视图展示对话上下文，其余视图展示任务详情 -->
+			<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel"
+				:selected-task-id="selectedTaskId" @close="closeDetailPanel" />
+			<TodoDetailEditor v-else :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
 				@task-selected="handleTaskSelected" />
 		</div>
 

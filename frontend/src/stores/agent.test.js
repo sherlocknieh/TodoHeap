@@ -131,7 +131,11 @@ describe('useAgentStore', () => {
   it('在用户消息上记录每一轮实际发送给模型的完整请求', async () => {
     mocks.chat
       .mockResolvedValueOnce(toolCallResponse('list_todos', {}))
-      .mockResolvedValueOnce({ content: '你有 1 条任务。', tool_calls: [] })
+      .mockResolvedValueOnce({
+        content: '你有 1 条任务。',
+        tool_calls: [],
+        usage: { prompt: 120, completion: 30, total: 150 }
+      })
 
     const agent = useAgentStore()
     await agent.send('我有哪些任务')
@@ -140,6 +144,8 @@ describe('useAgentStore', () => {
     expect(userMessage.requests).toHaveLength(2)
 
     const [first, second] = userMessage.requests
+    expect(first.usage).toBeNull()
+    expect(second.usage).toEqual({ prompt: 120, completion: 30, total: 150 })
     expect(first.model).toBe('test-model')
     expect(first.temperature).toBe(0.2)
     expect(first.messages[0]).toMatchObject({ role: 'system' })

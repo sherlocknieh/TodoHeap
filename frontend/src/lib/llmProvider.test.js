@@ -131,6 +131,28 @@ describe('streamChatCompletion', () => {
       vi.unstubAllGlobals()
     }
   })
+
+  it('普通 JSON 响应中的 usage 原样归一化返回', async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({
+        choices: [{ message: { content: 'ok' } }],
+        usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 }
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    ))
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const result = await streamChatCompletion({
+        baseUrl: 'https://example.com/v1',
+        model: 'demo',
+        messages: [{ role: 'user', content: 'hi' }]
+      })
+      expect(result.usage).toEqual({ prompt: 12, completion: 3, total: 15 })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })
 
 describe('createStreamAccumulator', () => {
@@ -171,5 +193,14 @@ describe('createStreamAccumulator', () => {
     const accumulator = createStreamAccumulator()
     accumulator.pushToolCalls([{ index: 0, function: { arguments: '{}' } }])
     expect(accumulator.result().toolCalls).toHaveLength(0)
+  })
+
+  it('保留最后一次有效的用量信息', () => {
+    const accumulator = createStreamAccumulator()
+    expect(accumulator.result().usage).toBeNull()
+
+    accumulator.pushUsage({ prompt_tokens: 10, completion_tokens: 5 })
+    accumulator.pushUsage({})
+    expect(accumulator.result().usage).toEqual({ prompt: 10, completion: 5, total: 15 })
   })
 })

@@ -528,12 +528,15 @@ export const useAgentStore = defineStore('agent', () => {
 
         const history = toApiMessages()
         // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
-        userMessage.requests.push({
+        const requestRecord = {
           model: llm.activeModel,
           temperature: llm.config?.temperature,
           tools: tools.map((definition) => definition.function.name),
-          messages: history
-        })
+          messages: history,
+          createdAt: nowIso(),
+          usage: null
+        }
+        userMessage.requests.push(requestRecord)
         const assistant = {
           id: createId(),
           role: 'assistant',
@@ -559,6 +562,8 @@ export const useAgentStore = defineStore('agent', () => {
           if (err?.name === 'AbortError' || signal.aborted || streamed) throw err
           reply = await llm.chat({ messages: history, tools, signal, onDelta })
         }
+        // 服务商返回用量时补进快照，供上下文面板展示真实输入输出
+        requestRecord.usage = reply.usage || null
 
         assistant.streaming = false
         assistant.content = (reply.content || assistant.content || '').trim()

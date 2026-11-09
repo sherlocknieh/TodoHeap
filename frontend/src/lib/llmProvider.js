@@ -66,10 +66,21 @@ export class LlmError extends Error {
   }
 }
 
+// 部分服务商在响应末尾附带用量；字段缺失时返回 null，不猜数值
+const normalizeUsage = (usage) => {
+  if (!usage || typeof usage !== 'object') return null
+  const prompt = Number(usage.prompt_tokens) || 0
+  const completion = Number(usage.completion_tokens) || 0
+  const total = Number(usage.total_tokens) || prompt + completion
+  if (!prompt && !completion && !total) return null
+  return { prompt, completion, total }
+}
+
 // 流式增量累加器：文本直接透传，工具调用按 index 拼接完整参数
 export const createStreamAccumulator = () => {
   const toolCalls = new Map()
   let content = ''
+  let usage = null
 
   return {
     pushContent(delta) {
@@ -88,9 +99,13 @@ export const createStreamAccumulator = () => {
         toolCalls.set(index, current)
       })
     },
+    pushUsage(value) {
+      usage = normalizeUsage(value) || usage
+    },
     result() {
       return {
         content,
+        usage,
         toolCalls: [...toolCalls.entries()]
           .sort((a, b) => a[0] - b[0])
           .map(([, call], index) => ({
@@ -227,7 +242,7 @@ export const streamChatCompletion = async ({
     if (payload.error) throw new LlmError(readErrorMessage(payload) || '模型接口返回错误', { body: payload })
     const normalized = normalizeMessage(payload.choices?.[0]?.message)
     if (normalized.content) onDelta?.(normalized.content)
-    return normalized
+    return { ...normalized, usage: normalizeUsage(payload.usage) }
   }
 
   const reader = response.body.getReader()
@@ -250,6 +265,8 @@ export const streamChatCompletion = async ({
       return
     }
     if (json.error) throw new LlmError(readErrorMessage(json) || '模型接口返回错误', { body: json })
+    // 用量块通常没有 choices，先于 choice 判断处理
+    accumulator.pushUsage(json.usage)
 
     const choice = json.choices?.[0]
     if (!choice) return
@@ -289,5 +306,5 @@ export const streamChatCompletion = async ({
   if (!finished && buffer.trim()) consumeLine(buffer.trim())
 
   const result = accumulator.result()
-  return { content: result.content, tool_calls: result.toolCalls }
+  return { content: result.content, tool_calls: result.toolCalls, usage: result.usage }
 }
