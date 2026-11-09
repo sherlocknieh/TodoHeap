@@ -14,6 +14,7 @@ import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
+import logoSrc from '@/assets/logo.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,9 +26,6 @@ const syncQueueStore = useSyncQueueStore()
 const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
 
 const userMenuRef = ref(null)
-
-// 站点部署在子路径下，静态资源需带上 base 前缀
-const logoSrc = `${import.meta.env.BASE_URL}logo.svg`
 
 // 根据路由名称同步当前视图
 const activeView = computed({

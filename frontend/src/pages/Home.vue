@@ -2,12 +2,10 @@
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
+import logoSrc from '@/assets/logo.svg'
 
 const router = useRouter()
 const auth = useAuthStore()
-
-// 站点部署在子路径下，静态资源需带上 base 前缀
-const logoSrc = `${import.meta.env.BASE_URL}logo.svg`
 
 // 按登录状态进入应用或引导登录
 const openApp = () => {
