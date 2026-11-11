@@ -10,6 +10,7 @@ import LeftSidebar from '@/components/LeftSidebar.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import AgentContextPanel from '@/components/AgentContextPanel.vue'
+import ScheduleDetailPanel from '@/components/ScheduleDetailPanel.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
@@ -57,6 +58,10 @@ const selectedTaskId = persistedRef('selected-task', null, {
 	validate: (value) => value === null || Number.isFinite(value)
 })
 const showDetailPanel = persistedRef('detail-open', false)
+// 日程视图的右栏编辑选中的日程，与其他视图的任务选中互不干扰
+const selectedEventId = persistedRef('selected-event', null, {
+	validate: (value) => value === null || Number.isFinite(value)
+})
 // 侧栏显示状态：首次进入窄屏默认收起，之后沿用上次的开合
 const showLeftSidebar = persistedRef('sidebar-open', window.innerWidth >= SIDEBAR_FLOAT_BREAKPOINT)
 // 活动栏显示状态：收起后由顶栏按钮开回
@@ -167,6 +172,7 @@ const syncState = computed(() => {
 })
 
 const viewProps = computed(() => {
+	if (activeView.value === 'schedule') return { selectedEventId: selectedEventId.value }
 	if (activeView.value === 'heap') return { todos: todoStore.todos }
 	return {}
 })
@@ -193,11 +199,15 @@ const toggleDetailPanel = () => {
 	showDetailPanel.value = !showDetailPanel.value
 }
 
-// AI 视图下同一位置承载对话上下文，其他视图仍是任务详情
+// AI 视图下同一位置承载对话上下文，日程视图承载选中日程，其他视图仍是任务详情
 const detailPanelToggleLabel = computed(() => {
-	const isAi = activeView.value === 'ai'
-	const target = isAi ? '对话上下文' : '详情面板'
-	return showDetailPanel.value ? `隐藏${target}` : `显示${target}`
+	if (activeView.value === 'ai') {
+		return showDetailPanel.value ? '隐藏对话上下文' : '显示对话上下文'
+	}
+	if (activeView.value === 'schedule') {
+		return showDetailPanel.value ? '隐藏日程详情' : '显示日程详情'
+	}
+	return showDetailPanel.value ? '隐藏详情面板' : '显示详情面板'
 })
 
 provide(TODO_DETAIL_PANEL_CONTEXT, {
@@ -301,6 +311,19 @@ const handleTaskSelected = (taskId) => {
 		}
 	}
 	console.log('选中任务ID:', taskId)
+}
+
+// 日程选中：右栏编辑该日程，窄屏时一并展开面板
+const handleEventSelected = (eventId) => {
+	if (eventId == null) {
+		selectedEventId.value = null
+		closeDetailPanel()
+		return
+	}
+	selectedEventId.value = eventId
+	if (window.innerWidth > 1024) {
+		showDetailPanel.value = true
+	}
 }
 
 // 创建新任务
@@ -482,7 +505,7 @@ const runToastUndo = async () => {
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
-							<button v-if="activeView !== 'graph'" type="button"
+							<button type="button"
 								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors"
 								:class="showDetailPanel
 									? 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'
@@ -515,7 +538,7 @@ const runToastUndo = async () => {
 										: 'mx-auto max-w-3xl w-full px-8 pb-6'">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
-									@task-selected="handleTaskSelected"
+									@task-selected="handleTaskSelected" @event-selected="handleEventSelected"
 									@notify="handleNotify" @open-sidebar="showLeftSidebar = true" />
 							</router-view>
 						</div>
@@ -523,9 +546,12 @@ const runToastUndo = async () => {
 				</div>
 			</div>
 
-			<!-- 右栏：AI 视图展示对话上下文，其余视图展示任务详情 -->
+			<!-- 右栏：AI 视图展示对话上下文，日程视图展示选中日程，其余视图展示任务详情 -->
 			<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel"
 				:selected-task-id="selectedTaskId" @close="closeDetailPanel" />
+			<ScheduleDetailPanel v-else-if="activeView === 'schedule'" :show="showDetailPanel"
+				:event-id="selectedEventId" @close="closeDetailPanel"
+				@event-deleted="selectedEventId = null" />
 			<TodoDetailEditor v-else :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
 				@task-selected="handleTaskSelected" />
 		</div>

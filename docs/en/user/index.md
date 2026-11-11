@@ -20,7 +20,9 @@ When the goal is still vague, open the AI view and describe it to the agent — 
 
 ### Edit
 
-Click a task to open the detail panel on the right. Everything saves on blur:
+Every view has the same panel toggle at the right of its title bar; what the panel holds depends on the view: task details for list, graph, heap and trash, the selected event for schedule, and the conversation context for AI.
+
+In list, graph, heap and trash, click a task to open its detail panel on the right. Everything saves on blur:
 
 | Field | Notes |
 | --- | --- |
@@ -88,7 +90,7 @@ The schedule view and **Settings → Calendar** can import and export `.ics` fil
 - **Export / subscribe**: only calendar events are included, not task deadlines
 - **Subscription**: the URL contains a random token that acts as a read-only credential; regenerate or disable it at any time
 
-Imported events appear in the schedule view and can be deleted from there.
+Imported events appear in the schedule view. Click an event to open it in the right-hand panel, edit its title, times or notes and save; the panel's delete button removes it.
 
 ## Sync and offline
 

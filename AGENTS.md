@@ -43,7 +43,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `pages/todo/TodoList.vue` | 列表视图：快速添加 + 树形缩进的扁平列表 |
 | `pages/todo/TodoGraph.vue` | 图视图，仅容器，实际渲染 `MindMapWrapper` |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
-| `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组 |
+| `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组，选中事件交给右栏详情 |
 | `pages/todo/AIView.vue` | AI 工作台：对话式 Agent，可读写任务、日程与偏好 |
 | `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
 | `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、模型接入、日历、滴答清单 MCP 导入 |
@@ -76,6 +76,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `MindMapWrapper.vue` | simple-mind-map 封装，负责与 todos 树互转 |
 | `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认、请求详情 |
 | `AgentContextPanel.vue` | AI 视图右栏：会话、模型、上下文构成、本轮工具与选中任务 |
+| `ScheduleDetailPanel.vue` | 日程视图右栏：选中日程的标题、起止时间与备注编辑 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
 

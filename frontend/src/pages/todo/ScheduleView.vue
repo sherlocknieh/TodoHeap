@@ -3,9 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedules'
 import { exportSchedulesIcs, readIcsFile } from '@/lib/calendarTransfer'
-import { toDateTimeLocalValue } from '@/utils/deadline'
 import { parseDateKey, toDateKey } from '@/utils/scheduleRange'
 import AppIcon from '@/components/AppIcon.vue'
+
+const props = defineProps({
+  selectedEventId: { type: [Number, String], default: null }
+})
+
+const emit = defineEmits(['event-selected'])
 
 const route = useRoute()
 const router = useRouter()
@@ -171,76 +176,9 @@ const handleExport = async () => {
   }
 }
 
-const handleDeleteEvent = async (event) => {
-  if (!window.confirm(`删除日程「${event.title}」吗？`)) return
-
-  const result = await scheduleStore.deleteSchedule(event.id)
-  if (!result.success) {
-    importError.value = result.error || '删除日程失败'
-  }
-}
-
-// 编辑日程：卡片按钮打开同一份草稿，保存后写回 schedules
-const editingEvent = ref(null)
-const editForm = ref({ title: '', notes: '', start_at: '', end_at: '' })
-const editError = ref('')
-const isSavingEdit = ref(false)
-
-const openEdit = (event) => {
-  editingEvent.value = event
-  editError.value = ''
-  editForm.value = {
-    title: event.title || '',
-    notes: event.notes || '',
-    start_at: toDateTimeLocalValue(event.start_at),
-    end_at: toDateTimeLocalValue(event.end_at)
-  }
-}
-
-const closeEdit = () => {
-  editingEvent.value = null
-  editError.value = ''
-}
-
-const saveEdit = async () => {
-  if (!editingEvent.value || isSavingEdit.value) return
-
-  const title = editForm.value.title.trim()
-  const start = new Date(editForm.value.start_at)
-  const end = new Date(editForm.value.end_at)
-  if (!title) {
-    editError.value = '填写日程标题'
-    return
-  }
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    editError.value = '填写开始和结束时间'
-    return
-  }
-  if (end <= start) {
-    editError.value = '结束时间需要晚于开始时间'
-    return
-  }
-
-  isSavingEdit.value = true
-  const result = await scheduleStore.updateSchedule(editingEvent.value.id, {
-    title,
-    notes: editForm.value.notes.trim() || null,
-    start_at: start.toISOString(),
-    end_at: end.toISOString()
-  })
-  isSavingEdit.value = false
-  if (!result.success) {
-    editError.value = result.error || '保存日程失败'
-    return
-  }
-  closeEdit()
-}
-
-// 删除入口收进编辑弹窗，避免卡片上误触
-const deleteEditingEvent = async () => {
-  const event = editingEvent.value
-  closeEdit()
-  await handleDeleteEvent(event)
+// 选中日程交给右栏详情面板编辑，列表只负责点选
+const selectEvent = (event) => {
+  emit('event-selected', event.id)
 }
 
 onMounted(() => {
@@ -356,7 +294,11 @@ onMounted(() => {
 
       <ul v-else-if="dayEvents.length" class="space-y-2">
         <li v-for="event in dayEvents" :key="event.id"
-          class="group flex items-center gap-3 rounded-md border border-hairline bg-neutral-50/60 px-3 py-2.5 transition-colors hover:border-accent-400 hover:bg-accent-50/40 dark:border-hairline-dark dark:bg-neutral-900/40 dark:hover:border-accent-600 dark:hover:bg-accent-500/[0.06]">
+          class="group flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors"
+          :class="String(event.id) === String(props.selectedEventId)
+            ? 'border-accent-400 bg-accent-50/60 dark:border-accent-600 dark:bg-accent-500/[0.08]'
+            : 'border-hairline bg-neutral-50/60 hover:border-accent-400 hover:bg-accent-50/40 dark:border-hairline-dark dark:bg-neutral-900/40 dark:hover:border-accent-600 dark:hover:bg-accent-500/[0.06]'"
+          @click="selectEvent(event)">
           <div class="flex w-14 shrink-0 flex-col font-mono text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
             <span>{{ eventTimes(event).start }}</span>
             <span class="text-neutral-400 dark:text-neutral-600">{{ eventTimes(event).end }}</span>
@@ -365,10 +307,6 @@ onMounted(() => {
             <p class="truncate text-sm text-neutral-900 dark:text-neutral-100">{{ event.title || '未命名日程' }}</p>
             <p v-if="event.notes" class="mt-0.5 line-clamp-2 text-xs text-neutral-500 dark:text-neutral-400">{{ event.notes }}</p>
           </div>
-          <button class="rounded p-1 text-neutral-400 opacity-0 transition-opacity hover:text-accent-700 focus:opacity-100 group-hover:opacity-100 dark:hover:text-accent-300"
-            aria-label="编辑日程" @click="openEdit(event)">
-            <AppIcon name="edit" :size="13" />
-          </button>
         </li>
       </ul>
 
@@ -380,58 +318,5 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- 编辑弹窗：标题、时间与备注可改，删除入口也收在这里 -->
-    <Teleport to="body">
-      <div v-if="editingEvent" class="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950/45 p-4 backdrop-blur-sm"
-        @click.self="closeEdit">
-        <div class="panel w-full max-w-md p-5" role="dialog" aria-modal="true" aria-label="编辑日程">
-          <header class="flex items-center justify-between pb-3">
-            <h2 class="text-sm font-semibold">编辑日程</h2>
-            <button class="rounded p-1 text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
-              aria-label="关闭" @click="closeEdit">
-              <AppIcon name="close" :size="15" />
-            </button>
-          </header>
-
-          <div class="space-y-3">
-            <label class="block">
-              <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">标题</span>
-              <input v-model="editForm.title" class="field" type="text" placeholder="日程标题" />
-            </label>
-            <div class="grid grid-cols-2 gap-2">
-              <label class="block">
-                <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">开始</span>
-                <input v-model="editForm.start_at" class="field" type="datetime-local" />
-              </label>
-              <label class="block">
-                <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">结束</span>
-                <input v-model="editForm.end_at" class="field" type="datetime-local" />
-              </label>
-            </div>
-            <label class="block">
-              <span class="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">备注</span>
-              <textarea v-model="editForm.notes" class="field resize-none" rows="3" placeholder="地点、参与人或其他说明"></textarea>
-            </label>
-            <p v-if="editError" class="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
-              <AppIcon name="alert" :size="12" />
-              <span>{{ editError }}</span>
-            </p>
-          </div>
-
-          <footer class="mt-4 flex items-center gap-2">
-            <button class="btn-outline text-rose-600 dark:text-rose-400" :disabled="isSavingEdit" @click="deleteEditingEvent">
-              <AppIcon name="trash" :size="13" />
-              <span>删除</span>
-            </button>
-            <div class="ml-auto flex items-center gap-2">
-              <button class="btn-outline" @click="closeEdit">取消</button>
-              <button class="btn-primary" :disabled="isSavingEdit" @click="saveEdit">
-                <span>{{ isSavingEdit ? '保存中…' : '保存' }}</span>
-              </button>
-            </div>
-          </footer>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
