@@ -283,16 +283,25 @@ const createEdge = (from, to, key, isRef = false, backward = false, laneCross = 
     const startCross = crossOf(start)
     const endCross = crossOf(end)
     const direction = Math.sign(endMain - startMain) || 1
-    const stub = Math.min(18, Math.abs(endMain - startMain) / 2)
+    const span = Math.abs(endMain - startMain)
+    const offset = Math.abs(endCross - startCross)
 
-    d = Math.abs(endCross - startCross) < 1
-      ? `M${start.x} ${start.y} L${end.x} ${end.y}`
-      : roundedPath([
+    if (offset < 1) {
+      d = `M${start.x} ${start.y} L${end.x} ${end.y}`
+    } else if (offset <= span) {
+      // 偏移不大时用平滑曲线，避免小错位也出现生硬折角
+      const bend = Math.max(offset * 0.6, 12)
+      d = `M${start.x} ${start.y} C${start.x + start.dx * bend} ${start.y + start.dy * bend}, ${end.x + end.dx * bend} ${end.y + end.dy * bend}, ${end.x} ${end.y}`
+    } else {
+      // 偏移远大于层间距时走圆角折线，保证箭头仍沿主方向射入
+      const stub = Math.min(18, span / 2)
+      d = roundedPath([
         start,
         at(startMain + direction * stub, startCross),
         at(startMain + direction * stub, endCross),
         end
       ])
+    }
   }
 
   return { key, isRef, d }
@@ -491,6 +500,7 @@ const graphLayout = computed(() => {
   })
 
   // 同层按期望位置排序后顺延排开，再整体平移回期望均值，避免单向漂移
+  // 节点被推开时子树一起移动，否则父子中心错位会让连线拐弯
   const resolveLayerOverlaps = (layer) => {
     const list = [...layers.get(layer)].sort((a, b) => crossCenter.get(a.id) - crossCenter.get(b.id))
     const desired = list.map((node) => crossCenter.get(node.id))
@@ -503,7 +513,14 @@ const graphLayout = computed(() => {
     })
     const drift = desired.reduce((sum, value) => sum + value, 0) / list.length
       - placed.reduce((sum, value) => sum + value, 0) / list.length
-    list.forEach((node, index) => crossCenter.set(node.id, placed[index] + drift))
+
+    list.forEach((node, index) => {
+      const delta = placed[index] + drift - desired[index]
+      if (Math.abs(delta) < 0.01) return
+      const forestNode = forestNodeById.get(node.id)
+      if (forestNode) shiftSubtree(forestNode, delta)
+      else crossCenter.set(node.id, crossCenter.get(node.id) + delta)
+    })
   }
 
   for (let round = 0; round < 3; round += 1) {
