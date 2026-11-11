@@ -13,6 +13,7 @@ import {
   normalizeSkills
 } from '@/lib/agentSkills'
 import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
+import { hydrateImages, removeStoredImages } from '@/lib/agentImages'
 
 const STORAGE_PREFIX = 'todoheap.agent.v2.'
 const LEGACY_STORAGE_PREFIX = 'todoheap.agent.v1.'
@@ -52,10 +53,24 @@ ${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selecte
 - 与任务管理无关的普通问题可以直接回答，不必调用工具。
 - 回答保持简洁，用纯文本和短列表，不要使用 **、# 等 Markdown 记号。`
 
+// 图片只保留元数据，本体在 IndexedDB，避免会话记录撑爆 localStorage
+const normalizeImages = (list) => (Array.isArray(list) ? list : [])
+  .filter((image) => image && image.id)
+  .map((image) => ({
+    id: image.id,
+    name: typeof image.name === 'string' ? image.name : '图片',
+    mime: image.mime || 'image/png',
+    width: Number(image.width) || 0,
+    height: Number(image.height) || 0,
+    size: Number(image.size) || 0,
+    dataUrl: typeof image.dataUrl === 'string' ? image.dataUrl : ''
+  }))
+
 const normalizeMessage = (message) => ({
   id: message.id || createId(),
   role: message.role,
   content: typeof message.content === 'string' ? message.content : '',
+  images: normalizeImages(message.images),
   toolCalls: Array.isArray(message.toolCalls) ? message.toolCalls : [],
   createdAt: message.createdAt || nowIso(),
   streaming: false
@@ -69,7 +84,20 @@ const normalizeMessages = (list) => (Array.isArray(list) ? list : [])
 const titleFromMessages = (messages) => {
   const firstUser = messages.find((message) => message.role === 'user')
   const title = String(firstUser?.content || '').replace(/\s+/g, ' ').trim()
-  return title ? title.slice(0, MAX_TITLE_LENGTH) : DEFAULT_TITLE
+  if (title) return title.slice(0, MAX_TITLE_LENGTH)
+  return firstUser?.images?.length ? '图片对话' : DEFAULT_TITLE
+}
+
+// 带图消息按 OpenAI 多模态格式发送：文本在前，图片按顺序附后
+const toUserContent = (message) => {
+  const images = (message.images || []).filter((image) => image.dataUrl)
+  if (!images.length) return message.content
+  const parts = []
+  if (message.content) parts.push({ type: 'text', text: message.content })
+  images.forEach((image) => {
+    parts.push({ type: 'image_url', image_url: { url: image.dataUrl } })
+  })
+  return parts
 }
 
 const createSession = (title = DEFAULT_TITLE, messages = []) => ({
@@ -187,12 +215,12 @@ export const useAgentStore = defineStore('agent', () => {
       sessions.value = [...sessions.value]
         .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
 
-      // 请求快照只用于当前页面查看，落盘会随对话轮次成倍膨胀
+      // 请求快照只用于当前页面查看，落盘会随对话轮次成倍膨胀；图片本体存 IndexedDB
       localStorage.setItem(`${STORAGE_PREFIX}${activeUserId.value || 'anon'}`, JSON.stringify({
         version: 2,
         activeId: activeSessionId.value,
         sessions: sessions.value
-      }, (key, value) => (key === 'requests' ? undefined : value)))
+      }, (key, value) => (key === 'requests' || key === 'dataUrl' ? undefined : value)))
       localStorage.removeItem(`${LEGACY_STORAGE_PREFIX}${activeUserId.value || 'anon'}`)
     } catch {
       // 存储空间不足时放弃持久化，本次会话仍可继续
@@ -312,6 +340,7 @@ export const useAgentStore = defineStore('agent', () => {
     error.value = ''
     draft.value = drafts.value[activeSessionId.value] || ''
     persist()
+    hydrateImages(messages.value.flatMap((message) => message.images || []))
     loadSkills(userId)
   }
 
@@ -325,7 +354,10 @@ export const useAgentStore = defineStore('agent', () => {
       const victim = [...sessions.value]
         .filter((session) => session.id !== activeSessionId.value)
         .sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)))[0]
-      if (victim) sessions.value = sessions.value.filter((session) => session.id !== victim.id)
+      if (victim) {
+        sessions.value = sessions.value.filter((session) => session.id !== victim.id)
+        removeStoredImages(victim.messages.flatMap((message) => message.images || []))
+      }
     }
 
     const session = createSession()
@@ -351,6 +383,7 @@ export const useAgentStore = defineStore('agent', () => {
     draft.value = drafts.value[id] || ''
     error.value = ''
     persist()
+    hydrateImages(messages.value.flatMap((message) => message.images || []))
   }
 
   const renameSession = (id, title) => {
@@ -367,7 +400,8 @@ export const useAgentStore = defineStore('agent', () => {
 
     if (running.value) stop()
     const wasActive = activeSessionId.value === id
-    sessions.value.splice(index, 1)
+    const [removed] = sessions.value.splice(index, 1)
+    removeStoredImages(removed?.messages?.flatMap((message) => message.images || []))
 
     if (sessions.value.length === 0) {
       const session = createSession()
@@ -385,6 +419,7 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   const clear = () => {
+    removeStoredImages(messages.value.flatMap((message) => message.images || []))
     messages.value.splice(0)
     error.value = ''
     setDraft('')
@@ -400,7 +435,7 @@ export const useAgentStore = defineStore('agent', () => {
     const apiMessages = [{ role: 'system', content: buildSystemPrompt(context.value) }]
     messages.value.forEach((message) => {
       if (message.role === 'user') {
-        apiMessages.push({ role: 'user', content: message.content })
+        apiMessages.push({ role: 'user', content: toUserContent(message) })
         return
       }
       const calls = (message.toolCalls || []).filter((call) => call.result !== undefined)
@@ -600,9 +635,10 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   // 发送一条新消息：技能白名单只作用于这一轮
-  const send = async (text) => {
+  const send = async (text, images = []) => {
     const content = String(text || '').trim()
-    if (!content || running.value || pendingApproval.value) return
+    const attachments = normalizeImages(images)
+    if ((!content && !attachments.length) || running.value || pendingApproval.value) return
 
     const llm = useLlmStore()
     if (!llm.isConfigured) {
@@ -620,13 +656,14 @@ export const useAgentStore = defineStore('agent', () => {
     init(useAuthStore().user?.id)
 
     // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
-    const userMessage = { id: createId(), role: 'user', content, toolCalls: [], requests: [], createdAt: nowIso() }
+    const userMessage = { id: createId(), role: 'user', content, images: attachments, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
 
     const session = activeSession.value
     if (session) {
       if (!session.title || session.title === DEFAULT_TITLE) {
-        session.title = content.replace(/\s+/g, ' ').slice(0, MAX_TITLE_LENGTH)
+        const title = content.replace(/\s+/g, ' ').slice(0, MAX_TITLE_LENGTH)
+        session.title = title || (attachments.length ? '图片对话' : DEFAULT_TITLE)
       }
       session.updatedAt = nowIso()
     }
@@ -655,8 +692,9 @@ export const useAgentStore = defineStore('agent', () => {
     const index = messages.value.findIndex((message) => message.id === messageId)
     if (index === -1) return
 
+    const images = normalizeImages(messages.value[index].images)
     messages.value.splice(index)
-    const userMessage = { id: createId(), role: 'user', content, toolCalls: [], requests: [], createdAt: nowIso() }
+    const userMessage = { id: createId(), role: 'user', content, images, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
     persist()
     await startTurn({ userMessage })
@@ -667,7 +705,8 @@ export const useAgentStore = defineStore('agent', () => {
     if (running.value) return
     const index = messages.value.findIndex((message) => message.id === messageId)
     if (index === -1) return
-    messages.value.splice(index, 1)
+    const [removed] = messages.value.splice(index, 1)
+    removeStoredImages(removed?.images)
     persist()
   }
 

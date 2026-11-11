@@ -67,6 +67,10 @@ A built-in option is also available: choose **Built-in model** instead of a pers
 
 Destructive actions (deleting tasks, clearing completed tasks, emptying the trash) are always shown for confirmation before they run.
 
+### Images
+
+The composer accepts images: paste a screenshot, drag a file onto the input, or use the **Image** button. Up to 4 images per message, PNG/JPEG/WebP/GIF, 10MB each; long edges are scaled to 1280px before sending. Images are sent as OpenAI-style multimodal content, so the model must support vision. Image data is kept in this browser's IndexedDB and is never uploaded to TodoHeap storage.
+
 You can also ask the agent to break an existing task down, turn a sentence into a task tree, or run a one-click optimisation. Everything happens in the chat: there are no separate AI buttons in the list or task detail panels.
 
 ## Views

@@ -8,6 +8,7 @@ import { useTodoStore } from '@/stores/todos'
 import { useScheduleStore } from '@/stores/schedules'
 import AppIcon from '@/components/AppIcon.vue'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
+import { MAX_IMAGES_PER_MESSAGE, createImageAttachment } from '@/lib/agentImages'
 
 const router = useRouter()
 const agent = useAgentStore()
@@ -38,6 +39,11 @@ const atBottom = ref(true)
 const editingId = ref(null)
 const editingText = ref('')
 const copiedId = ref(null)
+// 待发送图片：粘贴、拖入或选择文件后先在这里预览，发送时随消息一起提交
+const pendingImages = ref([])
+const imageError = ref('')
+const imageInputRef = ref(null)
+const dragging = ref(false)
 
 const SUGGESTIONS = [
   { icon: 'list', text: '今天有哪些任务最该先做？' },
@@ -122,7 +128,15 @@ const formatRequest = (request) => {
   ]
   ;(request.messages || []).forEach((message, index) => {
     lines.push(`#${index + 1} ${message.role}`)
-    if (message.content) lines.push(message.content)
+    if (typeof message.content === 'string') {
+      if (message.content) lines.push(message.content)
+    } else if (Array.isArray(message.content)) {
+      // 多模态消息：文本原样展开，图片只标注数量与尺寸
+      message.content.forEach((part) => {
+        if (part.type === 'text' && part.text) lines.push(part.text)
+        if (part.type === 'image_url') lines.push('[图片]')
+      })
+    }
     if (Array.isArray(message.tool_calls)) {
       message.tool_calls.forEach((call) => {
         lines.push(`tool_call ${call.function?.name}(${call.function?.arguments || '{}'})`)
@@ -134,7 +148,9 @@ const formatRequest = (request) => {
   return lines.join('\n').trimEnd()
 }
 
-const canSend = computed(() => Boolean(draft.value.trim()) && !agent.running)
+const canSend = computed(() => (
+  (Boolean(draft.value.trim()) || pendingImages.value.length > 0) && !agent.running
+))
 
 const lastMessage = computed(() => agent.messages[agent.messages.length - 1])
 
@@ -170,9 +186,78 @@ const applySkill = (skill) => {
 const sendDraft = () => {
   if (!canSend.value) return
   const content = draft.value
+  const images = pendingImages.value
   draft.value = ''
+  pendingImages.value = []
+  imageError.value = ''
   nextTick(() => autoResize())
-  agent.send(content)
+  agent.send(content, images)
+}
+
+// 图片统一走这里入库：超出数量上限或格式不支持时给出提示，不打断已选中的图片
+const addImages = async (files) => {
+  const list = Array.from(files || []).filter(Boolean)
+  if (!list.length) return
+  imageError.value = ''
+
+  const room = MAX_IMAGES_PER_MESSAGE - pendingImages.value.length
+  if (room <= 0) {
+    imageError.value = `每条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片`
+    return
+  }
+
+  const accepted = []
+  for (const file of list.slice(0, room)) {
+    try {
+      accepted.push(await createImageAttachment(file))
+    } catch (err) {
+      imageError.value = err?.message || '图片处理失败'
+    }
+  }
+  if (list.length > room) imageError.value = `每条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片`
+  pendingImages.value = [...pendingImages.value, ...accepted]
+}
+
+const removeImage = (id) => {
+  pendingImages.value = pendingImages.value.filter((image) => image.id !== id)
+  imageError.value = ''
+}
+
+const pickImages = () => imageInputRef.value?.click()
+
+const onImagePicked = async (event) => {
+  await addImages(event.target.files)
+  event.target.value = ''
+}
+
+// 粘贴截图：只在剪贴板里确实有图片时接管，普通文本粘贴不受影响
+const onPaste = (event) => {
+  const files = Array.from(event.clipboardData?.items || [])
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter(Boolean)
+  if (!files.length) return
+  event.preventDefault()
+  addImages(files)
+}
+
+const onDragOver = (event) => {
+  if (!event.dataTransfer?.types?.includes('Files')) return
+  event.preventDefault()
+  dragging.value = true
+}
+
+const onDragLeave = (event) => {
+  if (composerRef.value?.contains(event.relatedTarget)) return
+  dragging.value = false
+}
+
+const onDrop = (event) => {
+  dragging.value = false
+  const files = Array.from(event.dataTransfer?.files || []).filter((file) => file.type.startsWith('image/'))
+  if (!files.length) return
+  event.preventDefault()
+  addImages(files)
 }
 
 const sendSuggestion = (item) => {
@@ -367,8 +452,15 @@ onUnmounted(() => {
           </div>
           <template v-else>
             <div class="flex justify-end">
-              <div class="max-w-[85%] rounded-lg bg-accent-700 px-3 py-2 text-sm leading-6 text-white whitespace-pre-wrap break-words dark:bg-accent-500 dark:text-accent-950">
-                {{ message.content }}
+              <div class="max-w-[85%] space-y-1.5">
+                <div v-if="message.images?.length" class="flex flex-wrap justify-end gap-1.5">
+                  <img v-for="image in message.images" :key="image.id" :src="image.dataUrl" :alt="image.name"
+                    class="max-h-40 max-w-[12rem] rounded-lg border border-hairline object-cover dark:border-hairline-dark" />
+                </div>
+                <div v-if="message.content"
+                  class="rounded-lg bg-accent-700 px-3 py-2 text-sm leading-6 text-white whitespace-pre-wrap break-words dark:bg-accent-500 dark:text-accent-950">
+                  {{ message.content }}
+                </div>
               </div>
             </div>
             <div class="flex items-center justify-end gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
@@ -526,18 +618,36 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="panel p-2 transition-colors focus-within:border-accent-400 dark:focus-within:border-accent-500/50">
+      <div class="panel p-2 transition-colors focus-within:border-accent-400 dark:focus-within:border-accent-500/50"
+        :class="dragging ? 'border-accent-400 dark:border-accent-500/60' : ''"
+        @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
+        <!-- 待发送图片：发送前可逐张移除 -->
+        <div v-if="pendingImages.length" class="mb-1.5 flex flex-wrap gap-1.5 px-1">
+          <div v-for="image in pendingImages" :key="image.id" class="group relative">
+            <img :src="image.dataUrl" :alt="image.name"
+              class="h-16 w-16 rounded-md border border-hairline object-cover dark:border-hairline-dark" />
+            <button type="button"
+              class="absolute -right-1 -top-1 rounded-full border border-hairline bg-surface p-0.5 text-neutral-500 transition-colors hover:text-rose-600 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 dark:hover:text-rose-400"
+              title="移除图片" @click="removeImage(image.id)">
+              <AppIcon name="close" :size="10" />
+            </button>
+          </div>
+        </div>
+
         <textarea ref="inputRef" v-model="draft" rows="1"
           class="w-full resize-none bg-transparent px-2 py-1.5 text-sm leading-6 text-neutral-900 outline-none placeholder:text-neutral-500 dark:text-neutral-100 dark:placeholder:text-neutral-400"
-          placeholder="告诉 Agent 要做什么…"
+          placeholder="告诉 Agent 要做什么…（可粘贴或拖入图片）"
           :disabled="!llm.isConfigured"
           @input="autoResize"
+          @paste="onPaste"
           @keydown="onComposerKeydown"
           @keydown.enter.exact="onEnter"
           @compositionstart="isComposing = true"
           @compositionend="isComposing = false"></textarea>
 
-        <!-- 工具条：模型、技能、发送 -->
+        <p v-if="imageError" class="px-2 pb-1 text-[11px] text-rose-600 dark:text-rose-400">{{ imageError }}</p>
+
+        <!-- 工具条：模型、技能、图片、发送 -->
         <div class="mt-1 flex items-center gap-1">
           <button type="button"
             class="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
@@ -552,6 +662,14 @@ onUnmounted(() => {
             <AppIcon name="target" :size="12" class="opacity-70" />
             <span>技能</span>
           </button>
+          <button type="button"
+            class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            title="添加图片（也可直接粘贴或拖入）" :disabled="!llm.isConfigured" @click="pickImages">
+            <AppIcon name="image" :size="12" class="opacity-70" />
+            <span>图片</span>
+          </button>
+          <input ref="imageInputRef" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple class="hidden"
+            @change="onImagePicked" />
 
           <div class="ml-auto flex shrink-0 items-center gap-1.5">
             <span class="hidden text-[11px] text-neutral-400 sm:inline dark:text-neutral-500">

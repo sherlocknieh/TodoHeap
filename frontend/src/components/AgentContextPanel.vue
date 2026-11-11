@@ -57,7 +57,9 @@ const rawMessages = computed(() => agent.messages)
 
 const rawMessageJson = (message) => {
   const { requests, ...rest } = message
-  return JSON.stringify(rest, null, 2)
+  // 图片本体是 base64，展开时只保留元数据
+  const images = (rest.images || []).map(({ dataUrl, ...meta }) => meta)
+  return JSON.stringify({ ...rest, images }, null, 2)
 }
 
 
@@ -114,7 +116,10 @@ const exportSession = () => {
       model: llm.activeModel,
       temperature: llm.config?.temperature
     },
-    messages: agent.messages
+    messages: agent.messages.map((message) => ({
+      ...message,
+      images: (message.images || []).map(({ dataUrl, ...meta }) => meta)
+    }))
   }
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)

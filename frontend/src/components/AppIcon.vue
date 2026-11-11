@@ -41,6 +41,7 @@ const ICONS = {
   target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
   fileText: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4',
   upload: 'M12 16V4M7 9l5-5 5 5M4 20h16',
+  image: 'M3 5h18v14H3zM3 16l5-5 4 4 3-3 6 6M9 9.5h.01',
   download: 'M12 4v12M7 11l5 5 5-5M4 20h16',
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   calendar: 'M4 6h16v14H4zM8 3v4M16 3v4M4 11h16',

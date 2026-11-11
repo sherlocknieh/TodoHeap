@@ -23,6 +23,10 @@ vi.mock('./todos', () => ({ useTodoStore: () => mocks.stores.todo }))
 vi.mock('./schedules', () => ({ useScheduleStore: () => mocks.stores.schedule }))
 vi.mock('./auth', () => ({ useAuthStore: () => mocks.stores.auth }))
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+vi.mock('@/lib/agentImages', () => ({
+  hydrateImages: vi.fn(async () => {}),
+  removeStoredImages: vi.fn()
+}))
 vi.mock('@/lib/userSettings', () => ({
   fetchUserSettings: mocks.fetchUserSettings,
   saveUserSettings: mocks.saveUserSettings
@@ -369,5 +373,44 @@ describe('useAgentStore', () => {
 
     const tools = mocks.chat.mock.calls[0][0].tools
     expect(tools.map((item) => item.function.name)).toEqual(['list_todos'])
+  })
+
+  it('带图片的消息按多模态格式发送，图片本体不落 localStorage', async () => {
+    const store = new Map()
+    globalThis.localStorage = {
+      getItem: (key) => store.get(key) ?? null,
+      setItem: (key, value) => store.set(key, value),
+      removeItem: (key) => store.delete(key)
+    }
+    mocks.chat.mockResolvedValueOnce({ content: '看到了。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    const image = { id: 'img-1', name: '截图.png', mime: 'image/png', width: 800, height: 600, size: 12, dataUrl: 'data:image/png;base64,AAA' }
+    await agent.send('这张图里是什么任务？', [image])
+
+    const sent = mocks.chat.mock.calls[0][0].messages.at(-1)
+    expect(sent.role).toBe('user')
+    expect(sent.content).toEqual([
+      { type: 'text', text: '这张图里是什么任务？' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' } }
+    ])
+    expect(agent.messages[0].images).toHaveLength(1)
+
+    const stored = JSON.parse(store.get('todoheap.agent.v2.user-1'))
+    expect(stored.sessions[0].messages[0].images[0].dataUrl).toBeUndefined()
+    delete globalThis.localStorage
+  })
+
+  it('只有图片没有文字时也能发送，并用图片对话作为标题', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '收到。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('', [{ id: 'img-2', mime: 'image/png', dataUrl: 'data:image/png;base64,BBB' }])
+
+    expect(mocks.chat).toHaveBeenCalledTimes(1)
+    expect(agent.activeSession.title).toBe('图片对话')
+    expect(mocks.chat.mock.calls[0][0].messages.at(-1).content).toEqual([
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,BBB' } }
+    ])
   })
 })
