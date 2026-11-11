@@ -42,114 +42,17 @@
 完整的方案说明见文档站点的 [项目愿景与方案](docs/zh/dev/00.goals.md), 其中区分了已实现能力与规划中能力。
 
 
+功能TODO列表见 [项目愿景与方案](docs/zh/dev/00.goals.md#功能todo列表)。
 
-## 开发指南
+近期todo
 
-### 依赖环境
-
-```powershell
-# 安装 Node.js（建议 16+ 或 18+ LTS）
-# 访问官网 https://nodejs.org/ 下载并安装，或使用系统包管理器
-# Windows 可用 winget 安装：
-winget install OpenJS.NodeJS
-
-# 推荐使用 pnpm 管理依赖（也支持 npm/yarn）
-npm install -g pnpm
-
-# （可选）配置国内镜像以加速依赖下载：
-npm config set registry https://registry.npmmirror.com
-```
+任务导图视图优化:
+  - 时间轴视图(没有时间的任务为游离态, 有时间的任务按时间轴排列, 任务树在时间轴上展开)
+  - 取消树视图, 只留导图视图
+  - 4方向切换按钮简化归一
+  - agent输入框支持图片, 以及各种优化
 
 
-### 前端开发
-
-- 以 `frontend` 为工作目录
-- 开发指南: [frontend/README.md](frontend/README.md)
-
-快速运行（开发）：
-
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
-
-如果使用 `npm`：
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-本地开发需要在 `frontend` 中配置环境变量文件 `.env.local`，示例位于 `frontend/README.md`。
-
-### 文档开发
-
-- 以 `docs` 为工作目录
-- 开发指南: [docs/README.md](docs/README.md)
-
-快速预览文档（使用 VitePress）：
-
-```bash
-cd docs
-pnpm install
-pnpm dev
-# 打开浏览器访问 http://localhost:5173
-```
-
-### 前端和文档联合开发
-
-- 在项目根目录可以同时启动前端与文档（需分别在各目录安装依赖）：
-
-```bash
-# 启动前端（新终端）
-cd frontend && pnpm dev
-
-# 启动文档（新终端）
-cd docs && pnpm dev
-```
 
 
-### 后端开发
-
-#### 在线/远程 Supabase
-
-- 项目托管在 Supabase（限定访问），如需管理权限请使用项目维护者提供的联系方式。
-
-#### 本地 Supabase 开发
-
-- 使用 Supabase CLI 进行本地或远程项目管理。示例：
-
-```bash
-# 登录到 Supabase（交互式）
-npx supabase login
-
-# 将本地仓库与 Supabase 项目关联（会有交互提示）
-npx supabase link
-
-# 创建数据库迁移
-npx supabase migration new your_migration_name
-
-# 将本地迁移推送到项目（谨慎操作）
-npx supabase db push
-```
-
-边缘函数（Edge Functions）开发示例：
-
-```bash
-# 新建函数
-npx supabase functions new my-function
-
-# 部署函数
-npx supabase functions deploy my-function
-```
-
-注意：操作 Supabase CLI 可能需要你具有相应项目的权限和访问密钥，请向项目维护者获取。
-
-### 提交指南
-
-1. 到 Issue 页面查看/创建/认领任务。
-2. Fork 项目到自己的仓库并创建新分支开始开发。
-3. 完成开发后提交 PR（Pull Request）并填写变更说明。
-4. 代码合并后可删除分支并关闭对应 Issue。
+已实现功能:

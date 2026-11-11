@@ -41,7 +41,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `router/index.ts` | hash 路由；`/app` 需登录，子路由 `list` / `graph` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
 | `pages/Todo.vue` | 工作区外壳：活动栏、侧栏、中栏、详情面板、状态栏；子视图由 `<router-view>` 注入 |
 | `pages/todo/TodoList.vue` | 列表视图：快速添加 + 树形缩进的扁平列表 |
-| `pages/todo/TodoGraph.vue` | 图视图，仅容器，实际渲染 `MindMapWrapper` |
+| `pages/todo/TodoGraph.vue` | 图视图：渲染 `MindMapWrapper`，把键盘增删改接到 store |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
 | `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组，选中事件交给右栏详情 |
 | `pages/todo/AIView.vue` | AI 工作台：对话式 Agent，可读写任务、日程与偏好 |
@@ -73,7 +73,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单 |
 | `TodoDetailEditor.vue` | 右栏详情：标题、起止时间、难度、Markdown 描述 |
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
-| `MindMapWrapper.vue` | simple-mind-map 封装，负责与 todos 树互转 |
+| `MindMapWrapper.vue` | 自研 SVG 思维导图：布局、缩放平移、键盘导航与内联重命名 |
 | `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认、请求详情 |
 | `AgentContextPanel.vue` | AI 视图右栏：会话、模型、上下文构成与本轮工具 |
 | `ScheduleDetailPanel.vue` | 日程视图右栏：选中日程的标题、起止时间与备注编辑 |

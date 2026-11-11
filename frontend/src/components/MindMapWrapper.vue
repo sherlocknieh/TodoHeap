@@ -1,10 +1,11 @@
 <template>
-  <!-- 自研思维导图：SVG 渲染，支持滚轮缩放与拖拽平移 -->
-  <div ref="container"
-    class="mindmap-canvas relative w-full h-full overflow-hidden select-none"
+  <!-- 自研思维导图：SVG 渲染，支持滚轮缩放、拖拽平移与键盘增删改 -->
+  <div ref="container" tabindex="0"
+    class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
     :class="panning ? 'cursor-grabbing' : 'cursor-grab'"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
-    @pointerup="endPan" @pointerleave="endPan" @click.stop @dblclick="fitView">
+    @pointerup="endPan" @pointerleave="endPan" @click.stop @dblclick="fitView"
+    @keydown="onKeydown">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
         <marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
@@ -27,7 +28,7 @@
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
           :opacity="node.completed_at ? 0.55 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
-          @pointerdown.stop @dblclick.stop="selectNode(node)" @click.stop="selectNode(node)">
+          @pointerdown.stop @dblclick.stop="startEdit(node)" @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
             :stroke-dasharray="node.isRef ? '5 4' : undefined" class="transition-colors" :class="[
               node.isRef
@@ -53,6 +54,11 @@
       </g>
     </svg>
 
+    <!-- 内联重命名：输入框浮在节点上方，回车保存、Esc 取消 -->
+    <input v-if="editingNode" ref="editInput" v-model="editingText"
+      class="absolute z-20 rounded-md border border-accent-500 bg-white px-2 font-medium text-neutral-900 shadow-sm outline-none select-text dark:bg-neutral-900 dark:text-neutral-100"
+      :style="editStyle" @keydown.stop="onEditKeydown" @blur="commitEdit" />
+
     <!-- 视图控件：布局方向循环切换与适应视图 -->
     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop>
       <button
@@ -67,7 +73,7 @@
       </button>
     </div>
     <p class="absolute bottom-3 left-3 z-10 text-[11px] text-neutral-400 dark:text-neutral-600 pointer-events-none">
-      滚轮缩放 · 拖拽平移 · 双击复位
+      滚轮缩放 · 拖拽平移 · 双击复位 · Enter 同级 · Tab 子级 · F2 重命名
     </p>
   </div>
 </template>
@@ -79,10 +85,12 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
-  selectedTaskId: { type: Number, default: null }
+  selectedTaskId: { type: Number, default: null },
+  // 新建任务后由父级指定要立即重命名的节点
+  editTaskId: { type: Number, default: null }
 })
 
-const emit = defineEmits(['task-selected'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'edit-started'])
 
 const nodeWidth = 200
 const fontSize = 13
@@ -440,7 +448,207 @@ const fitView = () => {
 
 const selectNode = (node) => {
   if (node.isRoot) return
+  container.value?.focus({ preventScroll: true })
   emit('task-selected', node.isRef ? node.targetId : Number(node.id))
+}
+
+// 森林索引：键盘导航与新建需要知道每个任务的父级与同级顺序
+const nodeIndex = computed(() => {
+  const parentOf = new Map()
+  // null 键存放根层级任务，供同级导航使用
+  const childrenOf = new Map([[null, []]])
+
+  const walk = (node, parentId) => {
+    if (node.isRef) return
+    const id = String(node.id)
+    parentOf.set(id, parentId)
+    if (!childrenOf.has(id)) childrenOf.set(id, [])
+    childrenOf.get(parentId)?.push(id)
+    ;(node.children || []).forEach((child) => walk(child, id))
+  }
+
+  ;(props.nodes || []).forEach((root) => walk(root, null))
+  return { parentOf, childrenOf }
+})
+
+const selectedId = computed(() => (props.selectedTaskId == null ? null : String(props.selectedTaskId)))
+
+// 主方向键沿层级深入/返回，交叉方向键在同级之间移动
+const axisKeys = computed(() => {
+  switch (direction.value) {
+    case 'down':
+      return { forward: 'ArrowDown', backward: 'ArrowUp' }
+    case 'up':
+      return { forward: 'ArrowUp', backward: 'ArrowDown' }
+    case 'left':
+      return { forward: 'ArrowLeft', backward: 'ArrowRight' }
+    default:
+      return { forward: 'ArrowRight', backward: 'ArrowLeft' }
+  }
+})
+
+const focusTask = (id) => {
+  if (id == null) return
+  emit('task-selected', Number(id))
+}
+
+const navigate = (key) => {
+  const id = selectedId.value
+  if (!id) return
+  const { parentOf, childrenOf } = nodeIndex.value
+  const { forward, backward } = axisKeys.value
+
+  if (key === forward) {
+    const children = childrenOf.get(id) || []
+    if (children.length > 0) focusTask(children[0])
+    return
+  }
+
+  if (key === backward) {
+    const parent = parentOf.get(id)
+    if (parent && parent !== 'root') focusTask(parent)
+    return
+  }
+
+  const siblings = childrenOf.get(parentOf.get(id)) || []
+  const index = siblings.indexOf(id)
+  if (index === -1) return
+  const step = key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 1
+  focusTask(siblings[index + step])
+}
+
+// 新建任务：同级插到当前节点之后，子级挂到当前节点下
+const createSibling = () => {
+  const id = selectedId.value
+  const parent = id ? nodeIndex.value.parentOf.get(id) : 'root'
+  emit('create-task', {
+    parentId: parent && parent !== 'root' ? Number(parent) : null,
+    afterId: id ? Number(id) : null
+  })
+}
+
+const createChild = () => {
+  const id = selectedId.value
+  if (!id) return
+  emit('create-task', { parentId: Number(id), afterId: null })
+}
+
+const editingId = ref(null)
+const editingText = ref('')
+const editInput = ref(null)
+// 已消费的新建标记，避免提交后又被父级传入的 id 重新打开
+let consumedEditId = null
+
+const editingNode = computed(() => {
+  if (editingId.value == null) return null
+  return layout.value.nodes.find((node) => node.id === String(editingId.value)) ?? null
+})
+
+// 输入框跟随节点位置与缩放，始终覆盖在节点上
+const editStyle = computed(() => {
+  const node = editingNode.value
+  if (!node) return {}
+  return {
+    left: `${view.x + node.x * view.scale}px`,
+    top: `${view.y + node.y * view.scale}px`,
+    width: `${nodeWidth * view.scale}px`,
+    height: `${node.height * view.scale}px`,
+    fontSize: `${fontSize * view.scale}px`
+  }
+})
+
+const startEdit = (node) => {
+  if (!node || node.isRoot || node.isRef) return
+  editingId.value = Number(node.id)
+  editingText.value = node.title
+  nextTick(() => {
+    editInput.value?.focus()
+    editInput.value?.select()
+  })
+}
+
+const startEditById = (id) => {
+  const node = layout.value.nodes.find((item) => item.id === String(id))
+  if (node) startEdit(node)
+}
+
+const commitEdit = () => {
+  const id = editingId.value
+  if (id == null) return
+  const title = editingText.value.trim()
+  editingId.value = null
+  // 交还焦点，键盘操作可以继续
+  container.value?.focus({ preventScroll: true })
+  if (!title) return
+  const node = layout.value.nodes.find((item) => item.id === String(id))
+  if (node && node.title === title) return
+  emit('rename-task', { id, title })
+}
+
+const cancelEdit = () => {
+  editingId.value = null
+  container.value?.focus({ preventScroll: true })
+}
+
+const onEditKeydown = (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    commitEdit()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    cancelEdit()
+  }
+}
+
+// 新建后父级指定要重命名的任务，等它出现在布局里再打开输入框
+watch([() => props.editTaskId, layout], ([id]) => {
+  if (id == null || id === consumedEditId) return
+  const node = layout.value.nodes.find((item) => item.id === String(id))
+  if (!node) return
+  consumedEditId = id
+  startEdit(node)
+})
+
+const onKeydown = (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+  const id = selectedId.value
+
+  switch (event.key) {
+    case 'Enter':
+      event.preventDefault()
+      createSibling()
+      return
+    case 'Tab':
+      event.preventDefault()
+      createChild()
+      return
+    case 'F2':
+      event.preventDefault()
+      if (id) startEditById(id)
+      return
+    case 'Delete':
+    case 'Backspace':
+      if (!id) return
+      event.preventDefault()
+      emit('delete-task', Number(id))
+      return
+    case ' ':
+      if (!id) return
+      event.preventDefault()
+      emit('toggle-done', Number(id))
+      return
+    case 'Escape':
+      emit('task-selected', null)
+      return
+    case 'ArrowUp':
+    case 'ArrowDown':
+    case 'ArrowLeft':
+    case 'ArrowRight':
+      event.preventDefault()
+      navigate(event.key)
+      return
+    default:
+  }
 }
 
 // 以指针位置为中心缩放，避免缩放后视线漂移

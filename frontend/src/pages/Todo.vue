@@ -346,6 +346,9 @@ const createNewTask = async () => {
 // 浮层侧栏：窄屏抽屉或图视图覆盖模式，点击外部应自动收起
 const isSidebarFloating = computed(() => activeView.value === 'graph' || windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
 
+// 右栏在窄屏同样浮在内容之上，宽屏才挤压中栏
+const isDetailPanelFloating = computed(() => windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
+
 // 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {
 	if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
@@ -359,6 +362,12 @@ const handleClickOutside = (event) => {
 		if (!insideSidebar && !insideRail) {
 			showLeftSidebar.value = false
 		}
+	}
+	// 窄屏右栏浮在内容之上，点击面板外收起
+	if (showDetailPanel.value && isDetailPanelFloating.value) {
+		const insidePanel = event.target.closest?.('[data-detail-panel]')
+		const insideTrigger = event.target.closest?.('[data-detail-panel-trigger]')
+		if (!insidePanel && !insideTrigger) closeDetailPanel()
 	}
 }
 
@@ -505,7 +514,7 @@ const runToastUndo = async () => {
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
-							<button type="button"
+							<button type="button" data-detail-panel-trigger
 								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors"
 								:class="showDetailPanel
 									? 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'
@@ -546,14 +555,18 @@ const runToastUndo = async () => {
 				</div>
 			</div>
 
-			<!-- 右栏：AI 视图展示对话上下文，日程视图展示选中日程，其余视图展示任务详情 -->
-			<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel"
-				:selected-task-id="selectedTaskId" @close="closeDetailPanel" />
-			<ScheduleDetailPanel v-else-if="activeView === 'schedule'" :show="showDetailPanel"
-				:event-id="selectedEventId" @close="closeDetailPanel"
-				@event-deleted="selectedEventId = null" />
-			<TodoDetailEditor v-else :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
-				@task-selected="handleTaskSelected" />
+			<!-- 右栏：窄屏浮在内容之上，宽屏挤压中栏 -->
+			<div :class="isDetailPanelFloating && showDetailPanel
+				? 'absolute inset-y-0 right-0 z-30 flex max-w-[85vw] shadow-lg'
+				: 'flex'">
+				<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel"
+					:selected-task-id="selectedTaskId" @close="closeDetailPanel" />
+				<ScheduleDetailPanel v-else-if="activeView === 'schedule'" :show="showDetailPanel"
+					:event-id="selectedEventId" @close="closeDetailPanel"
+					@event-deleted="selectedEventId = null" />
+				<TodoDetailEditor v-else :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
+					@task-selected="handleTaskSelected" />
+			</div>
 		</div>
 
 		<!-- 状态栏：导航开关、当前视图与全局进度、同步状态 -->
