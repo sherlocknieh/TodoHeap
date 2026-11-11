@@ -50,6 +50,9 @@ export const SETTINGS_TOOLS = [
 // 切换模式本身在所有模式下都可用，否则受限模式无法请求放开权限
 export const MODE_SWITCH_TOOL = 'switch_mode'
 
+// 提问面板在所有模式下都可用：受限模式也要能向用户确认方案
+export const ASK_USER_TOOL = 'ask_user'
+
 export const AGENT_MODES = [
   {
     id: 'plan',
@@ -59,7 +62,8 @@ export const AGENT_MODES = [
     prompt: `当前处于 Plan 模式：只能读取数据，不能修改任何内容。
 - 不要调用写入类工具；需要改动时，把方案写清楚交给用户确认。
 - 方案要具体：涉及哪些任务、改成什么、先后顺序如何。
-- 方案写完后，在同一条回复里立即调用 switch_mode 请求切到 build，不要只说“你确认后我再切”然后停下等用户再发消息；用户点确认后本轮继续执行。`
+- 方案写完后，在同一条回复里立即调用 switch_mode 请求切到 build，不要只说“你确认后我再切”然后停下等用户再发消息；用户点确认后本轮继续执行。
+- 方案里有需要用户拍板的点（时间、对象、范围）时，用 ask_user 给出可直接执行的选项，不要只在正文里提问。`
   },
   {
     id: 'build',
@@ -115,10 +119,10 @@ export const findAgentMode = (id) => (
   || AGENT_MODES[0]
 )
 
-// 模式决定本轮可用工具：null 表示不限制
+// 模式决定本轮可用工具：null 表示不限制；提问与切换入口始终保留
 export const resolveAllowedTools = (modeId) => {
   const mode = findAgentMode(modeId)
-  return mode.tools ? new Set(mode.tools) : null
+  return mode.tools ? new Set([...mode.tools, ASK_USER_TOOL]) : null
 }
 
 // 工具名必须真实存在，避免模式配置写错后静默失效

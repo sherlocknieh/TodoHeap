@@ -11,7 +11,7 @@ vi.mock('./calendarTransfer', () => ({
   disableCalendarFeed: vi.fn(async () => ({ success: true }))
 }))
 
-import { createAgentToolRunner, DESTRUCTIVE_TOOLS } from './agentTools'
+import { AGENT_TOOL_NAMES, CHOICE_TOOLS, createAgentToolRunner, DESTRUCTIVE_TOOLS } from './agentTools'
 
 let nextTempId
 
@@ -302,6 +302,11 @@ describe('createAgentToolRunner', () => {
       'disable_calendar_feed',
       'delete_skill'
     ])
+  })
+
+  it('选择类工具集中声明，由界面弹出选项面板', () => {
+    expect([...CHOICE_TOOLS]).toEqual(['ask_user'])
+    expect(AGENT_TOOL_NAMES).toContain('ask_user')
   })
 
   it('列出应用设置时包含界面偏好、模型参数与技能', async () => {

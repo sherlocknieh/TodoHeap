@@ -25,6 +25,9 @@ export const DESTRUCTIVE_TOOLS = new Set([
 // 需要用户确认但不属于破坏性操作：切换模式会改变后续可用的工具范围
 export const CONFIRM_TOOLS = new Set(['switch_mode'])
 
+// 需要用户选择：由界面弹出选项面板，点选结果直接作为工具结果返回
+export const CHOICE_TOOLS = new Set(['ask_user'])
+
 const objectSchema = (properties, required = []) => ({
   type: 'object',
   properties,
@@ -258,6 +261,21 @@ export const AGENT_TOOL_DEFINITIONS = [
   {
     type: 'function',
     function: {
+      name: 'ask_user',
+      description: '向用户提出一个需要选择的问题。界面会弹出选项面板，用户点一下即可回答，答案作为工具结果返回。需要用户确认方案、选择时间/对象/做法时优先用它，不要只在正文里提问然后停下等回复。',
+      parameters: objectSchema({
+        question: text('要问用户的问题，一句话说清'),
+        options: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '2-6 个选项，每个都是可以直接执行的答复'
+        }
+      }, ['question', 'options'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'switch_mode',
       description: '请求切换工作模式。plan 只读、build 全量、list 只管理清单、schedule 只管理日程、settings 只管理设置、list-schedule 清单与日程双向。需要其他模式的工具时，在同一条回复里直接调用，不要先停下等用户再发消息；用户确认后立即生效，本轮后续请求按新模式发送工具。',
       parameters: objectSchema({
@@ -367,6 +385,7 @@ export const AGENT_TOOL_LABELS = {
   delete_schedule: '删除日程',
   list_app_settings: '查看应用设置',
   update_app_setting: '修改应用设置',
+  ask_user: '向用户提问',
   switch_mode: '切换工作模式',
   create_skill: '新建技能',
   update_skill: '修改技能',
@@ -856,6 +875,11 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const result = await scheduleStore.deleteSchedule(schedule.id)
       if (!result.success) throw new Error(result.error || '删除日程失败')
       return { ok: true, deleted: { id: schedule.id, title: schedule.title } }
+    },
+
+    // 选择面板由 store 拦截并等待用户点选，这里只兜底非界面环境
+    async ask_user() {
+      throw new Error('选择面板不可用，请直接在回复里提问')
     },
 
     // 切换模式由 store 执行：确认后立即生效，本轮后续请求按新模式发送工具

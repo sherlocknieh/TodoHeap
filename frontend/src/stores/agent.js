@@ -5,7 +5,7 @@ import { useAuthStore } from './auth'
 import { useTodoStore } from './todos'
 import { useScheduleStore } from './schedules'
 import { useLlmStore } from './llm'
-import { createAgentToolRunner, AGENT_TOOL_LABELS, CONFIRM_TOOLS, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
+import { createAgentToolRunner, AGENT_TOOL_LABELS, CHOICE_TOOLS, CONFIRM_TOOLS, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
 import {
   cloneDefaultSkills,
   createSkill,
@@ -72,6 +72,7 @@ ${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selecte
 - 拆解任务时优先使用 create_todo 的 subtasks 一次创建子树，保持层级清晰。
 - 删除、清理已完成、永久删除、清空回收站、重置或关闭日历订阅、删除技能属于破坏性操作，系统会要求用户确认；调用前先说明影响。
 - 当前模式缺少所需工具时，在同一条回复里调用 switch_mode 申请切换，不要只让用户自己切换或等用户再发一条消息。
+- 需要用户拍板（确认方案、选时间、选对象、二选一）时调用 ask_user 给出 2-6 个可直接执行的选项，界面会弹出面板让用户点选；不要只在正文里提问然后停下等回复。
 - 操作完成后用简短中文总结改了什么，不要粘贴原始 JSON。
 - 与任务管理无关的普通问题可以直接回答，不必调用工具。
 - 回答保持简洁，用纯文本和短列表，不要使用 **、# 等 Markdown 记号。
@@ -223,6 +224,8 @@ export const useAgentStore = defineStore('agent', () => {
   // 每个会话各自保留未发送的草稿，切换会话不会互相覆盖
   const drafts = ref({})
   const pendingApproval = ref(null)
+  // 选择面板：模型需要用户拍板时弹出，点选结果直接作为工具结果返回
+  const pendingChoice = ref(null)
   // 点选技能后记录其工具白名单，只作用于紧接着发送的这一轮
   const activeUserId = ref(null)
   const context = ref({ selectedTaskId: null })
@@ -232,6 +235,7 @@ export const useAgentStore = defineStore('agent', () => {
 
   let abortController = null
   let approvalResolver = null
+  let choiceResolver = null
   let skillsLoadedFor = null
   let skillsRevision = 0
   let skillSaveChain = Promise.resolve()
@@ -520,9 +524,27 @@ export const useAgentStore = defineStore('agent', () => {
     resolver?.(Boolean(approved))
   }
 
+  const requestChoice = (call) => new Promise((resolve) => {
+    const options = (Array.isArray(call.args?.options) ? call.args.options : [])
+      .map((option) => String(option ?? '').trim())
+      .filter(Boolean)
+      .slice(0, 6)
+    pendingChoice.value = { callId: call.id, question: String(call.args?.question || ''), options }
+    choiceResolver = resolve
+  })
+
+  // 用户点选或取消：取消时返回空答案，让模型自行决定下一步
+  const resolveChoice = (answer) => {
+    pendingChoice.value = null
+    const resolver = choiceResolver
+    choiceResolver = null
+    resolver?.(answer == null ? null : String(answer))
+  }
+
   const stop = () => {
     abortController?.abort()
     if (approvalResolver) resolveApproval(false)
+    if (choiceResolver) resolveChoice(null)
   }
 
   const runToolCall = async (runner, call) => {
@@ -536,6 +558,17 @@ export const useAgentStore = defineStore('agent', () => {
       return
     }
     call.args = args
+
+    // 选择类工具先弹面板，用户点选后把答案当作工具结果
+    if (CHOICE_TOOLS.has(call.name)) {
+      const answer = await requestChoice(call)
+      call.status = answer == null ? 'cancelled' : 'success'
+      call.result = answer == null
+        ? { ok: false, cancelled: true, error: '用户没有选择' }
+        : { ok: true, question: call.args?.question || '', answer }
+      persist()
+      return
+    }
 
     if (DESTRUCTIVE_TOOLS.has(call.name) || CONFIRM_TOOLS.has(call.name)) {
       const approved = await requestApproval(call)
@@ -703,7 +736,7 @@ export const useAgentStore = defineStore('agent', () => {
     const references = (Array.isArray(mentions) ? mentions : [])
       .filter((item) => item?.type && item.id != null)
       .map((item) => ({ key: item.key || `${item.type}:${item.id}`, type: item.type, id: item.id, label: item.label || '', hint: item.hint || '' }))
-    if ((!content && !attachments.length) || running.value || pendingApproval.value) return
+    if ((!content && !attachments.length) || running.value || pendingApproval.value || pendingChoice.value) return
 
     const llm = useLlmStore()
     if (!llm.isConfigured) {
@@ -732,7 +765,7 @@ export const useAgentStore = defineStore('agent', () => {
 
   // 重新生成：丢弃最后一条回复，从最后一条用户消息重新请求
   const regenerate = async () => {
-    if (running.value || pendingApproval.value) return
+    if (running.value || pendingApproval.value || pendingChoice.value) return
     const lastUserIndex = messages.value.map((message) => message.role).lastIndexOf('user')
     if (lastUserIndex === -1) return
 
@@ -746,7 +779,7 @@ export const useAgentStore = defineStore('agent', () => {
   // 编辑后重发：截断该消息之后的内容，用新文本替换并重新请求
   const editAndResend = async (messageId, text) => {
     const content = String(text || '').trim()
-    if (!content || running.value || pendingApproval.value) return
+    if (!content || running.value || pendingApproval.value || pendingChoice.value) return
     const index = messages.value.findIndex((message) => message.id === messageId)
     if (index === -1) return
 
@@ -796,6 +829,7 @@ export const useAgentStore = defineStore('agent', () => {
     draft,
     drafts,
     pendingApproval,
+    pendingChoice,
     hasMessages,
     skills,
     skillsLoading,
@@ -806,6 +840,7 @@ export const useAgentStore = defineStore('agent', () => {
     clear,
     setContext,
     resolveApproval,
+    resolveChoice,
     newSession,
     switchSession,
     renameSession,

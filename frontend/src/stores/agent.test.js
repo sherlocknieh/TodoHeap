@@ -442,7 +442,7 @@ describe('useAgentStore', () => {
 
     const request = mocks.chat.mock.calls[0][0]
     const toolNames = request.tools.map((tool) => tool.function.name)
-    expect(toolNames).toEqual(['list_todos', 'get_todo', 'list_trash', 'list_schedules', 'switch_mode', 'list_app_settings'])
+    expect(toolNames).toEqual(['list_todos', 'get_todo', 'list_trash', 'list_schedules', 'ask_user', 'switch_mode', 'list_app_settings'])
     expect(toolNames).not.toContain('create_todo')
     expect(request.messages[0].content).toContain('Plan 模式')
   })
@@ -470,6 +470,51 @@ describe('useAgentStore', () => {
     const secondTools = mocks.chat.mock.calls[1][0].tools.map((tool) => tool.function.name)
     expect(secondTools).toContain('create_schedule')
     expect(secondTools).toContain('create_todo')
+  })
+
+  it('ask_user 弹出选择面板，点选结果作为工具结果继续本轮', async () => {
+    mocks.chat
+      .mockResolvedValueOnce(toolCallResponse('ask_user', {
+        question: '按哪天创建？',
+        options: ['11-13 15:00', '11-12 15:00']
+      }))
+      .mockResolvedValueOnce({ content: '已按 11-13 创建。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const pending = agent.send('建一条评审会')
+
+    await vi.waitFor(() => expect(agent.pendingChoice).not.toBeNull())
+    expect(agent.pendingChoice.question).toBe('按哪天创建？')
+    expect(agent.pendingChoice.options).toEqual(['11-13 15:00', '11-12 15:00'])
+
+    agent.resolveChoice('11-13 15:00')
+    await pending
+
+    const call = agent.messages[1].toolCalls[0]
+    expect(call.status).toBe('success')
+    expect(call.result.answer).toBe('11-13 15:00')
+    const toolMessage = mocks.chat.mock.calls[1][0].messages.at(-1)
+    expect(toolMessage.role).toBe('tool')
+    expect(toolMessage.content).toContain('11-13 15:00')
+  })
+
+  it('跳过选择面板时把取消结果交回模型', async () => {
+    mocks.chat
+      .mockResolvedValueOnce(toolCallResponse('ask_user', { question: '选哪个？', options: ['A', 'B'] }))
+      .mockResolvedValueOnce({ content: '那我先不动。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const pending = agent.send('随便')
+
+    await vi.waitFor(() => expect(agent.pendingChoice).not.toBeNull())
+    agent.resolveChoice(null)
+    await pending
+
+    const call = agent.messages[1].toolCalls[0]
+    expect(call.status).toBe('cancelled')
+    expect(call.result.cancelled).toBe(true)
   })
 
   it('工具清单作为 system 消息随请求发送', async () => {

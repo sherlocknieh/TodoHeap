@@ -821,6 +821,26 @@ onUnmounted(() => {
         @click="regenerate">重试</button>
     </div>
 
+    <!-- 选择面板：模型需要用户拍板时弹出，点一下即作为答复返回 -->
+    <section v-if="agent.pendingChoice" class="shrink-0 mt-2 panel border-accent-300 dark:border-accent-500/40 p-3 space-y-2">
+      <div class="flex items-start gap-2">
+        <AppIcon name="bulb" :size="15" class="mt-0.5 text-accent-700 dark:text-accent-300" />
+        <p class="min-w-0 text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          {{ agent.pendingChoice.question || '请选择' }}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-1.5">
+        <button v-for="option in agent.pendingChoice.options" :key="option" type="button"
+          class="chip border-accent-300 text-left transition-colors hover:border-accent-500 hover:bg-accent-50 dark:border-accent-500/40 dark:hover:bg-accent-500/10"
+          @click="agent.resolveChoice(option)">
+          {{ option }}
+        </button>
+      </div>
+      <div class="flex justify-end">
+        <button class="btn-ghost text-xs" @click="agent.resolveChoice(null)">跳过</button>
+      </div>
+    </section>
+
     <!-- 操作确认：切换模式与破坏性操作共用同一处，文案按类型区分 -->
     <section v-if="agent.pendingApproval" class="shrink-0 mt-2 panel border-amber-300 dark:border-amber-500/40 p-3 space-y-2">
       <div class="flex items-start gap-2">

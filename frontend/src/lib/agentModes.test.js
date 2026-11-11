@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AGENT_MODES,
   DEFAULT_AGENT_MODE,
+  ASK_USER_TOOL,
   MODE_SWITCH_TOOL,
   READ_ONLY_TOOLS,
   SCHEDULE_TOOLS,
@@ -30,10 +31,10 @@ describe('agentModes', () => {
     expect(findAgentMode('unknown').id).toBe('plan')
   })
 
-  it('单域模式只给本域工具，切换入口始终保留', () => {
-    expect([...resolveAllowedTools('list')]).toEqual([...TODO_TOOLS, MODE_SWITCH_TOOL])
-    expect([...resolveAllowedTools('schedule')]).toEqual([...SCHEDULE_TOOLS, MODE_SWITCH_TOOL])
-    expect([...resolveAllowedTools('settings')]).toEqual([...SETTINGS_TOOLS, MODE_SWITCH_TOOL])
+  it('单域模式只给本域工具，切换与提问入口始终保留', () => {
+    expect([...resolveAllowedTools('list')]).toEqual([...TODO_TOOLS, MODE_SWITCH_TOOL, ASK_USER_TOOL])
+    expect([...resolveAllowedTools('schedule')]).toEqual([...SCHEDULE_TOOLS, MODE_SWITCH_TOOL, ASK_USER_TOOL])
+    expect([...resolveAllowedTools('settings')]).toEqual([...SETTINGS_TOOLS, MODE_SWITCH_TOOL, ASK_USER_TOOL])
   })
 
   it('清单+日程模式合并两域工具，但不含设置写入', () => {
@@ -42,6 +43,7 @@ describe('agentModes', () => {
     expect(tools.has('create_schedule')).toBe(true)
     expect(tools.has('update_app_setting')).toBe(false)
     expect(tools.has(MODE_SWITCH_TOOL)).toBe(true)
+    expect(tools.has(ASK_USER_TOOL)).toBe(true)
   })
 
   it('Build 不限制工具', () => {

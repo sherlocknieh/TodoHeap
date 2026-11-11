@@ -53,7 +53,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
 | `lib/didaMcp.js` | 滴答清单 MCP：OAuth 授权、工具调用、拉取任务后交给导入解析 |
 | `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
-| `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好 |
+| `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好，含 `ask_user` 选择面板与 `switch_mode` |
 | `lib/agentModes.js` | 工作模式：Plan / Build / 清单 / 日程 / 设置 / 清单+日程，各自限定工具集与提示词 |
 | `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建，技能只绑定工作模式 |
 | `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
