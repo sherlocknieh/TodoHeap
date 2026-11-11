@@ -448,8 +448,12 @@ describe('useAgentStore', () => {
   })
 
   it('switch_mode 确认后本轮后续请求改用 Build 的完整工具集', async () => {
+    // 方案文本与切换请求在同一条回复里发出，确认卡片随方案一起出现
     mocks.chat
-      .mockResolvedValueOnce(toolCallResponse('switch_mode', { mode: 'build', reason: '需要新建日程' }))
+      .mockResolvedValueOnce({
+        ...toolCallResponse('switch_mode', { mode: 'build', reason: '需要新建日程' }),
+        content: '计划如下：2026-11-13 15:00 评审会。'
+      })
       .mockResolvedValueOnce({ content: '已切换。', tool_calls: [] })
 
     const agent = useAgentStore()
@@ -462,6 +466,7 @@ describe('useAgentStore', () => {
     await pending
 
     expect(agent.activeMode).toBe('build')
+    expect(agent.messages[1].content).toContain('计划如下')
     const secondTools = mocks.chat.mock.calls[1][0].tools.map((tool) => tool.function.name)
     expect(secondTools).toContain('create_schedule')
     expect(secondTools).toContain('create_todo')
