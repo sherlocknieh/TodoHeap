@@ -65,11 +65,35 @@ To connect a model, open **Settings → Model access** and pick a provider prese
 
 A built-in option is also available: choose **Built-in model** instead of a personal key. The model dropdown is populated by the gateway (platform allowlist first, otherwise the upstream `/models` list); if the list cannot be read, the field falls back to manual input. Requests are proxied by the TodoHeap gateway with a server-side key, so no key is stored in the browser. The gateway is currently a skeleton — subscription and quota checks are not enabled yet, and any signed-in user can call it.
 
-Destructive actions (deleting tasks, clearing completed tasks, emptying the trash) are always shown for confirmation before they run.
+Destructive actions (deleting tasks, clearing completed tasks, emptying the trash, rotating or disabling the calendar feed, deleting a skill) are always shown for confirmation before they run.
+
+### Letting the agent change settings
+
+The agent can change app settings directly; changes take effect immediately without a reload:
+
+| Category | What it can change |
+| --- | --- |
+| UI preferences | Mind-map direction, left sidebar and activity rail visibility, detail panel, whether the list shows completed tasks |
+| Model parameters | temperature (0–2) |
+| Skills | Create, update, delete |
+| Calendar feed | Rotate the token, disable the feed |
+
+It calls `list_app_settings` first to confirm key names and current values. Rotating or disabling the calendar feed and deleting a skill are destructive and require confirmation. Provider, Base URL, API key, account password and the account itself are not exposed to the agent — those stay in the settings page.
 
 ### Images
 
 The composer accepts images: paste a screenshot, drag a file onto the input, or use the **+** menu. Up to 4 images per message, PNG/JPEG/WebP/GIF, 10MB each; long edges are scaled to 1280px before sending. Images are sent as OpenAI-style multimodal content, so the model must support vision. Image data is kept in this browser's IndexedDB and is never uploaded to TodoHeap storage. Click a thumbnail to view it full size; click the backdrop or press Esc to close.
+
+### Working modes
+
+The mode button in the composer switches between Build and Plan; the mode is stored per session:
+
+| Mode | Tools | Prompt |
+| --- | --- | --- |
+| Build | All tools; can read and write tasks, schedules and settings | Regular task-management rules |
+| Plan | Read-only: list/read tasks, trash, schedules, app settings | Additionally asks for a plan first and forbids write tools |
+
+Plan sends only 5 read-only tools, so write-tool schemas and rules cost no tokens — useful for discussing an approach before acting. A skill's tool allowlist is intersected with the mode, so a skill cannot grant write access in Plan. Switching modes affects later requests only; existing messages are unchanged.
 
 ### Commands and references
 

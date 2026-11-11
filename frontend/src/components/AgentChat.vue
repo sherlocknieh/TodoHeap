@@ -9,6 +9,7 @@ import { useScheduleStore } from '@/stores/schedules'
 import AppIcon from '@/components/AppIcon.vue'
 import ComposerPicker from '@/components/ComposerPicker.vue'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
+import { AGENT_MODES } from '@/lib/agentModes'
 import { MAX_IMAGES_PER_MESSAGE, createImageAttachment } from '@/lib/agentImages'
 
 const router = useRouter()
@@ -171,6 +172,16 @@ const modelOptions = computed(() => {
 const switchModel = (model) => {
   if (!model || model === llm.activeModel) return
   llm.update(llm.isBuiltin ? { builtinModel: model } : { model })
+  openMenu.value = ''
+}
+
+// 工作模式：Build 可读写，Plan 只读，切换后下一轮请求即按新模式发送
+const activeModeLabel = computed(() => (
+  AGENT_MODES.find((mode) => mode.id === agent.activeMode)?.label || 'Build'
+))
+
+const switchMode = (mode) => {
+  agent.setMode(mode.id)
   openMenu.value = ''
 }
 
@@ -828,6 +839,23 @@ onUnmounted(() => {
         </button>
       </div>
 
+      <!-- 模式浮层：Build 可读写，Plan 只读 -->
+      <div v-if="openMenu === 'mode'"
+        class="absolute bottom-full left-0 z-20 mb-1.5 w-56 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
+        <button v-for="mode in AGENT_MODES" :key="mode.id" type="button"
+          class="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent-50 dark:hover:bg-accent-500/10"
+          @click="switchMode(mode)">
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-medium"
+              :class="mode.id === agent.activeMode ? 'text-accent-700 dark:text-accent-300' : 'text-neutral-800 dark:text-neutral-200'">
+              {{ mode.label }}
+            </span>
+            <span class="mt-0.5 block text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">{{ mode.description }}</span>
+          </span>
+          <AppIcon v-if="mode.id === agent.activeMode" name="check" :size="12" class="mt-0.5 text-accent-700 dark:text-accent-300" />
+        </button>
+      </div>
+
       <!-- 模型浮层 -->
       <div v-if="openMenu === 'model'"
         class="absolute bottom-full left-0 z-20 mb-1.5 w-64 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
@@ -922,6 +950,13 @@ onUnmounted(() => {
             :class="openMenu === 'plus' ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200' : ''"
             title="添加图片和文件、引用任务或日程" @click="toggleMenu('plus')">
             <AppIcon name="plus" :size="14" />
+          </button>
+          <button type="button"
+            class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            :class="openMenu === 'mode' ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200' : ''"
+            title="切换工作模式" @click="toggleMenu('mode')">
+            <span>{{ activeModeLabel }}</span>
+            <AppIcon name="chevronUp" :size="10" class="opacity-50" />
           </button>
           <button type="button"
             class="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"

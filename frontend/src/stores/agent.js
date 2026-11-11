@@ -14,6 +14,7 @@ import {
 } from '@/lib/agentSkills'
 import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
 import { hydrateImages, removeStoredImages } from '@/lib/agentImages'
+import { DEFAULT_AGENT_MODE, findAgentMode, resolveAllowedTools } from '@/lib/agentModes'
 
 const STORAGE_PREFIX = 'todoheap.agent.v2.'
 const LEGACY_STORAGE_PREFIX = 'todoheap.agent.v1.'
@@ -49,21 +50,26 @@ const formatMentions = (mentions) => {
   return `\n用户本轮通过 @ 引用了以下对象，优先围绕它们回答；涉及写操作前仍先用工具确认：\n${lines.join('\n')}\n`
 }
 
-const buildSystemPrompt = ({ selectedTaskId = null, mentions = [] } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）和日程事件。
+const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], mode = DEFAULT_AGENT_MODE } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
 
 当前本地时间：${formatNow()}
-${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}
-
+${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}${findAgentMode(mode).prompt ? `\n${findAgentMode(mode).prompt}\n` : ''}
 工具使用规则：
 - 涉及数据的问题先调用工具获取真实数据，不要凭空编造任务 id 或内容。
 - id 必须来自工具返回结果；不确定 id 时先用 list_todos 或 list_trash 查找。
 - 刚创建的任务 id 可能从本地临时值变为服务器 id；若后续更新失败，先用 list_todos 重新确认。
 - 时间一律使用带时区的 ISO 8601，例如 2026-11-10T18:00:00+08:00；"明天下午三点"要换算成具体日期。
 - 拆解任务时优先使用 create_todo 的 subtasks 一次创建子树，保持层级清晰。
-- 删除、清理已完成、永久删除、清空回收站属于破坏性操作，系统会要求用户确认；调用前先说明影响。
+- 删除、清理已完成、永久删除、清空回收站、重置或关闭日历订阅、删除技能属于破坏性操作，系统会要求用户确认；调用前先说明影响。
 - 操作完成后用简短中文总结改了什么，不要粘贴原始 JSON。
 - 与任务管理无关的普通问题可以直接回答，不必调用工具。
-- 回答保持简洁，用纯文本和短列表，不要使用 **、# 等 Markdown 记号。`
+- 回答保持简洁，用纯文本和短列表，不要使用 **、# 等 Markdown 记号。
+
+应用设置规则：
+- 改设置前先调用 list_app_settings 确认键名与当前值，不要猜键名。
+- 可改：界面偏好（任务图方向、侧栏与详情面板开关、列表是否显示已完成）、模型参数（temperature）、技能（增删改）、日历订阅（重置或关闭）。
+- 不可改：模型服务商、Base URL、API Key、账户密码与账号本身。用户要求这些时说明需要本人到设置页操作。
+- 用户说"把界面调成…""以后都用…"这类偏好时，直接改对应设置并说明改了什么。`
 
 // 图片只保留元数据，本体在 IndexedDB，避免会话记录撑爆 localStorage
 const normalizeImages = (list) => (Array.isArray(list) ? list : [])
@@ -123,9 +129,10 @@ const toUserContent = (message) => {
   return parts
 }
 
-const createSession = (title = DEFAULT_TITLE, messages = []) => ({
+const createSession = (title = DEFAULT_TITLE, messages = [], mode = DEFAULT_AGENT_MODE) => ({
   id: createId(),
   title,
+  mode,
   createdAt: nowIso(),
   updatedAt: nowIso(),
   messages
@@ -157,6 +164,7 @@ const loadStoredState = (userId) => {
           title: typeof session.title === 'string' && session.title.trim()
             ? session.title.trim()
             : DEFAULT_TITLE,
+          mode: findAgentMode(session.mode).id,
           createdAt: session.createdAt || nowIso(),
           updatedAt: session.updatedAt || session.createdAt || nowIso(),
           messages: normalizeMessages(session.messages)
@@ -172,6 +180,7 @@ const loadStoredState = (userId) => {
           sessions: [{
             id: createId(),
             title: titleFromMessages(legacyMessages),
+            mode: DEFAULT_AGENT_MODE,
             createdAt: nowIso(),
             updatedAt: nowIso(),
             messages: legacyMessages
@@ -220,6 +229,8 @@ export const useAgentStore = defineStore('agent', () => {
   const activeSession = computed(() => (
     sessions.value.find((session) => session.id === activeSessionId.value) || null
   ))
+  // 模式跟随会话：同一会话里切换后，后续请求都按新模式发送
+  const activeMode = computed(() => findAgentMode(activeSession.value?.mode).id)
   const hasMessages = computed(() => messages.value.length > 0)
 
   // 所有会话一起落盘；当前会话的实时消息与 session.messages 保持同一引用
@@ -454,8 +465,8 @@ export const useAgentStore = defineStore('agent', () => {
     context.value = { ...context.value, ...patch }
   }
 
-  const toApiMessages = (mentions = []) => {
-    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions }) }]
+  const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE) => {
+    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, mode }) }]
     messages.value.forEach((message) => {
       if (message.role === 'user') {
         apiMessages.push({ role: 'user', content: toUserContent(message) })
@@ -535,7 +546,7 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   // 一轮对话：从给定的用户消息出发，循环调用模型直到不再请求工具
-  const startTurn = async ({ userMessage, allowedTools = null }) => {
+  const startTurn = async ({ userMessage, allowedTools = null, mode = DEFAULT_AGENT_MODE }) => {
     const llm = useLlmStore()
     const authStore = useAuthStore()
 
@@ -553,7 +564,9 @@ export const useAgentStore = defineStore('agent', () => {
       const runner = createAgentToolRunner({
         todoStore: useTodoStore(),
         scheduleStore: useScheduleStore(),
-        authStore
+        authStore,
+        llmStore: llm,
+        agentStore: { skills, addSkill, updateSkill, deleteSkill }
       })
       const tools = allowedTools
         ? runner.definitions.filter((definition) => allowedTools.has(definition.function.name))
@@ -562,7 +575,7 @@ export const useAgentStore = defineStore('agent', () => {
       for (let step = 0; step < MAX_STEPS; step += 1) {
         if (signal.aborted || !isCurrentSession()) break
 
-        const history = toApiMessages(userMessage.mentions)
+        const history = toApiMessages(userMessage.mentions, mode)
         // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
         const requestRecord = {
           model: llm.activeModel,
@@ -676,7 +689,9 @@ export const useAgentStore = defineStore('agent', () => {
     const skill = activeSkillId.value
       ? skills.value.find((item) => item.id === activeSkillId.value)
       : null
-    const allowedTools = skill?.tools?.length ? new Set(skill.tools) : null
+    const mode = activeMode.value
+    // 模式与技能都限制工具时取交集，Plan 模式下技能也无法放开写权限
+    const allowedTools = resolveAllowedTools(mode, skill?.tools)
     activeSkillId.value = null
 
     init(useAuthStore().user?.id)
@@ -695,7 +710,7 @@ export const useAgentStore = defineStore('agent', () => {
     }
     persist()
 
-    await startTurn({ userMessage, allowedTools })
+    await startTurn({ userMessage, allowedTools, mode })
   }
 
   // 重新生成：丢弃最后一条回复，从最后一条用户消息重新请求
@@ -708,7 +723,7 @@ export const useAgentStore = defineStore('agent', () => {
     messages.value.splice(lastUserIndex + 1)
     userMessage.requests = []
     persist()
-    await startTurn({ userMessage })
+    await startTurn({ userMessage, mode: activeMode.value })
   }
 
   // 编辑后重发：截断该消息之后的内容，用新文本替换并重新请求
@@ -724,7 +739,7 @@ export const useAgentStore = defineStore('agent', () => {
     const userMessage = { id: createId(), role: 'user', content, images, mentions, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
     persist()
-    await startTurn({ userMessage })
+    await startTurn({ userMessage, mode: activeMode.value })
   }
 
   // 删除单条消息，用于清理答非所问的回复
@@ -741,6 +756,17 @@ export const useAgentStore = defineStore('agent', () => {
   const setDraft = (value) => {
     draft.value = value
     if (activeSessionId.value) drafts.value[activeSessionId.value] = value
+  }
+
+  // 切换工作模式：只影响当前会话，后续请求按新模式发送工具与提示词
+  const setMode = (modeId) => {
+    const session = activeSession.value
+    if (!session) return
+    const next = findAgentMode(modeId).id
+    if (session.mode === next) return
+    session.mode = next
+    session.updatedAt = nowIso()
+    persist()
   }
 
   return {
@@ -774,6 +800,8 @@ export const useAgentStore = defineStore('agent', () => {
     regenerate,
     editAndResend,
     deleteMessage,
-    setDraft
+    setDraft,
+    setMode,
+    activeMode
   }
 })

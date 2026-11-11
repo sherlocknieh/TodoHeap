@@ -429,4 +429,35 @@ describe('useAgentStore', () => {
     expect(system.content).toContain('日程 id 7：评审会（11-12 15:00）')
     expect(agent.messages[0].mentions).toHaveLength(2)
   })
+
+  it('Plan 模式只发送只读工具与规划提示词', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '建议先拆成三步。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    agent.setMode('plan')
+    await agent.send('帮我规划一下季度汇报')
+
+    const request = mocks.chat.mock.calls[0][0]
+    const toolNames = request.tools.map((tool) => tool.function.name)
+    expect(toolNames).toEqual(['list_todos', 'get_todo', 'list_trash', 'list_schedules', 'list_app_settings'])
+    expect(toolNames).not.toContain('create_todo')
+    expect(request.messages[0].content).toContain('Plan 模式')
+  })
+
+  it('模式跟随会话，切换会话后恢复各自的模式', async () => {
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const first = agent.activeSessionId
+    agent.setMode('plan')
+    expect(agent.activeMode).toBe('plan')
+
+    const second = agent.newSession()
+    expect(agent.activeMode).toBe('build')
+
+    agent.switchSession(first)
+    expect(agent.activeMode).toBe('plan')
+    agent.switchSession(second)
+    expect(agent.activeMode).toBe('build')
+  })
 })

@@ -2,6 +2,8 @@ import { getCurrentInstance, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 // 界面状态本地持久化：刷新后回到离开时的布局与位置
 const STORAGE_PREFIX = 'todoheap:ui:'
+// 同页广播：Agent 改设置后，已挂载的组件据此同步，不必刷新
+const CHANGE_EVENT = 'todoheap:ui-change'
 
 // 侧栏转为浮层的宽度阈值：更窄时才把侧栏抽屉盖在内容上，需与模板中的 md: 断点一致
 export const SIDEBAR_FLOAT_BREAKPOINT = 768
@@ -26,6 +28,9 @@ export const writeUiState = (key, value) => {
   } catch {
     // 无法持久化时保持当前界面行为
   }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { key, value } }))
+  }
 }
 
 // 与本地存储同步的响应式状态：旧值不合法时用默认值，变化后自动保存
@@ -34,6 +39,20 @@ export const persistedRef = (key, fallback, { validate } = {}) => {
   const usable = stored !== undefined && (!validate || validate(stored))
   const state = ref(usable ? stored : fallback)
   watch(state, (value) => writeUiState(key, value), { deep: true })
+
+  // 其他入口（如 Agent 工具）改了同一个键时同步过来，避免界面与存储不一致
+  if (typeof window !== 'undefined') {
+    const onExternalChange = (event) => {
+      if (event.detail?.key !== key) return
+      const next = event.detail.value
+      if (validate && !validate(next)) return
+      if (JSON.stringify(next) === JSON.stringify(state.value)) return
+      state.value = next
+    }
+    window.addEventListener(CHANGE_EVENT, onExternalChange)
+    if (getCurrentInstance()) onBeforeUnmount(() => window.removeEventListener(CHANGE_EVENT, onExternalChange))
+  }
+
   return state
 }
 

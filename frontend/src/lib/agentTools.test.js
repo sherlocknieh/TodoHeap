@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
+// 设置工具会读用户设置与日历令牌，测试里用桩替代网络请求
+vi.mock('./userSettings', () => ({
+  fetchUserSettings: vi.fn(async () => ({ success: true, data: {} })),
+  saveUserSettings: vi.fn(async () => ({ success: true, data: {} }))
+}))
+vi.mock('./calendarTransfer', () => ({
+  rotateCalendarFeedToken: vi.fn(async () => ({ success: true, token: 'new-token' })),
+  disableCalendarFeed: vi.fn(async () => ({ success: true }))
+}))
+
 import { createAgentToolRunner, DESTRUCTIVE_TOOLS } from './agentTools'
 
 let nextTempId
@@ -100,10 +110,43 @@ const makeScheduleStore = (initial = []) => {
 describe('createAgentToolRunner', () => {
   let todoStore
   let scheduleStore
+  let llmStore
+  let agentStore
   let runner
 
   beforeEach(() => {
     nextTempId = -1
+    // 设置工具依赖本地存储与技能列表，用内存实现隔离测试
+    const store = new Map()
+    globalThis.localStorage = {
+      getItem: (key) => store.get(key) ?? null,
+      setItem: (key, value) => store.set(key, value),
+      removeItem: (key) => store.delete(key)
+    }
+    const skills = ref([{ id: 'global-optimize', name: '全局任务优化', icon: 'target', prompt: '优化任务', tools: [] }])
+    llmStore = { config: { temperature: 0.2 }, update: vi.fn() }
+    agentStore = {
+      get skills() {
+        return skills.value
+      },
+      addSkill: vi.fn((draft) => {
+        const skill = { id: `skill_${skills.value.length + 1}`, name: draft.name, icon: draft.icon || 'sparkles', prompt: draft.prompt, tools: draft.tools || [] }
+        skills.value = [...skills.value, skill]
+        return skill
+      }),
+      updateSkill: vi.fn((id, patch) => {
+        const current = skills.value.find((skill) => skill.id === id)
+        if (!current) return null
+        const next = { ...current, ...patch }
+        skills.value = skills.value.map((skill) => (skill.id === id ? next : skill))
+        return next
+      }),
+      deleteSkill: vi.fn((id) => {
+        const before = skills.value.length
+        skills.value = skills.value.filter((skill) => skill.id !== id)
+        return skills.value.length < before
+      })
+    }
     todoStore = makeTodoStore([
       createTodoRow({ id: 1, title: '根任务', child_ids: [2], sort_order: 1 }),
       createTodoRow({ id: 2, title: '子任务', child_ids: [3], deadline: '2026-11-01T10:00:00Z' }),
@@ -116,7 +159,9 @@ describe('createAgentToolRunner', () => {
     runner = createAgentToolRunner({
       todoStore,
       scheduleStore,
-      authStore: { user: { id: 'user-1' } }
+      authStore: { user: { id: 'user-1' } },
+      llmStore,
+      agentStore
     })
   })
 
@@ -252,7 +297,56 @@ describe('createAgentToolRunner', () => {
       'delete_todo',
       'delete_completed_todos',
       'permanent_delete_todo',
-      'empty_trash'
+      'empty_trash',
+      'rotate_calendar_feed',
+      'disable_calendar_feed',
+      'delete_skill'
     ])
+  })
+
+  it('列出应用设置时包含界面偏好、模型参数与技能', async () => {
+    const result = await runner.run('list_app_settings', {})
+
+    expect(result.ok).toBe(true)
+    expect(result.settings.some((item) => item.key === 'mindmap-direction')).toBe(true)
+    expect(result.settings.some((item) => item.key === 'temperature')).toBe(true)
+    expect(result.skills.map((skill) => skill.name)).toContain('全局任务优化')
+  })
+
+  it('修改界面偏好写入本地状态，非法取值被拒绝', async () => {
+    const ok = await runner.run('update_app_setting', { key: 'mindmap-direction', value: 'down' })
+    expect(ok.ok).toBe(true)
+    expect(JSON.parse(localStorage.getItem('todoheap:ui:mindmap-direction'))).toBe('down')
+
+    const invalid = await runner.run('update_app_setting', { key: 'mindmap-direction', value: 'diagonal' })
+    expect(invalid.ok).toBe(false)
+    expect(invalid.error).toContain('只能是')
+
+    const unknown = await runner.run('update_app_setting', { key: 'apiKey', value: 'x' })
+    expect(unknown.ok).toBe(false)
+    expect(unknown.error).toContain('未知设置项')
+  })
+
+  it('修改模型参数走 llm store，不触碰密钥与地址', async () => {
+    const result = await runner.run('update_app_setting', { key: 'temperature', value: 0.7 })
+
+    expect(result.ok).toBe(true)
+    expect(llmStore.update).toHaveBeenCalledWith({ temperature: 0.7 })
+
+    const outOfRange = await runner.run('update_app_setting', { key: 'temperature', value: 5 })
+    expect(outOfRange.ok).toBe(false)
+  })
+
+  it('技能可增删改，删除后从列表消失', async () => {
+    const created = await runner.run('create_skill', { name: '周复盘', prompt: '总结本周完成情况' })
+    expect(created.ok).toBe(true)
+
+    const updated = await runner.run('update_skill', { id: created.skill.id, name: '周复盘 v2' })
+    expect(updated.ok).toBe(true)
+    expect(updated.skill.name).toBe('周复盘 v2')
+
+    const removed = await runner.run('delete_skill', { id: created.skill.id })
+    expect(removed.ok).toBe(true)
+    expect(agentStore.skills.some((skill) => skill.id === created.skill.id)).toBe(false)
   })
 })

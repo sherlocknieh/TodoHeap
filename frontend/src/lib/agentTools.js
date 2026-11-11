@@ -1,11 +1,25 @@
-// Agent 工具集：把任务与日程的读写能力暴露给任意 OpenAI 兼容模型
+// Agent 工具集：把任务、日程与应用设置的读写能力暴露给任意 OpenAI 兼容模型
+import {
+  APP_SETTINGS,
+  MODEL_PARAMETER_SETTINGS,
+  describeUiPreferences,
+  findSetting,
+  normalizeSettingValue,
+  writeUiPreference
+} from './appSettings'
+import { SKILL_ICONS } from './agentSkills'
+import { disableCalendarFeed, rotateCalendarFeedToken } from './calendarTransfer'
+import { fetchUserSettings } from './userSettings'
 
-// 破坏性操作先由界面确认，避免模型直接清空数据
+// 破坏性操作先由界面确认，避免模型直接清空数据或让订阅链接失效
 export const DESTRUCTIVE_TOOLS = new Set([
   'delete_todo',
   'delete_completed_todos',
   'permanent_delete_todo',
-  'empty_trash'
+  'empty_trash',
+  'rotate_calendar_feed',
+  'disable_calendar_feed',
+  'delete_skill'
 ])
 
 const objectSchema = (properties, required = []) => ({
@@ -238,6 +252,87 @@ export const AGENT_TOOL_DEFINITIONS = [
       parameters: objectSchema({ id: integer('日程 id') }, ['id'])
     }
   },
+  {
+    type: 'function',
+    function: {
+      name: 'list_app_settings',
+      description: '列出可修改的应用设置及当前值：界面偏好、模型参数、日历订阅与技能。修改前先调用它确认键名与取值范围。',
+      parameters: objectSchema({})
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_app_setting',
+      description: '修改一项界面偏好或模型参数。键名与取值必须来自 list_app_settings；模型密钥与地址不可修改。',
+      parameters: objectSchema({
+        key: text('设置键名，如 mindmap-direction、sidebar-open、temperature'),
+        value: {
+          description: '新值：布尔项传 true/false，枚举项传选项值，数值项传数字',
+          type: ['boolean', 'string', 'number']
+        }
+      }, ['key', 'value'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_skill',
+      description: '新建一个技能：一段可复用的指令，用户点选后填入输入框。',
+      parameters: objectSchema({
+        name: text('技能名称，最多 24 字'),
+        prompt: text('技能指令全文'),
+        icon: text('图标名，可选：sparkles、target、bulb、book、chart、calendar、list、clock'),
+        tools: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '限定该技能可用的工具名；留空表示不限制'
+        }
+      }, ['name', 'prompt'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_skill',
+      description: '修改已有技能的名称、指令、图标或工具白名单。',
+      parameters: objectSchema({
+        id: text('技能 id'),
+        name: text('新名称'),
+        prompt: text('新指令'),
+        icon: text('新图标名'),
+        tools: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '新的工具白名单；空数组表示不限制'
+        }
+      }, ['id'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_skill',
+      description: '删除一个技能。',
+      parameters: objectSchema({ id: text('技能 id') }, ['id'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'rotate_calendar_feed',
+      description: '重新生成日历订阅令牌，旧订阅链接立即失效。',
+      parameters: objectSchema({})
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'disable_calendar_feed',
+      description: '关闭日历订阅，删除当前令牌，已订阅的日历将停止更新。',
+      parameters: objectSchema({})
+    }
+  },
 ]
 
 // 工具中文名同时供聊天记录与技能编辑使用，保持展示文案只有一处
@@ -259,7 +354,14 @@ export const AGENT_TOOL_LABELS = {
   list_schedules: '查看日程',
   create_schedule: '创建日程',
   update_schedule: '更新日程',
-  delete_schedule: '删除日程'
+  delete_schedule: '删除日程',
+  list_app_settings: '查看应用设置',
+  update_app_setting: '修改应用设置',
+  create_skill: '新建技能',
+  update_skill: '修改技能',
+  delete_skill: '删除技能',
+  rotate_calendar_feed: '重置日历订阅',
+  disable_calendar_feed: '关闭日历订阅'
 }
 
 export const AGENT_TOOL_NAMES = AGENT_TOOL_DEFINITIONS.map((definition) => definition.function.name)
@@ -342,7 +444,7 @@ const serializeSchedule = (schedule) => ({
   todo_id: schedule.todo_id ?? null
 })
 
-export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore }) => {
+export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llmStore, agentStore }) => {
   const requireUserId = () => {
     const userId = authStore.user?.id
     if (!userId) throw new Error('请先登录')
@@ -743,6 +845,106 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore }) =
       const result = await scheduleStore.deleteSchedule(schedule.id)
       if (!result.success) throw new Error(result.error || '删除日程失败')
       return { ok: true, deleted: { id: schedule.id, title: schedule.title } }
+    },
+
+    // 设置快照：界面偏好取本地值，模型参数取当前配置，日历与技能取已加载状态
+    async list_app_settings() {
+      const ui = describeUiPreferences()
+      const model = MODEL_PARAMETER_SETTINGS.map((setting) => ({
+        key: setting.key,
+        label: setting.label,
+        group: setting.group,
+        type: setting.type,
+        value: llmStore?.config?.[setting.key] ?? setting.default,
+        min: setting.min,
+        max: setting.max
+      }))
+      const settings = await fetchUserSettings(requireUserId()).catch(() => ({ success: false }))
+      const calendar = {
+        enabled: Boolean(settings.success && settings.data?.calendarFeedToken),
+        token: settings.success ? (settings.data?.calendarFeedToken || '') : ''
+      }
+      return {
+        ok: true,
+        settings: [...ui, ...model],
+        calendar,
+        skills: (agentStore?.skills || []).map((skill) => ({
+          id: skill.id,
+          name: skill.name,
+          icon: skill.icon,
+          tools: skill.tools || [],
+          prompt: skill.prompt
+        }))
+      }
+    },
+
+    async update_app_setting(args) {
+      const setting = findSetting(args.key)
+      if (!setting) {
+        throw new Error(`未知设置项 ${args.key}；可用键名：${APP_SETTINGS.map((item) => item.key).join('、')}`)
+      }
+      const value = normalizeSettingValue(setting, args.value)
+
+      if (setting.group === '模型') {
+        if (!llmStore) throw new Error('模型配置不可用')
+        llmStore.update({ [setting.key]: value })
+        return { ok: true, key: setting.key, label: setting.label, value }
+      }
+
+      writeUiPreference(setting, value)
+      return { ok: true, key: setting.key, label: setting.label, value }
+    },
+
+    async create_skill(args) {
+      if (!agentStore) throw new Error('技能不可用')
+      const saved = agentStore.addSkill({
+        name: args.name,
+        prompt: args.prompt,
+        icon: SKILL_ICONS.includes(args.icon) ? args.icon : undefined,
+        tools: args.tools
+      })
+      if (!saved) throw new Error('技能需要名称与指令')
+      return { ok: true, skill: { id: saved.id, name: saved.name, icon: saved.icon, tools: saved.tools } }
+    },
+
+    async update_skill(args) {
+      if (!agentStore) throw new Error('技能不可用')
+      const current = (agentStore.skills || []).find((skill) => skill.id === args.id)
+      if (!current) throw new Error(`技能 ${args.id} 不存在`)
+      const patch = {}
+      if ('name' in args) patch.name = args.name
+      if ('prompt' in args) patch.prompt = args.prompt
+      if ('icon' in args) patch.icon = args.icon
+      if ('tools' in args) patch.tools = args.tools
+      if (!Object.keys(patch).length) throw new Error('没有要更新的字段')
+
+      const saved = agentStore.updateSkill(current.id, patch)
+      if (!saved) throw new Error('技能名称与指令不能为空')
+      return { ok: true, skill: { id: saved.id, name: saved.name, icon: saved.icon, tools: saved.tools } }
+    },
+
+    async delete_skill(args) {
+      if (!agentStore) throw new Error('技能不可用')
+      const current = (agentStore.skills || []).find((skill) => skill.id === args.id)
+      if (!current) throw new Error(`技能 ${args.id} 不存在`)
+      if (!agentStore.deleteSkill(current.id)) throw new Error('技能删除失败')
+      return { ok: true, deleted: { id: current.id, name: current.name } }
+    },
+
+    async rotate_calendar_feed() {
+      const userId = requireUserId()
+      const latest = await fetchUserSettings(userId)
+      const result = await rotateCalendarFeedToken(userId, latest.success ? latest.data : {})
+      if (!result.success) throw new Error(result.error?.message || '重置订阅令牌失败')
+      return { ok: true, token: result.token }
+    },
+
+    async disable_calendar_feed() {
+      const userId = requireUserId()
+      const latest = await fetchUserSettings(userId)
+      const result = await disableCalendarFeed(userId, latest.success ? latest.data : {})
+      if (!result.success) throw new Error(result.error?.message || '关闭日历订阅失败')
+      return { ok: true, disabled: true }
     }
   }
 
