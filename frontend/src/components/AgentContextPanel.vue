@@ -2,22 +2,19 @@
 import { computed } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
-import { useTodoStore } from '@/stores/todos'
 import { AGENT_TOOL_LABELS, AGENT_TOOL_NAMES } from '@/lib/agentTools'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { summarizeRequest } from '@/utils/contextStats'
 import AppIcon from '@/components/AppIcon.vue'
 
-const props = defineProps({
-  show: { type: Boolean, default: false },
-  selectedTaskId: { type: [Number, String], default: null }
+defineProps({
+  show: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close'])
 
 const agent = useAgentStore()
 const llm = useLlmStore()
-const todoStore = useTodoStore()
 
 const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapseArmed, start: startResize } = useResizablePanel({
   key: 'ai-context-width',
@@ -37,10 +34,6 @@ const latestRequest = computed(() => {
   }
   return null
 })
-
-const selectedTodo = computed(() => (
-  props.selectedTaskId == null ? null : todoStore.findTodoById(props.selectedTaskId)
-))
 
 const contextStats = computed(() => summarizeRequest(latestRequest.value))
 
@@ -273,18 +266,6 @@ const exportSession = () => {
             {{ AGENT_TOOL_LABELS[name] || name }}
           </span>
         </div>
-      </section>
-
-      <!-- 选中任务会写进系统提示 -->
-      <section class="space-y-1 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <p class="eyebrow">选中任务</p>
-        <p v-if="selectedTodo" class="truncate text-sm text-neutral-800 dark:text-neutral-200">
-          <span class="text-neutral-400 dark:text-neutral-500">#{{ selectedTodo.id }}</span>
-          {{ selectedTodo.title }}
-        </p>
-        <p v-else class="text-[11px] text-neutral-500 dark:text-neutral-400">
-          未选中，系统提示不含任务上下文
-        </p>
       </section>
 
       <!-- 原始消息：最近一次请求逐条列出，每条独立展开 -->

@@ -75,7 +75,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
 | `MindMapWrapper.vue` | simple-mind-map 封装，负责与 todos 树互转 |
 | `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认、请求详情 |
-| `AgentContextPanel.vue` | AI 视图右栏：会话、模型、上下文构成、本轮工具与选中任务 |
+| `AgentContextPanel.vue` | AI 视图右栏：会话、模型、上下文构成与本轮工具 |
 | `ScheduleDetailPanel.vue` | 日程视图右栏：选中日程的标题、起止时间与备注编辑 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
