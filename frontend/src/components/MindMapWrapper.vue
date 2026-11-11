@@ -235,7 +235,7 @@ const roundedPath = (points, radius = 8) => {
   return `${d} L${last.x} ${last.y}`
 }
 
-// 统一生成连线路径：正向走圆角折线，逆向与自环绕行展示
+// 统一生成连线路径：正向走平滑曲线，逆向与自环绕行展示
 const createEdge = (from, to, key, isRef = false, backward = false, laneCross = null) => {
   const start = outAnchor(from)
   const end = inAnchor(to)
@@ -269,39 +269,10 @@ const createEdge = (from, to, key, isRef = false, backward = false, laneCross = 
       end
     ])
   } else {
-    // 出线、过渡、入线都沿主方向，箭头与线保持同一朝向
-    const main = { x: start.dx, y: start.dy }
-    const mainOf = (point) => point.x * main.x + point.y * main.y
-    const crossOf = (point) => point.x * cross.x + point.y * cross.y
-    const at = (mainValue, crossValue) => ({
-      x: main.x * mainValue + cross.x * crossValue,
-      y: main.y * mainValue + cross.y * crossValue
-    })
-
-    const startMain = mainOf(start)
-    const endMain = mainOf(end)
-    const startCross = crossOf(start)
-    const endCross = crossOf(end)
-    const direction = Math.sign(endMain - startMain) || 1
-    const span = Math.abs(endMain - startMain)
-    const offset = Math.abs(endCross - startCross)
-
-    if (offset < 1) {
-      d = `M${start.x} ${start.y} L${end.x} ${end.y}`
-    } else if (offset <= span) {
-      // 偏移不大时用平滑曲线，避免小错位也出现生硬折角
-      const bend = Math.max(offset * 0.6, 12)
-      d = `M${start.x} ${start.y} C${start.x + start.dx * bend} ${start.y + start.dy * bend}, ${end.x + end.dx * bend} ${end.y + end.dy * bend}, ${end.x} ${end.y}`
-    } else {
-      // 偏移远大于层间距时走圆角折线，保证箭头仍沿主方向射入
-      const stub = Math.min(18, span / 2)
-      d = roundedPath([
-        start,
-        at(startMain + direction * stub, startCross),
-        at(startMain + direction * stub, endCross),
-        end
-      ])
-    }
+    // 两端控制点都沿主方向，曲线在节点处水平进出，箭头与线自然同向
+    const distance = isVertical.value ? Math.abs(end.y - start.y) : Math.abs(end.x - start.x)
+    const bend = Math.max(20, distance * 0.5)
+    d = `M${start.x} ${start.y} C${start.x + start.dx * bend} ${start.y + start.dy * bend}, ${end.x + end.dx * bend} ${end.y + end.dy * bend}, ${end.x} ${end.y}`
   }
 
   return { key, isRef, d }
@@ -439,105 +410,98 @@ const graphLayout = computed(() => {
   })
   const contentMain = Math.max(cursorMain - mainGap, 0)
 
-  // 交叉方向：按森林做整齐树布局，父节点居中于子节点带之上，子树各占一段互不交叠
+  // 交叉方向：分层图布局。层内顺序由重心法确定，坐标由「最小化边长平方和 + 同层最小间距」求得
   const crossCenter = new Map()
   const crossSizeOf = (id) => nodeCrossSize(byId.get(id))
 
-  const shiftSubtree = (node, delta) => {
-    const id = String(node.id)
-    crossCenter.set(id, (crossCenter.get(id) ?? 0) + delta)
-    ;(node.children || []).forEach((child) => {
-      if (byId.has(String(child.id))) shiftSubtree(child, delta)
-    })
-  }
-
-  let crossCursor = 0
-  const placeSubtree = (node) => {
-    const id = String(node.id)
-    if (crossCenter.has(id)) return
-    const own = crossSizeOf(id)
-    const children = (node.children || []).filter((child) => byId.has(String(child.id)))
-
-    if (children.length === 0) {
-      crossCenter.set(id, crossCursor + own / 2)
-      crossCursor += own + crossGap
-      return
-    }
-
-    const start = crossCursor
-    children.forEach(placeSubtree)
-    const band = crossCursor - crossGap - start
-
-    // 父节点比子节点带更宽时，把子树整体居中到父节点下方
-    if (own > band) {
-      const shift = (own - band) / 2
-      children.forEach((child) => shiftSubtree(child, shift))
-      crossCenter.set(id, start + own / 2)
-      crossCursor = start + own + crossGap
-      return
-    }
-
-    crossCenter.set(id, start + band / 2)
-  }
-
-  ;(props.nodes || []).forEach((root) => {
-    if (byId.has(String(root.id))) placeSubtree(root)
-  })
-
-  // 多父节点：交叉坐标取各父节点位置的平均值，再按层消除重叠
-  const forestNodeById = new Map()
-  const indexForest = (node) => {
-    forestNodeById.set(String(node.id), node)
-    ;(node.children || []).forEach(indexForest)
-  }
-  ;(props.nodes || []).forEach(indexForest)
-
-  const parentsOf = new Map(nodes.map((node) => [node.id, []]))
+  const neighborsOf = new Map(nodes.map((node) => [node.id, []]))
   rawEdges.forEach((edge) => {
     if (edge.from === edge.to) return
-    if (!parentsOf.has(edge.to) || !crossCenter.has(edge.from)) return
-    parentsOf.get(edge.to).push(edge.from)
+    if (!neighborsOf.has(edge.from) || !neighborsOf.has(edge.to)) return
+    neighborsOf.get(edge.from).push(edge.to)
+    neighborsOf.get(edge.to).push(edge.from)
   })
 
-  // 同层按期望位置排序后顺延排开，再整体平移回期望均值，避免单向漂移
-  // 节点被推开时子树一起移动，否则父子中心错位会让连线拐弯
-  const resolveLayerOverlaps = (layer) => {
-    const list = [...layers.get(layer)].sort((a, b) => crossCenter.get(a.id) - crossCenter.get(b.id))
-    const desired = list.map((node) => crossCenter.get(node.id))
-    let cursor = -Infinity
-    const placed = list.map((node, index) => {
-      const half = nodeCrossSize(node) / 2
-      const center = Math.max(desired[index], cursor + crossGap + half)
-      cursor = center + half
-      return center
+  // 层内顺序：森林的深度优先序，兄弟天然相邻，无需额外排序
+  const order = new Map(layerKeys.map((layer) => [layer, []]))
+  const dfsIndex = new Map()
+  let dfsCursor = 0
+  const walkForest = (node) => {
+    const id = String(node.id)
+    if (dfsIndex.has(id)) return
+    dfsIndex.set(id, dfsCursor)
+    dfsCursor += 1
+    ;(node.children || []).forEach((child) => {
+      if (byId.has(String(child.id))) walkForest(child)
     })
-    const drift = desired.reduce((sum, value) => sum + value, 0) / list.length
-      - placed.reduce((sum, value) => sum + value, 0) / list.length
+  }
+  ;(props.nodes || []).forEach((root) => {
+    if (byId.has(String(root.id))) walkForest(root)
+  })
+  nodes.forEach((node) => {
+    const layer = nodeLayer.get(node.id) ?? 0
+    order.get(layer).push(node)
+  })
+  order.forEach((list) => list.sort((a, b) => (dfsIndex.get(a.id) ?? 0) - (dfsIndex.get(b.id) ?? 0)))
 
+  // 初始坐标：按层内顺序依次排开
+  layerKeys.forEach((layer) => {
+    let cursor = 0
+    order.get(layer).forEach((node) => {
+      const half = crossSizeOf(node.id) / 2
+      crossCenter.set(node.id, cursor + half)
+      cursor += crossSizeOf(node.id) + crossGap
+    })
+  })
+
+  // 保序回归（PAVA）：把期望位置投影到「同层最小间距」约束上，得到该层的最优解
+  const projectLayer = (layer) => {
+    const list = order.get(layer)
+    if (list.length === 0) return
+
+    const offsets = [0]
+    for (let i = 1; i < list.length; i += 1) {
+      const gap = (crossSizeOf(list[i - 1].id) + crossSizeOf(list[i].id)) / 2 + crossGap
+      offsets.push(offsets[i - 1] + gap)
+    }
+
+    // 相邻违例合并成块，块内取均值，保证结果单调不减
+    const blocks = []
     list.forEach((node, index) => {
-      const delta = placed[index] + drift - desired[index]
-      if (Math.abs(delta) < 0.01) return
-      const forestNode = forestNodeById.get(node.id)
-      if (forestNode) shiftSubtree(forestNode, delta)
-      else crossCenter.set(node.id, crossCenter.get(node.id) + delta)
+      blocks.push({ sum: crossCenter.get(node.id) - offsets[index], count: 1 })
+      while (blocks.length > 1) {
+        const last = blocks[blocks.length - 1]
+        const prev = blocks[blocks.length - 2]
+        if (prev.sum / prev.count <= last.sum / last.count) break
+        prev.sum += last.sum
+        prev.count += last.count
+        blocks.pop()
+      }
+    })
+
+    let cursor = 0
+    blocks.forEach((block) => {
+      const value = block.sum / block.count
+      for (let i = 0; i < block.count; i += 1) {
+        crossCenter.set(list[cursor].id, value + offsets[cursor])
+        cursor += 1
+      }
     })
   }
 
-  for (let round = 0; round < 3; round += 1) {
-    nodes.forEach((node) => {
-      const parents = parentsOf.get(node.id)
-      if (parents.length < 2) return
-      const centers = parents.map((id) => crossCenter.get(id)).filter((value) => value !== undefined)
-      if (centers.length < 2) return
-      const average = centers.reduce((sum, value) => sum + value, 0) / centers.length
-      const delta = average - crossCenter.get(node.id)
-      if (Math.abs(delta) < 0.5) return
-      // 子树跟随节点一起移动，保持父子相对位置
-      const forestNode = forestNodeById.get(node.id)
-      if (forestNode) shiftSubtree(forestNode, delta)
-      else crossCenter.set(node.id, average)
+  // 交替投影：节点先向相邻节点的平均位置靠拢，再投影回间距约束，多父节点自然取平均
+  const relaxLayer = (layer) => {
+    order.get(layer).forEach((node) => {
+      const refs = neighborsOf.get(node.id).map((id) => crossCenter.get(id)).filter((value) => value !== undefined)
+      if (refs.length === 0) return
+      crossCenter.set(node.id, refs.reduce((a, b) => a + b, 0) / refs.length)
     })
-    layerKeys.forEach(resolveLayerOverlaps)
+    projectLayer(layer)
+  }
+
+  for (let round = 0; round < 20; round += 1) {
+    layerKeys.forEach(relaxLayer)
+    ;[...layerKeys].reverse().forEach(relaxLayer)
   }
 
   let minCross = Infinity
