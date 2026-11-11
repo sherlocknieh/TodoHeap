@@ -299,6 +299,64 @@ describe('useAgentStore', () => {
     expect(agent.running).toBe(false)
   })
 
+  it('重新生成会丢弃最后一条回复并重新请求', async () => {
+    mocks.chat
+      .mockResolvedValueOnce({ content: '第一次回答', tool_calls: [] })
+      .mockResolvedValueOnce({ content: '第二次回答', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('你好')
+    expect(agent.messages.at(-1).content).toBe('第一次回答')
+
+    await agent.regenerate()
+    expect(mocks.chat).toHaveBeenCalledTimes(2)
+    expect(agent.messages).toHaveLength(2)
+    expect(agent.messages.at(-1).content).toBe('第二次回答')
+  })
+
+  it('编辑用户消息后截断后续内容并重新发送', async () => {
+    mocks.chat
+      .mockResolvedValueOnce({ content: '旧回答', tool_calls: [] })
+      .mockResolvedValueOnce({ content: '新回答', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('旧问题')
+    const userId = agent.messages[0].id
+
+    await agent.editAndResend(userId, '新问题')
+    expect(agent.messages).toHaveLength(2)
+    expect(agent.messages[0].content).toBe('新问题')
+    expect(agent.messages.at(-1).content).toBe('新回答')
+  })
+
+  it('删除单条消息只影响该条', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '回答', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('问题')
+    agent.deleteMessage(agent.messages.at(-1).id)
+
+    expect(agent.messages).toHaveLength(1)
+    expect(agent.messages[0].role).toBe('user')
+  })
+
+  it('草稿按会话分别保存，切换会话时各自恢复', () => {
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const first = agent.activeSessionId
+
+    agent.setDraft('第一个会话的草稿')
+    const second = agent.newSession()
+    expect(agent.draft).toBe('')
+
+    agent.setDraft('第二个会话的草稿')
+    agent.switchSession(first)
+    expect(agent.draft).toBe('第一个会话的草稿')
+
+    agent.switchSession(second)
+    expect(agent.draft).toBe('第二个会话的草稿')
+  })
+
   it('点选技能后按技能白名单过滤本轮可用工具', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
 

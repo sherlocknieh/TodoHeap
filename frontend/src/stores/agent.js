@@ -149,6 +149,8 @@ export const useAgentStore = defineStore('agent', () => {
   const error = ref('')
   // 输入草稿由侧栏技能与聊天框共用，点选技能时填入这里
   const draft = ref('')
+  // 每个会话各自保留未发送的草稿，切换会话不会互相覆盖
+  const drafts = ref({})
   const pendingApproval = ref(null)
   // 点选技能后记录其工具白名单，只作用于紧接着发送的这一轮
   const activeSkillId = ref(null)
@@ -278,7 +280,7 @@ export const useAgentStore = defineStore('agent', () => {
     const skill = skills.value.find((item) => item.id === id)
     if (!skill) return false
     const current = draft.value.trim()
-    draft.value = current ? `${current}\n\n${skill.prompt}` : skill.prompt
+    setDraft(current ? `${current}\n\n${skill.prompt}` : skill.prompt)
     activeSkillId.value = skill.id
     return true
   }
@@ -308,6 +310,7 @@ export const useAgentStore = defineStore('agent', () => {
     }
 
     error.value = ''
+    draft.value = drafts.value[activeSessionId.value] || ''
     persist()
     loadSkills(userId)
   }
@@ -329,6 +332,7 @@ export const useAgentStore = defineStore('agent', () => {
     sessions.value.unshift(session)
     activeSessionId.value = session.id
     messages.value = session.messages
+    draft.value = ''
     error.value = ''
     persist()
     return session.id
@@ -344,6 +348,7 @@ export const useAgentStore = defineStore('agent', () => {
     persist()
     activeSessionId.value = id
     messages.value = target.messages
+    draft.value = drafts.value[id] || ''
     error.value = ''
     persist()
   }
@@ -382,6 +387,7 @@ export const useAgentStore = defineStore('agent', () => {
   const clear = () => {
     messages.value.splice(0)
     error.value = ''
+    setDraft('')
     persist()
   }
 
@@ -470,25 +476,10 @@ export const useAgentStore = defineStore('agent', () => {
     persist()
   }
 
-  const send = async (text) => {
-    const content = String(text || '').trim()
-    if (!content || running.value || pendingApproval.value) return
-
+  // 一轮对话：从给定的用户消息出发，循环调用模型直到不再请求工具
+  const startTurn = async ({ userMessage, allowedTools = null }) => {
     const llm = useLlmStore()
-    if (!llm.isConfigured) {
-      error.value = '请先在设置 → 模型接入中配置模型'
-      return
-    }
-
-    // 先取出技能白名单：init 会重新加载默认技能，可能覆盖刚点选的条目
-    const skill = activeSkillId.value
-      ? skills.value.find((item) => item.id === activeSkillId.value)
-      : null
-    const allowedTools = skill?.tools?.length ? new Set(skill.tools) : null
-    activeSkillId.value = null
-
     const authStore = useAuthStore()
-    init(authStore.user?.id)
 
     // 生成期间切换会话时，只把收尾逻辑作用在原会话上
     const sessionId = activeSessionId.value
@@ -496,19 +487,6 @@ export const useAgentStore = defineStore('agent', () => {
     const isCurrentSession = () => activeSessionId.value === sessionId
 
     error.value = ''
-    // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
-    const userMessage = { id: createId(), role: 'user', content, toolCalls: [], requests: [], createdAt: nowIso() }
-    messages.value.push(userMessage)
-
-    const session = activeSession.value
-    if (session) {
-      if (!session.title || session.title === DEFAULT_TITLE) {
-        session.title = content.replace(/\s+/g, ' ').slice(0, MAX_TITLE_LENGTH)
-      }
-      session.updatedAt = nowIso()
-    }
-    persist()
-
     running.value = true
     abortController = new AbortController()
     const signal = abortController.signal
@@ -621,6 +599,84 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
+  // 发送一条新消息：技能白名单只作用于这一轮
+  const send = async (text) => {
+    const content = String(text || '').trim()
+    if (!content || running.value || pendingApproval.value) return
+
+    const llm = useLlmStore()
+    if (!llm.isConfigured) {
+      error.value = '请先在设置 → 模型接入中配置模型'
+      return
+    }
+
+    // 先取出技能白名单：init 会重新加载默认技能，可能覆盖刚点选的条目
+    const skill = activeSkillId.value
+      ? skills.value.find((item) => item.id === activeSkillId.value)
+      : null
+    const allowedTools = skill?.tools?.length ? new Set(skill.tools) : null
+    activeSkillId.value = null
+
+    init(useAuthStore().user?.id)
+
+    // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
+    const userMessage = { id: createId(), role: 'user', content, toolCalls: [], requests: [], createdAt: nowIso() }
+    messages.value.push(userMessage)
+
+    const session = activeSession.value
+    if (session) {
+      if (!session.title || session.title === DEFAULT_TITLE) {
+        session.title = content.replace(/\s+/g, ' ').slice(0, MAX_TITLE_LENGTH)
+      }
+      session.updatedAt = nowIso()
+    }
+    persist()
+
+    await startTurn({ userMessage, allowedTools })
+  }
+
+  // 重新生成：丢弃最后一条回复，从最后一条用户消息重新请求
+  const regenerate = async () => {
+    if (running.value || pendingApproval.value) return
+    const lastUserIndex = messages.value.map((message) => message.role).lastIndexOf('user')
+    if (lastUserIndex === -1) return
+
+    const userMessage = messages.value[lastUserIndex]
+    messages.value.splice(lastUserIndex + 1)
+    userMessage.requests = []
+    persist()
+    await startTurn({ userMessage })
+  }
+
+  // 编辑后重发：截断该消息之后的内容，用新文本替换并重新请求
+  const editAndResend = async (messageId, text) => {
+    const content = String(text || '').trim()
+    if (!content || running.value || pendingApproval.value) return
+    const index = messages.value.findIndex((message) => message.id === messageId)
+    if (index === -1) return
+
+    messages.value.splice(index)
+    const userMessage = { id: createId(), role: 'user', content, toolCalls: [], requests: [], createdAt: nowIso() }
+    messages.value.push(userMessage)
+    persist()
+    await startTurn({ userMessage })
+  }
+
+  // 删除单条消息，用于清理答非所问的回复
+  const deleteMessage = (messageId) => {
+    if (running.value) return
+    const index = messages.value.findIndex((message) => message.id === messageId)
+    if (index === -1) return
+    messages.value.splice(index, 1)
+    persist()
+  }
+
+  // 草稿按会话保存，切换会话时各自恢复
+  const setDraft = (value) => {
+    draft.value = value
+    if (activeSessionId.value) drafts.value[activeSessionId.value] = value
+  }
+
   return {
     messages,
     sessions,
@@ -629,6 +685,7 @@ export const useAgentStore = defineStore('agent', () => {
     running,
     error,
     draft,
+    drafts,
     pendingApproval,
     hasMessages,
     skills,
@@ -647,6 +704,10 @@ export const useAgentStore = defineStore('agent', () => {
     addSkill,
     updateSkill,
     deleteSkill,
-    useSkill
+    useSkill,
+    regenerate,
+    editAndResend,
+    deleteMessage,
+    setDraft
   }
 })

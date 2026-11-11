@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
@@ -24,13 +24,20 @@ const scheduleStore = useScheduleStore()
 // 输入草稿放在 store，侧栏点选技能时直接填入这里
 const draft = computed({
   get: () => agent.draft,
-  set: (value) => { agent.draft = value }
+  set: (value) => agent.setDraft(value)
 })
 const inputRef = ref(null)
 const scrollRef = ref(null)
+const composerRef = ref(null)
 const isComposing = ref(false)
 const expandedCalls = ref(new Set())
 const expandedRequests = ref(new Set())
+// 输入区浮层：模型与技能都从输入框就地选择，不打断对话
+const openMenu = ref('')
+const atBottom = ref(true)
+const editingId = ref(null)
+const editingText = ref('')
+const copiedId = ref(null)
 
 const SUGGESTIONS = [
   { icon: 'list', text: '今天有哪些任务最该先做？' },
@@ -131,6 +138,35 @@ const canSend = computed(() => Boolean(draft.value.trim()) && !agent.running)
 
 const lastMessage = computed(() => agent.messages[agent.messages.length - 1])
 
+// 输入区模型选择：内置模式取网关列表，自带密钥取预设型号
+const modelOptions = computed(() => {
+  if (llm.isBuiltin) return llm.builtinModels
+  return llm.presets.find((preset) => preset.id === llm.config?.presetId)?.models || []
+})
+
+const switchModel = (model) => {
+  if (!model || model === llm.activeModel) return
+  llm.update(llm.isBuiltin ? { builtinModel: model } : { model })
+  openMenu.value = ''
+}
+
+const toggleMenu = (name) => {
+  openMenu.value = openMenu.value === name ? '' : name
+}
+
+// 点空白处收起浮层，避免菜单挡住对话
+const onDocumentPointerDown = (event) => {
+  if (!openMenu.value) return
+  if (composerRef.value?.contains(event.target)) return
+  openMenu.value = ''
+}
+
+const applySkill = (skill) => {
+  agent.useSkill(skill.id)
+  openMenu.value = ''
+  nextTick(() => inputRef.value?.focus())
+}
+
 const sendDraft = () => {
   if (!canSend.value) return
   const content = draft.value
@@ -155,16 +191,77 @@ const onEnter = (event) => {
   sendDraft()
 }
 
+// 输入框内快捷键：Ctrl/Cmd+Enter 发送，Esc 先收浮层再停止生成
+const onComposerKeydown = (event) => {
+  if (event.key === 'Escape') {
+    if (openMenu.value) {
+      openMenu.value = ''
+      return
+    }
+    if (agent.running) agent.stop()
+    return
+  }
+  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    event.preventDefault()
+    sendDraft()
+  }
+}
+
 const autoResize = () => {
   const el = inputRef.value
   if (!el) return
   el.style.height = 'auto'
-  el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  el.style.height = `${Math.min(el.scrollHeight, 200)}px`
 }
 
 const scrollToBottom = () => {
   const el = scrollRef.value
   if (el) el.scrollTop = el.scrollHeight
+}
+
+// 用户向上翻阅历史时不再强制跟随流式输出
+const onScroll = () => {
+  const el = scrollRef.value
+  if (!el) return
+  atBottom.value = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+}
+
+const copyMessage = async (message) => {
+  try {
+    await navigator.clipboard.writeText(message.content || '')
+    copiedId.value = message.id
+    setTimeout(() => { if (copiedId.value === message.id) copiedId.value = null }, 1500)
+  } catch {
+    // 剪贴板不可用时保持静默，用户仍可手动选中复制
+  }
+}
+
+const startEdit = (message) => {
+  if (agent.running) return
+  editingId.value = message.id
+  editingText.value = message.content
+}
+
+const cancelEdit = () => {
+  editingId.value = null
+  editingText.value = ''
+}
+
+const submitEdit = async () => {
+  const id = editingId.value
+  const text = editingText.value.trim()
+  if (!id || !text) return
+  cancelEdit()
+  await agent.editAndResend(id, text)
+}
+
+const canRegenerate = computed(() => (
+  !agent.running && agent.messages.some((message) => message.role === 'user')
+))
+
+const regenerate = () => {
+  if (!canRegenerate.value) return
+  agent.regenerate()
 }
 
 const openProviderSettings = () => {
@@ -179,12 +276,22 @@ const approvalDescription = computed(() => {
 
 watch(
   () => `${agent.messages.length}:${lastMessage.value?.content?.length || 0}:${lastMessage.value?.toolCalls?.length || 0}`,
-  () => nextTick(scrollToBottom)
+  () => {
+    // 用户正在回看历史时不打断阅读，只在自己贴底时跟随
+    if (atBottom.value) nextTick(scrollToBottom)
+  }
 )
 
 watch(draft, () => nextTick(autoResize))
 watch(() => authStore.user?.id, (id) => agent.init(id))
-watch(() => agent.activeSessionId, () => nextTick(scrollToBottom))
+watch(() => agent.activeSessionId, () => {
+  cancelEdit()
+  openMenu.value = ''
+  nextTick(() => {
+    autoResize()
+    scrollToBottom()
+  })
+})
 watch(() => props.selectedTaskId, (id) => agent.setContext({ selectedTaskId: id }), { immediate: true })
 
 onMounted(() => {
@@ -194,12 +301,20 @@ onMounted(() => {
   // 预取数据，工具调用时可直接命中本地缓存
   todoStore.fetchTodos()
   scheduleStore.fetchSchedules()
-  nextTick(scrollToBottom)
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+  nextTick(() => {
+    autoResize()
+    scrollToBottom()
+  })
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
 })
 </script>
 
 <template>
-  <div class="h-full flex flex-col min-h-0 w-full">
+  <div class="relative h-full flex flex-col min-h-0 w-full">
     <!-- 会话操作交给主区域顶栏承载，聊天区不再单独设置 header -->
     <Teleport defer to="#main-topbar-actions">
       <button class="chip max-w-[12rem] min-w-0 hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
@@ -207,20 +322,13 @@ onMounted(() => {
         <AppIcon name="layers" :size="12" />
         <span class="truncate">{{ agent.activeSession?.title || '新对话' }}</span>
       </button>
-      <div class="flex shrink-0 items-center gap-1.5">
-        <button class="chip hover:border-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-          :title="llm.isConfigured ? '模型已接入，点击修改' : '尚未接入模型'" @click="openProviderSettings">
-          <AppIcon name="key" :size="12" />
-          <span class="max-w-[9rem] truncate">{{ llm.isConfigured ? (llm.isBuiltin ? `内置 · ${llm.activeModel}` : llm.activeModel) : '未接入模型' }}</span>
-        </button>
-        <button v-if="agent.hasMessages && !agent.running" class="p-1.5 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
-          title="清空当前对话" @click="agent.clear()">
-          <AppIcon name="trash" :size="14" />
-        </button>
-      </div>
+      <button v-if="agent.hasMessages && !agent.running" class="p-1.5 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
+        title="清空当前对话" @click="agent.clear()">
+        <AppIcon name="trash" :size="14" />
+      </button>
     </Teleport>
 
-    <div ref="scrollRef" class="flex-1 min-h-0 overflow-y-auto pt-3 pr-1 space-y-4">
+    <div ref="scrollRef" class="flex-1 min-h-0 overflow-y-auto pt-3 pr-1 space-y-4" @scroll.passive="onScroll">
       <!-- 未配置模型：引导到模型接入 -->
       <section v-if="!llm.isConfigured" class="panel p-5 text-center space-y-3">
         <AppIcon name="key" :size="22" class="mx-auto text-accent-700 dark:text-accent-400" />
@@ -246,21 +354,40 @@ onMounted(() => {
       </section>
 
       <template v-for="message in agent.messages" :key="message.id">
-        <!-- 用户消息：可展开查看这一轮实际发给模型的全部提示词 -->
-        <div v-if="message.role === 'user'" class="space-y-1.5">
-          <div class="flex justify-end">
-            <div class="max-w-[85%] rounded-lg bg-accent-700 px-3 py-2 text-sm leading-6 text-white whitespace-pre-wrap break-words dark:bg-accent-500 dark:text-accent-950">
-              {{ message.content }}
+        <!-- 用户消息：可编辑重发，也可展开查看这一轮实际发给模型的全部提示词 -->
+        <div v-if="message.role === 'user'" class="group space-y-1.5">
+          <div v-if="editingId === message.id" class="panel p-2 space-y-2">
+            <textarea v-model="editingText" rows="3"
+              class="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-neutral-900 outline-none dark:text-neutral-100"
+              @keydown.enter.exact.prevent="submitEdit" @keydown.esc="cancelEdit"></textarea>
+            <div class="flex justify-end gap-1.5">
+              <button class="btn-ghost text-xs" @click="cancelEdit">取消</button>
+              <button class="btn-primary text-xs" :disabled="!editingText.trim()" @click="submitEdit">重新发送</button>
             </div>
           </div>
-          <div v-if="message.requests?.length" class="flex justify-end">
-            <button
-              class="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-neutral-500 transition-colors hover:text-accent-700 dark:text-neutral-400 dark:hover:text-accent-300"
-              :aria-expanded="isRequestExpanded(message.id)" @click="toggleRequest(message.id)">
-              <AppIcon name="eye" :size="12" />
-              {{ isRequestExpanded(message.id) ? '收起请求' : `查看请求 · ${message.requests.length} 次` }}
-            </button>
-          </div>
+          <template v-else>
+            <div class="flex justify-end">
+              <div class="max-w-[85%] rounded-lg bg-accent-700 px-3 py-2 text-sm leading-6 text-white whitespace-pre-wrap break-words dark:bg-accent-500 dark:text-accent-950">
+                {{ message.content }}
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+              <button class="rounded p-1 text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300"
+                :title="copiedId === message.id ? '已复制' : '复制'" @click="copyMessage(message)">
+                <AppIcon :name="copiedId === message.id ? 'check' : 'copy'" :size="12" />
+              </button>
+              <button v-if="!agent.running" class="rounded p-1 text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300"
+                title="编辑并重新发送" @click="startEdit(message)">
+                <AppIcon name="edit" :size="12" />
+              </button>
+              <button v-if="message.requests?.length"
+                class="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-neutral-500 transition-colors hover:text-accent-700 dark:text-neutral-400 dark:hover:text-accent-300"
+                :aria-expanded="isRequestExpanded(message.id)" @click="toggleRequest(message.id)">
+                <AppIcon name="eye" :size="12" />
+                {{ isRequestExpanded(message.id) ? '收起请求' : `请求 · ${message.requests.length}` }}
+              </button>
+            </div>
+          </template>
           <div v-if="isRequestExpanded(message.id)" class="space-y-1.5">
             <div v-for="(request, index) in message.requests" :key="index" class="panel p-2.5">
               <p class="mb-1 text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
@@ -272,7 +399,7 @@ onMounted(() => {
         </div>
 
         <!-- Agent 消息：文本 + 工具执行记录 -->
-        <div v-else class="flex items-start gap-2">
+        <div v-else class="group flex items-start gap-2">
           <div class="mt-0.5 h-6 w-6 shrink-0 rounded-full bg-accent-100 text-accent-700 flex items-center justify-center dark:bg-accent-500/15 dark:text-accent-300">
             <AppIcon name="sparkles" :size="13" />
           </div>
@@ -299,15 +426,43 @@ onMounted(() => {
               <AppIcon name="loader" :size="12" class="animate-spin" />
               正在思考…
             </p>
+
+            <!-- 回复级操作：复制、重新生成、删除 -->
+            <div v-if="!message.streaming && (message.content || message.toolCalls?.length)"
+              class="flex items-center gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+              <button class="rounded p-1 text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300"
+                :title="copiedId === message.id ? '已复制' : '复制'" @click="copyMessage(message)">
+                <AppIcon :name="copiedId === message.id ? 'check' : 'copy'" :size="12" />
+              </button>
+              <button v-if="message.id === lastMessage?.id && canRegenerate"
+                class="rounded p-1 text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300"
+                title="重新生成" @click="regenerate">
+                <AppIcon name="refresh" :size="12" />
+              </button>
+              <button v-if="!agent.running" class="rounded p-1 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400"
+                title="删除这条回复" @click="agent.deleteMessage(message.id)">
+                <AppIcon name="trash" :size="12" />
+              </button>
+            </div>
           </div>
         </div>
       </template>
     </div>
 
-    <p v-if="agent.error" class="shrink-0 pt-2 text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+    <!-- 回到底部：用户上翻历史时出现 -->
+    <button v-if="!atBottom" type="button"
+      class="absolute bottom-32 left-1/2 z-10 -translate-x-1/2 rounded-full border border-hairline bg-surface p-1.5 text-neutral-500 shadow-sm transition-colors hover:text-accent-700 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 dark:hover:text-accent-300"
+      title="回到底部" @click="scrollToBottom">
+      <AppIcon name="chevronDown" :size="14" />
+    </button>
+
+    <!-- 错误提示：可一键重试，不必重新输入 -->
+    <div v-if="agent.error" class="shrink-0 pt-2 flex items-start gap-1.5 text-xs text-rose-600 dark:text-rose-400">
       <AppIcon name="alert" :size="13" class="mt-0.5" />
-      <span>{{ agent.error }}</span>
-    </p>
+      <span class="flex-1">{{ agent.error }}</span>
+      <button v-if="canRegenerate" class="shrink-0 rounded px-1 py-0.5 font-medium transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
+        @click="regenerate">重试</button>
+    </div>
 
     <!-- 破坏性操作确认 -->
     <section v-if="agent.pendingApproval" class="shrink-0 mt-2 panel border-amber-300 dark:border-amber-500/40 p-3 space-y-2">
@@ -326,32 +481,92 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- 输入区 -->
-    <div class="shrink-0 pt-2">
-      <div class="panel p-2">
-        <div class="flex items-end gap-2">
-          <textarea ref="inputRef" v-model="draft" rows="1"
-            class="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-6 text-neutral-900 outline-none placeholder:text-neutral-500 dark:text-neutral-100 dark:placeholder:text-neutral-400"
-            placeholder="告诉 Agent 要做什么…"
-            :disabled="!llm.isConfigured"
-            @input="autoResize"
-            @keydown.enter.exact="onEnter"
-            @compositionstart="isComposing = true"
-            @compositionend="isComposing = false"></textarea>
-          <button v-if="agent.running" class="btn-outline shrink-0" title="停止生成" @click="agent.stop()">
-            <AppIcon name="stop" :size="14" />
-            <span>停止</span>
+    <!-- 输入区：上方浮层选模型与技能，下方工具条常驻 -->
+    <div ref="composerRef" class="relative shrink-0 pt-2">
+      <!-- 模型浮层 -->
+      <div v-if="openMenu === 'model'"
+        class="absolute bottom-full left-0 z-20 mb-1.5 w-64 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
+        <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+          {{ llm.isBuiltin ? '内置模型' : '当前服务商型号' }}
+        </p>
+        <div class="max-h-64 overflow-y-auto pb-1">
+          <button v-for="model in modelOptions" :key="model"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent-50 dark:hover:bg-accent-500/10"
+            :class="model === llm.activeModel ? 'text-accent-700 dark:text-accent-300' : 'text-neutral-700 dark:text-neutral-300'"
+            @click="switchModel(model)">
+            <AppIcon :name="model === llm.activeModel ? 'check' : 'sparkles'" :size="12" class="opacity-70" />
+            <span class="truncate">{{ model }}</span>
           </button>
-          <button v-else class="btn-primary shrink-0" :disabled="!canSend" title="发送" @click="sendDraft">
-            <AppIcon name="send" :size="14" />
+          <p v-if="!modelOptions.length" class="px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400">
+            没有可选型号，去设置里填写
+          </p>
+        </div>
+        <button class="flex w-full items-center gap-2 border-t border-hairline px-3 py-2 text-left text-xs text-neutral-600 transition-colors hover:bg-accent-50 dark:border-hairline-dark dark:text-neutral-400 dark:hover:bg-accent-500/10"
+          @click="openMenu = ''; openProviderSettings()">
+          <AppIcon name="sliders" :size="12" class="opacity-70" />
+          模型接入设置
+        </button>
+      </div>
+
+      <!-- 技能浮层 -->
+      <div v-if="openMenu === 'skill'"
+        class="absolute bottom-full left-0 z-20 mb-1.5 w-64 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
+        <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">技能</p>
+        <div class="max-h-64 overflow-y-auto pb-1">
+          <button v-for="skill in agent.skills" :key="skill.id"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+            :title="skill.tools?.length ? `仅限 ${skill.tools.length} 个工具` : '不限工具'"
+            @click="applySkill(skill)">
+            <AppIcon :name="skill.icon" :size="12" class="opacity-70" />
+            <span class="truncate">{{ skill.name }}</span>
           </button>
+          <p v-if="!agent.skills.length" class="px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400">
+            还没有技能，可在侧栏新建
+          </p>
         </div>
       </div>
-      <p class="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-        Enter 发送，Shift+Enter 换行
-        <span class="text-neutral-300 dark:text-neutral-700">·</span>
-        当前模型：{{ llm.activeModel || '未配置' }}
-      </p>
+
+      <div class="panel p-2 transition-colors focus-within:border-accent-400 dark:focus-within:border-accent-500/50">
+        <textarea ref="inputRef" v-model="draft" rows="1"
+          class="w-full resize-none bg-transparent px-2 py-1.5 text-sm leading-6 text-neutral-900 outline-none placeholder:text-neutral-500 dark:text-neutral-100 dark:placeholder:text-neutral-400"
+          placeholder="告诉 Agent 要做什么…"
+          :disabled="!llm.isConfigured"
+          @input="autoResize"
+          @keydown="onComposerKeydown"
+          @keydown.enter.exact="onEnter"
+          @compositionstart="isComposing = true"
+          @compositionend="isComposing = false"></textarea>
+
+        <!-- 工具条：模型、技能、发送 -->
+        <div class="mt-1 flex items-center gap-1">
+          <button type="button"
+            class="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            :title="llm.isConfigured ? '切换模型' : '尚未接入模型'" @click="toggleMenu('model')">
+            <AppIcon name="sparkles" :size="12" class="opacity-70" />
+            <span class="max-w-[10rem] truncate">{{ llm.activeModel || '未接入模型' }}</span>
+            <AppIcon name="chevronUp" :size="10" class="opacity-50" />
+          </button>
+          <button type="button"
+            class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            title="插入技能指令" @click="toggleMenu('skill')">
+            <AppIcon name="target" :size="12" class="opacity-70" />
+            <span>技能</span>
+          </button>
+
+          <div class="ml-auto flex shrink-0 items-center gap-1.5">
+            <span class="hidden text-[11px] text-neutral-400 sm:inline dark:text-neutral-500">
+              {{ agent.running ? 'Esc 停止' : 'Enter 发送 · Shift+Enter 换行' }}
+            </span>
+            <button v-if="agent.running" class="btn-outline px-2 py-1 text-xs" title="停止生成" @click="agent.stop()">
+              <AppIcon name="stop" :size="13" />
+              <span>停止</span>
+            </button>
+            <button v-else class="btn-primary px-2 py-1" :disabled="!canSend" title="发送" @click="sendDraft">
+              <AppIcon name="send" :size="13" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
