@@ -124,14 +124,14 @@ const expandNavigation = () => {
 	showLeftSidebar.value = sidebarBeforeRailCollapse
 }
 
-// 点击当前入口切换侧栏，点击其他入口切换视图并展开对应侧栏
+// 点击当前入口切换侧栏，点击其他入口切换视图；窄屏下侧栏保持收起，避免遮住内容
 const openNavEntry = (entry) => {
 	if (activeSection.value === entry.id) {
 		showLeftSidebar.value = !showLeftSidebar.value
 		return
 	}
 	switchView(entry.id)
-	showLeftSidebar.value = true
+	showLeftSidebar.value = window.innerWidth >= SIDEBAR_FLOAT_BREAKPOINT
 }
 
 const syncStatusLabel = computed(() => hasUnsyncedChanges.value ? '有待同步更改' : '已同步')
