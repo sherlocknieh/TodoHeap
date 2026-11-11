@@ -39,7 +39,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | --- | --- |
 | `main.ts`、`App.vue` | 入口，仅 `<RouterView />` |
 | `router/index.ts` | hash 路由；`/app` 需登录，默认落到任务图，子路由 `graph` / `list` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
-| `pages/Todo.vue` | 工作区外壳：活动栏、侧栏、中栏、详情面板、可折叠统计底栏；子视图由 `<router-view>` 注入 |
+| `pages/Todo.vue` | 工作区外壳：活动栏、侧栏、中栏、详情面板、底栏统计；子视图由 `<router-view>` 注入 |
 | `pages/todo/TodoList.vue` | 任务表：快速添加 + 树形缩进的扁平列表 |
 | `pages/todo/TodoGraph.vue` | 任务图（默认视图）：渲染 `MindMapWrapper`，把键盘增删改接到 store |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
