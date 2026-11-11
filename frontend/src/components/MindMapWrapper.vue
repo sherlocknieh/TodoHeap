@@ -8,14 +8,14 @@
     @keydown="onKeydown">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
-        <!-- 箭头继承连线颜色，避免与线色不一致 -->
-        <marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5"
-          orient="auto-start-reverse">
-          <path d="M0 0 10 5 0 10z" fill="context-stroke" />
+        <!-- 箭头继承连线颜色；userSpaceOnUse 让箭头尺寸不随线宽变化 -->
+        <marker id="mm-arrow" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8"
+          markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M1 2.6 L9 5 L1 7.4z" fill="context-stroke" />
         </marker>
-        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5"
-          orient="auto-start-reverse">
-          <path d="M0 0 10 5 0 10z" fill="context-stroke" />
+        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8"
+          markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M1 2.6 L9 5 L1 7.4z" fill="context-stroke" />
         </marker>
       </defs>
 
@@ -235,10 +235,20 @@ const roundedPath = (points, radius = 8) => {
   return `${d} L${last.x} ${last.y}`
 }
 
+// 箭头长度（userSpaceOnUse）：线止于箭头尾部，箭头尖端正好落在节点边缘
+const arrowLength = 6.4
+
 // 统一生成连线路径：正向走平滑曲线，逆向与自环绕行展示
 const createEdge = (from, to, key, isRef = false, backward = false, laneCross = null) => {
   const start = outAnchor(from)
-  const end = inAnchor(to)
+  const tip = inAnchor(to)
+  // dx/dy 是节点向外的法线，线端沿法线后退一个箭头长度，箭头尖端正好落在节点边缘
+  const end = {
+    x: tip.x + tip.dx * arrowLength,
+    y: tip.y + tip.dy * arrowLength,
+    dx: tip.dx,
+    dy: tip.dy
+  }
   const cross = crossVector()
   let d
 
