@@ -3,7 +3,7 @@
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
-			@delete-task="deleteTask" @toggle-done="toggleDone" @link-task="linkTask" />
+			@delete-task="deleteTask" @toggle-done="toggleDone" @link-task="linkTask" @unlink-task="unlinkTask" />
 	</div>
 </template>
 
@@ -141,6 +141,29 @@ const linkTask = async ({ sourceId, targetId }) => {
 	emit('notify', {
 		message: `已链接「${source.title || '任务'}」到「${target.title || '任务'}」`,
 		undo: () => todoStore.updateTodo(targetId, { child_ids: childIds })
+	})
+}
+
+// 删除连线：只从父任务的 child_ids 移除引用，任务本身与其他父关系不受影响
+const unlinkTask = async ({ parentId, childId }) => {
+	const parent = todoStore.findTodoById(parentId)
+	const child = todoStore.findTodoById(childId)
+	if (!parent || !child) return
+
+	const childIds = parent.child_ids || []
+	if (!childIds.includes(childId)) return
+
+	const result = await todoStore.updateTodo(parentId, {
+		child_ids: childIds.filter((id) => id !== childId)
+	})
+	if (!result.success) {
+		if (result.error) emit('notify', { message: result.error })
+		return
+	}
+
+	emit('notify', {
+		message: `已断开「${parent.title || '任务'}」与「${child.title || '任务'}」的链接`,
+		undo: () => todoStore.updateTodo(parentId, { child_ids: childIds })
 	})
 }
 </script>

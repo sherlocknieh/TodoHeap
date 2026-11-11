@@ -4,7 +4,7 @@
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
     :class="panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab'"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
-    @pointerup="endPan" @pointerleave="endPan" @click.stop @dblclick="fitView"
+    @pointerup="endPan" @pointerleave="endPan" @click.stop="onCanvasClick" @dblclick="fitView"
     @keydown="onKeydown">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
@@ -20,11 +20,19 @@
       </defs>
 
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
-        <!-- 连线：跨引用与回边用虚线，其余为平滑曲线 -->
+        <!-- 连线：所有父链接等价，样式一致；选中后高亮 -->
         <path v-for="edge in layout.edges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
-          :class="edge.isRef ? 'stroke-accent-500 dark:stroke-accent-400' : 'stroke-neutral-300 dark:stroke-neutral-600'"
-          :stroke-width="edge.isRef ? 1.5 : 1.2" :stroke-dasharray="edge.isRef ? '5 4' : undefined"
-          :marker-end="edge.isRef ? 'url(#mm-arrow-ref)' : 'url(#mm-arrow)'" />
+          :class="selectedEdgeKey === edge.key
+            ? 'stroke-accent-600 dark:stroke-accent-400'
+            : 'stroke-neutral-300 dark:stroke-neutral-600'"
+          :stroke-width="selectedEdgeKey === edge.key ? 2.4 : 1.2"
+          marker-end="url(#mm-arrow)" />
+
+        <!-- 连线热区：透明加宽描边，便于点中细线 -->
+        <path v-for="edge in layout.edges" :key="`hit-${edge.key}`" :d="edge.d" fill="none"
+          stroke="transparent" stroke-width="14" stroke-linecap="round"
+          :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
+          @pointerdown.stop @click.stop="selectEdge(edge)" />
 
         <!-- 拖拽建链接：从源节点指向指针的预览线 -->
         <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
@@ -34,19 +42,17 @@
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
           :opacity="node.completed_at ? 0.55 : 1"
-          :class="node.isRoot || node.isRef ? 'cursor-default' : 'cursor-pointer'"
+          :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
-            :stroke-dasharray="node.isRef ? '5 4' : undefined" :fill-opacity="node.isRoot ? 0.9 : 0.72"
+            :fill-opacity="node.isRoot ? 0.9 : 0.72"
             class="transition-colors" :class="[
-              node.isRef
-                ? 'stroke-accent-300 dark:stroke-accent-700'
-                : dragState.targetId === node.id
+              dragState.targetId === node.id
+                ? 'stroke-accent-600 dark:stroke-accent-400'
+                : node.selected
                   ? 'stroke-accent-600 dark:stroke-accent-400'
-                  : node.selected
-                    ? 'stroke-accent-600 dark:stroke-accent-400'
-                    : 'stroke-neutral-200 dark:stroke-neutral-700',
+                  : 'stroke-neutral-200 dark:stroke-neutral-700',
               node.isRoot
                 ? 'fill-accent-700 dark:fill-accent-500'
                 : dragState.targetId === node.id
@@ -57,9 +63,7 @@
             ]" />
           <text :x="10" :y="0" class="text-[13px] font-medium" :class="node.isRoot
             ? 'fill-white'
-            : node.isRef
-              ? 'fill-neutral-500 dark:fill-neutral-400'
-              : 'fill-neutral-800 dark:fill-neutral-100'">
+            : 'fill-neutral-800 dark:fill-neutral-100'">
             <tspan v-for="(line, index) in node.lines" :key="index" :x="10"
               :dy="index === 0 ? paddingTop + fontSize : lineHeight">{{ line }}</tspan>
           </text>
@@ -103,7 +107,7 @@ const props = defineProps({
   editTaskId: { type: Number, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'link-task'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'link-task', 'unlink-task'])
 
 const nodeWidth = 200
 const fontSize = 13
@@ -238,8 +242,8 @@ const roundedPath = (points, radius = 8) => {
 // 箭头长度（userSpaceOnUse）：线止于箭头尾部，箭头尖端正好落在节点边缘
 const arrowLength = 6.4
 
-// 统一生成连线路径：正向走平滑曲线，逆向与自环绕行展示
-const createEdge = (from, to, key, isRef = false, backward = false, laneCross = null) => {
+// 统一生成连线路径：正向走平滑曲线，逆向绕到内容外侧
+const createEdge = (from, to, key, backward = false, laneCross = null) => {
   const start = outAnchor(from)
   const tip = inAnchor(to)
   // dx/dy 是节点向外的法线，线端沿法线后退一个箭头长度，箭头尖端正好落在节点边缘
@@ -285,7 +289,7 @@ const createEdge = (from, to, key, isRef = false, backward = false, laneCross = 
     d = `M${start.x} ${start.y} C${start.x + start.dx * bend} ${start.y + start.dy * bend}, ${end.x + end.dx * bend} ${end.y + end.dy * bend}, ${end.x} ${end.y}`
   }
 
-  return { key, isRef, d }
+  return { key, d, from: from.id, to: to.id, deletable: from.id !== 'root' }
 }
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
@@ -567,7 +571,7 @@ const graphLayout = computed(() => {
     const laneCross = backward
       ? contentCross + 24 + (index % 4) * 14
       : null
-    return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, edge.isRef || backward, backward, laneCross)
+    return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, backward, laneCross)
   }).filter(Boolean)
 
   return {
@@ -626,22 +630,51 @@ const selectNode = (node) => {
   // 拖拽建链接后紧跟的 click 不应改变选中
   if (Date.now() - lastDragEndAt < 250) return
   if (node.isRoot) return
+  selectedEdgeKey.value = null
   container.value?.focus({ preventScroll: true })
-  emit('task-selected', node.isRef ? node.targetId : Number(node.id))
+  emit('task-selected', Number(node.id))
 }
 
+// 连线选中：与节点选中互斥，选中连线时收起任务详情
+const selectedEdgeKey = ref(null)
+
+const selectEdge = (edge) => {
+  if (!edge.deletable) return
+  container.value?.focus({ preventScroll: true })
+  selectedEdgeKey.value = selectedEdgeKey.value === edge.key ? null : edge.key
+  if (selectedEdgeKey.value) emit('task-selected', null)
+}
+
+// 删除选中连线：只解除父子引用，任务本身保留
+const deleteSelectedEdge = () => {
+  const edge = layout.value.edges.find((item) => item.key === selectedEdgeKey.value)
+  if (!edge || !edge.deletable) return
+  selectedEdgeKey.value = null
+  emit('unlink-task', { parentId: Number(edge.from), childId: Number(edge.to) })
+}
+
+// 布局变化后旧连线可能已不存在，清掉悬空的选中
+watch(layout, () => {
+  if (selectedEdgeKey.value == null) return
+  if (!layout.value.edges.some((edge) => edge.key === selectedEdgeKey.value)) {
+    selectedEdgeKey.value = null
+  }
+})
+
 // 森林索引：键盘导航与新建需要知道每个任务的父级与同级顺序
+// 多父链接等价，引用节点也要计入父级的子列表，否则从第二个父级无法导航到该任务
 const nodeIndex = computed(() => {
   const parentOf = new Map()
   // null 键存放根层级任务，供同级导航使用
   const childrenOf = new Map([[null, []]])
 
   const walk = (node, parentId) => {
-    if (node.isRef) return
-    const id = String(node.id)
-    parentOf.set(id, parentId)
+    const id = node.isRef ? String(node.targetId) : String(node.id)
     if (!childrenOf.has(id)) childrenOf.set(id, [])
-    childrenOf.get(parentId)?.push(id)
+    if (parentId !== null) childrenOf.get(parentId)?.push(id)
+    if (node.isRef) return
+
+    if (!parentOf.has(id)) parentOf.set(id, parentId)
     ;(node.children || []).forEach((child) => walk(child, id))
   }
 
@@ -667,6 +700,7 @@ const axisKeys = computed(() => {
 
 const focusTask = (id) => {
   if (id == null) return
+  selectedEdgeKey.value = null
   emit('task-selected', Number(id))
 }
 
@@ -806,6 +840,12 @@ const onKeydown = (event) => {
       return
     case 'Delete':
     case 'Backspace':
+      // 选中连线时优先删除连线，否则删除任务
+      if (selectedEdgeKey.value != null) {
+        event.preventDefault()
+        deleteSelectedEdge()
+        return
+      }
       if (!id) return
       event.preventDefault()
       emit('delete-task', Number(id))
@@ -816,6 +856,10 @@ const onKeydown = (event) => {
       emit('toggle-done', Number(id))
       return
     case 'Escape':
+      if (selectedEdgeKey.value != null) {
+        selectedEdgeKey.value = null
+        return
+      }
       emit('task-selected', null)
       return
     case 'ArrowUp':
@@ -827,6 +871,11 @@ const onKeydown = (event) => {
       return
     default:
   }
+}
+
+// 点击空白画布取消连线选中
+const onCanvasClick = () => {
+  selectedEdgeKey.value = null
 }
 
 // 以指针位置为中心缩放，避免缩放后视线漂移
