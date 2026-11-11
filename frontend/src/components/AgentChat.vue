@@ -985,11 +985,11 @@ onUnmounted(() => {
             </button>
           </span>
           <span v-for="image in pendingImages" :key="`image:${image.id}`"
-            class="inline-flex max-w-[14rem] items-center gap-1 rounded-md border border-hairline px-1 py-0.5 text-[11px] text-neutral-700 dark:border-hairline-dark dark:text-neutral-300">
-            <button type="button" class="shrink-0 overflow-hidden rounded" title="查看大图" @click="openPreview(image)">
-              <img :src="image.dataUrl" :alt="image.name" class="h-4 w-4 object-cover" />
+            class="inline-flex max-w-[7rem] items-center gap-1 rounded-md border border-hairline px-1 py-0.5 text-[11px] text-neutral-700 dark:border-hairline-dark dark:text-neutral-300">
+            <button type="button" class="flex min-w-0 items-center gap-1" title="查看大图" @click="openPreview(image)">
+              <img :src="image.dataUrl" alt="" class="h-4 w-4 shrink-0 rounded object-cover" />
+              <span class="truncate">{{ image.name }}</span>
             </button>
-            <span class="truncate">{{ image.name }}</span>
             <button type="button" class="shrink-0 opacity-60 transition-opacity hover:opacity-100" title="移除图片"
               @click="removeImage(image.id)">
               <AppIcon name="close" :size="10" />
