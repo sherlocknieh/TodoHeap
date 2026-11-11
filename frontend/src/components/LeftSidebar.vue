@@ -142,6 +142,7 @@ const startNewSkill = () => {
 
 const startEditSkill = (skill) => {
   skillError.value = ''
+  expandSection('skills')
   skillForm.value = {
     id: skill.id,
     name: skill.name,
@@ -172,9 +173,15 @@ const saveSkill = () => {
   cancelSkillForm()
 }
 
+// 删除技能后收起表单，避免停留在已不存在的条目上
+const removeSkill = (id) => {
+  agent.deleteSkill(id)
+  cancelSkillForm()
+}
+
 const modeLabel = (id) => AGENT_MODES.find((mode) => mode.id === id)?.label || ''
 
-const insertSkill = (skill) => {
+const attachSkill = (skill) => {
   agent.useSkill(skill.id)
   closeOnNarrowScreen()
 }
@@ -458,7 +465,13 @@ const switchView = (view) => {
                 </div>
               </div>
               <p v-if="skillError" class="text-[11px] text-rose-600 dark:text-rose-400">{{ skillError }}</p>
-              <div class="flex justify-end gap-1.5">
+              <div class="flex items-center gap-1.5">
+                <button v-if="skillForm.id" type="button"
+                  class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                  title="删除技能" @click="removeSkill(skillForm.id)">
+                  <AppIcon name="trash" :size="13" />
+                </button>
+                <div class="flex-1"></div>
                 <button type="button" class="btn-ghost text-xs" @click="cancelSkillForm">取消</button>
                 <button type="submit" class="btn-primary text-xs">保存</button>
               </div>
@@ -471,19 +484,15 @@ const switchView = (view) => {
               <li v-for="skill in agent.skills" :key="skill.id"
                 class="group flex items-center gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
                 <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left"
-                  :title="skill.mode ? `填入输入框并切到${modeLabel(skill.mode)}模式` : '填入输入框'"
-                  @click="insertSkill(skill)">
+                  title="编辑技能" @click="startEditSkill(skill)">
                   <AppIcon :name="skill.icon" :size="13" class="opacity-70" />
                   <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">{{ skill.name }}</span>
                   <span v-if="skill.mode" class="shrink-0 text-[10px] text-neutral-400 dark:text-neutral-500">{{ modeLabel(skill.mode) }}</span>
                 </button>
                 <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-                  title="编辑技能" @click.stop="startEditSkill(skill)">
-                  <AppIcon name="edit" :size="12" />
-                </button>
-                <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-                  title="删除技能" @click.stop="agent.deleteSkill(skill.id)">
-                  <AppIcon name="trash" :size="12" />
+                  :title="skill.mode ? `挂载技能并切到${modeLabel(skill.mode)}模式` : '挂载技能'"
+                  @click.stop="attachSkill(skill)">
+                  <AppIcon name="plus" :size="12" />
                 </button>
               </li>
             </ul>

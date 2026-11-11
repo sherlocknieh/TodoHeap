@@ -159,7 +159,7 @@ const formatRequest = (request) => {
 }
 
 const canSend = computed(() => (
-  (Boolean(draft.value.trim()) || pendingImages.value.length > 0) && !agent.running
+  (Boolean(draft.value.trim()) || pendingImages.value.length > 0 || agent.attachedSkills.length > 0) && !agent.running
 ))
 
 const lastMessage = computed(() => agent.messages[agent.messages.length - 1])
@@ -212,13 +212,14 @@ const sendDraft = () => {
   const content = draft.value
   const images = pendingImages.value
   const context = mentions.value
+  const skills = agent.attachedSkills
   draft.value = ''
   pendingImages.value = []
   mentions.value = []
   imageError.value = ''
   closePicker()
   nextTick(() => autoResize())
-  agent.send(content, images, context)
+  agent.send(content, images, context, skills)
 }
 
 // 图片统一走这里入库：超出数量上限或格式不支持时给出提示，不打断已选中的图片
@@ -325,10 +326,13 @@ const onDrop = (event) => {
 
 const sendSuggestion = (item) => {
   if (agent.running) return
-  // 指向技能时把技能指令填入输入框，普通示例直接发送
+  // 指向技能时挂上该技能再发送，普通示例直接发送
   if (item.skillId) {
     const skill = agent.skills.find((entry) => entry.id === item.skillId)
-    if (skill && agent.useSkill(skill.id)) return
+    if (skill && agent.useSkill(skill.id)) {
+      agent.send(item.text, [], [], agent.attachedSkills)
+      return
+    }
   }
   agent.send(item.text)
 }
@@ -336,7 +340,7 @@ const sendSuggestion = (item) => {
 // 斜杠命令：都是「执行一个动作」，与 @ 的「引用一个对象」区分开
 const COMMANDS = [
   { key: 'cmd:image', label: '添加图片和文件', hint: 'Ctrl+U', icon: 'image', action: 'image' },
-  { key: 'cmd:skill', label: '插入技能指令', icon: 'target', action: 'skill' },
+  { key: 'cmd:skill', label: '挂载技能', icon: 'target', action: 'skill' },
   { key: 'cmd:context', label: '引用任务或日程', hint: '@', icon: 'link', action: 'context' },
   { key: 'cmd:new', label: '新建会话', icon: 'plus', action: 'new' },
   { key: 'cmd:clear', label: '清空当前对话', icon: 'trash', action: 'clear' },
@@ -704,8 +708,15 @@ onUnmounted(() => {
           <template v-else>
             <div class="flex justify-end">
               <div class="max-w-[85%] space-y-1.5">
-                <div v-if="message.mentions?.length" class="flex flex-wrap justify-end gap-1">
-                  <span v-for="item in message.mentions" :key="item.key"
+                <!-- 已发送消息的附件：技能、引用与图片同排展示 -->
+                <div v-if="message.skills?.length || message.mentions?.length"
+                  class="flex flex-wrap items-center justify-end gap-1">
+                  <span v-for="skill in message.skills" :key="`skill:${skill.id}`"
+                    class="inline-flex max-w-[14rem] items-center gap-1 rounded-md border border-accent-300 px-1.5 py-0.5 text-[11px] text-accent-800 dark:border-accent-500/40 dark:text-accent-200">
+                    <AppIcon :name="skill.icon || 'sparkles'" :size="10" class="opacity-70" />
+                    <span class="truncate">{{ skill.name }}</span>
+                  </span>
+                  <span v-for="item in message.mentions" :key="`mention:${item.key}`"
                     class="inline-flex max-w-[14rem] items-center gap-1 rounded-md border border-hairline px-1.5 py-0.5 text-[11px] text-neutral-600 dark:border-hairline-dark dark:text-neutral-300">
                     <AppIcon :name="item.type === 'schedule' ? 'calendar' : 'list'" :size="10" class="opacity-70" />
                     <span class="truncate">{{ item.label }}</span>
@@ -937,7 +948,7 @@ onUnmounted(() => {
         <div class="max-h-64 overflow-y-auto pb-1">
           <button v-for="skill in agent.skills" :key="skill.id"
             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
-            :title="skill.mode ? `切到${modeLabel(skill.mode)}模式` : '沿用当前模式'"
+            :title="skill.mode ? `挂载技能并切到${modeLabel(skill.mode)}模式` : '挂载技能，沿用当前模式'"
             @click="applySkill(skill)">
             <AppIcon :name="skill.icon" :size="12" class="opacity-70" />
             <span class="truncate">{{ skill.name }}</span>
@@ -952,9 +963,19 @@ onUnmounted(() => {
       <div class="panel p-2 transition-colors focus-within:border-accent-400 dark:focus-within:border-accent-500/50"
         :class="dragging ? 'border-accent-400 dark:border-accent-500/60' : ''"
         @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
-        <!-- 已引用的上下文：发送前可逐个移除 -->
-        <div v-if="mentions.length" class="mb-1.5 flex flex-wrap gap-1 px-1">
-          <span v-for="item in mentions" :key="item.key"
+        <!-- 本轮附件：技能、引用与图片排成一行，发送前可逐个移除 -->
+        <div v-if="agent.attachedSkills.length || mentions.length || pendingImages.length"
+          class="mb-1.5 flex flex-wrap items-center gap-1 px-1">
+          <span v-for="skill in agent.attachedSkills" :key="`skill:${skill.id}`"
+            class="inline-flex max-w-[14rem] items-center gap-1 rounded-md border border-accent-300 px-1.5 py-0.5 text-[11px] text-accent-800 dark:border-accent-500/40 dark:text-accent-200">
+            <AppIcon :name="skill.icon || 'sparkles'" :size="11" class="opacity-70" />
+            <span class="truncate">{{ skill.name }}</span>
+            <button type="button" class="shrink-0 opacity-60 transition-opacity hover:opacity-100" title="移除技能"
+              @click="agent.detachSkill(skill.id)">
+              <AppIcon name="close" :size="10" />
+            </button>
+          </span>
+          <span v-for="item in mentions" :key="`mention:${item.key}`"
             class="inline-flex max-w-[14rem] items-center gap-1 rounded-md bg-accent-50 px-1.5 py-0.5 text-[11px] text-accent-800 dark:bg-accent-500/10 dark:text-accent-200">
             <AppIcon :name="item.icon || 'link'" :size="11" class="opacity-70" />
             <span class="truncate">{{ item.label }}</span>
@@ -963,21 +984,17 @@ onUnmounted(() => {
               <AppIcon name="close" :size="10" />
             </button>
           </span>
-        </div>
-
-        <!-- 待发送图片：发送前可逐张移除 -->
-        <div v-if="pendingImages.length" class="mb-1.5 flex flex-wrap gap-1.5 px-1">
-          <div v-for="image in pendingImages" :key="image.id" class="group relative">
-            <button type="button" class="block overflow-hidden rounded-md border border-hairline dark:border-hairline-dark"
-              title="查看大图" @click="openPreview(image)">
-              <img :src="image.dataUrl" :alt="image.name" class="h-16 w-16 object-cover" />
+          <span v-for="image in pendingImages" :key="`image:${image.id}`"
+            class="inline-flex max-w-[14rem] items-center gap-1 rounded-md border border-hairline px-1 py-0.5 text-[11px] text-neutral-700 dark:border-hairline-dark dark:text-neutral-300">
+            <button type="button" class="shrink-0 overflow-hidden rounded" title="查看大图" @click="openPreview(image)">
+              <img :src="image.dataUrl" :alt="image.name" class="h-4 w-4 object-cover" />
             </button>
-            <button type="button"
-              class="absolute -right-1 -top-1 rounded-full border border-hairline bg-surface p-0.5 text-neutral-500 transition-colors hover:text-rose-600 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 dark:hover:text-rose-400"
-              title="移除图片" @click="removeImage(image.id)">
+            <span class="truncate">{{ image.name }}</span>
+            <button type="button" class="shrink-0 opacity-60 transition-opacity hover:opacity-100" title="移除图片"
+              @click="removeImage(image.id)">
               <AppIcon name="close" :size="10" />
             </button>
-          </div>
+          </span>
         </div>
 
         <textarea ref="inputRef" v-model="draft" rows="1"
@@ -1017,7 +1034,7 @@ onUnmounted(() => {
           </button>
           <button type="button"
             class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-            title="插入技能指令" @click="toggleMenu('skill')">
+            title="挂载技能" @click="toggleMenu('skill')">
             <AppIcon name="target" :size="12" class="opacity-70" />
             <span>技能</span>
           </button>

@@ -50,6 +50,14 @@ const formatMentions = (mentions) => {
   return `\n用户本轮通过 @ 引用了以下对象，优先围绕它们回答；涉及写操作前仍先用工具确认：\n${lines.join('\n')}\n`
 }
 
+// 本轮挂上的技能：指令写进系统提示，输入框只保留用户自己的文字
+const formatSkills = (skills) => {
+  const list = Array.isArray(skills) ? skills.filter((skill) => skill?.prompt) : []
+  if (!list.length) return ''
+  const blocks = list.map((skill) => `【${skill.name}】\n${skill.prompt}`)
+  return `\n用户本轮挂载了以下技能，按其中的指令执行：\n${blocks.join('\n\n')}\n`
+}
+
 // 本轮可用工具清单：作为 system 消息随请求发送，模型与用户都能看到工具范围
 const buildToolsPrompt = (tools) => {
   const names = (Array.isArray(tools) ? tools : [])
@@ -60,10 +68,10 @@ const buildToolsPrompt = (tools) => {
   return `本轮可用工具（共 ${names.length} 个）：\n${lines.join('\n')}`
 }
 
-const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], mode = DEFAULT_AGENT_MODE } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
+const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], skills = [], mode = DEFAULT_AGENT_MODE } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
 
 当前本地时间：${formatNow()}
-${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}${findAgentMode(mode).prompt ? `\n${findAgentMode(mode).prompt}\n` : ''}
+${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}${formatSkills(skills)}${findAgentMode(mode).prompt ? `\n${findAgentMode(mode).prompt}\n` : ''}
 工具使用规则：
 - 涉及数据的问题先调用工具获取真实数据，不要凭空编造任务 id 或内容。
 - id 必须来自工具返回结果；不确定 id 时先用 list_todos 或 list_trash 查找。
@@ -106,12 +114,24 @@ const normalizeMentions = (list) => (Array.isArray(list) ? list : [])
     hint: typeof item.hint === 'string' ? item.hint : ''
   }))
 
+// 挂载的技能只保留发送所需字段，指令随消息一起留存
+const normalizeAttachedSkills = (list) => (Array.isArray(list) ? list : [])
+  .filter((skill) => skill && skill.id && skill.prompt)
+  .map((skill) => ({
+    id: skill.id,
+    name: typeof skill.name === 'string' ? skill.name : '',
+    icon: typeof skill.icon === 'string' ? skill.icon : '',
+    prompt: String(skill.prompt),
+    mode: typeof skill.mode === 'string' ? skill.mode : ''
+  }))
+
 const normalizeMessage = (message) => ({
   id: message.id || createId(),
   role: message.role,
   content: typeof message.content === 'string' ? message.content : '',
   images: normalizeImages(message.images),
   mentions: normalizeMentions(message.mentions),
+  skills: normalizeAttachedSkills(message.skills),
   toolCalls: Array.isArray(message.toolCalls) ? message.toolCalls : [],
   createdAt: message.createdAt || nowIso(),
   streaming: false
@@ -219,14 +239,15 @@ export const useAgentStore = defineStore('agent', () => {
   const activeSessionId = ref(null)
   const running = ref(false)
   const error = ref('')
-  // 输入草稿由侧栏技能与聊天框共用，点选技能时填入这里
+  // 输入草稿由聊天框维护，技能不再写入这里
   const draft = ref('')
   // 每个会话各自保留未发送的草稿，切换会话不会互相覆盖
   const drafts = ref({})
+  // 本轮挂载的技能：随消息发送，输入框只保留用户自己的文字
+  const attachedSkills = ref([])
   const pendingApproval = ref(null)
   // 选择面板：模型需要用户拍板时弹出，点选结果直接作为工具结果返回
   const pendingChoice = ref(null)
-  // 点选技能后记录其工具白名单，只作用于紧接着发送的这一轮
   const activeUserId = ref(null)
   const context = ref({ selectedTaskId: null })
   const skills = ref(cloneDefaultSkills())
@@ -345,18 +366,24 @@ export const useAgentStore = defineStore('agent', () => {
     return skill
   }
 
+  const detachSkill = (id) => {
+    attachedSkills.value = attachedSkills.value.filter((item) => item.id !== id)
+  }
+
   const deleteSkill = (id) => {
     if (!skills.value.some((skill) => skill.id === id)) return false
     persistSkills(skills.value.filter((skill) => skill.id !== id))
+    detachSkill(id)
     return true
   }
 
-  // 点选技能把指令填入输入框，并切到它绑定的模式
+  // 挂载技能：指令随本轮消息发送，并切到它绑定的模式
   const useSkill = (id) => {
     const skill = skills.value.find((item) => item.id === id)
     if (!skill) return false
-    const current = draft.value.trim()
-    setDraft(current ? `${current}\n\n${skill.prompt}` : skill.prompt)
+    if (!attachedSkills.value.some((item) => item.id === skill.id)) {
+      attachedSkills.value = [...attachedSkills.value, { ...skill }]
+    }
     if (skill.mode) setMode(skill.mode)
     return true
   }
@@ -412,6 +439,7 @@ export const useAgentStore = defineStore('agent', () => {
     activeSessionId.value = session.id
     messages.value = session.messages
     draft.value = ''
+    attachedSkills.value = []
     error.value = ''
     persist()
     return session.id
@@ -427,6 +455,7 @@ export const useAgentStore = defineStore('agent', () => {
     activeSessionId.value = id
     messages.value = target.messages
     draft.value = drafts.value[id] || ''
+    attachedSkills.value = []
     error.value = ''
     persist()
     hydrateImages(messages.value.flatMap((message) => message.images || []))
@@ -469,6 +498,7 @@ export const useAgentStore = defineStore('agent', () => {
     messages.value.splice(0)
     error.value = ''
     setDraft('')
+    attachedSkills.value = []
     persist()
   }
 
@@ -477,8 +507,8 @@ export const useAgentStore = defineStore('agent', () => {
     context.value = { ...context.value, ...patch }
   }
 
-  const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE, tools = []) => {
-    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, mode }) }]
+  const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE, tools = [], skills = []) => {
+    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, skills, mode }) }]
     // 工具清单单独成一条 system 消息，便于在原始消息里核对本轮范围
     const toolsPrompt = buildToolsPrompt(tools)
     if (toolsPrompt) apiMessages.push({ role: 'system', content: toolsPrompt })
@@ -634,7 +664,7 @@ export const useAgentStore = defineStore('agent', () => {
         // 每步都按当前模式取工具与提示词：确认切换后本轮立即生效
         const stepMode = activeMode.value
         const tools = resolveTools(stepMode)
-        const history = toApiMessages(userMessage.mentions, stepMode, tools)
+        const history = toApiMessages(userMessage.mentions, stepMode, tools, userMessage.skills)
         // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
         const requestRecord = {
           model: llm.activeModel,
@@ -729,14 +759,15 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
-  // 发送一条新消息：技能白名单只作用于这一轮
-  const send = async (text, images = [], mentions = []) => {
+  // 发送一条新消息：挂载的技能只作用于这一轮
+  const send = async (text, images = [], mentions = [], skills = attachedSkills.value) => {
     const content = String(text || '').trim()
     const attachments = normalizeImages(images)
     const references = (Array.isArray(mentions) ? mentions : [])
       .filter((item) => item?.type && item.id != null)
       .map((item) => ({ key: item.key || `${item.type}:${item.id}`, type: item.type, id: item.id, label: item.label || '', hint: item.hint || '' }))
-    if ((!content && !attachments.length) || running.value || pendingApproval.value || pendingChoice.value) return
+    const attached = normalizeAttachedSkills(skills)
+    if ((!content && !attachments.length && !attached.length) || running.value || pendingApproval.value || pendingChoice.value) return
 
     const llm = useLlmStore()
     if (!llm.isConfigured) {
@@ -747,14 +778,15 @@ export const useAgentStore = defineStore('agent', () => {
     init(useAuthStore().user?.id)
 
     // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
-    const userMessage = { id: createId(), role: 'user', content, images: attachments, mentions: references, toolCalls: [], requests: [], createdAt: nowIso() }
+    const userMessage = { id: createId(), role: 'user', content, images: attachments, mentions: references, skills: attached, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
+    attachedSkills.value = []
 
     const session = activeSession.value
     if (session) {
       if (!session.title || session.title === DEFAULT_TITLE) {
         const title = content.replace(/\s+/g, ' ').slice(0, MAX_TITLE_LENGTH)
-        session.title = title || (attachments.length ? '图片对话' : DEFAULT_TITLE)
+        session.title = title || (attachments.length ? '图片对话' : attached[0]?.name || DEFAULT_TITLE)
       }
       session.updatedAt = nowIso()
     }
@@ -785,8 +817,9 @@ export const useAgentStore = defineStore('agent', () => {
 
     const images = normalizeImages(messages.value[index].images)
     const mentions = normalizeMentions(messages.value[index].mentions)
+    const skills = normalizeAttachedSkills(messages.value[index].skills)
     messages.value.splice(index)
-    const userMessage = { id: createId(), role: 'user', content, images, mentions, toolCalls: [], requests: [], createdAt: nowIso() }
+    const userMessage = { id: createId(), role: 'user', content, images, mentions, skills, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
     persist()
     await startTurn({ userMessage })
@@ -828,6 +861,7 @@ export const useAgentStore = defineStore('agent', () => {
     error,
     draft,
     drafts,
+    attachedSkills,
     pendingApproval,
     pendingChoice,
     hasMessages,
@@ -849,6 +883,7 @@ export const useAgentStore = defineStore('agent', () => {
     updateSkill,
     deleteSkill,
     useSkill,
+    detachSkill,
     regenerate,
     editAndResend,
     deleteMessage,

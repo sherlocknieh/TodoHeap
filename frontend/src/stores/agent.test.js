@@ -242,22 +242,38 @@ describe('useAgentStore', () => {
     expect(agent.sessions.find((session) => session.id === firstId).messages).toHaveLength(0)
   })
 
-  it('点选技能只填入输入框，不直接发送', () => {
+  it('挂载技能只加入待发送列表，不写入输入框也不直接发送', () => {
     const agent = useAgentStore()
     expect(agent.useSkill('global-optimize')).toBe(true)
 
-    expect(agent.draft).toContain('全局优化')
+    expect(agent.attachedSkills.map((skill) => skill.id)).toEqual(['global-optimize'])
+    expect(agent.draft).toBe('')
     expect(agent.messages).toHaveLength(0)
     expect(mocks.chat).not.toHaveBeenCalled()
   })
 
-  it('输入框已有内容时把技能指令追加在后面', () => {
+  it('重复挂载同一技能不会产生重复项，移除后清空', () => {
     const agent = useAgentStore()
-    agent.draft = '先看看今天'
     agent.useSkill('global-optimize')
+    agent.useSkill('global-optimize')
+    expect(agent.attachedSkills).toHaveLength(1)
 
-    expect(agent.draft.startsWith('先看看今天')).toBe(true)
-    expect(agent.draft).toContain('全局优化')
+    agent.detachSkill('global-optimize')
+    expect(agent.attachedSkills).toHaveLength(0)
+  })
+
+  it('挂载的技能指令写进本轮系统提示，发送后清空', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.useSkill('global-optimize')
+    await agent.send('开始吧')
+
+    const system = mocks.chat.mock.calls[0][0].messages[0].content
+    expect(system).toContain('全局任务优化')
+    expect(system).toContain('全局优化')
+    expect(agent.messages[0].skills).toHaveLength(1)
+    expect(agent.attachedSkills).toHaveLength(0)
   })
 
   it('同步技能的新增、修改与删除到用户设置', async () => {

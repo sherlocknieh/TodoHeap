@@ -314,7 +314,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'create_skill',
-      description: '新建一个技能：一段可复用的指令，用户点选后填入输入框。',
+      description: '新建一个技能：一段可复用的指令，用户挂载后随本轮消息发送。',
       parameters: objectSchema({
         name: text('技能名称，最多 24 字'),
         prompt: text('技能指令全文'),
