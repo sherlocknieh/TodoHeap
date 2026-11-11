@@ -420,19 +420,24 @@ const graphLayout = computed(() => {
   })
   const contentMain = Math.max(cursorMain - mainGap, 0)
 
-  // 交叉方向：分层图布局。层内顺序由重心法确定，坐标由「最小化边长平方和 + 同层最小间距」求得
+  // 交叉方向：分层图布局。层内顺序按父节点位置（重心）排序，坐标由「贴近父节点 + 同层最小间距」求得
   const crossCenter = new Map()
   const crossSizeOf = (id) => nodeCrossSize(byId.get(id))
 
-  const neighborsOf = new Map(nodes.map((node) => [node.id, []]))
+  // 只统计沿主方向向前的边；回边绕行展示，不参与交叉方向定位
+  const parentsOf = new Map(nodes.map((node) => [node.id, []]))
+  const childrenOf = new Map(nodes.map((node) => [node.id, []]))
   rawEdges.forEach((edge) => {
     if (edge.from === edge.to) return
-    if (!neighborsOf.has(edge.from) || !neighborsOf.has(edge.to)) return
-    neighborsOf.get(edge.from).push(edge.to)
-    neighborsOf.get(edge.to).push(edge.from)
+    if (!parentsOf.has(edge.to) || !childrenOf.has(edge.from)) return
+    const fromLayer = nodeLayer.get(edge.from) ?? 0
+    const toLayer = nodeLayer.get(edge.to) ?? 0
+    if (fromLayer >= toLayer) return
+    parentsOf.get(edge.to).push(edge.from)
+    childrenOf.get(edge.from).push(edge.to)
   })
 
-  // 层内顺序：森林的深度优先序，兄弟天然相邻，无需额外排序
+  // 层内顺序：森林的深度优先序，兄弟天然相邻，作为初始顺序
   const order = new Map(layerKeys.map((layer) => [layer, []]))
   const dfsIndex = new Map()
   let dfsCursor = 0
@@ -489,6 +494,7 @@ const graphLayout = computed(() => {
       }
     })
 
+    const desired = list.map((node) => crossCenter.get(node.id))
     let cursor = 0
     blocks.forEach((block) => {
       const value = block.sum / block.count
@@ -497,21 +503,37 @@ const graphLayout = computed(() => {
         cursor += 1
       }
     })
+
+    // 投影会整体推移整层，按期望均值平移回来，避免逐层累积漂移
+    const mean = (values) => values.reduce((a, b) => a + b, 0) / values.length
+    const drift = mean(desired) - mean(list.map((node) => crossCenter.get(node.id)))
+    list.forEach((node) => crossCenter.set(node.id, crossCenter.get(node.id) + drift))
   }
 
-  // 交替投影：节点先向相邻节点的平均位置靠拢，再投影回间距约束，多父节点自然取平均
-  const relaxLayer = (layer) => {
+  const averageOf = (ids) => {
+    const values = ids.map((id) => crossCenter.get(id)).filter((value) => value !== undefined)
+    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
+  }
+
+  // 逐层定位：down 让子节点贴近父节点（多父节点取各父节点位置的平均值），
+  // up 让父节点居中于子节点带。每层定位后投影回间距约束，避免重叠。
+  const relaxLayer = (layer, mode) => {
     order.get(layer).forEach((node) => {
-      const refs = neighborsOf.get(node.id).map((id) => crossCenter.get(id)).filter((value) => value !== undefined)
-      if (refs.length === 0) return
-      crossCenter.set(node.id, refs.reduce((a, b) => a + b, 0) / refs.length)
+      const parents = averageOf(parentsOf.get(node.id))
+      const children = averageOf(childrenOf.get(node.id))
+      // up 时叶子没有子节点，保持当前位置，由父节点向它靠拢
+      const target = mode === 'down' ? (parents ?? children) : children
+      if (target !== null) crossCenter.set(node.id, target)
     })
+    // 按期望位置重排层内顺序，投影时才能保持左右关系与期望一致
+    order.get(layer).sort((a, b) => crossCenter.get(a.id) - crossCenter.get(b.id))
     projectLayer(layer)
   }
 
-  for (let round = 0; round < 20; round += 1) {
-    layerKeys.forEach(relaxLayer)
-    ;[...layerKeys].reverse().forEach(relaxLayer)
+  // 交替收敛：父节点先居中于子节点带，子节点再贴近父节点，最后以子节点贴近父节点收尾
+  for (let round = 0; round < 3; round += 1) {
+    ;[...layerKeys].reverse().forEach((layer) => relaxLayer(layer, 'up'))
+    layerKeys.forEach((layer) => relaxLayer(layer, 'down'))
   }
 
   let minCross = Infinity
