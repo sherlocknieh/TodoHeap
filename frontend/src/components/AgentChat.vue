@@ -44,6 +44,8 @@ const pendingImages = ref([])
 const imageError = ref('')
 const imageInputRef = ref(null)
 const dragging = ref(false)
+// 图片预览：点开大图查看，点背景或按 Esc 关闭
+const previewImage = ref(null)
 
 const SUGGESTIONS = [
   { icon: 'list', text: '今天有哪些任务最该先做？' },
@@ -223,6 +225,23 @@ const removeImage = (id) => {
   imageError.value = ''
 }
 
+const openPreview = (image) => {
+  if (!image?.dataUrl) return
+  previewImage.value = image
+}
+
+const closePreview = () => {
+  previewImage.value = null
+}
+
+// 预览打开时用 Esc 关闭，避免与输入框的 Esc 停止生成冲突
+const onDocumentKeydown = (event) => {
+  if (event.key === 'Escape' && previewImage.value) {
+    event.stopPropagation()
+    closePreview()
+  }
+}
+
 const pickImages = () => imageInputRef.value?.click()
 
 const onImagePicked = async (event) => {
@@ -372,6 +391,7 @@ watch(() => authStore.user?.id, (id) => agent.init(id))
 watch(() => agent.activeSessionId, () => {
   cancelEdit()
   openMenu.value = ''
+  closePreview()
   nextTick(() => {
     autoResize()
     scrollToBottom()
@@ -387,6 +407,7 @@ onMounted(() => {
   todoStore.fetchTodos()
   scheduleStore.fetchSchedules()
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onDocumentKeydown, true)
   nextTick(() => {
     autoResize()
     scrollToBottom()
@@ -395,6 +416,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onDocumentKeydown, true)
 })
 </script>
 
@@ -454,8 +476,15 @@ onUnmounted(() => {
             <div class="flex justify-end">
               <div class="max-w-[85%] space-y-1.5">
                 <div v-if="message.images?.length" class="flex flex-wrap justify-end gap-1.5">
-                  <img v-for="image in message.images" :key="image.id" :src="image.dataUrl" :alt="image.name"
-                    class="max-h-40 max-w-[12rem] rounded-lg border border-hairline object-cover dark:border-hairline-dark" />
+                  <button v-for="image in message.images" :key="image.id" type="button"
+                    class="overflow-hidden rounded-lg border border-hairline transition-opacity hover:opacity-90 dark:border-hairline-dark"
+                    :title="image.dataUrl ? '查看大图' : '图片已不在本机'" @click="openPreview(image)">
+                    <img v-if="image.dataUrl" :src="image.dataUrl" :alt="image.name"
+                      class="max-h-40 max-w-[12rem] object-cover" />
+                    <span v-else class="flex h-16 w-16 items-center justify-center text-neutral-400 dark:text-neutral-500">
+                      <AppIcon name="image" :size="16" />
+                    </span>
+                  </button>
                 </div>
                 <div v-if="message.content"
                   class="rounded-lg bg-accent-700 px-3 py-2 text-sm leading-6 text-white whitespace-pre-wrap break-words dark:bg-accent-500 dark:text-accent-950">
@@ -624,8 +653,10 @@ onUnmounted(() => {
         <!-- 待发送图片：发送前可逐张移除 -->
         <div v-if="pendingImages.length" class="mb-1.5 flex flex-wrap gap-1.5 px-1">
           <div v-for="image in pendingImages" :key="image.id" class="group relative">
-            <img :src="image.dataUrl" :alt="image.name"
-              class="h-16 w-16 rounded-md border border-hairline object-cover dark:border-hairline-dark" />
+            <button type="button" class="block overflow-hidden rounded-md border border-hairline dark:border-hairline-dark"
+              title="查看大图" @click="openPreview(image)">
+              <img :src="image.dataUrl" :alt="image.name" class="h-16 w-16 object-cover" />
+            </button>
             <button type="button"
               class="absolute -right-1 -top-1 rounded-full border border-hairline bg-surface p-0.5 text-neutral-500 transition-colors hover:text-rose-600 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 dark:hover:text-rose-400"
               title="移除图片" @click="removeImage(image.id)">
@@ -686,5 +717,26 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- 图片预览：铺满视口，点背景或按 Esc 关闭 -->
+    <Teleport to="body">
+      <div v-if="previewImage"
+        class="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-3 bg-neutral-950/80 p-6 backdrop-blur-sm"
+        @click.self="closePreview">
+        <img :src="previewImage.dataUrl" :alt="previewImage.name"
+          class="max-h-[85vh] max-w-full rounded-lg object-contain shadow-xl" />
+        <div class="flex items-center gap-3 text-xs text-neutral-300">
+          <span class="max-w-[60vw] truncate">{{ previewImage.name }}</span>
+          <span v-if="previewImage.width && previewImage.height" class="tabular-nums text-neutral-400">
+            {{ previewImage.width }} × {{ previewImage.height }}
+          </span>
+          <button type="button"
+            class="rounded p-1 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+            title="关闭预览" @click="closePreview">
+            <AppIcon name="close" :size="14" />
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
