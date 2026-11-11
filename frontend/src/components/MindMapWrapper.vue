@@ -97,7 +97,7 @@ const fontSize = 13
 const lineHeight = 16
 const paddingTop = 10
 const maxLines = 3
-const crossGap = 40
+const crossGap = 24
 const mainGap = 52
 const textUnitsPerLine = 13
 
@@ -346,20 +346,9 @@ const graphLayout = computed(() => {
   })
 
   const layerKeys = [...layers.keys()].sort((a, b) => a - b)
-  const layerCross = new Map()
   const layerMain = new Map()
-  let maxCross = 0
-
   layerKeys.forEach((layer) => {
-    layers.get(layer).sort((a, b) => {
-      const diff = Number(a.id) - Number(b.id)
-      return Number.isFinite(diff) && diff !== 0 ? diff : String(a.id).localeCompare(String(b.id))
-    })
-    const list = layers.get(layer)
-    layerCross.set(layer, list.reduce((sum, node) => sum + nodeCrossSize(node), 0)
-      + Math.max(0, list.length - 1) * crossGap)
-    layerMain.set(layer, Math.max(...list.map(nodeMainSize)))
-    maxCross = Math.max(maxCross, layerCross.get(layer))
+    layerMain.set(layer, Math.max(...layers.get(layer).map(nodeMainSize)))
   })
 
   let cursorMain = 0
@@ -370,20 +359,119 @@ const graphLayout = computed(() => {
   })
   const contentMain = Math.max(cursorMain - mainGap, 0)
 
-  layerKeys.forEach((layer) => {
-    const list = layers.get(layer)
-    let cursorCross = (maxCross - layerCross.get(layer)) / 2
-    list.forEach((node) => {
-      const mainOffset = layerStart.get(layer) + (layerMain.get(layer) - nodeMainSize(node)) / 2
-      if (isVertical.value) {
-        node.x = cursorCross
-        node.y = isForward.value ? mainOffset : contentMain - mainOffset - node.height
-      } else {
-        node.y = cursorCross
-        node.x = isForward.value ? mainOffset : contentMain - mainOffset - nodeWidth
-      }
-      cursorCross += nodeCrossSize(node) + crossGap
+  // 交叉方向：按森林做整齐树布局，父节点居中于子节点带之上，子树各占一段互不交叠
+  const crossCenter = new Map()
+  const crossSizeOf = (id) => nodeCrossSize(byId.get(id))
+
+  const shiftSubtree = (node, delta) => {
+    const id = String(node.id)
+    crossCenter.set(id, (crossCenter.get(id) ?? 0) + delta)
+    ;(node.children || []).forEach((child) => {
+      if (byId.has(String(child.id))) shiftSubtree(child, delta)
     })
+  }
+
+  let crossCursor = 0
+  const placeSubtree = (node) => {
+    const id = String(node.id)
+    if (crossCenter.has(id)) return
+    const own = crossSizeOf(id)
+    const children = (node.children || []).filter((child) => byId.has(String(child.id)))
+
+    if (children.length === 0) {
+      crossCenter.set(id, crossCursor + own / 2)
+      crossCursor += own + crossGap
+      return
+    }
+
+    const start = crossCursor
+    children.forEach(placeSubtree)
+    const band = crossCursor - crossGap - start
+
+    // 父节点比子节点带更宽时，把子树整体居中到父节点下方
+    if (own > band) {
+      const shift = (own - band) / 2
+      children.forEach((child) => shiftSubtree(child, shift))
+      crossCenter.set(id, start + own / 2)
+      crossCursor = start + own + crossGap
+      return
+    }
+
+    crossCenter.set(id, start + band / 2)
+  }
+
+  ;(props.nodes || []).forEach((root) => {
+    if (byId.has(String(root.id))) placeSubtree(root)
+  })
+
+  // 多父节点：交叉坐标取各父节点位置的平均值，再按层消除重叠
+  const forestNodeById = new Map()
+  const indexForest = (node) => {
+    forestNodeById.set(String(node.id), node)
+    ;(node.children || []).forEach(indexForest)
+  }
+  ;(props.nodes || []).forEach(indexForest)
+
+  const parentsOf = new Map(nodes.map((node) => [node.id, []]))
+  rawEdges.forEach((edge) => {
+    if (edge.from === edge.to) return
+    if (!parentsOf.has(edge.to) || !crossCenter.has(edge.from)) return
+    parentsOf.get(edge.to).push(edge.from)
+  })
+
+  // 同层按期望位置排序后顺延排开，再整体平移回期望均值，避免单向漂移
+  const resolveLayerOverlaps = (layer) => {
+    const list = [...layers.get(layer)].sort((a, b) => crossCenter.get(a.id) - crossCenter.get(b.id))
+    const desired = list.map((node) => crossCenter.get(node.id))
+    let cursor = -Infinity
+    const placed = list.map((node, index) => {
+      const half = nodeCrossSize(node) / 2
+      const center = Math.max(desired[index], cursor + crossGap + half)
+      cursor = center + half
+      return center
+    })
+    const drift = desired.reduce((sum, value) => sum + value, 0) / list.length
+      - placed.reduce((sum, value) => sum + value, 0) / list.length
+    list.forEach((node, index) => crossCenter.set(node.id, placed[index] + drift))
+  }
+
+  for (let round = 0; round < 3; round += 1) {
+    nodes.forEach((node) => {
+      const parents = parentsOf.get(node.id)
+      if (parents.length < 2) return
+      const centers = parents.map((id) => crossCenter.get(id)).filter((value) => value !== undefined)
+      if (centers.length < 2) return
+      const average = centers.reduce((sum, value) => sum + value, 0) / centers.length
+      const delta = average - crossCenter.get(node.id)
+      if (Math.abs(delta) < 0.5) return
+      // 子树跟随节点一起移动，保持父子相对位置
+      const forestNode = forestNodeById.get(node.id)
+      if (forestNode) shiftSubtree(forestNode, delta)
+      else crossCenter.set(node.id, average)
+    })
+    layerKeys.forEach(resolveLayerOverlaps)
+  }
+
+  let minCross = Infinity
+  let maxCross = -Infinity
+  crossCenter.forEach((center, id) => {
+    const half = crossSizeOf(id) / 2
+    minCross = Math.min(minCross, center - half)
+    maxCross = Math.max(maxCross, center + half)
+  })
+  const contentCross = maxCross - minCross
+
+  nodes.forEach((node) => {
+    const cross = crossCenter.get(node.id) - nodeCrossSize(node) / 2 - minCross
+    const layer = nodeLayer.get(node.id) ?? 0
+    const mainOffset = layerStart.get(layer) + (layerMain.get(layer) - nodeMainSize(node)) / 2
+    if (isVertical.value) {
+      node.x = cross
+      node.y = isForward.value ? mainOffset : contentMain - mainOffset - node.height
+    } else {
+      node.y = cross
+      node.x = isForward.value ? mainOffset : contentMain - mainOffset - nodeWidth
+    }
   })
 
   const routedEdges = rawEdges.map((edge, index) => {
@@ -397,8 +485,8 @@ const graphLayout = computed(() => {
   return {
     nodes,
     edges: routedEdges,
-    contentWidth: isVertical.value ? maxCross : contentMain,
-    contentHeight: isVertical.value ? contentMain : maxCross
+    contentWidth: isVertical.value ? contentCross : contentMain,
+    contentHeight: isVertical.value ? contentMain : contentCross
   }
 })
 
