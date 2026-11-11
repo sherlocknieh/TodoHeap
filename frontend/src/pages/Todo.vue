@@ -623,16 +623,19 @@ const runToastUndo = async () => {
 							<span class="block h-full rounded-full bg-accent-500 transition-[width] duration-300"
 								:style="{ width: completionRate + '%' }"></span>
 						</span>
+						<span class="shrink-0 font-mono tabular-nums text-accent-700 dark:text-accent-400"
+							title="已完成比例">{{ completionRate }}%</span>
 					</template>
-					<!-- 统计开关：图标表示统计与展开方向 -->
+					<!-- 统计开关：文字入口，向上展开明细 -->
 					<button type="button"
 						:title="statsExpanded ? '收起统计' : '展开统计'" :aria-expanded="statsExpanded"
 						@click="statsExpanded = !statsExpanded"
-						class="h-6 shrink-0 rounded-md px-1 flex items-center gap-0.5 transition-colors"
+						class="h-6 shrink-0 rounded-md px-1.5 flex items-center gap-1 transition-colors"
 						:class="statsExpanded
 							? 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'
 							: 'text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'">
-						<AppIcon name="chart" :size="14" />
+						<AppIcon name="chart" :size="13" />
+						<span>统计</span>
 						<AppIcon :name="statsExpanded ? 'chevronDown' : 'chevronUp'" :size="10" class="opacity-70" />
 					</button>
 				</div>
