@@ -710,9 +710,8 @@ export const useAgentStore = defineStore('agent', () => {
     const skill = activeSkillId.value
       ? skills.value.find((item) => item.id === activeSkillId.value)
       : null
-    const mode = activeMode.value
-    // 模式与技能都限制工具时取交集，Plan 模式下技能也无法放开写权限
-    const allowedTools = resolveAllowedTools(mode, skill?.tools)
+    // 只传技能白名单：模式在每一步重新解析，switch_mode 切到 Build 后才能拿到写入工具
+    const allowedTools = skill?.tools?.length ? [...skill.tools] : null
     activeSkillId.value = null
 
     init(useAuthStore().user?.id)

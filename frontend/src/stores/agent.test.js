@@ -445,6 +445,26 @@ describe('useAgentStore', () => {
     expect(request.messages[0].content).toContain('Plan 模式')
   })
 
+  it('switch_mode 确认后本轮后续请求改用 Build 的完整工具集', async () => {
+    mocks.chat
+      .mockResolvedValueOnce(toolCallResponse('switch_mode', { mode: 'build', reason: '需要新建日程' }))
+      .mockResolvedValueOnce({ content: '已切换。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const pending = agent.send('帮我建一条日程')
+
+    await vi.waitFor(() => expect(agent.pendingApproval).not.toBeNull())
+    expect(agent.pendingApproval.name).toBe('switch_mode')
+    agent.resolveApproval(true)
+    await pending
+
+    expect(agent.activeMode).toBe('build')
+    const secondTools = mocks.chat.mock.calls[1][0].tools.map((tool) => tool.function.name)
+    expect(secondTools).toContain('create_schedule')
+    expect(secondTools).toContain('create_todo')
+  })
+
   it('工具清单作为 system 消息随请求发送', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
 
