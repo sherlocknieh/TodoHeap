@@ -53,17 +53,13 @@
       </g>
     </svg>
 
-    <!-- 布局方向：单个按钮循环切换 -->
-    <div class="absolute top-3 right-3 z-10" @pointerdown.stop>
+    <!-- 视图控件：布局方向循环切换与适应视图 -->
+    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop>
       <button
-        class="flex items-center rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-1.5 text-neutral-500 shadow-sm transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
         <AppIcon :name="currentDirection.icon" :size="14" />
       </button>
-    </div>
-
-    <!-- 视图控件 -->
-    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop>
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         title="适应视图" @click.stop="fitView">
