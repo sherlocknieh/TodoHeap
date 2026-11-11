@@ -99,11 +99,16 @@ The list of tools available in a turn is also sent as a separate `system` messag
 
 ### Context panel
 
-The panel on the right of the AI view has two tabs so a single screen is not packed with fields.
+The panel on the right of the AI view shows this turn's input in a single page:
 
-**Overview** leads with the conclusion: session title plus mode, provider and model chips; four key metrics (context estimate, character count, messages / requests, temperature); the context breakdown by system prompt, history and tool results; the tools available this turn; a collapsed system prompt; and a one-line timeline.
-
-**Messages** shows what was actually sent: the latest request's full message list with a content summary per row (tool calls read as "调用 查看任务"), expandable to raw JSON, plus the session's own message log with summaries and an export button.
+| Block | Contents |
+| --- | --- |
+| Session summary | Title plus mode, provider and model chips |
+| Key metrics | Context estimate, character count, messages / requests, temperature |
+| Context breakdown | Share of system prompt, history and tool results, with estimated tokens |
+| Tools this turn | Tools actually offered in the request; flagged when limited by mode or skill |
+| Latest request | Every message the model actually received, each with a content summary (tool calls read as "调用 查看任务"), expandable to raw JSON; also exports the session |
+| Timeline | Created, last activity and latest request time on one line |
 
 Context data comes from the latest real request, not a local estimate. Request snapshots live only in the current page, so the request list is empty after a reload — that is expected. The panel width is draggable and independent of the task detail panel in other views.
 
