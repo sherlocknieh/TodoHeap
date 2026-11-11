@@ -2,7 +2,7 @@
   <!-- 自研思维导图：SVG 渲染，支持滚轮缩放、拖拽平移与键盘增删改 -->
   <div ref="container" tabindex="0"
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
-    :class="panning ? 'cursor-grabbing' : 'cursor-grab'"
+    :class="panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab'"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="endPan" @click.stop @dblclick="fitView"
     @keydown="onKeydown">
@@ -26,23 +26,34 @@
           :stroke-width="edge.isRef ? 1.5 : 1.2" :stroke-dasharray="edge.isRef ? '5 4' : undefined"
           :marker-end="edge.isRef ? 'url(#mm-arrow-ref)' : 'url(#mm-arrow)'" />
 
+        <!-- 拖拽建链接：从源节点指向指针的预览线 -->
+        <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
+          class="stroke-accent-500 dark:stroke-accent-400" stroke-width="1.6" stroke-dasharray="6 4"
+          stroke-linecap="round" marker-end="url(#mm-arrow-ref)" />
+
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
-          :opacity="node.completed_at ? 0.55 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
-          @pointerdown.stop @dblclick.stop="startEdit(node)" @click.stop="selectNode(node)">
+          :opacity="node.completed_at ? 0.55 : 1"
+          :class="node.isRoot || node.isRef ? 'cursor-default' : 'cursor-pointer'"
+          @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
+          @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
             :stroke-dasharray="node.isRef ? '5 4' : undefined" :fill-opacity="node.isRoot ? 0.9 : 0.72"
             class="transition-colors" :class="[
               node.isRef
                 ? 'stroke-accent-300 dark:stroke-accent-700'
-                : node.selected
+                : dragState.targetId === node.id
                   ? 'stroke-accent-600 dark:stroke-accent-400'
-                  : 'stroke-neutral-200 dark:stroke-neutral-700',
+                  : node.selected
+                    ? 'stroke-accent-600 dark:stroke-accent-400'
+                    : 'stroke-neutral-200 dark:stroke-neutral-700',
               node.isRoot
                 ? 'fill-accent-700 dark:fill-accent-500'
-                : node.selected
-                  ? 'fill-accent-50 dark:fill-neutral-800'
-                  : 'fill-white dark:fill-neutral-900'
+                : dragState.targetId === node.id
+                  ? 'fill-accent-100 dark:fill-accent-500/25'
+                  : node.selected
+                    ? 'fill-accent-50 dark:fill-neutral-800'
+                    : 'fill-white dark:fill-neutral-900'
             ]" />
           <text :x="10" :y="0" class="text-[13px] font-medium" :class="node.isRoot
             ? 'fill-white'
@@ -75,7 +86,7 @@
       </button>
     </div>
     <p class="absolute bottom-3 left-3 z-10 text-[11px] text-neutral-400 dark:text-neutral-600 pointer-events-none">
-      滚轮缩放 · 拖拽平移 · 双击复位 · Enter 同级 · Tab 子级 · F2 重命名
+      滚轮缩放 · 拖拽平移 · 拖节点到另一节点建立链接 · Enter 同级 · Tab 子级 · F2 重命名
     </p>
   </div>
 </template>
@@ -92,7 +103,7 @@ const props = defineProps({
   editTaskId: { type: Number, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'edit-started'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'link-task'])
 
 const nodeWidth = 200
 const fontSize = 13
@@ -599,6 +610,8 @@ const fitView = () => {
 }
 
 const selectNode = (node) => {
+  // 拖拽建链接后紧跟的 click 不应改变选中
+  if (Date.now() - lastDragEndAt < 250) return
   if (node.isRoot) return
   container.value?.focus({ preventScroll: true })
   emit('task-selected', node.isRef ? node.targetId : Number(node.id))
@@ -821,6 +834,83 @@ const onWheel = (event) => {
 
 let panStart = { x: 0, y: 0, originX: 0, originY: 0 }
 
+// 拖拽建链接：从节点拖到另一个节点上，把源节点链接为目标节点的子任务
+const dragState = reactive({ active: false, sourceId: null, targetId: null, preview: null, moved: false })
+let dragStart = { x: 0, y: 0 }
+let lastDragEndAt = 0
+
+// 屏幕坐标换算成画布坐标，供命中检测与预览线使用
+const toGraphPoint = (event) => {
+  const rect = container.value?.getBoundingClientRect()
+  if (!rect) return { x: 0, y: 0 }
+  return {
+    x: (event.clientX - rect.left - view.x) / view.scale,
+    y: (event.clientY - rect.top - view.y) / view.scale
+  }
+}
+
+// 命中检测：指针落在哪个节点矩形内
+const nodeAtPoint = (point) => layout.value.nodes.find((node) => (
+  point.x >= node.x && point.x <= node.x + nodeWidth
+  && point.y >= node.y && point.y <= node.y + node.height
+)) ?? null
+
+const onNodePointerDown = (event, node) => {
+  if (event.button !== 0 || node.isRoot || node.isRef) return
+  hasInteracted = true
+  dragStart = { x: event.clientX, y: event.clientY }
+  dragState.active = true
+  dragState.sourceId = node.id
+  dragState.targetId = null
+  dragState.preview = null
+  dragState.moved = false
+  // 不用 pointer capture：它会把 click 改派到画布，节点自身的选中与双击会失效
+  window.addEventListener('pointermove', onDragMove)
+  window.addEventListener('pointerup', onDragEnd)
+  window.addEventListener('pointercancel', onDragEnd)
+}
+
+// 预览线从源节点出边锚点连到指针，落点高亮可链接的目标
+const updateDrag = (event) => {
+  const source = layout.value.nodes.find((node) => node.id === dragState.sourceId)
+  if (!source) return
+  const point = toGraphPoint(event)
+  const anchor = outAnchor(source)
+  dragState.preview = `M${anchor.x} ${anchor.y} L${point.x} ${point.y}`
+
+  const hit = nodeAtPoint(point)
+  const linkable = hit && hit.id !== dragState.sourceId && !hit.isRef
+  dragState.targetId = linkable ? hit.id : null
+}
+
+const onDragMove = (event) => {
+  if (!dragState.active) return
+  if (!dragState.moved) {
+    const distance = Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y)
+    if (distance < 4) return
+    dragState.moved = true
+  }
+  updateDrag(event)
+}
+
+const onDragEnd = () => {
+  window.removeEventListener('pointermove', onDragMove)
+  window.removeEventListener('pointerup', onDragEnd)
+  window.removeEventListener('pointercancel', onDragEnd)
+
+  const { active, sourceId, targetId, moved } = dragState
+  dragState.active = false
+  dragState.sourceId = null
+  dragState.targetId = null
+  dragState.preview = null
+  dragState.moved = false
+  if (!active || !moved || !targetId) return
+
+  // 拖拽结束后紧跟的 click 不应再改变选中
+  lastDragEndAt = Date.now()
+  emit('link-task', { sourceId: Number(sourceId), targetId: Number(targetId) })
+}
+
 const onPointerDown = (event) => {
   if (event.button !== 0) return
   hasInteracted = true
@@ -856,6 +946,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   if (saveViewTimer) clearTimeout(saveViewTimer)
+  window.removeEventListener('pointermove', onDragMove)
+  window.removeEventListener('pointerup', onDragEnd)
+  window.removeEventListener('pointercancel', onDragEnd)
 })
 
 // 模式、方向或任务增删后重新适配视图；恢复的视口先让数据落位，不打断离开时的位置

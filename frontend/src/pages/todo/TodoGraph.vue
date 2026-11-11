@@ -3,7 +3,7 @@
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
-			@delete-task="deleteTask" @toggle-done="toggleDone" />
+			@delete-task="deleteTask" @toggle-done="toggleDone" @link-task="linkTask" />
 	</div>
 </template>
 
@@ -11,6 +11,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import MindMapWrapper from '@/components/MindMapWrapper.vue'
+import { collectDescendantIds } from '@/utils/taskGraph'
 
 const props = defineProps({
 	selectedTaskId: { type: Number, default: null }
@@ -109,6 +110,37 @@ const toggleDone = async (id) => {
 	emit('notify', {
 		message: previousCompletedAt ? `已恢复「${title}」` : `已完成「${title}」`,
 		undo: () => todoStore.updateTodo(id, { completed_at: previousCompletedAt })
+	})
+}
+
+// 拖拽建链接：把源任务并入目标任务的孩子列表，形成多父关系，不移动原父级
+const linkTask = async ({ sourceId, targetId }) => {
+	if (sourceId === targetId) return
+	const source = todoStore.findTodoById(sourceId)
+	const target = todoStore.findTodoById(targetId)
+	if (!source || !target) return
+
+	// 目标已在源的子树里时再链接会成环
+	if (collectDescendantIds(todoStore.todos, sourceId).includes(targetId)) {
+		emit('notify', { message: '不能链接到自己的子任务' })
+		return
+	}
+
+	const childIds = target.child_ids || []
+	if (childIds.includes(sourceId)) {
+		emit('notify', { message: `「${source.title || '任务'}」已经是它的子任务` })
+		return
+	}
+
+	const result = await todoStore.updateTodo(targetId, { child_ids: [...childIds, sourceId] })
+	if (!result.success) {
+		if (result.error) emit('notify', { message: result.error })
+		return
+	}
+
+	emit('notify', {
+		message: `已链接「${source.title || '任务'}」到「${target.title || '任务'}」`,
+		undo: () => todoStore.updateTodo(targetId, { child_ids: childIds })
 	})
 }
 </script>
