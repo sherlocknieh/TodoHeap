@@ -22,6 +22,9 @@ export const DESTRUCTIVE_TOOLS = new Set([
   'delete_skill'
 ])
 
+// 需要用户确认但不属于破坏性操作：切换模式会改变后续可用的工具范围
+export const CONFIRM_TOOLS = new Set(['switch_mode'])
+
 const objectSchema = (properties, required = []) => ({
   type: 'object',
   properties,
@@ -255,6 +258,17 @@ export const AGENT_TOOL_DEFINITIONS = [
   {
     type: 'function',
     function: {
+      name: 'switch_mode',
+      description: '请求切换工作模式。Plan 只读、Build 可写；用户确认后立即生效，本轮后续请求按新模式发送工具。',
+      parameters: objectSchema({
+        mode: { type: 'string', enum: ['plan', 'build'], description: '目标模式' },
+        reason: text('为什么要切换，一句话说明')
+      }, ['mode'])
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_app_settings',
       description: '列出可修改的应用设置及当前值：界面偏好、模型参数、日历订阅与技能。修改前先调用它确认键名与取值范围。',
       parameters: objectSchema({})
@@ -357,6 +371,7 @@ export const AGENT_TOOL_LABELS = {
   delete_schedule: '删除日程',
   list_app_settings: '查看应用设置',
   update_app_setting: '修改应用设置',
+  switch_mode: '切换工作模式',
   create_skill: '新建技能',
   update_skill: '修改技能',
   delete_skill: '删除技能',
@@ -845,6 +860,14 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const result = await scheduleStore.deleteSchedule(schedule.id)
       if (!result.success) throw new Error(result.error || '删除日程失败')
       return { ok: true, deleted: { id: schedule.id, title: schedule.title } }
+    },
+
+    // 切换模式由 store 执行：确认后立即生效，本轮后续请求按新模式发送工具
+    async switch_mode(args) {
+      if (!agentStore?.setMode) throw new Error('模式切换不可用')
+      const mode = args.mode === 'build' ? 'build' : 'plan'
+      agentStore.setMode(mode)
+      return { ok: true, mode, reason: args.reason || '' }
     },
 
     // 设置快照：界面偏好取本地值，模型参数取当前配置，日历与技能取已加载状态

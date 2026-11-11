@@ -48,12 +48,26 @@ const providerLabel = computed(() => {
   return llm.presets.find((preset) => preset.id === llm.config?.presetId)?.label || '自定义'
 })
 
-const systemPrompt = computed(() => (
-  latestRequest.value?.messages?.find((message) => message.role === 'system')?.content || ''
-))
+// 系统提示词原文：只取主提示词，工具清单单独成条，避免混在一起
+const systemPrompt = computed(() => {
+  const messages = latestRequest.value?.messages || []
+  const main = messages.find((message) => message.role === 'system'
+    && !String(message.content || '').startsWith('本轮可用工具'))
+  return main?.content || ''
+})
 
 // 原始消息取会话记录，展开时剔除大块的请求快照
 const rawMessages = computed(() => agent.messages)
+
+// 最近一次请求实际发送的消息：system 里含工具清单，与界面消息一起列出
+const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
+
+const requestMessageLabel = (message) => {
+  if (message.role !== 'system') return message.role
+  return String(message.content || '').startsWith('本轮可用工具') ? 'system · 工具清单' : 'system · 提示词'
+}
+
+const requestMessageJson = (message) => JSON.stringify(message, null, 2)
 
 const rawMessageJson = (message) => {
   const { requests, ...rest } = message
@@ -304,6 +318,27 @@ const exportSession = () => {
         <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
           {{ EMPTY_RAW_HINT }}
         </p>
+
+        <!-- 最近一次请求的完整消息：含系统提示词与工具清单 -->
+        <template v-if="rawRequestMessages.length">
+          <p class="pt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+            最近请求 · {{ rawRequestMessages.length }} 条
+          </p>
+          <div class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+            <details v-for="(message, index) in rawRequestMessages" :key="`req-${index}`"
+              class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
+              <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+                <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ requestMessageLabel(message) }}</span>
+                <span class="min-w-0 flex-1 truncate text-neutral-400 dark:text-neutral-500">
+                  #{{ index + 1 }}
+                </span>
+                <AppIcon name="chevronDown" :size="12"
+                  class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestMessageJson(message) }}</pre>
+            </details>
+          </div>
+        </template>
       </section>
 
       <p v-if="latestRequest" class="text-[11px] leading-5 text-neutral-400 dark:text-neutral-500">

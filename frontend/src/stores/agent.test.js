@@ -372,7 +372,8 @@ describe('useAgentStore', () => {
     await agent.send('列出全部任务')
 
     const tools = mocks.chat.mock.calls[0][0].tools
-    expect(tools.map((item) => item.function.name)).toEqual(['list_todos'])
+    // 默认 Plan 模式下技能白名单与只读工具取交集，切换模式入口始终保留
+    expect(tools.map((item) => item.function.name)).toEqual(['list_todos', 'switch_mode'])
   })
 
   it('带图片的消息按多模态格式发送，图片本体不落 localStorage', async () => {
@@ -435,29 +436,48 @@ describe('useAgentStore', () => {
 
     const agent = useAgentStore()
     agent.init('user-1')
-    agent.setMode('plan')
     await agent.send('帮我规划一下季度汇报')
 
     const request = mocks.chat.mock.calls[0][0]
     const toolNames = request.tools.map((tool) => tool.function.name)
-    expect(toolNames).toEqual(['list_todos', 'get_todo', 'list_trash', 'list_schedules', 'list_app_settings'])
+    expect(toolNames).toEqual(['list_todos', 'get_todo', 'list_trash', 'list_schedules', 'switch_mode', 'list_app_settings'])
     expect(toolNames).not.toContain('create_todo')
     expect(request.messages[0].content).toContain('Plan 模式')
+  })
+
+  it('工具清单作为 system 消息随请求发送', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    await agent.send('列出任务')
+
+    const messages = mocks.chat.mock.calls[0][0].messages
+    const toolsMessage = messages.find((message) => message.role === 'system'
+      && String(message.content).startsWith('本轮可用工具'))
+    expect(toolsMessage).toBeTruthy()
+    expect(toolsMessage.content).toContain('list_todos：查看任务')
+    expect(toolsMessage.content).toContain('switch_mode：切换工作模式')
+    // 主提示词仍是第一条 system，工具清单紧随其后
+    expect(messages[0].content).toContain('你是 TodoHeap 的任务管理 Agent')
+    expect(messages[1]).toBe(toolsMessage)
   })
 
   it('模式跟随会话，切换会话后恢复各自的模式', async () => {
     const agent = useAgentStore()
     agent.init('user-1')
     const first = agent.activeSessionId
-    agent.setMode('plan')
     expect(agent.activeMode).toBe('plan')
+
+    agent.setMode('build')
+    expect(agent.activeMode).toBe('build')
 
     const second = agent.newSession()
-    expect(agent.activeMode).toBe('build')
+    expect(agent.activeMode).toBe('plan')
 
     agent.switchSession(first)
-    expect(agent.activeMode).toBe('plan')
-    agent.switchSession(second)
     expect(agent.activeMode).toBe('build')
+    agent.switchSession(second)
+    expect(agent.activeMode).toBe('plan')
   })
 })

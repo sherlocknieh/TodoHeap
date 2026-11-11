@@ -82,6 +82,7 @@ const callSummary = (call) => {
   if (args.id != null) parts.push(`#${args.id}`)
   if (args.new_parent_id !== undefined) parts.push(`→ ${args.new_parent_id ?? '根层级'}`)
   if (args.start_at) parts.push(String(args.start_at).slice(0, 16).replace('T', ' '))
+  if (args.mode) parts.push(`→ ${args.mode}`)
   return parts.join(' · ')
 }
 
@@ -589,6 +590,14 @@ const approvalDescription = computed(() => {
   return `${toolLabel(pending.name)} ${callSummary(pending)}`.trim()
 })
 
+// 切换模式不是破坏性操作，确认文案要说清影响范围
+const isModeSwitch = computed(() => agent.pendingApproval?.name === 'switch_mode')
+
+const modeSwitchTarget = computed(() => {
+  const args = agent.pendingApproval?.args || {}
+  return AGENT_MODES.find((mode) => mode.id === args.mode)?.label || 'Build'
+})
+
 watch(
   () => `${agent.messages.length}:${lastMessage.value?.content?.length || 0}:${lastMessage.value?.toolCalls?.length || 0}`,
   () => {
@@ -803,20 +812,31 @@ onUnmounted(() => {
         @click="regenerate">重试</button>
     </div>
 
-    <!-- 破坏性操作确认 -->
+    <!-- 操作确认：切换模式与破坏性操作共用同一处，文案按类型区分 -->
     <section v-if="agent.pendingApproval" class="shrink-0 mt-2 panel border-amber-300 dark:border-amber-500/40 p-3 space-y-2">
       <div class="flex items-start gap-2">
         <AppIcon name="alert" :size="15" class="mt-0.5 text-amber-600 dark:text-amber-400" />
         <div class="min-w-0">
-          <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">确认{{ approvalDescription }}？</p>
-          <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            这是破坏性操作，确认后才会执行。可先让 Agent 说明影响再决定。
-          </p>
+          <template v-if="isModeSwitch">
+            <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">切换到 {{ modeSwitchTarget }} 模式？</p>
+            <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
+              {{ agent.pendingApproval.args?.reason || 'Agent 请求切换工作模式。' }}
+              {{ modeSwitchTarget === 'Build' ? '确认后本轮即可修改任务、日程与设置。' : '确认后只能读取数据。' }}
+            </p>
+          </template>
+          <template v-else>
+            <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">确认{{ approvalDescription }}？</p>
+            <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
+              这是破坏性操作，确认后才会执行。可先让 Agent 说明影响再决定。
+            </p>
+          </template>
         </div>
       </div>
       <div class="flex justify-end gap-2">
         <button class="btn-ghost" @click="agent.resolveApproval(false)">取消</button>
-        <button class="btn-primary" @click="agent.resolveApproval(true)">确认执行</button>
+        <button class="btn-primary" @click="agent.resolveApproval(true)">
+          {{ isModeSwitch ? `切换到 ${modeSwitchTarget}` : '确认执行' }}
+        </button>
       </div>
     </section>
 

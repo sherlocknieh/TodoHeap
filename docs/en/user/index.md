@@ -86,14 +86,16 @@ The composer accepts images: paste a screenshot, drag a file onto the input, or 
 
 ### Working modes
 
-The mode button in the composer switches between Build and Plan; the mode is stored per session:
+The mode button in the composer switches between Plan and Build; the mode is stored per session and new sessions start in Plan:
 
 | Mode | Tools | Prompt |
 | --- | --- | --- |
+| Plan | Read-only: list/read tasks, trash, schedules, app settings, plus `switch_mode` | Asks for a plan first and forbids write tools |
 | Build | All tools; can read and write tasks, schedules and settings | Regular task-management rules |
-| Plan | Read-only: list/read tasks, trash, schedules, app settings | Additionally asks for a plan first and forbids write tools |
 
-Plan sends only 5 read-only tools, so write-tool schemas and rules cost no tokens — useful for discussing an approach before acting. A skill's tool allowlist is intersected with the mode, so a skill cannot grant write access in Plan. Switching modes affects later requests only; existing messages are unchanged.
+Plan sends only the read-only tools, so write-tool schemas and rules cost no tokens — useful for discussing an approach before acting. The agent can request a switch with `switch_mode`; a confirmation card appears and, once accepted, the rest of the turn already uses the new mode's tools. A skill's tool allowlist is intersected with the mode, so a skill cannot grant write access in Plan.
+
+The list of tools available in a turn is also sent as a separate `system` message, so you can inspect it in the context panel's raw messages alongside the system prompt.
 
 ### Commands and references
 

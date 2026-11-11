@@ -5,7 +5,7 @@ import { useAuthStore } from './auth'
 import { useTodoStore } from './todos'
 import { useScheduleStore } from './schedules'
 import { useLlmStore } from './llm'
-import { createAgentToolRunner, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
+import { createAgentToolRunner, AGENT_TOOL_LABELS, CONFIRM_TOOLS, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
 import {
   cloneDefaultSkills,
   createSkill,
@@ -48,6 +48,16 @@ const formatMentions = (mentions) => {
     return `- ${item.label}`
   })
   return `\n用户本轮通过 @ 引用了以下对象，优先围绕它们回答；涉及写操作前仍先用工具确认：\n${lines.join('\n')}\n`
+}
+
+// 本轮可用工具清单：作为 system 消息随请求发送，模型与用户都能看到工具范围
+const buildToolsPrompt = (tools) => {
+  const names = (Array.isArray(tools) ? tools : [])
+    .map((definition) => definition?.function?.name)
+    .filter(Boolean)
+  if (!names.length) return ''
+  const lines = names.map((name) => `- ${name}：${AGENT_TOOL_LABELS[name] || name}`)
+  return `本轮可用工具（共 ${names.length} 个）：\n${lines.join('\n')}`
 }
 
 const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], mode = DEFAULT_AGENT_MODE } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
@@ -465,8 +475,11 @@ export const useAgentStore = defineStore('agent', () => {
     context.value = { ...context.value, ...patch }
   }
 
-  const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE) => {
+  const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE, tools = []) => {
     const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, mode }) }]
+    // 工具清单单独成一条 system 消息，便于在原始消息里核对本轮范围
+    const toolsPrompt = buildToolsPrompt(tools)
+    if (toolsPrompt) apiMessages.push({ role: 'system', content: toolsPrompt })
     messages.value.forEach((message) => {
       if (message.role === 'user') {
         apiMessages.push({ role: 'user', content: toUserContent(message) })
@@ -526,7 +539,7 @@ export const useAgentStore = defineStore('agent', () => {
     }
     call.args = args
 
-    if (DESTRUCTIVE_TOOLS.has(call.name)) {
+    if (DESTRUCTIVE_TOOLS.has(call.name) || CONFIRM_TOOLS.has(call.name)) {
       const approved = await requestApproval(call)
       if (!approved) {
         call.status = 'cancelled'
@@ -546,7 +559,7 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   // 一轮对话：从给定的用户消息出发，循环调用模型直到不再请求工具
-  const startTurn = async ({ userMessage, allowedTools = null, mode = DEFAULT_AGENT_MODE }) => {
+  const startTurn = async ({ userMessage, allowedTools = null }) => {
     const llm = useLlmStore()
     const authStore = useAuthStore()
 
@@ -566,16 +579,24 @@ export const useAgentStore = defineStore('agent', () => {
         scheduleStore: useScheduleStore(),
         authStore,
         llmStore: llm,
-        agentStore: { skills, addSkill, updateSkill, deleteSkill }
+        agentStore: { skills, addSkill, updateSkill, deleteSkill, setMode }
       })
-      const tools = allowedTools
-        ? runner.definitions.filter((definition) => allowedTools.has(definition.function.name))
-        : runner.definitions
+      // 技能白名单在整轮内固定；模式可能被 switch_mode 改掉，每步重新解析
+      const skillTools = allowedTools ? [...allowedTools] : null
+      const resolveTools = (modeId) => {
+        const allowed = resolveAllowedTools(modeId, skillTools)
+        return allowed
+          ? runner.definitions.filter((definition) => allowed.has(definition.function.name))
+          : runner.definitions
+      }
 
       for (let step = 0; step < MAX_STEPS; step += 1) {
         if (signal.aborted || !isCurrentSession()) break
 
-        const history = toApiMessages(userMessage.mentions, mode)
+        // 每步都按当前模式取工具与提示词：确认切换后本轮立即生效
+        const stepMode = activeMode.value
+        const tools = resolveTools(stepMode)
+        const history = toApiMessages(userMessage.mentions, stepMode, tools)
         // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
         const requestRecord = {
           model: llm.activeModel,
@@ -710,7 +731,7 @@ export const useAgentStore = defineStore('agent', () => {
     }
     persist()
 
-    await startTurn({ userMessage, allowedTools, mode })
+    await startTurn({ userMessage, allowedTools })
   }
 
   // 重新生成：丢弃最后一条回复，从最后一条用户消息重新请求
@@ -723,7 +744,7 @@ export const useAgentStore = defineStore('agent', () => {
     messages.value.splice(lastUserIndex + 1)
     userMessage.requests = []
     persist()
-    await startTurn({ userMessage, mode: activeMode.value })
+    await startTurn({ userMessage })
   }
 
   // 编辑后重发：截断该消息之后的内容，用新文本替换并重新请求
@@ -739,7 +760,7 @@ export const useAgentStore = defineStore('agent', () => {
     const userMessage = { id: createId(), role: 'user', content, images, mentions, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
     persist()
-    await startTurn({ userMessage, mode: activeMode.value })
+    await startTurn({ userMessage })
   }
 
   // 删除单条消息，用于清理答非所问的回复
