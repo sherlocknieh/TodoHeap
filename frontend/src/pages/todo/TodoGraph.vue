@@ -1,5 +1,5 @@
 <template>
-	<!-- 图视图：思维导图占满活动栏以外的区域，支持键盘增删改 -->
+	<!-- 任务图：思维导图占满活动栏以外的区域，支持键盘增删改 -->
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"

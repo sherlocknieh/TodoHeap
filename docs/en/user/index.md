@@ -73,8 +73,8 @@ You can also ask the agent to break an existing task down, turn a sentence into 
 
 | View | Route | Purpose |
 | --- | --- | --- |
-| List | `/app/list` | Day-to-day editing, ordered execution |
-| Graph | `/app/graph` | Mind-map style structure work |
+| Task graph | `/app/graph` | Default view; mind-map style structure work |
+| Task table | `/app/list` | Day-to-day editing, ordered execution |
 | Schedule | `/app/schedule` | Calendar events grouped by date |
 | AI | `/app/ai` | Chat agent: manage tasks and schedules by conversation |
 | Trash | `/app/trash` | Restore or permanently delete |

@@ -19,7 +19,7 @@ const props = defineProps({
   selectedTaskId: { type: Number, default: null },
   // 当前活动栏入口，决定侧栏内容
   section: { type: String, default: 'list' },
-  // 覆盖在内容之上，不挤压主视图（图视图使用）
+  // 覆盖在内容之上，不挤压主视图（任务图使用）
   overlay: { type: Boolean, default: false },
   // 活动栏收起时贴齐左边，不留下空档
   railHidden: { type: Boolean, default: false }
@@ -197,22 +197,15 @@ const formatSessionTime = (iso) => {
 }
 
 // 统计信息
+// 统计只用于回收站计数，任务进度统一放在底栏
 const stats = computed(() => ({
-  total: todoStore.todos.length,
-  completed: todoStore.todos.filter(todo => todo.completed_at).length,
-  pending: todoStore.todos.filter(todo => !todo.completed_at).length,
   trashed: todoStore.trashTodos.length
 }))
 
-// 完成率用于底部进度条
-const completionRate = computed(() =>
-  stats.value.total ? Math.round((stats.value.completed / stats.value.total) * 100) : 0
-)
-
-// 可用视图，回收站与列表、树同属视图层级
+// 可用视图：任务图是默认视图，任务表负责逐条编辑
 const views = computed(() => [
-  { id: 'list', label: '列表', icon: 'list' },
-  { id: 'graph', label: '图视图', icon: 'graph' },
+  { id: 'graph', label: '任务图', icon: 'graph' },
+  { id: 'list', label: '任务表', icon: 'list' },
   { id: 'trash', label: '回收站', icon: 'trash', count: stats.value.trashed }
 ])
 
@@ -332,32 +325,6 @@ const switchView = (view) => {
             <span v-if="view.count !== undefined" class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ view.count }}</span>
           </button>
         </nav>
-
-        <!-- 统计 -->
-        <section class="space-y-0.5">
-          <p class="eyebrow px-2 pb-1.5">统计</p>
-          <div class="px-2 space-y-1.5">
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-neutral-600 dark:text-neutral-400">总任务</span>
-              <span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ stats.total }}</span>
-            </div>
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-neutral-600 dark:text-neutral-400">已完成</span>
-              <span class="font-mono text-accent-700 dark:text-accent-400">{{ stats.completed }}</span>
-            </div>
-            <div class="flex items-baseline justify-between text-sm">
-              <span class="text-neutral-600 dark:text-neutral-400">进行中</span>
-              <span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ stats.pending }}</span>
-            </div>
-          </div>
-          <!-- 完成进度 -->
-          <div class="px-2 pt-2">
-            <div class="h-1.5 rounded-full bg-accent-100 dark:bg-accent-500/15 overflow-hidden">
-              <div class="h-full rounded-full bg-accent-500 dark:bg-accent-400 transition-[width] duration-300"
-                :style="{ width: completionRate + '%' }"></div>
-            </div>
-          </div>
-        </section>
       </template>
 
       <template v-else-if="section === 'schedule'">

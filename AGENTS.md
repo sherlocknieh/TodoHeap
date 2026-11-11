@@ -38,10 +38,10 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 文件 | 职责 |
 | --- | --- |
 | `main.ts`、`App.vue` | 入口，仅 `<RouterView />` |
-| `router/index.ts` | hash 路由；`/app` 需登录，子路由 `list` / `graph` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
-| `pages/Todo.vue` | 工作区外壳：活动栏、侧栏、中栏、详情面板、状态栏；子视图由 `<router-view>` 注入 |
-| `pages/todo/TodoList.vue` | 列表视图：快速添加 + 树形缩进的扁平列表 |
-| `pages/todo/TodoGraph.vue` | 图视图：渲染 `MindMapWrapper`，把键盘增删改接到 store |
+| `router/index.ts` | hash 路由；`/app` 需登录，默认落到任务图，子路由 `graph` / `list` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
+| `pages/Todo.vue` | 工作区外壳：活动栏、侧栏、中栏、详情面板、可折叠统计底栏；子视图由 `<router-view>` 注入 |
+| `pages/todo/TodoList.vue` | 任务表：快速添加 + 树形缩进的扁平列表 |
+| `pages/todo/TodoGraph.vue` | 任务图（默认视图）：渲染 `MindMapWrapper`，把键盘增删改接到 store |
 | `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
 | `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组，选中事件交给右栏详情 |
 | `pages/todo/AIView.vue` | AI 工作台：对话式 Agent，可读写任务、日程与偏好 |
@@ -69,7 +69,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 文件 | 职责 |
 | --- | --- |
 | `AppIcon.vue` | 线性图标全集（`name` + `size`），全站唯一图标来源 |
-| `LeftSidebar.vue` | 视图切换、统计、AI 会话列表 |
+| `LeftSidebar.vue` | 视图切换、AI 会话列表 |
 | `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单 |
 | `TodoDetailEditor.vue` | 右栏详情：标题、起止时间、难度、Markdown 描述 |
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |

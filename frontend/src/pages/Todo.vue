@@ -78,12 +78,12 @@ const showViewLoading = computed(() => {
 
 // 顶栏标题：主区域统一呈现当前视图名称
 const activeViewTitle = computed(() => {
-	if (activeView.value === 'graph') return '图视图'
+	if (activeView.value === 'graph') return '任务图'
 	if (activeView.value === 'heap') return '堆视图'
 	if (activeView.value === 'trash') return '回收站'
 	if (activeView.value === 'ai') return 'AI'
 	if (activeView.value === 'schedule') return '日程'
-	return '我的任务'
+	return '任务表'
 })
 
 // 底栏统计：全局完成进度，侧栏收起时也能一眼看到
@@ -92,6 +92,9 @@ const taskStats = computed(() => {
 	const completed = todoStore.todos.filter(todo => todo.completed_at).length
 	return { total, completed, pending: total - completed }
 })
+
+// 统计面板默认折叠，展开状态沿用上次的选择
+const statsExpanded = persistedRef('stats-expanded', false)
 
 const completionRate = computed(() =>
 	taskStats.value.total ? Math.round((taskStats.value.completed / taskStats.value.total) * 100) : 0
@@ -343,7 +346,7 @@ const createNewTask = async () => {
 	}
 }
 
-// 浮层侧栏：窄屏抽屉或图视图覆盖模式，点击外部应自动收起
+// 浮层侧栏：窄屏抽屉或任务图覆盖模式，点击外部应自动收起
 const isSidebarFloating = computed(() => activeView.value === 'graph' || windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
 
 // 右栏在窄屏同样浮在内容之上，宽屏才挤压中栏
@@ -491,7 +494,7 @@ const runToastUndo = async () => {
 				</div>
 			</aside>
 
-			<!-- 左栏：任务导航面板；图视图下覆盖在导图之上，避免改变导图宽度 -->
+			<!-- 左栏：任务导航面板；任务图下覆盖在导图之上，避免改变导图宽度 -->
 			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
 				:section="activeSection"
 				:overlay="activeView === 'graph'"
@@ -569,40 +572,77 @@ const runToastUndo = async () => {
 			</div>
 		</div>
 
-		<!-- 状态栏：导航开关、当前视图与全局进度、同步状态 -->
-		<footer
-			class="h-8 shrink-0 border-t border-hairline bg-surface px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:border-hairline-dark dark:bg-surface-dark dark:text-neutral-400 select-none">
-			<div class="flex items-center gap-2.5 min-w-0">
-				<!-- 导航开关：常驻底栏，收起后仍可从这里开回 -->
-				<button type="button"
-					:title="showActivityRail ? '收起导航' : '显示导航'"
-					@click="showActivityRail ? collapseNavigation() : expandNavigation()"
-					class="h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-colors"
-					:class="showActivityRail
-						? 'text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'
-						: 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'">
-					<AppIcon name="sidebar" :size="14" />
-				</button>
-				<span class="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">{{ activeViewTitle }}</span>
-				<template v-if="taskStats.total">
-					<span class="h-3 w-px shrink-0 bg-hairline dark:bg-hairline-dark"></span>
-					<span class="shrink-0 font-mono tabular-nums" title="未完成 / 全部任务">
-						<span class="text-neutral-700 dark:text-neutral-300">{{ taskStats.pending }}</span>
-						<span class="px-0.5 text-neutral-400 dark:text-neutral-600">/</span>{{ taskStats.total }}
-					</span>
-					<span class="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
-						:title="'已完成 ' + completionRate + '%'">
-						<span class="block h-full rounded-full bg-accent-500 transition-[width] duration-300"
-							:style="{ width: completionRate + '%' }"></span>
-					</span>
-				</template>
+		<!-- 底栏：统计可折叠于其上，状态栏常驻 -->
+		<div
+			class="shrink-0 border-t border-hairline bg-surface dark:border-hairline-dark dark:bg-surface-dark">
+			<!-- 统计面板：默认折叠，从底栏向上展开 -->
+			<div v-if="statsExpanded" class="px-3 pt-2.5 pb-2">
+				<div class="grid grid-cols-3 gap-3">
+					<div class="flex items-baseline justify-between text-[11px]">
+						<span class="text-neutral-500 dark:text-neutral-400">总任务</span>
+						<span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ taskStats.total }}</span>
+					</div>
+					<div class="flex items-baseline justify-between text-[11px]">
+						<span class="text-neutral-500 dark:text-neutral-400">已完成</span>
+						<span class="font-mono text-accent-700 dark:text-accent-400">{{ taskStats.completed }}</span>
+					</div>
+					<div class="flex items-baseline justify-between text-[11px]">
+						<span class="text-neutral-500 dark:text-neutral-400">进行中</span>
+						<span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ taskStats.pending }}</span>
+					</div>
+				</div>
+				<div class="mt-2 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
+					<div class="h-full rounded-full bg-accent-500 transition-[width] duration-300"
+						:style="{ width: completionRate + '%' }"></div>
+				</div>
 			</div>
-			<span class="flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-1" :class="syncState.text"
-				:title="'实时连接：' + realtimeStatusLabel + ' · ' + syncStatusLabel">
-				<span class="h-1.5 w-1.5 rounded-full" :class="syncState.dot"></span>
-				{{ syncState.label }}
-			</span>
-		</footer>
+
+			<!-- 状态栏：导航开关、当前视图与全局进度、同步状态 -->
+			<div
+				class="h-8 px-3 flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:text-neutral-400 select-none">
+				<div class="flex items-center gap-2.5 min-w-0">
+					<!-- 导航开关：常驻底栏，收起后仍可从这里开回 -->
+					<button type="button"
+						:title="showActivityRail ? '收起导航' : '显示导航'"
+						@click="showActivityRail ? collapseNavigation() : expandNavigation()"
+						class="h-6 w-6 shrink-0 rounded-md flex items-center justify-center transition-colors"
+						:class="showActivityRail
+							? 'text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'
+							: 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'">
+						<AppIcon name="sidebar" :size="14" />
+					</button>
+					<span class="shrink-0 font-medium text-neutral-700 dark:text-neutral-300">{{ activeViewTitle }}</span>
+					<template v-if="taskStats.total">
+						<span class="h-3 w-px shrink-0 bg-hairline dark:bg-hairline-dark"></span>
+						<span class="shrink-0 font-mono tabular-nums" title="未完成 / 全部任务">
+							<span class="text-neutral-700 dark:text-neutral-300">{{ taskStats.pending }}</span>
+							<span class="px-0.5 text-neutral-400 dark:text-neutral-600">/</span>{{ taskStats.total }}
+						</span>
+						<span class="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
+							:title="'已完成 ' + completionRate + '%'">
+							<span class="block h-full rounded-full bg-accent-500 transition-[width] duration-300"
+								:style="{ width: completionRate + '%' }"></span>
+						</span>
+					</template>
+					<!-- 统计开关：图标表示统计与展开方向 -->
+					<button type="button"
+						:title="statsExpanded ? '收起统计' : '展开统计'" :aria-expanded="statsExpanded"
+						@click="statsExpanded = !statsExpanded"
+						class="h-6 shrink-0 rounded-md px-1 flex items-center gap-0.5 transition-colors"
+						:class="statsExpanded
+							? 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'
+							: 'text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'">
+						<AppIcon name="chart" :size="14" />
+						<AppIcon :name="statsExpanded ? 'chevronDown' : 'chevronUp'" :size="10" class="opacity-70" />
+					</button>
+				</div>
+				<span class="flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-1" :class="syncState.text"
+					:title="'实时连接：' + realtimeStatusLabel + ' · ' + syncStatusLabel">
+					<span class="h-1.5 w-1.5 rounded-full" :class="syncState.dot"></span>
+					{{ syncState.label }}
+				</span>
+			</div>
+		</div>
 
 		<!-- 设置浮窗：覆盖在当前视图之上，不打断任务操作 -->
 		<Settings v-if="settingsPanelOpen" floating @close="settingsPanelOpen = false" />

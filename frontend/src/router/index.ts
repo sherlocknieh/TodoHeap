@@ -39,11 +39,11 @@ const router = createRouter({
       meta: { requiresAuth: true, title: 'TodoHeap - 我的清单' },
       path: '/app',
       name: 'app',
-      redirect: '/app/list', // 默认子路由
+      redirect: '/app/graph', // 默认子路由：任务图
       children: [
-        { path: 'list', name: 'ListView', component: () => import('@/pages/todo/TodoList.vue'), meta: { title: 'TodoHeap - 列表视图' } },
-        { path: 'graph', name: 'GraphView', component: () => import('@/pages/todo/TodoGraph.vue'), meta: { title: 'TodoHeap - 图视图' } },
-        // 旧书签与外部链接仍指向 tree，统一转到图视图
+        { path: 'graph', name: 'GraphView', component: () => import('@/pages/todo/TodoGraph.vue'), meta: { title: 'TodoHeap - 任务图' } },
+        { path: 'list', name: 'ListView', component: () => import('@/pages/todo/TodoList.vue'), meta: { title: 'TodoHeap - 任务表' } },
+        // 旧书签与外部链接仍指向 tree，统一转到任务图
         { path: 'tree', redirect: '/app/graph' },
         { path: 'heap', name: 'HeapView', component: () => import('@/pages/todo/TodoHeap.vue'), meta: { title: 'TodoHeap - 堆视图' } },
         { path: 'ai', name: 'AIView', component: () => import('@/pages/todo/AIView.vue'), meta: { title: 'TodoHeap - AI' } },
