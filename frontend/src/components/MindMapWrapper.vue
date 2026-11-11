@@ -30,7 +30,8 @@
           :opacity="node.completed_at ? 0.55 : 1" :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
           @pointerdown.stop @dblclick.stop="startEdit(node)" @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
-            :stroke-dasharray="node.isRef ? '5 4' : undefined" class="transition-colors" :class="[
+            :stroke-dasharray="node.isRef ? '5 4' : undefined" :fill-opacity="node.isRoot ? 0.9 : 0.72"
+            class="transition-colors" :class="[
               node.isRef
                 ? 'stroke-accent-300 dark:stroke-accent-700'
                 : node.selected
