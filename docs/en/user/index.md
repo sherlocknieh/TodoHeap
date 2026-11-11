@@ -95,7 +95,17 @@ The mode button in the composer switches between Plan and Build; the mode is sto
 
 Plan sends only the read-only tools, so write-tool schemas and rules cost no tokens — useful for discussing an approach before acting. The agent can request a switch with `switch_mode`; a confirmation card appears and, once accepted, the rest of the turn already uses the new mode's tools. A skill's tool allowlist is intersected with the mode, so a skill cannot grant write access in Plan.
 
-The list of tools available in a turn is also sent as a separate `system` message, so you can inspect it in the context panel's raw messages alongside the system prompt.
+The list of tools available in a turn is also sent as a separate `system` message, so you can inspect it in the context panel alongside the system prompt.
+
+### Context panel
+
+The panel on the right of the AI view has two tabs so a single screen is not packed with fields.
+
+**Overview** leads with the conclusion: session title plus mode, provider and model chips; four key metrics (context estimate, character count, messages / requests, temperature); the context breakdown by system prompt, history and tool results; the tools available this turn; a collapsed system prompt; and a one-line timeline.
+
+**Messages** shows what was actually sent: the latest request's full message list with a content summary per row (tool calls read as "调用 查看任务"), expandable to raw JSON, plus the session's own message log with summaries and an export button.
+
+Context data comes from the latest real request, not a local estimate. Request snapshots live only in the current page, so the request list is empty after a reload — that is expected. The panel width is draggable and independent of the task detail panel in other views.
 
 ### Commands and references
 

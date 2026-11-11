@@ -1,8 +1,9 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
 import { AGENT_TOOL_LABELS, AGENT_TOOL_NAMES } from '@/lib/agentTools'
+import { AGENT_MODES } from '@/lib/agentModes'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { summarizeRequest } from '@/utils/contextStats'
 import AppIcon from '@/components/AppIcon.vue'
@@ -43,6 +44,23 @@ const usage = computed(() => latestRequest.value?.usage || null)
 const userCount = computed(() => agent.messages.filter((message) => message.role === 'user').length)
 const assistantCount = computed(() => agent.messages.filter((message) => message.role === 'assistant').length)
 
+// 当前会话的工作模式，与输入区保持一致
+const modeLabel = computed(() => (
+  AGENT_MODES.find((mode) => mode.id === agent.activeMode)?.label || 'Plan'
+))
+
+// 面板分页：概览看结论，消息看实际发送内容，避免一屏塞满
+const TABS = [
+  { id: 'overview', label: '概览' },
+  { id: 'messages', label: '消息' }
+]
+const activeTab = ref('overview')
+
+// 请求次数：一次用户消息可能触发多轮工具调用
+const requestCount = computed(() => (
+  agent.messages.reduce((sum, message) => sum + (message.requests?.length || 0), 0)
+))
+
 const providerLabel = computed(() => {
   if (llm.isBuiltin) return '内置网关'
   return llm.presets.find((preset) => preset.id === llm.config?.presetId)?.label || '自定义'
@@ -68,6 +86,45 @@ const requestMessageLabel = (message) => {
 }
 
 const requestMessageJson = (message) => JSON.stringify(message, null, 2)
+
+// 消息摘要：列表里先给一眼能看懂的内容，展开再看完整 JSON
+const summarizeContent = (content) => {
+  if (typeof content === 'string') return content.replace(/\s+/g, ' ').trim()
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((part) => {
+      if (part?.type === 'text') return String(part.text || '')
+      if (part?.type === 'image_url') return '[图片]'
+      return ''
+    })
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const requestMessageSummary = (message) => {
+  if (message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length) {
+    const names = message.tool_calls.map((call) => AGENT_TOOL_LABELS[call.function?.name] || call.function?.name)
+    return `调用 ${names.join('、')}`
+  }
+  if (message.role === 'tool') return summarizeContent(message.content).slice(0, 80)
+  return summarizeContent(message.content).slice(0, 80)
+}
+
+// 会话消息摘要：纯工具调用的回复也要能看出做了什么
+const sessionMessageSummary = (message) => {
+  const text = summarizeContent(message.content)
+  if (text) return text
+  if (message.toolCalls?.length) {
+    const names = message.toolCalls.map((call) => AGENT_TOOL_LABELS[call.name] || call.name)
+    return `调用 ${names.join('、')}`
+  }
+  if (message.images?.length) return '[图片]'
+  return '—'
+}
+
+// 工具结果按条数折叠，避免长列表把面板撑爆
+const toolMessageCount = computed(() => rawRequestMessages.value.filter((message) => message.role === 'tool').length)
 
 const rawMessageJson = (message) => {
   const { requests, ...rest } = message
@@ -98,6 +155,8 @@ const formatTokens = (value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k`
 const formatNumber = (value) => Number(value || 0).toLocaleString()
 
 const EMPTY_RAW_HINT = '发送一条消息后，这里会展示会话消息记录。'
+// 请求快照只存在内存中，刷新后为空属于正常情况
+const EMPTY_REQUEST_HINT = '请求快照只保留在当前页面，刷新后不再显示；发送一条消息即可重新记录。'
 
 const formatDateTime = (iso) => {
   const date = new Date(iso)
@@ -170,180 +229,174 @@ const exportSession = () => {
       </button>
     </div>
 
+    <!-- 分页：概览看结论，消息看实际发送内容 -->
+    <div class="shrink-0 flex items-center gap-1 border-b border-hairline px-3 dark:border-hairline-dark">
+      <button v-for="tab in TABS" :key="tab.id" type="button"
+        class="relative px-2 py-2 text-xs transition-colors"
+        :class="activeTab === tab.id
+          ? 'text-accent-700 dark:text-accent-300'
+          : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'"
+        @click="activeTab = tab.id">
+        {{ tab.label }}
+        <span v-if="tab.id === 'messages' && rawRequestMessages.length"
+          class="ml-1 tabular-nums text-[11px] text-neutral-400 dark:text-neutral-500">{{ rawRequestMessages.length }}</span>
+        <span v-if="activeTab === tab.id" class="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent-700 dark:bg-accent-400"></span>
+      </button>
+    </div>
+
     <div class="flex-1 min-h-0 overflow-auto px-4 py-3 space-y-3">
-      <!-- 概览：两列字段，取自会话与最近一次真实请求 -->
-      <dl class="grid grid-cols-2 gap-x-3 gap-y-2.5">
-        <div class="min-w-0">
-          <dt class="eyebrow">会话</dt>
-          <dd class="truncate text-xs text-neutral-900 dark:text-neutral-100" :title="agent.activeSession?.title">
+      <template v-if="activeTab === 'overview'">
+        <!-- 会话摘要：标题与模式一眼可见 -->
+        <div class="space-y-1">
+          <p class="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100" :title="agent.activeSession?.title">
             {{ agent.activeSession?.title || '新对话' }}
-          </dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">消息数</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">{{ agent.messages.length }}</dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">提供商</dt>
-          <dd class="truncate text-xs text-neutral-800 dark:text-neutral-200">{{ providerLabel }}</dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">模型</dt>
-          <dd class="truncate text-xs text-neutral-800 dark:text-neutral-200" :title="llm.activeModel">
-            {{ llm.activeModel || '未配置' }}
-          </dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">上下文估算</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">
-            {{ contextStats ? `≈ ${formatTokens(contextStats.tokens)} tokens` : '—' }}
-          </dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">字符总数</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">
-            {{ contextStats ? formatNumber(contextStats.total) : '—' }}
-          </dd>
-        </div>
-        <div v-if="usage" class="min-w-0">
-          <dt class="eyebrow">输入词元</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">{{ formatNumber(usage.prompt) }}</dd>
-        </div>
-        <div v-if="usage" class="min-w-0">
-          <dt class="eyebrow">输出词元</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">{{ formatNumber(usage.completion) }}</dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">用户消息</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">{{ userCount }}</dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">助手消息</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">{{ assistantCount }}</dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">创建时间</dt>
-          <dd class="whitespace-nowrap text-xs tabular-nums text-neutral-800 dark:text-neutral-200">
-            {{ formatDateTime(agent.activeSession?.createdAt) }}
-          </dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">最后活动</dt>
-          <dd class="whitespace-nowrap text-xs tabular-nums text-neutral-800 dark:text-neutral-200">
-            {{ formatDateTime(agent.activeSession?.updatedAt) }}
-          </dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">temperature</dt>
-          <dd class="text-xs tabular-nums text-neutral-800 dark:text-neutral-200">{{ llm.config?.temperature ?? '默认' }}</dd>
-        </div>
-        <div class="min-w-0">
-          <dt class="eyebrow">最近请求</dt>
-          <dd class="whitespace-nowrap text-xs tabular-nums text-neutral-800 dark:text-neutral-200">
-            {{ latestRequest ? formatDateTime(latestRequest.createdAt) : '—' }}
-          </dd>
-        </div>
-      </dl>
-
-      <!-- 上下文构成：数据来自最近一次真实请求 -->
-      <section v-if="contextStats" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <div class="flex items-center justify-between">
-          <p class="eyebrow">上下文构成</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-            ≈ {{ formatTokens(contextStats.tokens) }} tokens
-          </span>
-        </div>
-        <div class="flex h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-          <div v-for="row in breakdown" :key="row.key" :class="row.dot" :style="{ width: row.width + '%' }"></div>
-        </div>
-        <ul class="space-y-1">
-          <li v-for="row in breakdown" :key="row.key" class="flex items-center gap-2 text-[11px]">
-            <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="row.dot"></span>
-            <span class="text-neutral-600 dark:text-neutral-400">{{ row.label }}</span>
-            <span class="ml-auto tabular-nums text-neutral-700 dark:text-neutral-300">
-              {{ formatNumber(row.value) }} 字符 · {{ row.percent }}%
-            </span>
-          </li>
-        </ul>
-      </section>
-
-      <!-- 系统提示词原文 -->
-      <section v-if="systemPrompt" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <p class="eyebrow">系统提示词</p>
-        <pre class="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ systemPrompt }}</pre>
-      </section>
-
-      <!-- 本轮可用工具 -->
-      <section v-if="latestRequest" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <div class="flex items-center justify-between">
-          <p class="eyebrow">本轮工具</p>
-          <span class="text-[11px] tabular-nums text-neutral-600 dark:text-neutral-400">{{ latestRequest.tools.length }} 个</span>
-        </div>
-        <p v-if="toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">技能限定了工具范围</p>
-        <div class="flex max-h-32 flex-wrap gap-1 overflow-auto">
-          <span v-for="name in latestRequest.tools" :key="name" class="chip">
-            {{ AGENT_TOOL_LABELS[name] || name }}
-          </span>
-        </div>
-      </section>
-
-      <!-- 原始消息：最近一次请求逐条列出，每条独立展开 -->
-      <section class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <div class="flex items-center justify-between">
-          <p class="eyebrow">原始消息</p>
-          <button type="button" :disabled="!agent.messages.length"
-            class="inline-flex items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
-            @click="exportSession">
-            <AppIcon name="download" :size="12" /> 导出会话
-          </button>
-        </div>
-        <template v-if="rawMessages.length">
-          <p class="text-[11px] text-neutral-500 dark:text-neutral-400">会话消息 · {{ rawMessages.length }} 条</p>
-          <div class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-            <details v-for="message in rawMessages" :key="message.id"
-              class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
-              <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-                <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ message.role }}</span>
-                <span class="min-w-0 flex-1 truncate text-neutral-400 dark:text-neutral-500" :title="message.id">
-                  • {{ message.id }}
-                </span>
-                <span class="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatShortTime(message.createdAt) }}</span>
-                <AppIcon name="chevronDown" :size="12"
-                  class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
-              </summary>
-              <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ rawMessageJson(message) }}</pre>
-            </details>
-          </div>
-        </template>
-        <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
-          {{ EMPTY_RAW_HINT }}
-        </p>
-
-        <!-- 最近一次请求的完整消息：含系统提示词与工具清单 -->
-        <template v-if="rawRequestMessages.length">
-          <p class="pt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            最近请求 · {{ rawRequestMessages.length }} 条
           </p>
-          <div class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+          <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+            <span class="chip">{{ modeLabel }}</span>
+            <span class="chip">{{ providerLabel }}</span>
+            <span class="chip">{{ llm.activeModel || '未配置模型' }}</span>
+          </div>
+        </div>
+
+        <!-- 关键指标：只留最常看的四项 -->
+        <dl class="grid grid-cols-2 gap-2">
+          <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
+            <dt class="eyebrow">上下文估算</dt>
+            <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
+              {{ contextStats ? `≈ ${formatTokens(contextStats.tokens)}` : '—' }}
+              <span class="text-[11px] font-normal text-neutral-500 dark:text-neutral-400">tokens</span>
+            </dd>
+          </div>
+          <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
+            <dt class="eyebrow">字符总数</dt>
+            <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
+              {{ contextStats ? formatNumber(contextStats.total) : '—' }}
+            </dd>
+          </div>
+          <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
+            <dt class="eyebrow">消息 / 请求</dt>
+            <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
+              {{ agent.messages.length }} <span class="text-[11px] font-normal text-neutral-500 dark:text-neutral-400">/ {{ requestCount }}</span>
+            </dd>
+          </div>
+          <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
+            <dt class="eyebrow">temperature</dt>
+            <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">{{ llm.config?.temperature ?? '默认' }}</dd>
+          </div>
+        </dl>
+
+        <!-- 上下文构成：占比条 + 明细 -->
+        <section v-if="contextStats" class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <p class="eyebrow">上下文构成</p>
+            <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+              ≈ {{ formatTokens(contextStats.tokens) }} tokens
+            </span>
+          </div>
+          <div class="flex h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+            <div v-for="row in breakdown" :key="row.key" :class="row.dot" :style="{ width: row.width + '%' }"></div>
+          </div>
+          <ul class="space-y-1">
+            <li v-for="row in breakdown" :key="row.key" class="flex items-center gap-2 text-[11px]">
+              <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="row.dot"></span>
+              <span class="text-neutral-600 dark:text-neutral-400">{{ row.label }}</span>
+              <span class="ml-auto tabular-nums text-neutral-700 dark:text-neutral-300">
+                {{ formatNumber(row.value) }} 字符 · {{ row.percent }}%
+              </span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- 本轮工具：按模式与技能限定后的实际范围 -->
+        <section v-if="latestRequest" class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <p class="eyebrow">本轮工具</p>
+            <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ latestRequest.tools.length }} 个</span>
+          </div>
+          <p v-if="toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
+          <div class="flex max-h-32 flex-wrap gap-1 overflow-auto">
+            <span v-for="name in latestRequest.tools" :key="name" class="chip">
+              {{ AGENT_TOOL_LABELS[name] || name }}
+            </span>
+          </div>
+        </section>
+
+        <!-- 系统提示词：默认折叠，需要时再展开 -->
+        <details v-if="systemPrompt" class="group border-t border-hairline pt-3 dark:border-hairline-dark">
+          <summary class="flex cursor-pointer items-center gap-1.5">
+            <span class="eyebrow">系统提示词</span>
+            <span class="text-[11px] tabular-nums text-neutral-400 dark:text-neutral-500">{{ formatNumber(systemPrompt.length) }} 字符</span>
+            <AppIcon name="chevronDown" :size="12"
+              class="ml-auto text-neutral-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <pre class="mt-1.5 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ systemPrompt }}</pre>
+        </details>
+
+        <!-- 会话时间线：次要信息收进一行 -->
+        <p class="border-t border-hairline pt-2 text-[11px] leading-5 text-neutral-400 dark:border-hairline-dark dark:text-neutral-500">
+          创建 {{ formatDateTime(agent.activeSession?.createdAt) }} · 最后活动 {{ formatDateTime(agent.activeSession?.updatedAt) }}
+          <template v-if="latestRequest"> · 最近请求 {{ formatDateTime(latestRequest.createdAt) }}</template>
+        </p>
+      </template>
+
+      <template v-else>
+        <!-- 最近一次请求：实际发送给模型的消息，带内容摘要 -->
+        <section class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <p class="eyebrow">最近请求</p>
+            <button type="button" :disabled="!agent.messages.length"
+              class="inline-flex items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
+              @click="exportSession">
+              <AppIcon name="download" :size="12" /> 导出会话
+            </button>
+          </div>
+          <p v-if="rawRequestMessages.length" class="text-[11px] text-neutral-500 dark:text-neutral-400">
+            一次请求 · {{ rawRequestMessages.length }} 条消息<template v-if="toolMessageCount">（含 {{ toolMessageCount }} 条工具结果）</template>
+          </p>
+          <div v-if="rawRequestMessages.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
             <details v-for="(message, index) in rawRequestMessages" :key="`req-${index}`"
               class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
               <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+                <span class="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500">{{ index + 1 }}</span>
                 <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ requestMessageLabel(message) }}</span>
-                <span class="min-w-0 flex-1 truncate text-neutral-400 dark:text-neutral-500">
-                  #{{ index + 1 }}
-                </span>
+                <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">{{ requestMessageSummary(message) }}</span>
                 <AppIcon name="chevronDown" :size="12"
                   class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
               </summary>
               <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestMessageJson(message) }}</pre>
             </details>
           </div>
-        </template>
-      </section>
+          <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
+            {{ EMPTY_REQUEST_HINT }}
+          </p>
+        </section>
 
-      <p v-if="latestRequest" class="text-[11px] leading-5 text-neutral-400 dark:text-neutral-500">
-        完整提示词可在用户消息下的「查看请求」中展开。
-      </p>
+        <!-- 会话消息：界面上的消息记录，与请求消息区分开 -->
+        <section class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
+          <div class="flex items-center justify-between">
+            <p class="eyebrow">会话消息</p>
+            <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ rawMessages.length }} 条</span>
+          </div>
+          <div v-if="rawMessages.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+            <details v-for="message in rawMessages" :key="message.id"
+              class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
+              <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+                <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ message.role }}</span>
+                <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
+                  {{ sessionMessageSummary(message) }}
+                </span>
+                <span class="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500">{{ formatShortTime(message.createdAt) }}</span>
+                <AppIcon name="chevronDown" :size="12"
+                  class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ rawMessageJson(message) }}</pre>
+            </details>
+          </div>
+          <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
+            {{ EMPTY_RAW_HINT }}
+          </p>
+        </section>
+      </template>
     </div>
   </div>
 </template>
