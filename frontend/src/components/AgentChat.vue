@@ -176,6 +176,8 @@ const switchModel = (model) => {
 
 const toggleMenu = (name) => {
   openMenu.value = openMenu.value === name ? '' : name
+  // 菜单与 / @ 选择器互斥，避免两层浮层叠在一起
+  if (openMenu.value) closePicker()
 }
 
 // 点空白处收起浮层，避免菜单挡住对话
@@ -253,12 +255,10 @@ const onDocumentKeydown = (event) => {
 
 const pickImages = () => imageInputRef.value?.click()
 
-// + 菜单：与斜杠命令同一批动作，只是换成鼠标入口
+// + 菜单：只放附件类内容，技能与命令各有独立入口
 const PLUS_MENU = [
   { key: 'image', label: '图片和文件', hint: 'Ctrl+U', icon: 'image', action: 'image' },
-  { key: 'command', label: '命令', hint: '/', icon: 'sparkles', action: 'command' },
-  { key: 'context', label: '上下文', hint: '@', icon: 'link', action: 'context' },
-  { key: 'shell', label: 'Shell 命令', hint: '!', icon: 'fileText', action: 'shell' }
+  { key: 'context', label: '引用任务或日程', hint: '@', icon: 'link', action: 'context' }
 ]
 
 const runPlusEntry = (entry) => {
@@ -267,21 +267,11 @@ const runPlusEntry = (entry) => {
     pickImages()
     return
   }
-  if (entry.action === 'command') {
-    picker.value = { kind: 'command', query: '', start: draft.value.length }
-    pickerIndex.value = 0
-    nextTick(() => inputRef.value?.focus())
-    return
-  }
   if (entry.action === 'context') {
     picker.value = { kind: 'context', query: '', start: draft.value.length }
     pickerIndex.value = 0
     nextTick(() => inputRef.value?.focus())
-    return
   }
-  // Shell 命令：TodoHeap 的 Agent 没有本地终端，改为提示可让 Agent 说明命令
-  setDraft(`${draft.value}${draft.value ? '\n' : ''}请告诉我完成这件事需要执行的 shell 命令，并解释每一步。`)
-  nextTick(() => inputRef.value?.focus())
 }
 
 const onImagePicked = async (event) => {
@@ -329,18 +319,18 @@ const sendSuggestion = (item) => {
   agent.send(item.text)
 }
 
-// 斜杠命令：把常用动作收进输入框，不必离开键盘
+// 斜杠命令：都是「执行一个动作」，与 @ 的「引用一个对象」区分开
 const COMMANDS = [
-  { key: 'cmd:image', label: '图片和文件', hint: 'Ctrl+U', icon: 'image', action: 'image' },
-  { key: 'cmd:skill', label: '技能', hint: '/', icon: 'target', action: 'skill' },
-  { key: 'cmd:context', label: '上下文', hint: '@', icon: 'link', action: 'context' },
+  { key: 'cmd:image', label: '添加图片和文件', hint: 'Ctrl+U', icon: 'image', action: 'image' },
+  { key: 'cmd:skill', label: '插入技能指令', icon: 'target', action: 'skill' },
+  { key: 'cmd:context', label: '引用任务或日程', hint: '@', icon: 'link', action: 'context' },
   { key: 'cmd:new', label: '新建会话', icon: 'plus', action: 'new' },
   { key: 'cmd:clear', label: '清空当前对话', icon: 'trash', action: 'clear' },
   { key: 'cmd:model', label: '切换模型', icon: 'sparkles', action: 'model' },
   { key: 'cmd:settings', label: '模型接入设置', icon: 'sliders', action: 'settings' }
 ]
 
-// @ 上下文候选：任务、日程与技能，按类型分组
+// @ 上下文候选：只引用任务与日程这类数据对象，技能走独立入口
 const contextItems = computed(() => {
   const items = []
   todoStore.todos.forEach((todo) => {
@@ -365,17 +355,6 @@ const contextItems = computed(() => {
       group: '日程'
     })
   })
-  agent.skills.forEach((skill) => {
-    items.push({
-      key: `skill:${skill.id}`,
-      type: 'skill',
-      id: skill.id,
-      label: skill.name,
-      hint: '技能',
-      icon: skill.icon || 'target',
-      group: '技能'
-    })
-  })
   return items
 })
 
@@ -396,7 +375,7 @@ const pickerItems = computed(() => {
 
 const pickerTitle = computed(() => {
   if (picker.value.kind === 'command') return '命令'
-  if (picker.value.kind === 'context') return '添加上下文'
+  if (picker.value.kind === 'context') return '引用任务或日程'
   return ''
 })
 
@@ -419,6 +398,8 @@ const syncPicker = () => {
   const kind = match[2] === '/' ? 'command' : 'context'
   const query = match[3]
   const start = caret - query.length - 1
+  // 选择器打开时收起 + 菜单，两层浮层不叠加
+  openMenu.value = ''
   if (picker.value.kind !== kind || picker.value.start !== start) pickerIndex.value = 0
   picker.value = { kind, query, start }
 }
@@ -440,12 +421,6 @@ const replaceToken = (text) => {
 }
 
 const addMention = (item) => {
-  if (item.type === 'skill') {
-    const skill = agent.skills.find((entry) => entry.id === item.id)
-    if (skill) agent.useSkill(skill.id)
-    replaceToken('')
-    return
-  }
   if (!mentions.value.some((entry) => entry.key === item.key)) {
     mentions.value = [...mentions.value, item]
   }
@@ -838,7 +813,7 @@ onUnmounted(() => {
     <div ref="composerRef" class="relative shrink-0 pt-2">
       <!-- 命令与上下文选择器：/ 与 @ 触发，上下键选择 -->
       <ComposerPicker v-if="picker.kind" :title="pickerTitle" :items="pickerItems" :active-index="pickerIndex"
-        :empty-text="picker.kind === 'command' ? '没有匹配的命令' : '没有匹配的任务、日程或技能'"
+        :empty-text="picker.kind === 'command' ? '没有匹配的命令' : '没有匹配的任务或日程'"
         @select="selectPickerItem" @hover="pickerIndex = $event" />
 
       <!-- + 菜单：图片和文件、命令、上下文、Shell 命令 -->
@@ -929,7 +904,7 @@ onUnmounted(() => {
 
         <textarea ref="inputRef" v-model="draft" rows="1"
           class="w-full resize-none bg-transparent px-2 py-1.5 text-sm leading-6 text-neutral-900 outline-none placeholder:text-neutral-500 dark:text-neutral-100 dark:placeholder:text-neutral-400"
-          placeholder="随便问点什么，/ 可查看命令，@ 可添加上下文…"
+          placeholder="随便问点什么，/ 查看命令，@ 引用任务或日程…"
           :disabled="!llm.isConfigured"
           @input="onComposerInput"
           @click="onComposerClick"
@@ -945,7 +920,7 @@ onUnmounted(() => {
           <button type="button"
             class="inline-flex items-center justify-center rounded-md p-1 text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             :class="openMenu === 'plus' ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200' : ''"
-            title="添加图片和文件、命令、上下文" @click="toggleMenu('plus')">
+            title="添加图片和文件、引用任务或日程" @click="toggleMenu('plus')">
             <AppIcon name="plus" :size="14" />
           </button>
           <button type="button"

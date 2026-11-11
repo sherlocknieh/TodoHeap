@@ -71,16 +71,17 @@ Destructive actions (deleting tasks, clearing completed tasks, emptying the tras
 
 The composer accepts images: paste a screenshot, drag a file onto the input, or use the **+** menu. Up to 4 images per message, PNG/JPEG/WebP/GIF, 10MB each; long edges are scaled to 1280px before sending. Images are sent as OpenAI-style multimodal content, so the model must support vision. Image data is kept in this browser's IndexedDB and is never uploaded to TodoHeap storage. Click a thumbnail to view it full size; click the backdrop or press Esc to close.
 
-### Commands and context
+### Commands and references
 
-Type `/` at the start of a token to list commands, or `@` to list things you can reference. Use the arrow keys to move, Enter or Tab to confirm, Esc to dismiss.
+Three entry points, each with one job:
 
-| Trigger | Contents |
-| --- | --- |
-| `/` | Images and files, skills, context, new session, clear conversation, switch model, model settings |
-| `@` | Tasks, schedules and skills, grouped by type; the selection becomes a removable chip above the input |
+| Entry | Meaning | Contents |
+| --- | --- | --- |
+| `/` | Run an action | Add images and files, insert a skill prompt, reference a task or schedule, new session, clear conversation, switch model, model settings |
+| `@` | Reference an object | Tasks and schedules, grouped by type; the selection becomes a removable chip above the input |
+| Skill button | Insert a prompt | Saved skills; the prompt is inserted into the input |
 
-Referenced tasks and schedules are added to this turn's system prompt with their ids and titles, so the model knows what "this task" means. References apply to one turn only and are cleared after sending. The **+** menu offers the same actions with the mouse.
+`@` only references data objects. A skill inserts a prompt rather than referencing an object, so it stays out of the `@` list. Referenced tasks and schedules are added to this turn's system prompt with their ids and titles, so the model knows what "this task" means. References apply to one turn only and are cleared after sending. The **+** menu is the mouse entry for attachments and never stacks with the `/` or `@` pickers.
 
 You can also ask the agent to break an existing task down, turn a sentence into a task tree, or run a one-click optimisation. Everything happens in the chat: there are no separate AI buttons in the list or task detail panels.
 
