@@ -19,7 +19,7 @@ const props = defineProps({
   selectedTaskId: { type: Number, default: null },
   // 当前活动栏入口，决定侧栏内容
   section: { type: String, default: 'list' },
-  // 覆盖在内容之上，不挤压主视图（树视图使用）
+  // 覆盖在内容之上，不挤压主视图（图视图使用）
   overlay: { type: Boolean, default: false },
   // 活动栏收起时贴齐左边，不留下空档
   railHidden: { type: Boolean, default: false }
@@ -212,7 +212,7 @@ const completionRate = computed(() =>
 // 可用视图，回收站与列表、树同属视图层级
 const views = computed(() => [
   { id: 'list', label: '列表', icon: 'list' },
-  { id: 'tree', label: '树视图', icon: 'tree' },
+  { id: 'graph', label: '图视图', icon: 'graph' },
   { id: 'trash', label: '回收站', icon: 'trash', count: stats.value.trashed }
 ])
 

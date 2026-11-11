@@ -1,5 +1,5 @@
 <template>
-	<!-- 树视图：思维导图占满活动栏以外的区域 -->
+	<!-- 图视图：思维导图占满活动栏以外的区域 -->
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId"
 			@task-selected="id => emit('task-selected', id)" />

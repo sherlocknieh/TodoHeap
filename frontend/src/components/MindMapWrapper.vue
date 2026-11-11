@@ -53,29 +53,13 @@
       </g>
     </svg>
 
-    <!-- 布局与方向切换 -->
-    <div class="absolute top-3 right-3 z-10 flex items-center gap-2" @pointerdown.stop>
-      <div
-        class="flex items-center gap-0.5 rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-0.5 text-[11px] shadow-sm">
-        <button v-for="option in modeOptions" :key="option.value" :title="option.label"
-          class="px-2 py-1 rounded-md transition-colors"
-          :class="mode === option.value
-            ? 'bg-accent-700 text-white dark:bg-accent-400 dark:text-accent-950'
-            : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'"
-          @click.stop="mode = option.value">{{ option.text }}</button>
-      </div>
-
-      <div
-        class="flex items-center gap-0.5 rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-0.5 shadow-sm">
-        <button v-for="option in directionOptions" :key="option.value" :title="option.label"
-          class="p-1 rounded-md transition-colors"
-          :class="direction === option.value
-            ? 'bg-accent-700 text-white dark:bg-accent-400 dark:text-accent-950'
-            : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'"
-          @click.stop="direction = option.value">
-          <AppIcon :name="option.icon" :size="13" />
-        </button>
-      </div>
+    <!-- 布局方向：单个按钮循环切换 -->
+    <div class="absolute top-3 right-3 z-10" @pointerdown.stop>
+      <button
+        class="flex items-center rounded-lg border border-hairline dark:border-hairline-dark bg-white/95 dark:bg-neutral-900/95 p-1.5 text-neutral-500 shadow-sm transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+        :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
+        <AppIcon :name="currentDirection.icon" :size="14" />
+      </button>
     </div>
 
     <!-- 视图控件 -->
@@ -118,11 +102,6 @@ const size = reactive({ width: 0, height: 0 })
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
 
-const modeOptions = [
-  { value: 'tree', text: '树', label: '展开树模式' },
-  { value: 'graph', text: '图', label: '有向图模式' }
-]
-
 const directionOptions = [
   { value: 'down', icon: 'chevronDown', label: '从上到下' },
   { value: 'right', icon: 'chevronRight', label: '从左到右' },
@@ -130,13 +109,19 @@ const directionOptions = [
   { value: 'left', icon: 'chevronLeft', label: '从右到左' }
 ]
 
-// 布局模式与方向属于阅读偏好，刷新后沿用上次选择
-const mode = persistedRef('mindmap-mode', 'graph', {
-  validate: (value) => modeOptions.some((option) => option.value === value)
-})
+// 布局方向属于阅读偏好，刷新后沿用上次选择
 const direction = persistedRef('mindmap-direction', 'right', {
   validate: (value) => directionOptions.some((option) => option.value === value)
 })
+
+const currentDirection = computed(() =>
+  directionOptions.find((option) => option.value === direction.value) ?? directionOptions[1])
+
+// 单个按钮按固定顺序轮换四个方向
+const cycleDirection = () => {
+  const index = directionOptions.findIndex((option) => option.value === direction.value)
+  direction.value = directionOptions[(index + 1) % directionOptions.length].value
+}
 
 const isVertical = computed(() => direction.value === 'down' || direction.value === 'up')
 const isForward = computed(() => direction.value === 'down' || direction.value === 'right')
@@ -170,7 +155,7 @@ const wrapLines = (text) => {
   return visible
 }
 
-// 节点文案与高度统一在这里计算，两种布局共用
+// 节点文案与高度统一在这里计算，布局只负责摆放
 const measureNode = (raw) => {
   const lines = wrapLines(raw.title)
   return {
@@ -237,80 +222,6 @@ const createEdge = (from, to, key, isRef = false, backward = false) => {
 
   return { key, isRef, d }
 }
-
-// 展开树：子节点沿交叉方向排开，父节点居中于子节点跨度
-const treeLayout = computed(() => {
-  const depthMain = []
-  const edges = []
-  const vertical = isVertical.value
-  const forward = isForward.value
-
-  const measure = (raw, depth) => {
-    const node = measureNode(raw)
-    node.depth = depth
-    depthMain[depth] = Math.max(depthMain[depth] || 0, nodeMainSize(node))
-    node.children = (raw.children || []).map((child) => measure(child, depth + 1))
-
-    const childrenCross = node.children.reduce((sum, child) => sum + child.subtreeCross, 0)
-      + Math.max(0, node.children.length - 1) * crossGap
-    node.subtreeCross = Math.max(nodeCrossSize(node), childrenCross)
-    return node
-  }
-
-  const roots = (props.nodes || []).map((root) => measure(root, 0))
-
-  const mainStart = []
-  let cursorMain = 0
-  depthMain.forEach((depthSize, depth) => {
-    mainStart[depth] = cursorMain
-    cursorMain += depthSize + mainGap
-  })
-  const contentMain = Math.max(cursorMain - mainGap, 0)
-
-  let cursorCross = 0
-  const place = (node, crossLeft) => {
-    const mainOffset = mainStart[node.depth] + (depthMain[node.depth] - nodeMainSize(node)) / 2
-    const crossCenter = crossLeft + node.subtreeCross / 2
-
-    if (vertical) {
-      node.x = crossCenter - nodeWidth / 2
-      node.y = forward ? mainOffset : contentMain - mainOffset - node.height
-    } else {
-      node.y = crossCenter - node.height / 2
-      node.x = forward ? mainOffset : contentMain - mainOffset - nodeWidth
-    }
-
-    const childrenCross = node.children.reduce((sum, child) => sum + child.subtreeCross, 0)
-      + Math.max(0, node.children.length - 1) * crossGap
-    let childCrossLeft = crossLeft + (node.subtreeCross - childrenCross) / 2
-
-    node.children.forEach((child, index) => {
-      place(child, childCrossLeft)
-      edges.push(createEdge(node, child, `${node.id}->${child.id}-${index}`, !!child.isRef))
-      childCrossLeft += child.subtreeCross + crossGap
-    })
-  }
-
-  roots.forEach((root) => {
-    place(root, cursorCross)
-    cursorCross += root.subtreeCross + crossGap
-  })
-
-  const nodes = []
-  const collect = (node) => {
-    nodes.push(node)
-    node.children.forEach(collect)
-  }
-  roots.forEach(collect)
-
-  const contentCross = Math.max(cursorCross - crossGap, 0)
-  return {
-    nodes,
-    edges,
-    contentWidth: vertical ? contentCross : contentMain,
-    contentHeight: vertical ? contentMain : contentCross
-  }
-})
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
 const buildGraphData = (forest) => {
@@ -487,10 +398,10 @@ const graphLayout = computed(() => {
   }
 })
 
-const layout = computed(() => (mode.value === 'tree' ? treeLayout.value : graphLayout.value))
+const layout = computed(() => graphLayout.value)
 
 const layoutSignature = computed(() =>
-  `${mode.value}:${direction.value}:${layout.value.nodes.map((node) => node.id).join('|')}`)
+  `${direction.value}:${layout.value.nodes.map((node) => node.id).join('|')}`)
 
 let hasInteracted = false
 

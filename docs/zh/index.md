@@ -27,7 +27,7 @@ features:
       src: /icons/tree.svg
       alt: ''
     title: 任务树与思维导图
-    details: 列表与思维导图双形态展示任务树，无限层级，直观理清任务关系
+    details: 列表与思维导图双形态展示任务图，无限层级，直观理清任务关系
   - icon:
       src: /icons/heap.svg
       alt: ''

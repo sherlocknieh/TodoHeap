@@ -31,7 +31,7 @@ const userMenuRef = ref(null)
 const activeView = computed({
 	get: () => {
 		const routeName = route.name
-		if (routeName === 'TreeView') return 'tree'
+		if (routeName === 'GraphView') return 'graph'
 		if (routeName === 'HeapView') return 'heap'
 		if (routeName === 'TrashView') return 'trash'
 		if (routeName === 'AIView') return 'ai'
@@ -41,7 +41,7 @@ const activeView = computed({
 	set: (view) => {
 		const viewNames = {
 			'list': 'ListView',
-			'tree': 'TreeView',
+			'graph': 'GraphView',
 			'heap': 'HeapView',
 			'trash': 'TrashView',
 			'ai': 'AIView',
@@ -68,12 +68,12 @@ const mainScrollRef = ref(null)
 const { save: saveMainScroll, restore: restoreMainScroll } = useScrollMemory(mainScrollRef, () => activeView.value)
 
 const showViewLoading = computed(() => {
-	return (activeView.value === 'tree' || activeView.value === 'heap') && todoStore.loading
+	return (activeView.value === 'graph' || activeView.value === 'heap') && todoStore.loading
 })
 
 // 顶栏标题：主区域统一呈现当前视图名称
 const activeViewTitle = computed(() => {
-	if (activeView.value === 'tree') return '树视图'
+	if (activeView.value === 'graph') return '图视图'
 	if (activeView.value === 'heap') return '堆视图'
 	if (activeView.value === 'trash') return '回收站'
 	if (activeView.value === 'ai') return 'AI'
@@ -320,8 +320,8 @@ const createNewTask = async () => {
 	}
 }
 
-// 浮层侧栏：窄屏抽屉或树视图覆盖模式，点击外部应自动收起
-const isSidebarFloating = computed(() => activeView.value === 'tree' || windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
+// 浮层侧栏：窄屏抽屉或图视图覆盖模式，点击外部应自动收起
+const isSidebarFloating = computed(() => activeView.value === 'graph' || windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
 
 // 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {
@@ -459,10 +459,10 @@ const runToastUndo = async () => {
 				</div>
 			</aside>
 
-			<!-- 左栏：任务导航面板；树视图下覆盖在导图之上，避免改变导图宽度 -->
+			<!-- 左栏：任务导航面板；图视图下覆盖在导图之上，避免改变导图宽度 -->
 			<LeftSidebar :show="showLeftSidebar" :active-view="activeView" :selected-task-id="selectedTaskId"
 				:section="activeSection"
-				:overlay="activeView === 'tree'"
+				:overlay="activeView === 'graph'"
 				:rail-hidden="!showActivityRail"
 				@close="() => { showLeftSidebar = false }" @switch-view="switchView" @create-task="createNewTask"
 				/>
@@ -482,7 +482,7 @@ const runToastUndo = async () => {
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
-							<button v-if="activeView !== 'tree'" type="button"
+							<button v-if="activeView !== 'graph'" type="button"
 								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors"
 								:class="showDetailPanel
 									? 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'
@@ -495,7 +495,7 @@ const runToastUndo = async () => {
 				</header>
 
 				<!-- 清单内容 -->
-				<div ref="mainScrollRef" class="flex-1 min-h-0" :class="['tree', 'ai'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
+				<div ref="mainScrollRef" class="flex-1 min-h-0" :class="['graph', 'ai'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
 					@scroll.passive="saveMainScroll" @click="onMainAreaClick">
 					<div v-if="showViewLoading" class="flex items-center justify-center h-96 meta-text">
 						<span class="inline-flex items-center gap-2">
@@ -504,7 +504,7 @@ const runToastUndo = async () => {
 						</span>
 					</div>
 					<template v-else>
-						<div :class="activeView === 'tree'
+						<div :class="activeView === 'graph'
 							? 'h-full'
 							: activeView === 'ai'
 								? 'mx-auto max-w-3xl w-full px-6 pb-4 h-full flex flex-col min-h-0'
