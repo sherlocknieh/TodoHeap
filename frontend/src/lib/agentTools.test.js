@@ -123,14 +123,14 @@ describe('createAgentToolRunner', () => {
       setItem: (key, value) => store.set(key, value),
       removeItem: (key) => store.delete(key)
     }
-    const skills = ref([{ id: 'global-optimize', name: '全局任务优化', icon: 'target', prompt: '优化任务', tools: [] }])
+    const skills = ref([{ id: 'global-optimize', name: '全局任务优化', icon: 'target', prompt: '优化任务', mode: 'list' }])
     llmStore = { config: { temperature: 0.2 }, update: vi.fn() }
     agentStore = {
       get skills() {
         return skills.value
       },
       addSkill: vi.fn((draft) => {
-        const skill = { id: `skill_${skills.value.length + 1}`, name: draft.name, icon: draft.icon || 'sparkles', prompt: draft.prompt, tools: draft.tools || [] }
+        const skill = { id: `skill_${skills.value.length + 1}`, name: draft.name, icon: draft.icon || 'sparkles', prompt: draft.prompt, mode: draft.mode || '' }
         skills.value = [...skills.value, skill]
         return skill
       }),

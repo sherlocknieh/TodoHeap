@@ -4,6 +4,9 @@ import {
   DEFAULT_AGENT_MODE,
   MODE_SWITCH_TOOL,
   READ_ONLY_TOOLS,
+  SCHEDULE_TOOLS,
+  SETTINGS_TOOLS,
+  TODO_TOOLS,
   findAgentMode,
   isValidModeTools,
   resolveAllowedTools
@@ -18,21 +21,30 @@ describe('agentModes', () => {
     expect(DEFAULT_AGENT_MODE).toBe('plan')
     expect(findAgentMode('build').tools).toBeNull()
     expect(findAgentMode('plan').tools).toEqual([...READ_ONLY_TOOLS, MODE_SWITCH_TOOL])
-    expect(AGENT_MODES.map((mode) => mode.id)).toEqual(['plan', 'build'])
+    expect(AGENT_MODES.map((mode) => mode.id)).toEqual([
+      'plan', 'build', 'list', 'schedule', 'settings', 'list-schedule'
+    ])
   })
 
   it('未知模式回退到默认模式', () => {
     expect(findAgentMode('unknown').id).toBe('plan')
   })
 
-  it('模式与技能白名单取交集，Plan 下技能无法放开写权限', () => {
-    const planWithWriteSkill = resolveAllowedTools('plan', ['list_todos', 'create_todo'])
-    expect([...planWithWriteSkill]).toEqual(['list_todos', MODE_SWITCH_TOOL])
+  it('单域模式只给本域工具，切换入口始终保留', () => {
+    expect([...resolveAllowedTools('list')]).toEqual([...TODO_TOOLS, MODE_SWITCH_TOOL])
+    expect([...resolveAllowedTools('schedule')]).toEqual([...SCHEDULE_TOOLS, MODE_SWITCH_TOOL])
+    expect([...resolveAllowedTools('settings')]).toEqual([...SETTINGS_TOOLS, MODE_SWITCH_TOOL])
+  })
 
-    const buildWithSkill = resolveAllowedTools('build', ['list_todos', 'create_todo'])
-    expect([...buildWithSkill]).toEqual(['list_todos', 'create_todo'])
+  it('清单+日程模式合并两域工具，但不含设置写入', () => {
+    const tools = resolveAllowedTools('list-schedule')
+    expect(tools.has('create_todo')).toBe(true)
+    expect(tools.has('create_schedule')).toBe(true)
+    expect(tools.has('update_app_setting')).toBe(false)
+    expect(tools.has(MODE_SWITCH_TOOL)).toBe(true)
+  })
 
-    expect(resolveAllowedTools('build', [])).toBeNull()
-    expect(resolveAllowedTools('plan', [])).toEqual(new Set([...READ_ONLY_TOOLS, MODE_SWITCH_TOOL]))
+  it('Build 不限制工具', () => {
+    expect(resolveAllowedTools('build')).toBeNull()
   })
 })

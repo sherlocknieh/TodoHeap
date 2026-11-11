@@ -38,14 +38,15 @@ describe('agentSkills', () => {
     expect(skills[0].icon).toBe('sparkles')
   })
 
-  it('工具白名单只保留已知工具并去重', () => {
-    const [restricted] = normalizeSkills([
-      { id: 'a', name: '只看任务', prompt: '列出任务', tools: ['list_todos', 'unknown', 'list_todos'] }
+  it('技能只绑定已知模式，未知模式回退到默认模式', () => {
+    const [bound, unknown, follow] = normalizeSkills([
+      { id: 'a', name: '只看任务', prompt: '列出任务', mode: 'list' },
+      { id: 'b', name: '写错的模式', prompt: '指令', mode: 'nope' },
+      { id: 'c', name: '跟随会话', prompt: '指令' }
     ])
-    expect(restricted.tools).toEqual(['list_todos'])
-
-    const [unrestricted] = normalizeSkills([{ id: 'b', name: '不限工具', prompt: '指令' }])
-    expect(unrestricted.tools).toEqual([])
+    expect(bound.mode).toBe('list')
+    expect(unknown.mode).toBe('plan')
+    expect(follow.mode).toBe('')
   })
 
   it('新建技能带唯一 id', () => {

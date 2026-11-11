@@ -9,7 +9,7 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
-import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
+import { AGENT_MODES } from '@/lib/agentModes'
 import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { useResizablePanel, useResizableHeight } from '@/utils/resizablePanel'
 
@@ -131,13 +131,13 @@ const deleteSession = (id) => {
   agent.deleteSession(id)
 }
 
-// 技能可限定的工具清单，顺序与工具定义一致
-const TOOL_OPTIONS = Object.entries(AGENT_TOOL_LABELS).map(([name, label]) => ({ name, label }))
+// 技能只绑定工作模式：留空表示沿用会话当前模式
+const MODE_OPTIONS = [{ id: '', label: '跟随会话' }, ...AGENT_MODES.map((mode) => ({ id: mode.id, label: mode.label }))]
 
 const startNewSkill = () => {
   skillError.value = ''
   expandSection('skills')
-  skillForm.value = { id: null, name: '', icon: DEFAULT_SKILL_ICON, prompt: '', tools: [] }
+  skillForm.value = { id: null, name: '', icon: DEFAULT_SKILL_ICON, prompt: '', mode: '' }
 }
 
 const startEditSkill = (skill) => {
@@ -147,16 +147,8 @@ const startEditSkill = (skill) => {
     name: skill.name,
     icon: skill.icon,
     prompt: skill.prompt,
-    tools: [...(skill.tools || [])]
+    mode: skill.mode || ''
   }
-}
-
-// 空列表表示不限制，选中的工具会作为该技能的工具白名单
-const toggleSkillTool = (name) => {
-  const form = skillForm.value
-  if (!form) return
-  const tools = form.tools || []
-  form.tools = tools.includes(name) ? tools.filter((item) => item !== name) : [...tools, name]
 }
 
 const cancelSkillForm = () => {
@@ -179,6 +171,8 @@ const saveSkill = () => {
   else agent.addSkill(form)
   cancelSkillForm()
 }
+
+const modeLabel = (id) => AGENT_MODES.find((mode) => mode.id === id)?.label || ''
 
 const insertSkill = (skill) => {
   agent.useSkill(skill.id)
@@ -451,15 +445,15 @@ const switchView = (view) => {
                 class="field w-full resize-none px-1.5 py-1 text-xs leading-5"
                 :maxlength="MAX_SKILL_PROMPT" placeholder="写给 Agent 的指令，例如：把本周任务按优先级重新排序"></textarea>
               <div>
-                <p class="mb-1 text-[11px] text-neutral-500 dark:text-neutral-400">只允许使用的工具，不选表示全部</p>
-                <div class="flex max-h-24 flex-wrap gap-1 overflow-auto">
-                  <button v-for="tool in TOOL_OPTIONS" :key="tool.name" type="button"
+                <p class="mb-1 text-[11px] text-neutral-500 dark:text-neutral-400">运行模式，决定这个技能能用哪些工具</p>
+                <div class="flex flex-wrap gap-1">
+                  <button v-for="mode in MODE_OPTIONS" :key="mode.id" type="button"
                     class="chip transition-colors"
-                    :class="skillForm.tools?.includes(tool.name)
+                    :class="skillForm.mode === mode.id
                       ? 'border-accent-500 bg-accent-50 text-accent-700 dark:border-accent-500 dark:bg-accent-500/10 dark:text-accent-300'
                       : 'border-neutral-300 hover:border-accent-400 dark:border-neutral-600'"
-                    @click="toggleSkillTool(tool.name)">
-                    {{ tool.label }}
+                    @click="skillForm.mode = mode.id">
+                    {{ mode.label }}
                   </button>
                 </div>
               </div>
@@ -477,10 +471,11 @@ const switchView = (view) => {
               <li v-for="skill in agent.skills" :key="skill.id"
                 class="group flex items-center gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
                 <button class="min-w-0 flex-1 flex items-center gap-2 px-1 text-left"
-                  :title="skill.tools?.length ? `填入输入框（仅限 ${skill.tools.length} 个工具）` : '填入输入框'"
+                  :title="skill.mode ? `填入输入框并切到${modeLabel(skill.mode)}模式` : '填入输入框'"
                   @click="insertSkill(skill)">
                   <AppIcon :name="skill.icon" :size="13" class="opacity-70" />
                   <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">{{ skill.name }}</span>
+                  <span v-if="skill.mode" class="shrink-0 text-[10px] text-neutral-400 dark:text-neutral-500">{{ modeLabel(skill.mode) }}</span>
                 </button>
                 <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
                   title="编辑技能" @click.stop="startEditSkill(skill)">

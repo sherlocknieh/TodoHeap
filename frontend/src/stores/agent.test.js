@@ -361,19 +361,21 @@ describe('useAgentStore', () => {
     expect(agent.draft).toBe('第二个会话的草稿')
   })
 
-  it('点选技能后按技能白名单过滤本轮可用工具', async () => {
+  it('点选技能后切到它绑定的模式，工具集由模式决定', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
 
     const agent = useAgentStore()
-    const skill = agent.addSkill({ name: '只看任务', prompt: '列出全部任务', tools: ['list_todos', 'unknown'] })
-    expect(skill.tools).toEqual(['list_todos'])
+    agent.init('user-1')
+    const skill = agent.addSkill({ name: '只看任务', prompt: '列出全部任务', mode: 'list' })
+    expect(skill.mode).toBe('list')
 
     agent.useSkill(skill.id)
+    expect(agent.activeMode).toBe('list')
     await agent.send('列出全部任务')
 
-    const tools = mocks.chat.mock.calls[0][0].tools
-    // 默认 Plan 模式下技能白名单与只读工具取交集，切换模式入口始终保留
-    expect(tools.map((item) => item.function.name)).toEqual(['list_todos', 'switch_mode'])
+    const tools = mocks.chat.mock.calls[0][0].tools.map((item) => item.function.name)
+    expect(tools).toContain('create_todo')
+    expect(tools).not.toContain('create_schedule')
   })
 
   it('带图片的消息按多模态格式发送，图片本体不落 localStorage', async () => {

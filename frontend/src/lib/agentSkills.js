@@ -1,5 +1,5 @@
 // Agent 技能：把一段固定指令保存成可复用入口，运行时在新会话里发给模型
-import { AGENT_TOOL_NAMES } from './agentTools'
+import { AGENT_MODES, DEFAULT_AGENT_MODE } from './agentModes'
 
 export const MAX_SKILL_NAME = 24
 export const MAX_SKILL_PROMPT = 4000
@@ -21,7 +21,8 @@ export const DEFAULT_SKILLS = [
     id: 'global-optimize',
     name: '全局任务优化',
     icon: 'target',
-    prompt: GLOBAL_OPTIMIZE_PROMPT
+    prompt: GLOBAL_OPTIMIZE_PROMPT,
+    mode: 'list'
   }
 ]
 
@@ -32,10 +33,11 @@ const createSkillId = () => {
 
 const cleanText = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
 
-// 空列表表示不限制工具；未知与重复的工具名直接丢弃
-const normalizeToolNames = (list) => (Array.isArray(list)
-  ? [...new Set(list.filter((name) => typeof name === 'string' && AGENT_TOOL_NAMES.includes(name)))]
-  : [])
+// 技能只绑定工作模式：空值表示沿用会话当前模式，未知模式回退到默认模式
+const normalizeMode = (mode) => {
+  if (mode === undefined || mode === null || mode === '') return ''
+  return AGENT_MODES.some((item) => item.id === mode) ? mode : DEFAULT_AGENT_MODE
+}
 
 export const normalizeSkill = (skill, fallbackId) => {
   if (!skill || typeof skill !== 'object') return null
@@ -47,7 +49,7 @@ export const normalizeSkill = (skill, fallbackId) => {
     name,
     icon: SKILL_ICONS.includes(skill.icon) ? skill.icon : DEFAULT_SKILL_ICON,
     prompt,
-    tools: normalizeToolNames(skill.tools)
+    mode: normalizeMode(skill.mode)
   }
 }
 
@@ -63,12 +65,12 @@ export const normalizeSkills = (list) => {
   }, [])
 }
 
-export const createSkill = ({ name, icon = DEFAULT_SKILL_ICON, prompt, tools } = {}) => ({
+export const createSkill = ({ name, icon = DEFAULT_SKILL_ICON, prompt, mode } = {}) => ({
   id: createSkillId(),
   name: cleanText(name, MAX_SKILL_NAME),
   icon: SKILL_ICONS.includes(icon) ? icon : DEFAULT_SKILL_ICON,
   prompt: String(prompt ?? '').trim().slice(0, MAX_SKILL_PROMPT),
-  tools: normalizeToolNames(tools)
+  mode: normalizeMode(mode)
 })
 
 // 默认技能需要副本，避免调用方修改到模块级常量

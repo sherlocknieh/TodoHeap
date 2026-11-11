@@ -223,7 +223,6 @@ export const useAgentStore = defineStore('agent', () => {
   const drafts = ref({})
   const pendingApproval = ref(null)
   // 点选技能后记录其工具白名单，只作用于紧接着发送的这一轮
-  const activeSkillId = ref(null)
   const activeUserId = ref(null)
   const context = ref({ selectedTaskId: null })
   const skills = ref(cloneDefaultSkills())
@@ -347,13 +346,13 @@ export const useAgentStore = defineStore('agent', () => {
     return true
   }
 
-  // 点选技能把指令填入输入框，并记下它的工具白名单等用户发送
+  // 点选技能把指令填入输入框，并切到它绑定的模式
   const useSkill = (id) => {
     const skill = skills.value.find((item) => item.id === id)
     if (!skill) return false
     const current = draft.value.trim()
     setDraft(current ? `${current}\n\n${skill.prompt}` : skill.prompt)
-    activeSkillId.value = skill.id
+    if (skill.mode) setMode(skill.mode)
     return true
   }
 
@@ -390,7 +389,6 @@ export const useAgentStore = defineStore('agent', () => {
 
   const newSession = () => {
     if (running.value) stop()
-    activeSkillId.value = null
     persist()
 
     // 超出上限时淘汰最久未使用的非当前会话
@@ -420,7 +418,6 @@ export const useAgentStore = defineStore('agent', () => {
     if (!target) return
 
     if (running.value) stop()
-    activeSkillId.value = null
     persist()
     activeSessionId.value = id
     messages.value = target.messages
@@ -559,7 +556,7 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   // 一轮对话：从给定的用户消息出发，循环调用模型直到不再请求工具
-  const startTurn = async ({ userMessage, allowedTools = null }) => {
+  const startTurn = async ({ userMessage }) => {
     const llm = useLlmStore()
     const authStore = useAuthStore()
 
@@ -579,12 +576,19 @@ export const useAgentStore = defineStore('agent', () => {
         scheduleStore: useScheduleStore(),
         authStore,
         llmStore: llm,
-        agentStore: { skills, addSkill, updateSkill, deleteSkill, setMode }
+        agentStore: {
+          skills,
+          addSkill,
+          updateSkill,
+          deleteSkill,
+          setMode,
+          // 切换后要读到新模式，用 getter 而不是快照
+          get activeMode() { return activeMode.value }
+        }
       })
-      // 技能白名单在整轮内固定；模式可能被 switch_mode 改掉，每步重新解析
-      const skillTools = allowedTools ? [...allowedTools] : null
+      // 工具集只由模式决定；模式可能被 switch_mode 改掉，每步重新解析
       const resolveTools = (modeId) => {
-        const allowed = resolveAllowedTools(modeId, skillTools)
+        const allowed = resolveAllowedTools(modeId)
         return allowed
           ? runner.definitions.filter((definition) => allowed.has(definition.function.name))
           : runner.definitions
@@ -706,14 +710,6 @@ export const useAgentStore = defineStore('agent', () => {
       return
     }
 
-    // 先取出技能白名单：init 会重新加载默认技能，可能覆盖刚点选的条目
-    const skill = activeSkillId.value
-      ? skills.value.find((item) => item.id === activeSkillId.value)
-      : null
-    // 只传技能白名单：模式在每一步重新解析，switch_mode 切到 Build 后才能拿到写入工具
-    const allowedTools = skill?.tools?.length ? [...skill.tools] : null
-    activeSkillId.value = null
-
     init(useAuthStore().user?.id)
 
     // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
@@ -730,7 +726,7 @@ export const useAgentStore = defineStore('agent', () => {
     }
     persist()
 
-    await startTurn({ userMessage, allowedTools })
+    await startTurn({ userMessage })
   }
 
   // 重新生成：丢弃最后一条回复，从最后一条用户消息重新请求

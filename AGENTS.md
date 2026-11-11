@@ -54,7 +54,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/didaMcp.js` | 滴答清单 MCP：OAuth 授权、工具调用、拉取任务后交给导入解析 |
 | `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
 | `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好 |
-| `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建 |
+| `lib/agentModes.js` | 工作模式：Plan / Build / 清单 / 日程 / 设置 / 清单+日程，各自限定工具集与提示词 |
+| `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建，技能只绑定工作模式 |
 | `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
 | `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
 | `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
@@ -99,7 +100,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 写操作链路：UI → `todos.js` action → 本地乐观更新并入队 → Supabase → 成功派发 `sync:id-replaced` / 失败回滚。
 
-对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。技能（名称 + 图标 + 指令）存于 `user_settings.settings.skills`，运行技能等于新建会话并发送这段指令；全局优化只是默认技能，没有独立的边缘函数。
+对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。技能（名称 + 图标 + 指令 + 绑定模式）存于 `user_settings.settings.skills`，点选技能会切到它绑定的模式并把指令填入输入框；全局优化只是默认技能，没有独立的边缘函数。
 
 ## Supabase
 

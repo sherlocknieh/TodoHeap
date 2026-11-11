@@ -181,6 +181,8 @@ const activeModeLabel = computed(() => (
   AGENT_MODES.find((mode) => mode.id === agent.activeMode)?.label || 'Build'
 ))
 
+const modeLabel = (id) => AGENT_MODES.find((mode) => mode.id === id)?.label || ''
+
 const switchMode = (mode) => {
   agent.setMode(mode.id)
   openMenu.value = ''
@@ -598,6 +600,13 @@ const modeSwitchTarget = computed(() => {
   return AGENT_MODES.find((mode) => mode.id === args.mode)?.label || 'Build'
 })
 
+// 确认文案按目标模式的工具范围说明影响
+const modeSwitchHint = computed(() => {
+  const mode = AGENT_MODES.find((item) => item.id === agent.pendingApproval?.args?.mode)
+  if (!mode) return '确认后按新模式发送工具。'
+  return mode.tools ? `确认后只能使用：${mode.description}。` : '确认后可以读写任务、日程与设置。'
+})
+
 watch(
   () => `${agent.messages.length}:${lastMessage.value?.content?.length || 0}:${lastMessage.value?.toolCalls?.length || 0}`,
   () => {
@@ -821,7 +830,7 @@ onUnmounted(() => {
             <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">切换到 {{ modeSwitchTarget }} 模式？</p>
             <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
               {{ agent.pendingApproval.args?.reason || 'Agent 请求切换工作模式。' }}
-              {{ modeSwitchTarget === 'Build' ? '确认后本轮即可修改任务、日程与设置。' : '确认后只能读取数据。' }}
+              {{ modeSwitchHint }}
             </p>
           </template>
           <template v-else>
@@ -908,10 +917,11 @@ onUnmounted(() => {
         <div class="max-h-64 overflow-y-auto pb-1">
           <button v-for="skill in agent.skills" :key="skill.id"
             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
-            :title="skill.tools?.length ? `仅限 ${skill.tools.length} 个工具` : '不限工具'"
+            :title="skill.mode ? `切到${modeLabel(skill.mode)}模式` : '沿用当前模式'"
             @click="applySkill(skill)">
             <AppIcon :name="skill.icon" :size="12" class="opacity-70" />
             <span class="truncate">{{ skill.name }}</span>
+            <span v-if="skill.mode" class="ml-auto shrink-0 text-[10px] text-neutral-400 dark:text-neutral-500">{{ modeLabel(skill.mode) }}</span>
           </button>
           <p v-if="!agent.skills.length" class="px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400">
             还没有技能，可在侧栏新建

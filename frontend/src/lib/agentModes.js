@@ -10,7 +10,44 @@ export const READ_ONLY_TOOLS = [
   'list_app_settings'
 ]
 
-// 切换模式本身在两种模式下都可用，否则 Plan 无法请求进入 Build
+// 清单域：任务树、完成状态与回收站
+export const TODO_TOOLS = [
+  'list_todos',
+  'get_todo',
+  'create_todo',
+  'update_todo',
+  'move_todo',
+  'complete_todo',
+  'link_todo',
+  'unlink_todo',
+  'delete_todo',
+  'delete_completed_todos',
+  'restore_todo',
+  'permanent_delete_todo',
+  'empty_trash',
+  'list_trash'
+]
+
+// 日程域：日程事件的增删改查
+export const SCHEDULE_TOOLS = [
+  'list_schedules',
+  'create_schedule',
+  'update_schedule',
+  'delete_schedule'
+]
+
+// 设置域：界面偏好、模型参数、技能与日历订阅
+export const SETTINGS_TOOLS = [
+  'list_app_settings',
+  'update_app_setting',
+  'create_skill',
+  'update_skill',
+  'delete_skill',
+  'rotate_calendar_feed',
+  'disable_calendar_feed'
+]
+
+// 切换模式本身在所有模式下都可用，否则受限模式无法请求放开权限
 export const MODE_SWITCH_TOOL = 'switch_mode'
 
 export const AGENT_MODES = [
@@ -30,6 +67,42 @@ export const AGENT_MODES = [
     description: '可读写任务、日程与设置',
     tools: null,
     prompt: ''
+  },
+  {
+    id: 'list',
+    label: '清单',
+    description: '只管理任务清单',
+    tools: [...TODO_TOOLS, MODE_SWITCH_TOOL],
+    prompt: `当前处于清单模式：只处理任务清单，不碰日程与应用设置。
+- 可以创建、修改、移动、完成、删除任务，也可以操作回收站。
+- 用户提到日程或设置时，说明当前模式不覆盖，并建议切换到对应模式。`
+  },
+  {
+    id: 'schedule',
+    label: '日程',
+    description: '只管理日程事件',
+    tools: [...SCHEDULE_TOOLS, MODE_SWITCH_TOOL],
+    prompt: `当前处于日程模式：只处理日程事件，不碰任务清单与应用设置。
+- 可以创建、修改、删除日程；需要任务信息时只能读取，不能改动任务。
+- 用户提到任务或设置时，说明当前模式不覆盖，并建议切换到对应模式。`
+  },
+  {
+    id: 'settings',
+    label: '设置',
+    description: '只管理应用设置与技能',
+    tools: [...SETTINGS_TOOLS, MODE_SWITCH_TOOL],
+    prompt: `当前处于设置模式：只处理应用设置与技能，不碰任务清单与日程。
+- 改设置前先调用 list_app_settings 确认键名与当前值。
+- 用户提到任务或日程时，说明当前模式不覆盖，并建议切换到对应模式。`
+  },
+  {
+    id: 'list-schedule',
+    label: '清单+日程',
+    description: '任务与日程双向管理',
+    tools: [...TODO_TOOLS, ...SCHEDULE_TOOLS, MODE_SWITCH_TOOL],
+    prompt: `当前处于清单+日程模式：任务与日程可以互相联动，但不改应用设置。
+- 可以把任务安排成日程，也可以从日程反推任务。
+- 用户提到设置时，说明当前模式不覆盖，并建议切换到设置模式。`
   }
 ]
 
@@ -42,18 +115,10 @@ export const findAgentMode = (id) => (
   || AGENT_MODES[0]
 )
 
-// 模式与技能白名单取交集：两者都限制时以更严格的一方为准
-export const resolveAllowedTools = (modeId, skillTools) => {
+// 模式决定本轮可用工具：null 表示不限制
+export const resolveAllowedTools = (modeId) => {
   const mode = findAgentMode(modeId)
-  const modeTools = mode.tools ? new Set(mode.tools) : null
-  const skillSet = Array.isArray(skillTools) && skillTools.length ? new Set(skillTools) : null
-  if (!modeTools && !skillSet) return null
-  if (!modeTools) return skillSet
-  if (!skillSet) return modeTools
-  // 切换模式是逃生通道，技能白名单不应把它挡掉
-  const merged = new Set([...modeTools].filter((name) => skillSet.has(name)))
-  if (modeTools.has(MODE_SWITCH_TOOL)) merged.add(MODE_SWITCH_TOOL)
-  return merged
+  return mode.tools ? new Set(mode.tools) : null
 }
 
 // 工具名必须真实存在，避免模式配置写错后静默失效

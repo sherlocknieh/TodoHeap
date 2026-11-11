@@ -259,9 +259,13 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'switch_mode',
-      description: '请求切换工作模式。Plan 只读、Build 可写；用户确认后立即生效，本轮后续请求按新模式发送工具。',
+      description: '请求切换工作模式。plan 只读、build 全量、list 只管理清单、schedule 只管理日程、settings 只管理设置、list-schedule 清单与日程双向；用户确认后立即生效，本轮后续请求按新模式发送工具。',
       parameters: objectSchema({
-        mode: { type: 'string', enum: ['plan', 'build'], description: '目标模式' },
+        mode: {
+          type: 'string',
+          enum: ['plan', 'build', 'list', 'schedule', 'settings', 'list-schedule'],
+          description: '目标模式'
+        },
         reason: text('为什么要切换，一句话说明')
       }, ['mode'])
     }
@@ -297,11 +301,7 @@ export const AGENT_TOOL_DEFINITIONS = [
         name: text('技能名称，最多 24 字'),
         prompt: text('技能指令全文'),
         icon: text('图标名，可选：sparkles、target、bulb、book、chart、calendar、list、clock'),
-        tools: {
-          type: 'array',
-          items: { type: 'string' },
-          description: '限定该技能可用的工具名；留空表示不限制'
-        }
+        mode: text('技能绑定的工作模式 id：plan、build、list、schedule、settings、list-schedule；留空表示沿用会话当前模式')
       }, ['name', 'prompt'])
     }
   },
@@ -309,17 +309,13 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'update_skill',
-      description: '修改已有技能的名称、指令、图标或工具白名单。',
+      description: '修改已有技能的名称、指令、图标或绑定的工作模式。',
       parameters: objectSchema({
         id: text('技能 id'),
         name: text('新名称'),
         prompt: text('新指令'),
         icon: text('新图标名'),
-        tools: {
-          type: 'array',
-          items: { type: 'string' },
-          description: '新的工具白名单；空数组表示不限制'
-        }
+        mode: text('新的工作模式 id；空字符串表示沿用会话当前模式')
       }, ['id'])
     }
   },
@@ -865,9 +861,9 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
     // 切换模式由 store 执行：确认后立即生效，本轮后续请求按新模式发送工具
     async switch_mode(args) {
       if (!agentStore?.setMode) throw new Error('模式切换不可用')
-      const mode = args.mode === 'build' ? 'build' : 'plan'
-      agentStore.setMode(mode)
-      return { ok: true, mode, reason: args.reason || '' }
+      // 模式 id 由 store 归一化，未知值回退到默认模式
+      agentStore.setMode(args.mode)
+      return { ok: true, mode: agentStore.activeMode || args.mode, reason: args.reason || '' }
     },
 
     // 设置快照：界面偏好取本地值，模型参数取当前配置，日历与技能取已加载状态
@@ -895,7 +891,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
           id: skill.id,
           name: skill.name,
           icon: skill.icon,
-          tools: skill.tools || [],
+          mode: skill.mode || '',
           prompt: skill.prompt
         }))
       }
@@ -924,10 +920,10 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
         name: args.name,
         prompt: args.prompt,
         icon: SKILL_ICONS.includes(args.icon) ? args.icon : undefined,
-        tools: args.tools
+        mode: args.mode
       })
       if (!saved) throw new Error('技能需要名称与指令')
-      return { ok: true, skill: { id: saved.id, name: saved.name, icon: saved.icon, tools: saved.tools } }
+      return { ok: true, skill: { id: saved.id, name: saved.name, icon: saved.icon, mode: saved.mode } }
     },
 
     async update_skill(args) {
@@ -938,12 +934,12 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       if ('name' in args) patch.name = args.name
       if ('prompt' in args) patch.prompt = args.prompt
       if ('icon' in args) patch.icon = args.icon
-      if ('tools' in args) patch.tools = args.tools
+      if ('mode' in args) patch.mode = args.mode
       if (!Object.keys(patch).length) throw new Error('没有要更新的字段')
 
       const saved = agentStore.updateSkill(current.id, patch)
       if (!saved) throw new Error('技能名称与指令不能为空')
-      return { ok: true, skill: { id: saved.id, name: saved.name, icon: saved.icon, tools: saved.tools } }
+      return { ok: true, skill: { id: saved.id, name: saved.name, icon: saved.icon, mode: saved.mode } }
     },
 
     async delete_skill(args) {
