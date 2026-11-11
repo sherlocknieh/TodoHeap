@@ -8,13 +8,14 @@
     @keydown="onKeydown">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
-        <marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+        <!-- 箭头继承连线颜色，避免与线色不一致 -->
+        <marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5"
           orient="auto-start-reverse">
-          <path d="M0 0 10 5 0 10z" fill="#a3a3a3" />
+          <path d="M0 0 10 5 0 10z" fill="context-stroke" />
         </marker>
-        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5"
           orient="auto-start-reverse">
-          <path d="M0 0 10 5 0 10z" fill="#13b566" />
+          <path d="M0 0 10 5 0 10z" fill="context-stroke" />
         </marker>
       </defs>
 
@@ -200,8 +201,31 @@ const inAnchor = (node) => {
 
 const crossVector = () => (isVertical.value ? { x: 1, y: 0 } : { x: 0, y: 1 })
 
-// 统一生成连线路径：正向走平滑曲线，逆向与自环绕行展示
-const createEdge = (from, to, key, isRef = false, backward = false) => {
+// 折线转圆角路径：拐点用二次曲线过渡，避免生硬直角
+const roundedPath = (points, radius = 8) => {
+  const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y)
+  let d = `M${points[0].x} ${points[0].y}`
+
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const prev = points[i - 1]
+    const cur = points[i]
+    const next = points[i + 1]
+    const lenIn = dist(prev, cur) || 1
+    const lenOut = dist(cur, next) || 1
+    const r = Math.min(radius, lenIn / 2, lenOut / 2)
+    const inX = cur.x + (prev.x - cur.x) / lenIn * r
+    const inY = cur.y + (prev.y - cur.y) / lenIn * r
+    const outX = cur.x + (next.x - cur.x) / lenOut * r
+    const outY = cur.y + (next.y - cur.y) / lenOut * r
+    d += ` L${inX} ${inY} Q${cur.x} ${cur.y} ${outX} ${outY}`
+  }
+
+  const last = points[points.length - 1]
+  return `${d} L${last.x} ${last.y}`
+}
+
+// 统一生成连线路径：正向走圆角折线，逆向与自环绕行展示
+const createEdge = (from, to, key, isRef = false, backward = false, laneCross = null) => {
   const start = outAnchor(from)
   const end = inAnchor(to)
   const cross = crossVector()
@@ -216,13 +240,48 @@ const createEdge = (from, to, key, isRef = false, backward = false) => {
     const endY = start.y + cross.y * half
     d = `M${startX} ${startY} C${startX + start.dx * bulge - cross.x * bulge} ${startY + start.dy * bulge - cross.y * bulge}, ${endX + start.dx * bulge + cross.x * bulge} ${endY + start.dy * bulge + cross.y * bulge}, ${endX} ${endY}`
   } else if (backward) {
-    const bulge = 110
-    const along = 40
-    d = `M${start.x} ${start.y} C${start.x + cross.x * bulge + start.dx * along} ${start.y + cross.y * bulge + start.dy * along}, ${end.x + cross.x * bulge + end.dx * along} ${end.y + cross.y * bulge + end.dy * along}, ${end.x} ${end.y}`
+    // 回边绕到内容外侧再折回，入线方向与箭头一致
+    const lane = laneCross ?? 0
+    const stub = 26
+    const crossOf = (point) => point.x * cross.x + point.y * cross.y
+    const at = (point, mainOffset, crossValue) => ({
+      x: point.x + point.dx * mainOffset + cross.x * (crossValue - crossOf(point)),
+      y: point.y + point.dy * mainOffset + cross.y * (crossValue - crossOf(point))
+    })
+
+    d = roundedPath([
+      start,
+      at(start, stub, crossOf(start)),
+      at(start, stub, lane),
+      at(end, stub, lane),
+      at(end, stub, crossOf(end)),
+      end
+    ])
   } else {
-    const distance = isVertical.value ? Math.abs(end.y - start.y) : Math.abs(end.x - start.x)
-    const bend = Math.max(20, distance * 0.5)
-    d = `M${start.x} ${start.y} C${start.x + start.dx * bend} ${start.y + start.dy * bend}, ${end.x + end.dx * bend} ${end.y + end.dy * bend}, ${end.x} ${end.y}`
+    // 出线、过渡、入线都沿主方向，箭头与线保持同一朝向
+    const main = { x: start.dx, y: start.dy }
+    const mainOf = (point) => point.x * main.x + point.y * main.y
+    const crossOf = (point) => point.x * cross.x + point.y * cross.y
+    const at = (mainValue, crossValue) => ({
+      x: main.x * mainValue + cross.x * crossValue,
+      y: main.y * mainValue + cross.y * crossValue
+    })
+
+    const startMain = mainOf(start)
+    const endMain = mainOf(end)
+    const startCross = crossOf(start)
+    const endCross = crossOf(end)
+    const direction = Math.sign(endMain - startMain) || 1
+    const stub = Math.min(18, Math.abs(endMain - startMain) / 2)
+
+    d = Math.abs(endCross - startCross) < 1
+      ? `M${start.x} ${start.y} L${end.x} ${end.y}`
+      : roundedPath([
+        start,
+        at(startMain + direction * stub, startCross),
+        at(startMain + direction * stub, endCross),
+        end
+      ])
   }
 
   return { key, isRef, d }
@@ -480,7 +539,11 @@ const graphLayout = computed(() => {
     const to = byId.get(edge.to)
     if (!from || !to) return null
     const backward = (nodeLayer.get(to.id) ?? 0) <= (nodeLayer.get(from.id) ?? 0)
-    return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, edge.isRef || backward, backward)
+    // 回边绕到内容外侧，通道按边序号错开避免重叠
+    const laneCross = backward
+      ? contentCross + 24 + (index % 4) * 14
+      : null
+    return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, edge.isRef || backward, backward, laneCross)
   }).filter(Boolean)
 
   return {
