@@ -69,7 +69,18 @@ Destructive actions (deleting tasks, clearing completed tasks, emptying the tras
 
 ### Images
 
-The composer accepts images: paste a screenshot, drag a file onto the input, or use the **Image** button. Up to 4 images per message, PNG/JPEG/WebP/GIF, 10MB each; long edges are scaled to 1280px before sending. Images are sent as OpenAI-style multimodal content, so the model must support vision. Image data is kept in this browser's IndexedDB and is never uploaded to TodoHeap storage. Click a thumbnail to view it full size; click the backdrop or press Esc to close.
+The composer accepts images: paste a screenshot, drag a file onto the input, or use the **+** menu. Up to 4 images per message, PNG/JPEG/WebP/GIF, 10MB each; long edges are scaled to 1280px before sending. Images are sent as OpenAI-style multimodal content, so the model must support vision. Image data is kept in this browser's IndexedDB and is never uploaded to TodoHeap storage. Click a thumbnail to view it full size; click the backdrop or press Esc to close.
+
+### Commands and context
+
+Type `/` at the start of a token to list commands, or `@` to list things you can reference. Use the arrow keys to move, Enter or Tab to confirm, Esc to dismiss.
+
+| Trigger | Contents |
+| --- | --- |
+| `/` | Images and files, skills, context, new session, clear conversation, switch model, model settings |
+| `@` | Tasks, schedules and skills, grouped by type; the selection becomes a removable chip above the input |
+
+Referenced tasks and schedules are added to this turn's system prompt with their ids and titles, so the model knows what "this task" means. References apply to one turn only and are cleared after sending. The **+** menu offers the same actions with the mouse.
 
 You can also ask the agent to break an existing task down, turn a sentence into a task tree, or run a one-click optimisation. Everything happens in the chat: there are no separate AI buttons in the list or task detail panels.
 

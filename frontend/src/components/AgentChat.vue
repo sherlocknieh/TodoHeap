@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
 import { useScheduleStore } from '@/stores/schedules'
 import AppIcon from '@/components/AppIcon.vue'
+import ComposerPicker from '@/components/ComposerPicker.vue'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
 import { MAX_IMAGES_PER_MESSAGE, createImageAttachment } from '@/lib/agentImages'
 
@@ -46,6 +47,11 @@ const imageInputRef = ref(null)
 const dragging = ref(false)
 // 图片预览：点开大图查看，点背景或按 Esc 关闭
 const previewImage = ref(null)
+// 输入区选择器：/ 命令与 @ 上下文共用，记录触发位置以便替换整段 token
+const picker = ref({ kind: '', query: '', start: 0 })
+const pickerIndex = ref(0)
+// 已引用的上下文，发送时随消息一起交给模型
+const mentions = ref([])
 
 const SUGGESTIONS = [
   { icon: 'list', text: '今天有哪些任务最该先做？' },
@@ -189,11 +195,14 @@ const sendDraft = () => {
   if (!canSend.value) return
   const content = draft.value
   const images = pendingImages.value
+  const context = mentions.value
   draft.value = ''
   pendingImages.value = []
+  mentions.value = []
   imageError.value = ''
+  closePicker()
   nextTick(() => autoResize())
-  agent.send(content, images)
+  agent.send(content, images, context)
 }
 
 // 图片统一走这里入库：超出数量上限或格式不支持时给出提示，不打断已选中的图片
@@ -244,6 +253,37 @@ const onDocumentKeydown = (event) => {
 
 const pickImages = () => imageInputRef.value?.click()
 
+// + 菜单：与斜杠命令同一批动作，只是换成鼠标入口
+const PLUS_MENU = [
+  { key: 'image', label: '图片和文件', hint: 'Ctrl+U', icon: 'image', action: 'image' },
+  { key: 'command', label: '命令', hint: '/', icon: 'sparkles', action: 'command' },
+  { key: 'context', label: '上下文', hint: '@', icon: 'link', action: 'context' },
+  { key: 'shell', label: 'Shell 命令', hint: '!', icon: 'fileText', action: 'shell' }
+]
+
+const runPlusEntry = (entry) => {
+  openMenu.value = ''
+  if (entry.action === 'image') {
+    pickImages()
+    return
+  }
+  if (entry.action === 'command') {
+    picker.value = { kind: 'command', query: '', start: draft.value.length }
+    pickerIndex.value = 0
+    nextTick(() => inputRef.value?.focus())
+    return
+  }
+  if (entry.action === 'context') {
+    picker.value = { kind: 'context', query: '', start: draft.value.length }
+    pickerIndex.value = 0
+    nextTick(() => inputRef.value?.focus())
+    return
+  }
+  // Shell 命令：TodoHeap 的 Agent 没有本地终端，改为提示可让 Agent 说明命令
+  setDraft(`${draft.value}${draft.value ? '\n' : ''}请告诉我完成这件事需要执行的 shell 命令，并解释每一步。`)
+  nextTick(() => inputRef.value?.focus())
+}
+
 const onImagePicked = async (event) => {
   await addImages(event.target.files)
   event.target.value = ''
@@ -289,14 +329,195 @@ const sendSuggestion = (item) => {
   agent.send(item.text)
 }
 
+// 斜杠命令：把常用动作收进输入框，不必离开键盘
+const COMMANDS = [
+  { key: 'cmd:image', label: '图片和文件', hint: 'Ctrl+U', icon: 'image', action: 'image' },
+  { key: 'cmd:skill', label: '技能', hint: '/', icon: 'target', action: 'skill' },
+  { key: 'cmd:context', label: '上下文', hint: '@', icon: 'link', action: 'context' },
+  { key: 'cmd:new', label: '新建会话', icon: 'plus', action: 'new' },
+  { key: 'cmd:clear', label: '清空当前对话', icon: 'trash', action: 'clear' },
+  { key: 'cmd:model', label: '切换模型', icon: 'sparkles', action: 'model' },
+  { key: 'cmd:settings', label: '模型接入设置', icon: 'sliders', action: 'settings' }
+]
+
+// @ 上下文候选：任务、日程与技能，按类型分组
+const contextItems = computed(() => {
+  const items = []
+  todoStore.todos.forEach((todo) => {
+    items.push({
+      key: `todo:${todo.id}`,
+      type: 'todo',
+      id: todo.id,
+      label: todo.title || '未命名任务',
+      hint: `#${todo.id}`,
+      icon: 'list',
+      group: '任务'
+    })
+  })
+  scheduleStore.schedules.forEach((event) => {
+    items.push({
+      key: `schedule:${event.id}`,
+      type: 'schedule',
+      id: event.id,
+      label: event.title || '未命名日程',
+      hint: String(event.start_at || '').slice(5, 16).replace('T', ' '),
+      icon: 'calendar',
+      group: '日程'
+    })
+  })
+  agent.skills.forEach((skill) => {
+    items.push({
+      key: `skill:${skill.id}`,
+      type: 'skill',
+      id: skill.id,
+      label: skill.name,
+      hint: '技能',
+      icon: skill.icon || 'target',
+      group: '技能'
+    })
+  })
+  return items
+})
+
+const matchesQuery = (text, query) => !query || String(text).toLowerCase().includes(query.toLowerCase())
+
+const pickerItems = computed(() => {
+  const query = picker.value.query
+  if (picker.value.kind === 'command') {
+    return COMMANDS.filter((command) => matchesQuery(command.label, query))
+  }
+  if (picker.value.kind === 'context') {
+    return contextItems.value
+      .filter((item) => matchesQuery(item.label, query) || matchesQuery(item.hint, query))
+      .slice(0, 40)
+  }
+  return []
+})
+
+const pickerTitle = computed(() => {
+  if (picker.value.kind === 'command') return '命令'
+  if (picker.value.kind === 'context') return '添加上下文'
+  return ''
+})
+
+const closePicker = () => {
+  picker.value = { kind: '', query: '', start: 0 }
+  pickerIndex.value = 0
+}
+
+// 光标前的 token 决定弹出哪个选择器：行首或空白后的 / 与 @ 才触发
+const syncPicker = () => {
+  const el = inputRef.value
+  if (!el) return
+  const caret = el.selectionStart ?? 0
+  const before = draft.value.slice(0, caret)
+  const match = before.match(/(^|\s)([/@])([^\s/@]*)$/)
+  if (!match) {
+    closePicker()
+    return
+  }
+  const kind = match[2] === '/' ? 'command' : 'context'
+  const query = match[3]
+  const start = caret - query.length - 1
+  if (picker.value.kind !== kind || picker.value.start !== start) pickerIndex.value = 0
+  picker.value = { kind, query, start }
+}
+
+// 用选中项替换掉触发用的 token，光标落在插入内容之后
+const replaceToken = (text) => {
+  const el = inputRef.value
+  const caret = el?.selectionStart ?? draft.value.length
+  const before = draft.value.slice(0, picker.value.start)
+  const after = draft.value.slice(caret)
+  draft.value = `${before}${text}${after}`
+  closePicker()
+  nextTick(() => {
+    const position = before.length + text.length
+    el?.focus()
+    el?.setSelectionRange(position, position)
+    autoResize()
+  })
+}
+
+const addMention = (item) => {
+  if (item.type === 'skill') {
+    const skill = agent.skills.find((entry) => entry.id === item.id)
+    if (skill) agent.useSkill(skill.id)
+    replaceToken('')
+    return
+  }
+  if (!mentions.value.some((entry) => entry.key === item.key)) {
+    mentions.value = [...mentions.value, item]
+  }
+  replaceToken('')
+}
+
+const removeMention = (key) => {
+  mentions.value = mentions.value.filter((entry) => entry.key !== key)
+}
+
+const runCommand = (command) => {
+  replaceToken('')
+  if (command.action === 'image') pickImages()
+  else if (command.action === 'skill') openMenu.value = 'skill'
+  else if (command.action === 'context') {
+    picker.value = { kind: 'context', query: '', start: draft.value.length }
+    pickerIndex.value = 0
+    nextTick(() => inputRef.value?.focus())
+  } else if (command.action === 'new') agent.newSession()
+  else if (command.action === 'clear') agent.clear()
+  else if (command.action === 'model') openMenu.value = 'model'
+  else if (command.action === 'settings') openProviderSettings()
+}
+
+const selectPickerItem = (item) => {
+  if (picker.value.kind === 'command') runCommand(item)
+  else addMention(item)
+}
+
+const movePicker = (delta) => {
+  const total = pickerItems.value.length
+  if (!total) return
+  pickerIndex.value = (pickerIndex.value + delta + total) % total
+}
+
+const onComposerInput = () => {
+  autoResize()
+  syncPicker()
+}
+
+const onComposerClick = () => {
+  // 点回输入框时收起 + 菜单，避免浮层挡住正文
+  openMenu.value = ''
+  syncPicker()
+}
+
 const onEnter = (event) => {
   if (isComposing.value) return
   event.preventDefault()
   sendDraft()
 }
 
-// 输入框内快捷键：Ctrl/Cmd+Enter 发送，Esc 先收浮层再停止生成
+// 输入框内快捷键：选择器打开时上下键与回车交给它，Esc 逐层收起
 const onComposerKeydown = (event) => {
+  if (picker.value.kind) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      movePicker(event.key === 'ArrowDown' ? 1 : -1)
+      return
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      const item = pickerItems.value[pickerIndex.value]
+      event.preventDefault()
+      if (item) selectPickerItem(item)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closePicker()
+      return
+    }
+  }
   if (event.key === 'Escape') {
     if (openMenu.value) {
       openMenu.value = ''
@@ -308,6 +529,10 @@ const onComposerKeydown = (event) => {
   if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
     event.preventDefault()
     sendDraft()
+    return
+  }
+  if (event.key === 'Enter' && !event.shiftKey) {
+    onEnter(event)
   }
 }
 
@@ -475,6 +700,13 @@ onUnmounted(() => {
           <template v-else>
             <div class="flex justify-end">
               <div class="max-w-[85%] space-y-1.5">
+                <div v-if="message.mentions?.length" class="flex flex-wrap justify-end gap-1">
+                  <span v-for="item in message.mentions" :key="item.key"
+                    class="inline-flex max-w-[14rem] items-center gap-1 rounded-md border border-hairline px-1.5 py-0.5 text-[11px] text-neutral-600 dark:border-hairline-dark dark:text-neutral-300">
+                    <AppIcon :name="item.type === 'schedule' ? 'calendar' : 'list'" :size="10" class="opacity-70" />
+                    <span class="truncate">{{ item.label }}</span>
+                  </span>
+                </div>
                 <div v-if="message.images?.length" class="flex flex-wrap justify-end gap-1.5">
                   <button v-for="image in message.images" :key="image.id" type="button"
                     class="overflow-hidden rounded-lg border border-hairline transition-opacity hover:opacity-90 dark:border-hairline-dark"
@@ -602,8 +834,25 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- 输入区：上方浮层选模型与技能，下方工具条常驻 -->
+    <!-- 输入区：上方浮层选模型、技能与命令，下方工具条常驻 -->
     <div ref="composerRef" class="relative shrink-0 pt-2">
+      <!-- 命令与上下文选择器：/ 与 @ 触发，上下键选择 -->
+      <ComposerPicker v-if="picker.kind" :title="pickerTitle" :items="pickerItems" :active-index="pickerIndex"
+        :empty-text="picker.kind === 'command' ? '没有匹配的命令' : '没有匹配的任务、日程或技能'"
+        @select="selectPickerItem" @hover="pickerIndex = $event" />
+
+      <!-- + 菜单：图片和文件、命令、上下文、Shell 命令 -->
+      <div v-if="openMenu === 'plus'"
+        class="absolute bottom-full left-0 z-20 mb-1.5 w-56 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
+        <button v-for="entry in PLUS_MENU" :key="entry.key" type="button"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+          @click="runPlusEntry(entry)">
+          <AppIcon :name="entry.icon" :size="12" class="opacity-70" />
+          <span class="flex-1">{{ entry.label }}</span>
+          <span class="text-[11px] text-neutral-400 dark:text-neutral-500">{{ entry.hint }}</span>
+        </button>
+      </div>
+
       <!-- 模型浮层 -->
       <div v-if="openMenu === 'model'"
         class="absolute bottom-full left-0 z-20 mb-1.5 w-64 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
@@ -650,6 +899,19 @@ onUnmounted(() => {
       <div class="panel p-2 transition-colors focus-within:border-accent-400 dark:focus-within:border-accent-500/50"
         :class="dragging ? 'border-accent-400 dark:border-accent-500/60' : ''"
         @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
+        <!-- 已引用的上下文：发送前可逐个移除 -->
+        <div v-if="mentions.length" class="mb-1.5 flex flex-wrap gap-1 px-1">
+          <span v-for="item in mentions" :key="item.key"
+            class="inline-flex max-w-[14rem] items-center gap-1 rounded-md bg-accent-50 px-1.5 py-0.5 text-[11px] text-accent-800 dark:bg-accent-500/10 dark:text-accent-200">
+            <AppIcon :name="item.icon || 'link'" :size="11" class="opacity-70" />
+            <span class="truncate">{{ item.label }}</span>
+            <button type="button" class="shrink-0 opacity-60 transition-opacity hover:opacity-100" title="移除引用"
+              @click="removeMention(item.key)">
+              <AppIcon name="close" :size="10" />
+            </button>
+          </span>
+        </div>
+
         <!-- 待发送图片：发送前可逐张移除 -->
         <div v-if="pendingImages.length" class="mb-1.5 flex flex-wrap gap-1.5 px-1">
           <div v-for="image in pendingImages" :key="image.id" class="group relative">
@@ -667,19 +929,25 @@ onUnmounted(() => {
 
         <textarea ref="inputRef" v-model="draft" rows="1"
           class="w-full resize-none bg-transparent px-2 py-1.5 text-sm leading-6 text-neutral-900 outline-none placeholder:text-neutral-500 dark:text-neutral-100 dark:placeholder:text-neutral-400"
-          placeholder="告诉 Agent 要做什么…（可粘贴或拖入图片）"
+          placeholder="随便问点什么，/ 可查看命令，@ 可添加上下文…"
           :disabled="!llm.isConfigured"
-          @input="autoResize"
+          @input="onComposerInput"
+          @click="onComposerClick"
           @paste="onPaste"
           @keydown="onComposerKeydown"
-          @keydown.enter.exact="onEnter"
           @compositionstart="isComposing = true"
           @compositionend="isComposing = false"></textarea>
 
         <p v-if="imageError" class="px-2 pb-1 text-[11px] text-rose-600 dark:text-rose-400">{{ imageError }}</p>
 
-        <!-- 工具条：模型、技能、图片、发送 -->
+        <!-- 工具条：+ 菜单、模型、技能、发送 -->
         <div class="mt-1 flex items-center gap-1">
+          <button type="button"
+            class="inline-flex items-center justify-center rounded-md p-1 text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            :class="openMenu === 'plus' ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200' : ''"
+            title="添加图片和文件、命令、上下文" @click="toggleMenu('plus')">
+            <AppIcon name="plus" :size="14" />
+          </button>
           <button type="button"
             class="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             :title="llm.isConfigured ? '切换模型' : '尚未接入模型'" @click="toggleMenu('model')">
@@ -693,12 +961,6 @@ onUnmounted(() => {
             <AppIcon name="target" :size="12" class="opacity-70" />
             <span>技能</span>
           </button>
-          <button type="button"
-            class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-            title="添加图片（也可直接粘贴或拖入）" :disabled="!llm.isConfigured" @click="pickImages">
-            <AppIcon name="image" :size="12" class="opacity-70" />
-            <span>图片</span>
-          </button>
           <input ref="imageInputRef" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple class="hidden"
             @change="onImagePicked" />
 
@@ -710,7 +972,9 @@ onUnmounted(() => {
               <AppIcon name="stop" :size="13" />
               <span>停止</span>
             </button>
-            <button v-else class="btn-primary px-2 py-1" :disabled="!canSend" title="发送" @click="sendDraft">
+            <button v-else
+              class="flex h-7 w-7 items-center justify-center rounded-full bg-accent-700 text-white transition-colors hover:bg-accent-800 disabled:opacity-40 dark:bg-accent-500 dark:text-accent-950 dark:hover:bg-accent-400"
+              :disabled="!canSend" title="发送" @click="sendDraft">
               <AppIcon name="send" :size="13" />
             </button>
           </div>

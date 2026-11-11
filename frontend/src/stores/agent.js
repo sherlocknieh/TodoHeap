@@ -37,10 +37,22 @@ const formatNow = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}（${Intl.DateTimeFormat().resolvedOptions().timeZone}）`
 }
 
-const buildSystemPrompt = ({ selectedTaskId = null } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）和日程事件。
+// 用户用 @ 引用的任务与日程：作为本轮上下文写进系统提示，模型不必再猜
+const formatMentions = (mentions) => {
+  const list = Array.isArray(mentions) ? mentions.filter((item) => item?.type && item.id != null) : []
+  if (!list.length) return ''
+  const lines = list.map((item) => {
+    if (item.type === 'todo') return `- 任务 id ${item.id}：${item.label}`
+    if (item.type === 'schedule') return `- 日程 id ${item.id}：${item.label}${item.hint ? `（${item.hint}）` : ''}`
+    return `- ${item.label}`
+  })
+  return `\n用户本轮通过 @ 引用了以下对象，优先围绕它们回答；涉及写操作前仍先用工具确认：\n${lines.join('\n')}\n`
+}
+
+const buildSystemPrompt = ({ selectedTaskId = null, mentions = [] } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）和日程事件。
 
 当前本地时间：${formatNow()}
-${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}
+${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}
 
 工具使用规则：
 - 涉及数据的问题先调用工具获取真实数据，不要凭空编造任务 id 或内容。
@@ -66,11 +78,22 @@ const normalizeImages = (list) => (Array.isArray(list) ? list : [])
     dataUrl: typeof image.dataUrl === 'string' ? image.dataUrl : ''
   }))
 
+const normalizeMentions = (list) => (Array.isArray(list) ? list : [])
+  .filter((item) => item && item.type && item.id != null)
+  .map((item) => ({
+    key: item.key || `${item.type}:${item.id}`,
+    type: item.type,
+    id: item.id,
+    label: typeof item.label === 'string' ? item.label : '',
+    hint: typeof item.hint === 'string' ? item.hint : ''
+  }))
+
 const normalizeMessage = (message) => ({
   id: message.id || createId(),
   role: message.role,
   content: typeof message.content === 'string' ? message.content : '',
   images: normalizeImages(message.images),
+  mentions: normalizeMentions(message.mentions),
   toolCalls: Array.isArray(message.toolCalls) ? message.toolCalls : [],
   createdAt: message.createdAt || nowIso(),
   streaming: false
@@ -431,8 +454,8 @@ export const useAgentStore = defineStore('agent', () => {
     context.value = { ...context.value, ...patch }
   }
 
-  const toApiMessages = () => {
-    const apiMessages = [{ role: 'system', content: buildSystemPrompt(context.value) }]
+  const toApiMessages = (mentions = []) => {
+    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions }) }]
     messages.value.forEach((message) => {
       if (message.role === 'user') {
         apiMessages.push({ role: 'user', content: toUserContent(message) })
@@ -539,7 +562,7 @@ export const useAgentStore = defineStore('agent', () => {
       for (let step = 0; step < MAX_STEPS; step += 1) {
         if (signal.aborted || !isCurrentSession()) break
 
-        const history = toApiMessages()
+        const history = toApiMessages(userMessage.mentions)
         // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
         const requestRecord = {
           model: llm.activeModel,
@@ -635,9 +658,12 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   // 发送一条新消息：技能白名单只作用于这一轮
-  const send = async (text, images = []) => {
+  const send = async (text, images = [], mentions = []) => {
     const content = String(text || '').trim()
     const attachments = normalizeImages(images)
+    const references = (Array.isArray(mentions) ? mentions : [])
+      .filter((item) => item?.type && item.id != null)
+      .map((item) => ({ key: item.key || `${item.type}:${item.id}`, type: item.type, id: item.id, label: item.label || '', hint: item.hint || '' }))
     if ((!content && !attachments.length) || running.value || pendingApproval.value) return
 
     const llm = useLlmStore()
@@ -656,7 +682,7 @@ export const useAgentStore = defineStore('agent', () => {
     init(useAuthStore().user?.id)
 
     // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
-    const userMessage = { id: createId(), role: 'user', content, images: attachments, toolCalls: [], requests: [], createdAt: nowIso() }
+    const userMessage = { id: createId(), role: 'user', content, images: attachments, mentions: references, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
 
     const session = activeSession.value
@@ -693,8 +719,9 @@ export const useAgentStore = defineStore('agent', () => {
     if (index === -1) return
 
     const images = normalizeImages(messages.value[index].images)
+    const mentions = normalizeMentions(messages.value[index].mentions)
     messages.value.splice(index)
-    const userMessage = { id: createId(), role: 'user', content, images, toolCalls: [], requests: [], createdAt: nowIso() }
+    const userMessage = { id: createId(), role: 'user', content, images, mentions, toolCalls: [], requests: [], createdAt: nowIso() }
     messages.value.push(userMessage)
     persist()
     await startTurn({ userMessage })

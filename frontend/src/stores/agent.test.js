@@ -413,4 +413,20 @@ describe('useAgentStore', () => {
       { type: 'image_url', image_url: { url: 'data:image/png;base64,BBB' } }
     ])
   })
+
+  it('@ 引用的任务与日程写进系统提示，并随消息保存', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '截止时间是下周五。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('这个任务什么时候截止？', [], [
+      { key: 'todo:12', type: 'todo', id: 12, label: '修改简历' },
+      { key: 'schedule:7', type: 'schedule', id: 7, label: '评审会', hint: '11-12 15:00' }
+    ])
+
+    const system = mocks.chat.mock.calls[0][0].messages[0]
+    expect(system.role).toBe('system')
+    expect(system.content).toContain('任务 id 12：修改简历')
+    expect(system.content).toContain('日程 id 7：评审会（11-12 15:00）')
+    expect(agent.messages[0].mentions).toHaveLength(2)
+  })
 })
