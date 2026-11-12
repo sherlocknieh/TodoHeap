@@ -30,6 +30,12 @@
   --color-input-dark: #1a1a1a;
   --color-input-border: #d3ddd9;
   --color-input-border-dark: #4d4d4d;
+
+  /* 上下文构成分类色：占比条与图例区分四类内容，明度足够在亮暗底上都可读 */
+  --color-context-system: #6366f1;
+  --color-context-tools: #0ea5e9;
+  --color-context-messages: #13b566;
+  --color-context-output: #f59e0b;
 }
 
 /* 跟随系统切换亮暗主题 */

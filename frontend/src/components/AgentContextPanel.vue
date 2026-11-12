@@ -186,10 +186,10 @@ const breakdown = computed(() => {
   if (!stats) return []
   const share = (value) => (stats.total ? (value / stats.total) * 100 : 0)
   return [
-    { key: 'system', label: '系统提示', value: stats.system, width: share(stats.system), percent: Math.round(share(stats.system)), dot: 'bg-accent-700' },
-    { key: 'tools', label: '可用工具', value: stats.tools, width: share(stats.tools), percent: Math.round(share(stats.tools)), dot: 'bg-accent-600' },
-    { key: 'messages', label: '对话消息', value: stats.messages, width: share(stats.messages), percent: Math.round(share(stats.messages)), dot: 'bg-accent-500' },
-    { key: 'toolOutput', label: '工具输出', value: stats.toolOutput, width: share(stats.toolOutput), percent: Math.round(share(stats.toolOutput)), dot: 'bg-accent-300 dark:bg-accent-400/60' }
+    { key: 'system', label: '系统提示', value: stats.system, width: share(stats.system), percent: Math.round(share(stats.system)), dot: 'bg-context-system' },
+    { key: 'tools', label: '可用工具', value: stats.tools, width: share(stats.tools), percent: Math.round(share(stats.tools)), dot: 'bg-context-tools' },
+    { key: 'messages', label: '对话消息', value: stats.messages, width: share(stats.messages), percent: Math.round(share(stats.messages)), dot: 'bg-context-messages' },
+    { key: 'toolOutput', label: '工具输出', value: stats.toolOutput, width: share(stats.toolOutput), percent: Math.round(share(stats.toolOutput)), dot: 'bg-context-output' }
   ]
 })
 
