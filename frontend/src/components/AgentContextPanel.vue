@@ -109,7 +109,7 @@ const requestParamsJson = computed(() => {
     stream: body.stream,
     tool_choice: body.tool_choice
   }
-  // 只有开启思考时才出现该字段，与真实请求保持一致
+  // 只有下发该字段时才展示，与真实请求保持一致
   if (body.reasoning_effort) params.reasoning_effort = body.reasoning_effort
   return JSON.stringify(params, null, 2)
 })

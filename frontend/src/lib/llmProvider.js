@@ -28,9 +28,9 @@ export const DEFAULT_LLM_CONFIG = {
   reasoningEffort: 'off'
 }
 
-// 思考等级：off 表示不请求思考内容，其余值原样作为 reasoning_effort 下发
+// 思考等级：off 表示不下发 reasoning_effort，其余值原样作为 reasoning_effort 下发
 export const REASONING_EFFORTS = [
-  { id: 'off', label: '关闭', description: '不请求思考内容' },
+  { id: 'off', label: '不指定', description: '不发 reasoning_effort，由模型决定是否思考' },
   { id: 'low', label: '低', description: '少量思考，响应更快' },
   { id: 'medium', label: '中', description: '平衡速度与推理深度' },
   { id: 'high', label: '高', description: '深度推理，耗时更长' }
@@ -209,7 +209,7 @@ export const buildChatRequestBody = ({ model, messages, temperature = 0.2, tools
     body.tools = tools
     body.tool_choice = 'auto'
   }
-  // 关闭时不发该字段，避免不支持思考的服务商直接报错
+  // 不指定时不发该字段，避免不支持思考的服务商直接报错
   if (reasoningEffort && reasoningEffort !== 'off') body.reasoning_effort = reasoningEffort
   return body
 }
