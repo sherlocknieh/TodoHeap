@@ -55,6 +55,14 @@ describe('normalizeLlmConfig', () => {
   it('内置模型缺省时留空，等待网关返回可用列表', () => {
     expect(normalizeLlmConfig({ mode: 'builtin' }).builtinModel).toBe('')
   })
+
+  it('旧的中档配置折算为高档', () => {
+    expect(normalizeLlmConfig({ reasoningEffort: 'medium' }).reasoningEffort).toBe('high')
+  })
+
+  it('未知思考等级回落为关闭', () => {
+    expect(normalizeLlmConfig({ reasoningEffort: 'extreme' }).reasoningEffort).toBe('off')
+  })
 })
 
 describe('fetchGatewayModels', () => {
@@ -157,13 +165,24 @@ describe('streamChatCompletion', () => {
 })
 
 describe('buildChatRequestBody', () => {
-  it('默认时不发 reasoning_effort', () => {
+  it('关闭思考时非 DeepSeek 不发思考参数', () => {
     const body = buildChatRequestBody({
       model: 'demo',
       messages: [{ role: 'user', content: 'hi' }],
       tools: [{ type: 'function', function: { name: 'list_todos' } }]
     })
     expect(body).toMatchObject({ model: 'demo', stream: true, tool_choice: 'auto' })
+    expect('reasoning_effort' in body).toBe(false)
+    expect('thinking' in body).toBe(false)
+  })
+
+  it('关闭思考时 DeepSeek 显式切到非思考模式', () => {
+    const body = buildChatRequestBody({
+      model: 'deepseek-flash',
+      messages: [{ role: 'user', content: 'hi' }],
+      reasoningEffort: 'off'
+    })
+    expect(body.thinking).toEqual({ type: 'disabled' })
     expect('reasoning_effort' in body).toBe(false)
   })
 

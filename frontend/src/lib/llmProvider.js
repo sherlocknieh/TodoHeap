@@ -28,16 +28,18 @@ export const DEFAULT_LLM_CONFIG = {
   reasoningEffort: 'off'
 }
 
-// 思考等级：off 表示不下发 reasoning_effort，其余值原样作为 reasoning_effort 下发
-// 浮层按强度从高到低展示，off 作为兜底放在最后
+// 思考等级：关闭时让 DeepSeek 显式走非思考模式，其余服务商不传该参数
+// 浮层按强度从高到低展示，关闭作为兜底放在最后
 export const REASONING_EFFORTS = [
   { id: 'high', label: '高', description: '深度推理，耗时更长' },
-  { id: 'medium', label: '中', description: '平衡速度与推理深度' },
   { id: 'low', label: '低', description: '少量思考，响应更快' },
-  { id: 'off', label: '默认', description: '不发 reasoning_effort，由模型决定是否思考' }
+  { id: 'off', label: '关闭', description: 'DeepSeek 走非思考模式，其它服务商不传思考参数' }
 ]
 
 const REASONING_EFFORT_IDS = REASONING_EFFORTS.map((item) => item.id)
+
+// 中档已并入高档，旧配置读取时折算，避免丢回默认
+const REASONING_EFFORT_ALIASES = { medium: 'high' }
 
 // 兼容旧配置与空值：始终返回完整字段，避免界面拿到 undefined
 export const normalizeLlmConfig = (source) => {
@@ -47,6 +49,7 @@ export const normalizeLlmConfig = (source) => {
   const baseUrl = typeof input.baseUrl === 'string' ? input.baseUrl.trim() : ''
   const matchedPreset = LLM_PRESETS.find((preset) => preset.id === input.presetId && preset.id !== 'custom')
     || LLM_PRESETS.find((preset) => preset.id !== 'custom' && preset.baseUrl && preset.baseUrl === baseUrl)
+  const reasoningEffortInput = REASONING_EFFORT_ALIASES[input.reasoningEffort] || input.reasoningEffort
 
   return {
     mode: input.mode === 'builtin' ? 'builtin' : 'byok',
@@ -58,8 +61,8 @@ export const normalizeLlmConfig = (source) => {
     temperature: Number.isFinite(Number(input.temperature))
       ? Math.min(2, Math.max(0, Number(input.temperature)))
       : DEFAULT_LLM_CONFIG.temperature,
-    reasoningEffort: REASONING_EFFORT_IDS.includes(input.reasoningEffort)
-      ? input.reasoningEffort
+    reasoningEffort: REASONING_EFFORT_IDS.includes(reasoningEffortInput)
+      ? reasoningEffortInput
       : DEFAULT_LLM_CONFIG.reasoningEffort
   }
 }
@@ -210,8 +213,12 @@ export const buildChatRequestBody = ({ model, messages, temperature = 0.2, tools
     body.tools = tools
     body.tool_choice = 'auto'
   }
-  // 不指定时不发该字段，避免不支持思考的服务商直接报错
-  if (reasoningEffort && reasoningEffort !== 'off') body.reasoning_effort = reasoningEffort
+  // 关闭思考：DeepSeek 默认开启，要用 thinking 开关压掉；其余服务商保持不传
+  if (reasoningEffort && reasoningEffort !== 'off') {
+    body.reasoning_effort = reasoningEffort
+  } else if (/^deepseek/i.test(String(model || ''))) {
+    body.thinking = { type: 'disabled' }
+  }
   return body
 }
 
