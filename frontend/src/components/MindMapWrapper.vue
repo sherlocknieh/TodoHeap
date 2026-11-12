@@ -31,7 +31,7 @@
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
-        <!-- 拖拽建链接：从源节点指向指针的预览线 -->
+        <!-- 拖拽建链接：从指针指向被拖动节点的预览线，箭头落在节点上 -->
         <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
           class="stroke-accent-500 dark:stroke-accent-400" stroke-width="1.6" stroke-dasharray="6 4"
           stroke-linecap="round" marker-end="url(#mm-arrow-ref)" />
@@ -971,13 +971,15 @@ const onNodePointerDown = (event, node) => {
   window.addEventListener('pointercancel', onDragEnd)
 }
 
-// 预览线从源节点出边锚点连到指针，落点高亮可链接的目标
+// 预览线从指针连向源节点的入边锚点，箭头指向被拖动的节点，表示它将成为目标节点的子任务
 const updateDrag = (event) => {
   const source = layout.value.nodes.find((node) => node.id === dragState.sourceId)
   if (!source) return
   const point = toGraphPoint(event)
-  const anchor = outAnchor(source)
-  dragState.preview = `M${anchor.x} ${anchor.y} L${point.x} ${point.y}`
+  const tip = inAnchor(source)
+  // 线端沿法线后退一个箭头长度，箭头尖端正好落在节点边缘
+  const end = { x: tip.x + tip.dx * arrowLength, y: tip.y + tip.dy * arrowLength }
+  dragState.preview = `M${point.x} ${point.y} L${end.x} ${end.y}`
 
   const hit = nodeAtPoint(point)
   const linkable = hit && hit.id !== dragState.sourceId && !hit.isRef
