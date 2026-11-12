@@ -163,11 +163,7 @@ const requestTools = computed(() => {
   }))
 })
 
-const requestMessageLabel = (message) => {
-  if (message.role === 'system') return 'system · 提示词'
-  if (hasReasoning(message)) return `${message.role} · 含思考`
-  return message.role
-}
+const requestMessageLabel = (message) => message.role
 
 const requestMessageJson = (message) => JSON.stringify(message, null, 2)
 
@@ -198,6 +194,15 @@ const requestMessageSummary = (message) => {
 // 思考内容在折叠态只给一个标记，展开后看完整 JSON
 const hasReasoning = (message) => (
   message.role === 'assistant' && typeof message.reasoning_content === 'string' && message.reasoning_content.length > 0
+)
+
+// 工具调用与思考一样给出行内统计：调用几次、入参共多少字符
+const hasToolCalls = (message) => (
+  message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length > 0
+)
+
+const toolCallChars = (message) => (
+  (message.tool_calls || []).reduce((sum, call) => sum + (call.function?.arguments || '').length, 0)
 )
 
 // 上下文各类：先静态前缀，再过程类内容，正文对话放末尾
@@ -231,7 +236,7 @@ const sectionChars = (key) => breakdown.value.find((row) => row.key === key)?.va
 const sections = computed(() => [
   {
     key: 'tools',
-    label: '工具定义',
+    label: '可用工具',
     kind: 'tool',
     items: requestTools.value,
     chars: sectionChars('tools'),
@@ -239,7 +244,7 @@ const sections = computed(() => [
   },
   {
     key: 'messages',
-    label: '本轮上下文',
+    label: '原始消息',
     kind: 'message',
     items: panelMessages.value,
     chars: sectionChars('system') + sectionChars('reasoning') + sectionChars('toolCalls') + sectionChars('toolOutput') + sectionChars('messages'),
@@ -371,6 +376,10 @@ const exportSession = () => {
               <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400"
                 :class="section.kind === 'tool' ? 'font-mono text-[10px]' : ''">
                 {{ section.kind === 'tool' ? item.name : requestMessageSummary(item) }}
+              </span>
+              <span v-if="section.kind !== 'tool' && hasToolCalls(item)"
+                class="shrink-0 rounded bg-accent-50 px-1 text-[10px] text-accent-700 dark:bg-accent-500/15 dark:text-accent-300">
+                调用 {{ item.tool_calls.length }} · {{ formatNumber(toolCallChars(item)) }} 字符
               </span>
               <span v-if="section.kind !== 'tool' && hasReasoning(item)"
                 class="shrink-0 rounded bg-accent-50 px-1 text-[10px] text-accent-700 dark:bg-accent-500/15 dark:text-accent-300">
