@@ -535,10 +535,8 @@ describe('useAgentStore', () => {
     expect(toolMessage.content).toContain('11-13 15:00')
   })
 
-  it('跳过选择面板时把取消结果交回模型', async () => {
-    mocks.chat
-      .mockResolvedValueOnce(toolCallResponse('ask_user', { question: '选哪个？', options: ['A', 'B'] }))
-      .mockResolvedValueOnce({ content: '那我先不动。', tool_calls: [] })
+  it('跳过选择面板时结束本轮，不再请求模型', async () => {
+    mocks.chat.mockResolvedValueOnce(toolCallResponse('ask_user', { question: '选哪个？', options: ['A', 'B'] }))
 
     const agent = useAgentStore()
     agent.init('user-1')
@@ -551,6 +549,9 @@ describe('useAgentStore', () => {
     const call = agent.messages[1].toolCalls[0]
     expect(call.status).toBe('cancelled')
     expect(call.result.cancelled).toBe(true)
+    // 取消后直接空闲，模型不会再补一条回复
+    expect(mocks.chat).toHaveBeenCalledTimes(1)
+    expect(agent.running).toBe(false)
   })
 
   it('工具范围只通过 tools 字段下发，不再写进消息', async () => {

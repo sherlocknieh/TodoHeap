@@ -573,6 +573,7 @@ export const useAgentStore = defineStore('agent', () => {
     if (choiceResolver) resolveChoice(null)
   }
 
+  // 返回 true 表示本轮到此为止，不再请求模型
   const runToolCall = async (runner, call) => {
     let args = {}
     try {
@@ -581,7 +582,7 @@ export const useAgentStore = defineStore('agent', () => {
       call.status = 'error'
       call.result = { ok: false, error: '工具参数不是合法 JSON' }
       persist()
-      return
+      return false
     }
     call.args = args
 
@@ -593,7 +594,8 @@ export const useAgentStore = defineStore('agent', () => {
         ? { ok: false, cancelled: true, error: '用户没有选择' }
         : { ok: true, question: call.args?.question || '', answer }
       persist()
-      return
+      // 用户取消提问即结束本轮，不再让模型接着说话
+      return answer == null
     }
 
     if (DESTRUCTIVE_TOOLS.has(call.name) || CONFIRM_TOOLS.has(call.name)) {
@@ -602,7 +604,7 @@ export const useAgentStore = defineStore('agent', () => {
         call.status = 'cancelled'
         call.result = { ok: false, cancelled: true, error: '用户取消了该操作' }
         persist()
-        return
+        return false
       }
     }
 
@@ -613,6 +615,7 @@ export const useAgentStore = defineStore('agent', () => {
     call.result = result
     call.status = result?.ok === false ? 'error' : 'success'
     persist()
+    return false
   }
 
   // 一轮对话：从给定的用户消息出发，循环调用模型直到不再请求工具
@@ -738,9 +741,15 @@ export const useAgentStore = defineStore('agent', () => {
         }))
         persist()
 
+        let stopTurn = false
         for (const call of assistant.toolCalls) {
           if (signal.aborted || !isCurrentSession()) break
-          await runToolCall(runner, call)
+          if (await runToolCall(runner, call)) stopTurn = true
+        }
+        // 用户取消提问或确认后直接收尾，保持空闲等下一句
+        if (stopTurn) {
+          persist()
+          break
         }
 
         if (step === MAX_STEPS - 1) {
