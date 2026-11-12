@@ -56,16 +56,11 @@ const providerLabel = computed(() => {
 // 最近一次请求实际发送的消息：system 里含工具清单，是模型真正看到的内容
 const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
 
-// 实际发出的请求体：model / temperature / stream / tool_choice / tools 与 messages 同源
-const requestBody = computed(() => latestRequest.value?.body || null)
-
-// 参数摘要只列协议层字段，工具定义与消息在下方分别展开
+// 参数摘要只列协议层字段；model 与 temperature 已在顶部摘要出现，这里不重复
 const requestParams = computed(() => {
   const body = latestRequest.value?.body
   if (!body) return []
   return [
-    { key: 'model', label: 'model', value: body.model || '—' },
-    { key: 'temperature', label: 'temperature', value: body.temperature ?? '默认' },
     { key: 'stream', label: 'stream', value: String(Boolean(body.stream)) },
     { key: 'tool_choice', label: 'tool_choice', value: body.tool_choice || '（未发送）' }
   ]
@@ -229,39 +224,13 @@ const exportSession = () => {
         </div>
       </div>
 
-      <!-- 关键指标：只留最常看的四项 -->
-      <dl class="grid grid-cols-2 gap-2">
-        <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
-          <dt class="eyebrow">上下文估算</dt>
-          <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
-            {{ contextStats ? `≈ ${formatTokens(contextStats.tokens)}` : '—' }}
-            <span class="text-[11px] font-normal text-neutral-500 dark:text-neutral-400">tokens</span>
-          </dd>
-        </div>
-        <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
-          <dt class="eyebrow">字符总数</dt>
-          <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
-            {{ contextStats ? formatNumber(contextStats.total) : '—' }}
-          </dd>
-        </div>
-        <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
-          <dt class="eyebrow">消息 / 请求</dt>
-          <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
-            {{ agent.messages.length }} <span class="text-[11px] font-normal text-neutral-500 dark:text-neutral-400">/ {{ requestCount }}</span>
-          </dd>
-        </div>
-        <div class="rounded-lg border border-hairline px-2.5 py-2 dark:border-hairline-dark">
-          <dt class="eyebrow">temperature</dt>
-          <dd class="mt-0.5 text-sm tabular-nums text-neutral-900 dark:text-neutral-100">{{ llm.config?.temperature ?? '默认' }}</dd>
-        </div>
-      </dl>
-
-      <!-- 上下文构成：占比条 + 明细 -->
+      <!-- 上下文构成：占比条 + 明细，顶部先给最关心的用量 -->
       <section v-if="contextStats" class="space-y-1.5">
-        <div class="flex items-center justify-between">
+        <div class="flex items-baseline justify-between">
           <p class="eyebrow">上下文构成</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-            ≈ {{ formatTokens(contextStats.tokens) }} tokens
+          <span class="text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
+            ≈ {{ formatTokens(contextStats.tokens) }}
+            <span class="text-[11px] font-normal text-neutral-500 dark:text-neutral-400">tokens</span>
           </span>
         </div>
         <div class="flex h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
@@ -276,25 +245,23 @@ const exportSession = () => {
             </span>
           </li>
         </ul>
-      </section>
-
-      <!-- 请求参数：实际发出的协议字段，与消息列表同源 -->
-      <section v-if="requestBody" class="space-y-1.5">
-        <p class="eyebrow">请求参数</p>
-        <dl class="grid grid-cols-2 gap-1.5">
-          <div v-for="param in requestParams" :key="param.key"
-            class="rounded-md border border-hairline px-2 py-1 dark:border-hairline-dark">
-            <dt class="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">{{ param.label }}</dt>
-            <dd class="truncate text-[11px] tabular-nums text-neutral-800 dark:text-neutral-200" :title="String(param.value)">
-              {{ param.value }}
-            </dd>
-          </div>
-        </dl>
+        <!-- 次要指标收成一行，避免与上方占比重复 -->
+        <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+          <span>{{ formatNumber(contextStats.total) }} 字符</span>
+          <span class="text-neutral-300 dark:text-neutral-600">·</span>
+          <span>{{ agent.messages.length }} 条消息 / {{ requestCount }} 次请求</span>
+          <span class="text-neutral-300 dark:text-neutral-600">·</span>
+          <span>temperature {{ llm.config?.temperature ?? '默认' }}</span>
+          <template v-for="param in requestParams" :key="param.key">
+            <span class="text-neutral-300 dark:text-neutral-600">·</span>
+            <span>{{ param.label }} {{ param.value }}</span>
+          </template>
+        </p>
       </section>
 
       <!-- 本轮工具：按模式与技能限定后的实际范围，展开可看完整 schema -->
       <section v-if="latestRequest" class="space-y-1.5">
-        <div class="flex items-center justify-between">
+        <div class="flex items-baseline justify-between gap-2">
           <p class="eyebrow">本轮工具</p>
           <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ requestTools.length }} 个</span>
         </div>
