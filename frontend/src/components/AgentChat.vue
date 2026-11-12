@@ -130,9 +130,12 @@ const toggleRequest = (id) => {
 
 // 还原每次请求的实际内容，保留系统提示与工具结果的原始换行
 const formatRequest = (request) => {
+  const body = request.body || {}
   const lines = [
-    `model: ${request.model || '未记录'}`,
-    `temperature: ${request.temperature ?? '默认'}`,
+    `model: ${body.model || request.model || '未记录'}`,
+    `temperature: ${body.temperature ?? request.temperature ?? '默认'}`,
+    `stream: ${body.stream === undefined ? '未记录' : String(Boolean(body.stream))}`,
+    `tool_choice: ${body.tool_choice || '（未发送）'}`,
     `tools: ${request.tools?.length ? request.tools.join(', ') : '（无）'}`,
     ''
   ]

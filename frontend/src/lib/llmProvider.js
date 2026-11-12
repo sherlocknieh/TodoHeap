@@ -172,6 +172,16 @@ export const fetchGatewayModels = async ({ endpoint, apiKey, extraHeaders, signa
   }
 }
 
+// 请求体是协议的唯一事实来源：实际发送与界面快照共用同一份构造
+export const buildChatRequestBody = ({ model, messages, temperature = 0.2, tools }) => {
+  const body = { model, messages, temperature, stream: true }
+  if (Array.isArray(tools) && tools.length) {
+    body.tools = tools
+    body.tool_choice = 'auto'
+  }
+  return body
+}
+
 // 调用一次 OpenAI 兼容聊天接口；流式返回时通过 onDelta 实时反馈文本
 export const streamChatCompletion = async ({
   baseUrl,
@@ -190,16 +200,7 @@ export const streamChatCompletion = async ({
   const headers = { 'Content-Type': 'application/json', ...(extraHeaders || {}) }
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
 
-  const body = {
-    model,
-    messages,
-    temperature,
-    stream: true
-  }
-  if (Array.isArray(tools) && tools.length) {
-    body.tools = tools
-    body.tool_choice = 'auto'
-  }
+  const body = buildChatRequestBody({ model, messages, temperature, tools })
 
   const url = endpoint || resolveChatUrl(baseUrl)
   let response

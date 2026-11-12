@@ -156,6 +156,10 @@ describe('useAgentStore', () => {
     expect(first.tools).toContain('list_todos')
     expect(second.messages.at(-1)).toMatchObject({ role: 'tool', tool_call_id: 'call_list_todos' })
     expect(second.tools).toEqual(first.tools)
+    // 请求体快照与实际发送的协议字段一致，右栏据此展示参数
+    expect(first.body).toMatchObject({ model: 'test-model', temperature: 0.2, stream: true, tool_choice: 'auto' })
+    expect(first.body.tools.map((definition) => definition.function.name)).toEqual(first.tools)
+    expect(first.body.messages).toEqual(first.messages)
   })
 
   it('破坏性操作先等待确认，取消后不执行并让模型收尾', async () => {

@@ -13,6 +13,7 @@ import {
   normalizeSkills
 } from '@/lib/agentSkills'
 import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
+import { buildChatRequestBody } from '@/lib/llmProvider'
 import { hydrateImages, removeStoredImages } from '@/lib/agentImages'
 import { DEFAULT_AGENT_MODE, findAgentMode, resolveAllowedTools } from '@/lib/agentModes'
 
@@ -671,6 +672,13 @@ export const useAgentStore = defineStore('agent', () => {
           temperature: llm.config?.temperature,
           tools: tools.map((definition) => definition.function.name),
           messages: history,
+          // 实际发出的请求体，与 llmProvider 共用同一份构造，界面据此展示参数
+          body: buildChatRequestBody({
+            model: llm.activeModel,
+            messages: history,
+            temperature: llm.config?.temperature,
+            tools
+          }),
           createdAt: nowIso(),
           usage: null
         }

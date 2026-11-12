@@ -56,6 +56,23 @@ const providerLabel = computed(() => {
 // 最近一次请求实际发送的消息：system 里含工具清单，是模型真正看到的内容
 const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
 
+// 实际发出的请求体：model / temperature / stream / tool_choice / tools 与 messages 同源
+const requestBody = computed(() => latestRequest.value?.body || null)
+
+const requestBodyJson = computed(() => (requestBody.value ? JSON.stringify(latestRequest.value.body, null, 2) : ''))
+
+// 参数摘要只列协议层字段，工具定义与消息在下方分别展开
+const requestParams = computed(() => {
+  const body = latestRequest.value?.body
+  if (!body) return []
+  return [
+    { key: 'model', label: 'model', value: body.model || '—' },
+    { key: 'temperature', label: 'temperature', value: body.temperature ?? '默认' },
+    { key: 'stream', label: 'stream', value: String(Boolean(body.stream)) },
+    { key: 'tool_choice', label: 'tool_choice', value: body.tool_choice || '（未发送）' }
+  ]
+})
+
 const requestMessageLabel = (message) => {
   if (message.role !== 'system') return message.role
   return String(message.content || '').startsWith('本轮可用工具') ? 'system · 工具清单' : 'system · 提示词'
@@ -238,6 +255,34 @@ const exportSession = () => {
             </span>
           </li>
         </ul>
+      </section>
+
+      <!-- 请求参数：实际发出的协议字段，与消息列表同源 -->
+      <section v-if="requestBody" class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <p class="eyebrow">请求参数</p>
+          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+            {{ requestBody.tools?.length || 0 }} 个工具定义
+          </span>
+        </div>
+        <dl class="grid grid-cols-2 gap-1.5">
+          <div v-for="param in requestParams" :key="param.key"
+            class="rounded-md border border-hairline px-2 py-1 dark:border-hairline-dark">
+            <dt class="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">{{ param.label }}</dt>
+            <dd class="truncate text-[11px] tabular-nums text-neutral-800 dark:text-neutral-200" :title="String(param.value)">
+              {{ param.value }}
+            </dd>
+          </div>
+        </dl>
+        <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+          <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">完整请求体</span>
+            <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">model、tools、messages 原样 JSON</span>
+            <AppIcon name="chevronDown" :size="12"
+              class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestBodyJson }}</pre>
+        </details>
       </section>
 
       <!-- 本轮工具：按模式与技能限定后的实际范围 -->
