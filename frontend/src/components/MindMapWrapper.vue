@@ -20,12 +20,9 @@
       </defs>
 
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
-        <!-- 连线：所有父链接等价，样式一致；选中后高亮 -->
-        <path v-for="edge in layout.edges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
-          :class="selectedEdgeKey === edge.key
-            ? 'stroke-accent-600 dark:stroke-accent-400'
-            : 'stroke-neutral-300 dark:stroke-neutral-600'"
-          :stroke-width="selectedEdgeKey === edge.key ? 2.4 : 1.2"
+        <!-- 未选中的连线铺在节点下层，节点框可以压住线头 -->
+        <path v-for="edge in baseEdges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
+          class="stroke-neutral-300 dark:stroke-neutral-600" stroke-width="1.2"
           marker-end="url(#mm-arrow)" />
 
         <!-- 连线热区：透明加宽描边，便于点中细线 -->
@@ -68,6 +65,23 @@
               :dy="index === 0 ? paddingTop + fontSize : lineHeight">{{ line }}</tspan>
           </text>
         </g>
+
+        <!-- 选中连线：压在节点之上高亮，配合中点删除按钮 -->
+        <path v-if="selectedEdge" :d="selectedEdge.d" fill="none" stroke-linecap="round"
+          class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
+          marker-end="url(#mm-arrow)" />
+
+        <!-- 选中连线：在连线中点显示删除按钮，置于节点之上以免被遮挡 -->
+        <g v-if="selectedEdge && selectedEdge.midpoint"
+          :transform="`translate(${selectedEdge.midpoint.x} ${selectedEdge.midpoint.y})`"
+          @pointerdown.stop @click.stop="deleteSelectedEdge">
+          <circle r="10" class="cursor-pointer fill-white stroke-accent-600 hover:fill-accent-50 dark:fill-neutral-900 dark:stroke-accent-400 dark:hover:fill-neutral-800" stroke-width="1.2">
+            <title>删除连接线</title>
+          </circle>
+          <path d="M-3 -3 L3 3 M3 -3 L-3 3" fill="none"
+            class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="1.6"
+            stroke-linecap="round" />
+        </g>
       </g>
     </svg>
 
@@ -90,7 +104,7 @@
       </button>
     </div>
     <p class="absolute bottom-3 left-3 z-10 text-[11px] text-neutral-400 dark:text-neutral-600 pointer-events-none">
-      滚轮缩放 · 拖拽平移 · 拖节点到另一节点建立链接 · Enter 同级 · Tab 子级 · F2 重命名
+      滚轮缩放 · 拖拽平移 · 拖节点到另一节点建立链接 · 点选连线可删除 · Enter 同级 · Tab 子级 · F2 重命名
     </p>
   </div>
 </template>
@@ -115,7 +129,7 @@ const lineHeight = 16
 const paddingTop = 10
 const maxLines = 3
 const crossGap = 24
-const mainGap = 52
+const mainGap = 84
 const textUnitsPerLine = 13
 
 const container = ref(null)
@@ -242,6 +256,12 @@ const roundedPath = (points, radius = 8) => {
 // 箭头长度（userSpaceOnUse）：线止于箭头尾部，箭头尖端正好落在节点边缘
 const arrowLength = 6.4
 
+// 三次贝塞尔 t=0.5 处的点，用于把删除按钮放在连线正中
+const cubicMidpoint = (p0, c1, c2, p3) => ({
+  x: (p0.x + 3 * c1.x + 3 * c2.x + p3.x) / 8,
+  y: (p0.y + 3 * c1.y + 3 * c2.y + p3.y) / 8
+})
+
 // 统一生成连线路径：正向走平滑曲线，逆向绕到内容外侧
 const createEdge = (from, to, key, backward = false, laneCross = null) => {
   const start = outAnchor(from)
@@ -255,6 +275,7 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
   }
   const cross = crossVector()
   let d
+  let midpoint
 
   if (from.id === to.id) {
     const half = 18
@@ -263,7 +284,10 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
     const startY = start.y - cross.y * half
     const endX = start.x + cross.x * half
     const endY = start.y + cross.y * half
-    d = `M${startX} ${startY} C${startX + start.dx * bulge - cross.x * bulge} ${startY + start.dy * bulge - cross.y * bulge}, ${endX + start.dx * bulge + cross.x * bulge} ${endY + start.dy * bulge + cross.y * bulge}, ${endX} ${endY}`
+    const c1 = { x: startX + start.dx * bulge - cross.x * bulge, y: startY + start.dy * bulge - cross.y * bulge }
+    const c2 = { x: endX + start.dx * bulge + cross.x * bulge, y: endY + start.dy * bulge + cross.y * bulge }
+    d = `M${startX} ${startY} C${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${endX} ${endY}`
+    midpoint = cubicMidpoint({ x: startX, y: startY }, c1, c2, { x: endX, y: endY })
   } else if (backward) {
     // 回边绕到内容外侧再折回，入线方向与箭头一致
     const lane = laneCross ?? 0
@@ -274,22 +298,29 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
       y: point.y + point.dy * mainOffset + cross.y * (crossValue - crossOf(point))
     })
 
+    const laneStart = at(start, stub, lane)
+    const laneEnd = at(end, stub, lane)
     d = roundedPath([
       start,
       at(start, stub, crossOf(start)),
-      at(start, stub, lane),
-      at(end, stub, lane),
+      laneStart,
+      laneEnd,
       at(end, stub, crossOf(end)),
       end
     ])
+    // 外围通道段的中心，属于连线中最容易辨认的位置
+    midpoint = { x: (laneStart.x + laneEnd.x) / 2, y: (laneStart.y + laneEnd.y) / 2 }
   } else {
     // 两端控制点都沿主方向，曲线在节点处水平进出，箭头与线自然同向
     const distance = isVertical.value ? Math.abs(end.y - start.y) : Math.abs(end.x - start.x)
     const bend = Math.max(20, distance * 0.5)
-    d = `M${start.x} ${start.y} C${start.x + start.dx * bend} ${start.y + start.dy * bend}, ${end.x + end.dx * bend} ${end.y + end.dy * bend}, ${end.x} ${end.y}`
+    const c1 = { x: start.x + start.dx * bend, y: start.y + start.dy * bend }
+    const c2 = { x: end.x + end.dx * bend, y: end.y + end.dy * bend }
+    d = `M${start.x} ${start.y} C${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`
+    midpoint = cubicMidpoint(start, c1, c2, end)
   }
 
-  return { key, d, from: from.id, to: to.id, deletable: from.id !== 'root' }
+  return { key, d, midpoint, from: from.id, to: to.id, deletable: from.id !== 'root' }
 }
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
@@ -638,6 +669,14 @@ const selectNode = (node) => {
 // 连线选中：与节点选中互斥，选中连线时收起任务详情
 const selectedEdgeKey = ref(null)
 
+// 当前选中的连线，用于定位中点上的删除按钮
+const selectedEdge = computed(() =>
+  layout.value.edges.find((edge) => edge.key === selectedEdgeKey.value) ?? null)
+
+// 未选中的连线只铺在节点下层，选中的单独画在节点之上
+const baseEdges = computed(() =>
+  layout.value.edges.filter((edge) => edge.key !== selectedEdgeKey.value))
+
 const selectEdge = (edge) => {
   if (!edge.deletable) return
   container.value?.focus({ preventScroll: true })
@@ -647,7 +686,7 @@ const selectEdge = (edge) => {
 
 // 删除选中连线：只解除父子引用，任务本身保留
 const deleteSelectedEdge = () => {
-  const edge = layout.value.edges.find((item) => item.key === selectedEdgeKey.value)
+  const edge = selectedEdge.value
   if (!edge || !edge.deletable) return
   selectedEdgeKey.value = null
   emit('unlink-task', { parentId: Number(edge.from), childId: Number(edge.to) })
