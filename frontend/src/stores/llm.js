@@ -93,7 +93,7 @@ export const useLlmStore = defineStore('llm', () => {
   }
 
   // 两种模式只在请求目标与凭证上不同，Agent 与工具层无需感知
-  const request = async ({ messages, tools, temperature = config.value.temperature, onDelta, signal }) => {
+  const request = async ({ messages, tools, temperature = config.value.temperature, onDelta, onReasoning, signal }) => {
     if (isBuiltin.value) {
       const token = await getAccessToken()
       return streamChatCompletion({
@@ -104,7 +104,9 @@ export const useLlmStore = defineStore('llm', () => {
         temperature,
         messages,
         tools,
+        reasoningEffort: config.value.reasoningEffort,
         onDelta,
+        onReasoning,
         signal
       })
     }
@@ -116,14 +118,16 @@ export const useLlmStore = defineStore('llm', () => {
       temperature,
       messages,
       tools,
+      reasoningEffort: config.value.reasoningEffort,
       onDelta,
+      onReasoning,
       signal
     })
   }
 
-  const chat = async ({ messages, tools, onDelta, signal }) => {
+  const chat = async ({ messages, tools, onDelta, onReasoning, signal }) => {
     if (!isConfigured.value) throw new Error('请先在设置 → 模型接入中配置模型')
-    return request({ messages, tools, onDelta, signal })
+    return request({ messages, tools, onDelta, onReasoning, signal })
   }
 
   // 发一条最小请求验证地址、凭证与模型名是否可用

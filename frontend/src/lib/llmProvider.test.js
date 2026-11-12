@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_LLM_CONFIG,
+  buildChatRequestBody,
   createStreamAccumulator,
   fetchGatewayModels,
   normalizeLlmConfig,
@@ -155,7 +156,38 @@ describe('streamChatCompletion', () => {
   })
 })
 
+describe('buildChatRequestBody', () => {
+  it('关闭思考时不发 reasoning_effort', () => {
+    const body = buildChatRequestBody({
+      model: 'demo',
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [{ type: 'function', function: { name: 'list_todos' } }]
+    })
+    expect(body).toMatchObject({ model: 'demo', stream: true, tool_choice: 'auto' })
+    expect('reasoning_effort' in body).toBe(false)
+  })
+
+  it('开启思考时按等级下发 reasoning_effort', () => {
+    const body = buildChatRequestBody({
+      model: 'demo',
+      messages: [{ role: 'user', content: 'hi' }],
+      reasoningEffort: 'high'
+    })
+    expect(body.reasoning_effort).toBe('high')
+  })
+})
+
 describe('createStreamAccumulator', () => {
+  it('累加思考内容并单独返回', () => {
+    const accumulator = createStreamAccumulator()
+    accumulator.pushReasoning('先看')
+    accumulator.pushReasoning('任务')
+    accumulator.pushContent('结论')
+    const result = accumulator.result()
+    expect(result.reasoning).toBe('先看任务')
+    expect(result.content).toBe('结论')
+  })
+
   it('拼接文本增量并透传', () => {
     const accumulator = createStreamAccumulator()
     expect(accumulator.pushContent('你')).toBe('你')

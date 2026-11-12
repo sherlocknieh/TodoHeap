@@ -60,12 +60,15 @@ const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
 const requestParamsJson = computed(() => {
   const body = latestRequest.value?.body
   if (!body) return ''
-  return JSON.stringify({
+  const params = {
     model: body.model,
     temperature: body.temperature,
     stream: body.stream,
     tool_choice: body.tool_choice
-  }, null, 2)
+  }
+  // 只有开启思考时才出现该字段，与真实请求保持一致
+  if (body.reasoning_effort) params.reasoning_effort = body.reasoning_effort
+  return JSON.stringify(params, null, 2)
 })
 
 // 完整请求体：实际发出的 body 原样序列化
@@ -287,7 +290,7 @@ const exportSession = () => {
         </div>
         <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
           <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">model · temperature · stream · tool_choice</span>
+            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">model · temperature · stream · tool_choice<template v-if="latestRequest?.body?.reasoning_effort"> · reasoning_effort</template></span>
             <span class="min-w-0 flex-1"></span>
             <AppIcon name="chevronDown" :size="12"
               class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />

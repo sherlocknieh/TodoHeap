@@ -665,7 +665,8 @@ export const useAgentStore = defineStore('agent', () => {
             model: llm.activeModel,
             messages: history,
             temperature: llm.config?.temperature,
-            tools
+            tools,
+            reasoningEffort: llm.config?.reasoningEffort
           }),
           createdAt: nowIso(),
           usage: null
@@ -675,6 +676,7 @@ export const useAgentStore = defineStore('agent', () => {
           id: createId(),
           role: 'assistant',
           content: '',
+          reasoning: '',
           toolCalls: [],
           createdAt: nowIso(),
           streaming: true
@@ -687,20 +689,27 @@ export const useAgentStore = defineStore('agent', () => {
           streamed += delta
           assistant.content = streamed
         }
+        // 思考内容单独累积，正文与思考互不覆盖
+        let reasoned = ''
+        const onReasoning = (delta) => {
+          reasoned += delta
+          assistant.reasoning = reasoned
+        }
 
         let reply
         try {
-          reply = await llm.chat({ messages: history, tools, signal, onDelta })
+          reply = await llm.chat({ messages: history, tools, signal, onDelta, onReasoning })
         } catch (err) {
-          // 只有尚未输出内容时才重试一次，避免把已生成的文本再流一遍
-          if (err?.name === 'AbortError' || signal.aborted || streamed) throw err
-          reply = await llm.chat({ messages: history, tools, signal, onDelta })
+          // 只有尚未产生任何输出时才重试，避免把已流出的内容再发一遍
+          if (err?.name === 'AbortError' || signal.aborted || streamed || reasoned) throw err
+          reply = await llm.chat({ messages: history, tools, signal, onDelta, onReasoning })
         }
         // 服务商返回用量时补进快照，供上下文面板展示真实输入输出
         requestRecord.usage = reply.usage || null
 
         assistant.streaming = false
         assistant.content = (reply.content || assistant.content || '').trim()
+        assistant.reasoning = (reply.reasoning || assistant.reasoning || '').trim()
 
         if (!isCurrentSession()) break
 

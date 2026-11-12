@@ -10,6 +10,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import ComposerPicker from '@/components/ComposerPicker.vue'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
 import { AGENT_MODES } from '@/lib/agentModes'
+import { REASONING_EFFORTS } from '@/lib/llmProvider'
 import { MAX_IMAGES_PER_MESSAGE, createImageAttachment } from '@/lib/agentImages'
 
 const router = useRouter()
@@ -176,6 +177,18 @@ const modelOptions = computed(() => {
 const switchModel = (model) => {
   if (!model || model === llm.activeModel) return
   llm.update(llm.isBuiltin ? { builtinModel: model } : { model })
+  openMenu.value = ''
+}
+
+// 思考等级：关闭时不发 reasoning_effort，其余值原样下发给模型
+const reasoningEffort = computed(() => llm.config?.reasoningEffort || 'off')
+
+const reasoningLabel = computed(() => (
+  REASONING_EFFORTS.find((item) => item.id === reasoningEffort.value)?.label || '关闭'
+))
+
+const switchReasoningEffort = (id) => {
+  llm.update({ reasoningEffort: id })
   openMenu.value = ''
 }
 
@@ -775,6 +788,17 @@ onUnmounted(() => {
             <AppIcon name="sparkles" :size="13" />
           </div>
           <div class="flex-1 min-w-0 space-y-1.5">
+            <!-- 思考过程：默认折叠，正文优先 -->
+            <details v-if="message.reasoning" class="group rounded-lg border border-hairline dark:border-hairline-dark">
+              <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                <AppIcon name="bulb" :size="12" class="opacity-70" />
+                <span class="font-medium">思考过程</span>
+                <span class="min-w-0 flex-1 truncate">{{ message.reasoning.replace(/\s+/g, ' ').slice(0, 60) }}</span>
+                <AppIcon name="chevronDown" :size="12" class="shrink-0 transition-transform group-open:rotate-180" />
+              </summary>
+              <p class="max-h-56 overflow-auto whitespace-pre-wrap break-words border-t border-hairline px-2.5 py-2 text-[11px] leading-5 text-neutral-600 dark:border-hairline-dark dark:text-neutral-400">{{ message.reasoning }}</p>
+            </details>
+
             <p v-if="message.content" class="text-sm leading-6 whitespace-pre-wrap break-words text-neutral-800 dark:text-neutral-200">{{ message.content }}</p>
 
             <div v-for="call in message.toolCalls" :key="call.id"
@@ -792,7 +816,7 @@ onUnmounted(() => {
                 class="mt-2 max-h-48 overflow-auto rounded bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">{{ prettyResult(call) }}</pre>
             </div>
 
-            <p v-if="message.streaming && !message.content && !message.toolCalls?.length"
+            <p v-if="message.streaming && !message.content && !message.reasoning && !message.toolCalls?.length"
               class="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
               <AppIcon name="loader" :size="12" class="animate-spin" />
               正在思考…
@@ -944,6 +968,24 @@ onUnmounted(() => {
         </button>
       </div>
 
+      <!-- 思考等级浮层：关闭时不请求思考内容 -->
+      <div v-if="openMenu === 'reasoning'"
+        class="absolute bottom-full left-0 z-20 mb-1.5 w-56 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
+        <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">思考等级</p>
+        <button v-for="option in REASONING_EFFORTS" :key="option.id" type="button"
+          class="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent-50 dark:hover:bg-accent-500/10"
+          @click="switchReasoningEffort(option.id)">
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-medium"
+              :class="option.id === reasoningEffort ? 'text-accent-700 dark:text-accent-300' : 'text-neutral-800 dark:text-neutral-200'">
+              {{ option.label }}
+            </span>
+            <span class="mt-0.5 block text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">{{ option.description }}</span>
+          </span>
+          <AppIcon v-if="option.id === reasoningEffort" name="check" :size="12" class="mt-0.5 text-accent-700 dark:text-accent-300" />
+        </button>
+      </div>
+
       <!-- 技能浮层 -->
       <div v-if="openMenu === 'skill'"
         class="absolute bottom-full left-0 z-20 mb-1.5 w-64 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
@@ -1033,6 +1075,16 @@ onUnmounted(() => {
             :title="llm.isConfigured ? '切换模型' : '尚未接入模型'" @click="toggleMenu('model')">
             <AppIcon name="sparkles" :size="12" class="opacity-70" />
             <span class="max-w-[10rem] truncate">{{ llm.activeModel || '未接入模型' }}</span>
+            <AppIcon name="chevronUp" :size="10" class="opacity-50" />
+          </button>
+          <button type="button"
+            class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            :class="reasoningEffort === 'off'
+              ? 'text-neutral-600 dark:text-neutral-400'
+              : 'text-accent-700 dark:text-accent-300'"
+            :title="`思考等级：${reasoningLabel}`" @click="toggleMenu('reasoning')">
+            <AppIcon name="bulb" :size="12" class="opacity-70" />
+            <span>{{ reasoningLabel }}</span>
             <AppIcon name="chevronUp" :size="10" class="opacity-50" />
           </button>
           <button type="button"

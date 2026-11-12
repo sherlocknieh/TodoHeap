@@ -24,8 +24,19 @@ export const DEFAULT_LLM_CONFIG = {
   apiKey: '',
   model: 'gpt-4.1-mini',
   builtinModel: '',
-  temperature: 0.2
+  temperature: 0.2,
+  reasoningEffort: 'off'
 }
+
+// 思考等级：off 表示不请求思考内容，其余值原样作为 reasoning_effort 下发
+export const REASONING_EFFORTS = [
+  { id: 'off', label: '关闭', description: '不请求思考内容' },
+  { id: 'low', label: '低', description: '少量思考，响应更快' },
+  { id: 'medium', label: '中', description: '平衡速度与推理深度' },
+  { id: 'high', label: '高', description: '深度推理，耗时更长' }
+]
+
+const REASONING_EFFORT_IDS = REASONING_EFFORTS.map((item) => item.id)
 
 // 兼容旧配置与空值：始终返回完整字段，避免界面拿到 undefined
 export const normalizeLlmConfig = (source) => {
@@ -45,7 +56,10 @@ export const normalizeLlmConfig = (source) => {
     builtinModel: typeof input.builtinModel === 'string' ? input.builtinModel.trim() : '',
     temperature: Number.isFinite(Number(input.temperature))
       ? Math.min(2, Math.max(0, Number(input.temperature)))
-      : DEFAULT_LLM_CONFIG.temperature
+      : DEFAULT_LLM_CONFIG.temperature,
+    reasoningEffort: REASONING_EFFORT_IDS.includes(input.reasoningEffort)
+      ? input.reasoningEffort
+      : DEFAULT_LLM_CONFIG.reasoningEffort
   }
 }
 
@@ -80,12 +94,19 @@ const normalizeUsage = (usage) => {
 export const createStreamAccumulator = () => {
   const toolCalls = new Map()
   let content = ''
+  let reasoning = ''
   let usage = null
 
   return {
     pushContent(delta) {
       if (typeof delta !== 'string' || !delta) return ''
       content += delta
+      return delta
+    },
+    // 思考内容各家字段不同，统一累加到 reasoning
+    pushReasoning(delta) {
+      if (typeof delta !== 'string' || !delta) return ''
+      reasoning += delta
       return delta
     },
     pushToolCalls(list) {
@@ -105,6 +126,7 @@ export const createStreamAccumulator = () => {
     result() {
       return {
         content,
+        reasoning,
         usage,
         toolCalls: [...toolCalls.entries()]
           .sort((a, b) => a[0] - b[0])
@@ -129,10 +151,18 @@ const readErrorMessage = (payload) => {  if (!payload) return ''
   return ''
 }
 
+// 思考内容在不同服务商下叫法不同，按优先级取第一个非空字段
+const readReasoning = (source) => {
+  if (!source || typeof source !== 'object') return ''
+  const value = source.reasoning_content ?? source.reasoning ?? source.thinking
+  return typeof value === 'string' ? value : ''
+}
+
 const normalizeMessage = (message) => {
-  if (!message) return { content: '', toolCalls: [] }
+  if (!message) return { content: '', reasoning: '', toolCalls: [] }
   return {
     content: typeof message.content === 'string' ? message.content : '',
+    reasoning: readReasoning(message),
     toolCalls: (message.tool_calls || []).map((call, index) => ({
       id: call.id || `call_${Date.now()}_${index}`,
       type: 'function',
@@ -173,12 +203,14 @@ export const fetchGatewayModels = async ({ endpoint, apiKey, extraHeaders, signa
 }
 
 // 请求体是协议的唯一事实来源：实际发送与界面快照共用同一份构造
-export const buildChatRequestBody = ({ model, messages, temperature = 0.2, tools }) => {
+export const buildChatRequestBody = ({ model, messages, temperature = 0.2, tools, reasoningEffort = 'off' }) => {
   const body = { model, messages, temperature, stream: true }
   if (Array.isArray(tools) && tools.length) {
     body.tools = tools
     body.tool_choice = 'auto'
   }
+  // 关闭时不发该字段，避免不支持思考的服务商直接报错
+  if (reasoningEffort && reasoningEffort !== 'off') body.reasoning_effort = reasoningEffort
   return body
 }
 
@@ -192,15 +224,17 @@ export const streamChatCompletion = async ({
   temperature = 0.2,
   messages,
   tools,
+  reasoningEffort = 'off',
   signal,
-  onDelta
+  onDelta,
+  onReasoning
 }) => {
   if (!model) throw new LlmError('请先填写模型名称')
 
   const headers = { 'Content-Type': 'application/json', ...(extraHeaders || {}) }
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
 
-  const body = buildChatRequestBody({ model, messages, temperature, tools })
+  const body = buildChatRequestBody({ model, messages, temperature, tools, reasoningEffort })
 
   const url = endpoint || resolveChatUrl(baseUrl)
   let response
@@ -243,6 +277,7 @@ export const streamChatCompletion = async ({
     if (payload.error) throw new LlmError(readErrorMessage(payload) || '模型接口返回错误', { body: payload })
     const normalized = normalizeMessage(payload.choices?.[0]?.message)
     if (normalized.content) onDelta?.(normalized.content)
+    if (normalized.reasoning) onReasoning?.(normalized.reasoning)
     return { ...normalized, usage: normalizeUsage(payload.usage) }
   }
 
@@ -274,6 +309,8 @@ export const streamChatCompletion = async ({
     const delta = choice.delta || {}
     const contentDelta = accumulator.pushContent(delta.content)
     if (contentDelta) onDelta?.(contentDelta)
+    const reasoningDelta = accumulator.pushReasoning(readReasoning(delta))
+    if (reasoningDelta) onReasoning?.(reasoningDelta)
     accumulator.pushToolCalls(delta.tool_calls)
 
     // 少数服务商在流式响应里仍返回完整 message
@@ -282,6 +319,10 @@ export const streamChatCompletion = async ({
       if (normalized.content) {
         accumulator.pushContent(normalized.content)
         onDelta?.(normalized.content)
+      }
+      if (normalized.reasoning) {
+        accumulator.pushReasoning(normalized.reasoning)
+        onReasoning?.(normalized.reasoning)
       }
       accumulator.pushToolCalls(normalized.toolCalls.map((call, index) => ({
         index,
@@ -307,5 +348,5 @@ export const streamChatCompletion = async ({
   if (!finished && buffer.trim()) consumeLine(buffer.trim())
 
   const result = accumulator.result()
-  return { content: result.content, tool_calls: result.toolCalls, usage: result.usage }
+  return { content: result.content, reasoning: result.reasoning, tool_calls: result.toolCalls, usage: result.usage }
 }
