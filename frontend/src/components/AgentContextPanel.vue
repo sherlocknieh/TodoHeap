@@ -26,17 +26,60 @@ const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapse
 })
 
 // 取最近一条带请求快照的用户消息，面板展示的始终是真实发出去的内容
-const latestRequest = computed(() => {
+const latestRequestEntry = computed(() => {
   for (let index = agent.messages.length - 1; index >= 0; index -= 1) {
     const message = agent.messages[index]
     if (message.role === 'user' && message.requests?.length) {
-      return message.requests[message.requests.length - 1]
+      return { index, request: message.requests[message.requests.length - 1] }
     }
   }
   return null
 })
 
-const contextStats = computed(() => summarizeRequest(latestRequest.value))
+const latestRequest = computed(() => latestRequestEntry.value?.request || null)
+
+// 实时会话消息：模型刚产出的回复还没进请求快照，面板以会话为准
+const liveMessages = computed(() => agent.messages.flatMap((message) => {
+  if (message.role === 'user') {
+    return [{ role: 'user', content: summarizeContent(message.content) || message.content || '' }]
+  }
+  if (message.role !== 'assistant') return []
+  const calls = (message.toolCalls || []).filter((call) => call.result !== undefined)
+  // 正在流式输出且尚无内容的占位消息不参与统计
+  if (!message.content && !message.reasoning && !calls.length) return []
+  const entry = {
+    role: 'assistant',
+    content: message.content || '',
+    ...(message.reasoning ? { reasoning_content: message.reasoning } : {})
+  }
+  if (!calls.length) return [entry]
+  return [
+    {
+      ...entry,
+      tool_calls: calls.map((call) => ({
+        id: call.id,
+        type: 'function',
+        function: { name: call.name, arguments: call.arguments || '{}' }
+      }))
+    },
+    ...calls.map((call) => ({
+      role: 'tool',
+      tool_call_id: call.id,
+      content: typeof call.result === 'string' ? call.result : JSON.stringify(call.result)
+    }))
+  ]
+}))
+
+// 本轮完整上下文：请求里的 system 提示 + 实时会话消息
+const panelMessages = computed(() => [
+  ...rawRequestMessages.value.filter((message) => message.role === 'system'),
+  ...liveMessages.value
+])
+
+const contextStats = computed(() => summarizeRequest({
+  messages: panelMessages.value,
+  body: latestRequest.value?.body
+}))
 
 // 当前会话的工作模式，与输入区保持一致
 const modeLabel = computed(() => (
@@ -164,11 +207,11 @@ const sections = computed(() => [
   },
   {
     key: 'messages',
-    label: '请求消息',
+    label: '本轮上下文',
     kind: 'message',
-    items: rawRequestMessages.value,
+    items: panelMessages.value,
     chars: sectionChars('system') + sectionChars('messages') + sectionChars('toolOutput'),
-    empty: '最近一次请求没有消息'
+    empty: '本轮还没有消息'
   }
 ])
 
@@ -306,7 +349,7 @@ const exportSession = () => {
         </details>
       </section>
 
-      <!-- 工具定义单独成块，其余消息按请求里的真实顺序排列 -->
+      <!-- 工具定义单独成块，其余消息按会话里的真实顺序排列 -->
       <section v-for="section in sections" :key="section.key" class="space-y-1.5">
         <div class="flex items-baseline justify-between gap-2">
           <p class="eyebrow">{{ section.label }}</p>
@@ -370,7 +413,7 @@ const exportSession = () => {
       <!-- 导出入口：会话记录与请求快照一起打包 -->
       <div class="flex items-center justify-between gap-2 border-t border-hairline pt-3 dark:border-hairline-dark">
         <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
-          <template v-if="rawRequestMessages.length">最近一次请求 · {{ rawRequestMessages.length }} 条消息</template>
+          <template v-if="panelMessages.length">本轮上下文 · {{ panelMessages.length }} 条消息</template>
           <template v-else>最近一次请求</template>
         </p>
         <button type="button" :disabled="!agent.messages.length"
