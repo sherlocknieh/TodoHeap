@@ -20,6 +20,15 @@ describe('summarizeRequest', () => {
     expect(stats.tokens).toBe(6)
   })
 
+  it('思考内容计入对话消息', () => {
+    const stats = summarizeRequest({
+      messages: [
+        { role: 'assistant', content: 'ab', reasoning_content: '思考' }
+      ]
+    })
+    expect(stats.messages).toBe(4)
+  })
+
   it('工具定义计入可用工具', () => {
     const stats = summarizeRequest({
       messages: [{ role: 'user', content: 'hi' }],

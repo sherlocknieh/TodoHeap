@@ -99,9 +99,11 @@ const requestTools = computed(() => {
   }))
 })
 
-const requestMessageLabel = (message) => (
-  message.role === 'system' ? 'system · 提示词' : message.role
-)
+const requestMessageLabel = (message) => {
+  if (message.role === 'system') return 'system · 提示词'
+  if (hasReasoning(message)) return `${message.role} · 含思考`
+  return message.role
+}
 
 const requestMessageJson = (message) => JSON.stringify(message, null, 2)
 
@@ -128,6 +130,11 @@ const requestMessageSummary = (message) => {
   if (message.role === 'tool') return summarizeContent(message.content).slice(0, 80)
   return summarizeContent(message.content).slice(0, 80)
 }
+
+// 思考内容在折叠态只给一个标记，展开后看完整 JSON
+const hasReasoning = (message) => (
+  message.role === 'assistant' && typeof message.reasoning_content === 'string' && message.reasoning_content.length > 0
+)
 
 // 上下文四类：与下方四个区域一一对应
 const breakdown = computed(() => {
@@ -321,6 +328,10 @@ const exportSession = () => {
               <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400"
                 :class="section.kind === 'tool' ? 'font-mono text-[10px]' : ''">
                 {{ section.kind === 'tool' ? item.name : requestMessageSummary(item) }}
+              </span>
+              <span v-if="section.kind !== 'tool' && hasReasoning(item)"
+                class="shrink-0 rounded bg-accent-50 px-1 text-[10px] text-accent-700 dark:bg-accent-500/15 dark:text-accent-300">
+                思考 {{ formatNumber(item.reasoning_content.length) }}
               </span>
               <AppIcon name="chevronDown" :size="12"
                 class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />

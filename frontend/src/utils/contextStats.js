@@ -29,6 +29,8 @@ export const summarizeRequest = (request) => {
       return
     }
     messages += length
+    // 思考内容随 assistant 消息一起回传，同样占用上下文
+    if (typeof message.reasoning_content === 'string') messages += message.reasoning_content.length
     message.tool_calls?.forEach((call) => {
       messages += (call.function?.arguments || '').length
     })
