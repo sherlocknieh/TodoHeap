@@ -1,4 +1,4 @@
-// 按角色汇总一次请求的字符构成；token 按 3 字符的经验比例估算
+// 按上下文四类汇总一次请求的字符构成；token 按 3 字符的经验比例估算
 const contentLength = (content) => {
   if (typeof content === 'string') return content.length
   if (!Array.isArray(content)) return 0
@@ -14,23 +14,29 @@ export const summarizeRequest = (request) => {
   if (!request || !Array.isArray(request.messages)) return null
 
   let system = 0
-  let history = 0
   let tools = 0
+  let messages = 0
+  let toolOutput = 0
 
   request.messages.forEach((message) => {
     const length = contentLength(message.content)
     if (message.role === 'system') {
       system += length
-    } else if (message.role === 'tool') {
-      tools += length
-    } else {
-      history += length
-      message.tool_calls?.forEach((call) => {
-        history += (call.function?.arguments || '').length
-      })
+      return
     }
+    if (message.role === 'tool') {
+      toolOutput += length
+      return
+    }
+    messages += length
+    message.tool_calls?.forEach((call) => {
+      messages += (call.function?.arguments || '').length
+    })
   })
 
-  const total = system + history + tools
-  return { system, history, tools, total, tokens: Math.ceil(total / 3) }
+  // 工具定义随请求发送，同样占用上下文
+  if (Array.isArray(request.body?.tools)) tools += JSON.stringify(request.body.tools).length
+
+  const total = system + tools + messages + toolOutput
+  return { system, tools, messages, toolOutput, total, tokens: Math.ceil(total / 3) }
 }

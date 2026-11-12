@@ -537,22 +537,19 @@ describe('useAgentStore', () => {
     expect(call.result.cancelled).toBe(true)
   })
 
-  it('工具清单作为 system 消息随请求发送', async () => {
+  it('工具范围只通过 tools 字段下发，不再写进消息', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
 
     const agent = useAgentStore()
     agent.init('user-1')
     await agent.send('列出任务')
 
-    const messages = mocks.chat.mock.calls[0][0].messages
-    const toolsMessage = messages.find((message) => message.role === 'system'
-      && String(message.content).startsWith('本轮可用工具'))
-    expect(toolsMessage).toBeTruthy()
-    expect(toolsMessage.content).toContain('list_todos：查看任务')
-    expect(toolsMessage.content).toContain('switch_mode：切换工作模式')
-    // 主提示词仍是第一条 system，工具清单紧随其后
-    expect(messages[0].content).toContain('你是 TodoHeap 的任务管理 Agent')
-    expect(messages[1]).toBe(toolsMessage)
+    const request = mocks.chat.mock.calls[0][0]
+    const systemMessages = request.messages.filter((message) => message.role === 'system')
+    expect(systemMessages).toHaveLength(1)
+    expect(systemMessages[0].content).toContain('你是 TodoHeap 的任务管理 Agent')
+    expect(request.messages.some((message) => String(message.content).includes('本轮可用工具'))).toBe(false)
+    expect(request.tools.map((definition) => definition.function.name)).toContain('list_todos')
   })
 
   it('模式跟随会话，切换会话后恢复各自的模式', async () => {

@@ -53,7 +53,7 @@ const providerLabel = computed(() => {
   return llm.presets.find((preset) => preset.id === llm.config?.presetId)?.label || '自定义'
 })
 
-// 最近一次请求实际发送的消息：system 里含工具清单，是模型真正看到的内容
+// 最近一次请求实际发送的消息，是模型真正看到的内容
 const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
 
 // 参数摘要只列协议层字段；model 与 temperature 已在顶部摘要出现，这里不重复
@@ -89,10 +89,9 @@ const requestTools = computed(() => {
   }))
 })
 
-const requestMessageLabel = (message) => {
-  if (message.role !== 'system') return message.role
-  return String(message.content || '').startsWith('本轮可用工具') ? 'system · 工具清单' : 'system · 提示词'
-}
+const requestMessageLabel = (message) => (
+  message.role === 'system' ? 'system · 提示词' : message.role
+)
 
 const requestMessageJson = (message) => JSON.stringify(message, null, 2)
 
@@ -120,20 +119,66 @@ const requestMessageSummary = (message) => {
   return summarizeContent(message.content).slice(0, 80)
 }
 
-// 工具结果按条数折叠，避免长列表把面板撑爆
-const toolMessageCount = computed(() => rawRequestMessages.value.filter((message) => message.role === 'tool').length)
-
-
+// 上下文四类：与下方四个区域一一对应
 const breakdown = computed(() => {
   const stats = contextStats.value
   if (!stats) return []
   const share = (value) => (stats.total ? (value / stats.total) * 100 : 0)
   return [
     { key: 'system', label: '系统提示', value: stats.system, width: share(stats.system), percent: Math.round(share(stats.system)), dot: 'bg-accent-700' },
-    { key: 'history', label: '对话历史', value: stats.history, width: share(stats.history), percent: Math.round(share(stats.history)), dot: 'bg-accent-500' },
-    { key: 'tools', label: '工具结果', value: stats.tools, width: share(stats.tools), percent: Math.round(share(stats.tools)), dot: 'bg-accent-300 dark:bg-accent-400/60' }
+    { key: 'tools', label: '可用工具', value: stats.tools, width: share(stats.tools), percent: Math.round(share(stats.tools)), dot: 'bg-accent-600' },
+    { key: 'messages', label: '对话消息', value: stats.messages, width: share(stats.messages), percent: Math.round(share(stats.messages)), dot: 'bg-accent-500' },
+    { key: 'toolOutput', label: '工具输出', value: stats.toolOutput, width: share(stats.toolOutput), percent: Math.round(share(stats.toolOutput)), dot: 'bg-accent-300 dark:bg-accent-400/60' }
   ]
 })
+
+// 请求消息按四类分组，供下方区域逐项展开
+const systemMessages = computed(() => rawRequestMessages.value.filter((message) => message.role === 'system'))
+
+const conversationMessages = computed(() => rawRequestMessages.value.filter((message) => (
+  message.role === 'user' || message.role === 'assistant'
+)))
+
+const toolOutputMessages = computed(() => rawRequestMessages.value.filter((message) => message.role === 'tool'))
+
+// 每个区域标题右侧的字符数，与上方占比行同源
+const sectionChars = (key) => breakdown.value.find((row) => row.key === key)?.value || 0
+
+// 四个区域按上下文构成顺序排列，数据与统计口径同源
+const sections = computed(() => [
+  {
+    key: 'system',
+    label: '系统提示',
+    kind: 'message',
+    items: systemMessages.value,
+    chars: sectionChars('system'),
+    empty: '本轮没有系统提示'
+  },
+  {
+    key: 'tools',
+    label: '可用工具',
+    kind: 'tool',
+    items: requestTools.value,
+    chars: sectionChars('tools'),
+    empty: '本轮未发送工具定义'
+  },
+  {
+    key: 'messages',
+    label: '对话消息',
+    kind: 'message',
+    items: conversationMessages.value,
+    chars: sectionChars('messages'),
+    empty: '本轮没有对话消息'
+  },
+  {
+    key: 'toolOutput',
+    label: '工具输出',
+    kind: 'message',
+    items: toolOutputMessages.value,
+    chars: sectionChars('toolOutput'),
+    empty: '本轮没有工具输出'
+  }
+])
 
 // 请求里的工具少于全集，说明本轮由技能限定了工具范围
 const toolLimited = computed(() => (
@@ -143,9 +188,6 @@ const toolLimited = computed(() => (
 const formatTokens = (value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value))
 
 const formatNumber = (value) => Number(value || 0).toLocaleString()
-
-// 请求快照只存在内存中，刷新后为空属于正常情况
-const EMPTY_REQUEST_HINT = '请求快照只保留在当前页面，刷新后不再显示；发送一条消息即可重新记录。'
 
 const formatDateTime = (iso) => {
   const date = new Date(iso)
@@ -259,61 +301,58 @@ const exportSession = () => {
         </p>
       </section>
 
-      <!-- 本轮工具：按模式与技能限定后的实际范围，展开可看完整 schema -->
-      <section v-if="latestRequest" class="space-y-1.5">
+      <!-- 四个区域与上下文构成一一对应：系统提示 / 可用工具 / 对话消息 / 工具输出 -->
+      <section v-for="section in sections" :key="section.key" class="space-y-1.5">
         <div class="flex items-baseline justify-between gap-2">
-          <p class="eyebrow">本轮工具</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ requestTools.length }} 个</span>
+          <p class="eyebrow">{{ section.label }}</p>
+          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+            {{ section.items.length }} 项 · {{ formatNumber(section.chars) }} 字符
+          </span>
         </div>
-        <p v-if="toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
-        <div v-if="requestTools.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-          <details v-for="tool in requestTools" :key="tool.name"
-            class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
-            <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-              <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ tool.label }}</span>
-              <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">{{ tool.name }}</span>
-              <AppIcon name="chevronDown" :size="12"
-                class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
-            </summary>
-            <div class="space-y-1.5 border-t border-hairline bg-neutral-50 p-2 dark:border-hairline-dark dark:bg-neutral-900">
-              <p class="text-[11px] leading-4 text-neutral-600 dark:text-neutral-400">{{ tool.description }}</p>
-              <pre class="max-h-48 overflow-auto rounded bg-white p-2 text-[10px] leading-4 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{{ tool.json }}</pre>
-            </div>
-          </details>
-        </div>
-        <p v-else class="text-[11px] text-neutral-500 dark:text-neutral-400">本轮未发送工具定义</p>
-      </section>
+        <p v-if="section.key === 'tools' && toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
 
-      <!-- 最近一次请求：模型真正收到的消息，带内容摘要 -->
-      <section class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <div class="flex items-center justify-between gap-2">
-          <p v-if="rawRequestMessages.length" class="text-[11px] text-neutral-500 dark:text-neutral-400">
-            最近一次请求 · {{ rawRequestMessages.length }} 条消息<template v-if="toolMessageCount">（含 {{ toolMessageCount }} 条工具结果）</template>
-          </p>
-          <p v-else class="text-[11px] text-neutral-500 dark:text-neutral-400">最近一次请求</p>
-          <button type="button" :disabled="!agent.messages.length"
-            class="inline-flex shrink-0 items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
-            @click="exportSession">
-            <AppIcon name="download" :size="12" /> 导出会话
-          </button>
-        </div>
-        <div v-if="rawRequestMessages.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-          <details v-for="(message, index) in rawRequestMessages" :key="`req-${index}`"
+        <!-- 可用工具：每条展开可见描述与完整 schema -->
+        <div v-if="section.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+          <details v-for="(item, index) in section.items" :key="`${section.key}-${index}`"
             class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
             <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-              <span class="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500">{{ index + 1 }}</span>
-              <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ requestMessageLabel(message) }}</span>
-              <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">{{ requestMessageSummary(message) }}</span>
+              <span v-if="section.kind === 'message'" class="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500">{{ index + 1 }}</span>
+              <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">
+                {{ section.kind === 'tool' ? item.label : requestMessageLabel(item) }}
+              </span>
+              <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400"
+                :class="section.kind === 'tool' ? 'font-mono text-[10px]' : ''">
+                {{ section.kind === 'tool' ? item.name : requestMessageSummary(item) }}
+              </span>
               <AppIcon name="chevronDown" :size="12"
                 class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
             </summary>
-            <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestMessageJson(message) }}</pre>
+            <div v-if="section.kind === 'tool'"
+              class="space-y-1.5 border-t border-hairline bg-neutral-50 p-2 dark:border-hairline-dark dark:bg-neutral-900">
+              <p class="text-[11px] leading-4 text-neutral-600 dark:text-neutral-400">{{ item.description }}</p>
+              <pre class="max-h-48 overflow-auto rounded bg-white p-2 text-[10px] leading-4 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{{ item.json }}</pre>
+            </div>
+            <pre v-else
+              class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestMessageJson(item) }}</pre>
           </details>
         </div>
         <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
-          {{ EMPTY_REQUEST_HINT }}
+          {{ section.empty }}
         </p>
       </section>
+
+      <!-- 导出入口：会话记录与请求快照一起打包 -->
+      <div class="flex items-center justify-between gap-2 border-t border-hairline pt-3 dark:border-hairline-dark">
+        <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+          <template v-if="rawRequestMessages.length">最近一次请求 · {{ rawRequestMessages.length }} 条消息</template>
+          <template v-else>最近一次请求</template>
+        </p>
+        <button type="button" :disabled="!agent.messages.length"
+          class="inline-flex shrink-0 items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
+          @click="exportSession">
+          <AppIcon name="download" :size="12" /> 导出会话
+        </button>
+      </div>
 
       <!-- 会话时间线：次要信息收进一行 -->
       <p class="border-t border-hairline pt-2 text-[11px] leading-5 text-neutral-400 dark:border-hairline-dark dark:text-neutral-500">

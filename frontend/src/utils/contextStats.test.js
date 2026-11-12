@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { summarizeRequest } from './contextStats'
 
 describe('summarizeRequest', () => {
-  it('按角色拆分字符数并估算 token', () => {
+  it('按上下文四类拆分字符数并估算 token', () => {
     const stats = summarizeRequest({
       messages: [
         { role: 'system', content: 'abcd' },
@@ -13,10 +13,21 @@ describe('summarizeRequest', () => {
     })
 
     expect(stats.system).toBe(4)
-    expect(stats.history).toBe(7)
-    expect(stats.tools).toBe(5)
+    expect(stats.tools).toBe(0)
+    expect(stats.messages).toBe(7)
+    expect(stats.toolOutput).toBe(5)
     expect(stats.total).toBe(16)
     expect(stats.tokens).toBe(6)
+  })
+
+  it('工具定义计入可用工具', () => {
+    const stats = summarizeRequest({
+      messages: [{ role: 'user', content: 'hi' }],
+      body: { tools: [{ type: 'function' }] }
+    })
+
+    expect(stats.tools).toBe(JSON.stringify([{ type: 'function' }]).length)
+    expect(stats.messages).toBe(2)
   })
 
   it('没有请求或消息时返回 null', () => {
@@ -24,8 +35,9 @@ describe('summarizeRequest', () => {
     expect(summarizeRequest({})).toBeNull()
     expect(summarizeRequest({ messages: [] })).toEqual({
       system: 0,
-      history: 0,
       tools: 0,
+      messages: 0,
+      toolOutput: 0,
       total: 0,
       tokens: 0
     })

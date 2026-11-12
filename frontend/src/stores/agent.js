@@ -5,7 +5,7 @@ import { useAuthStore } from './auth'
 import { useTodoStore } from './todos'
 import { useScheduleStore } from './schedules'
 import { useLlmStore } from './llm'
-import { createAgentToolRunner, AGENT_TOOL_LABELS, CHOICE_TOOLS, CONFIRM_TOOLS, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
+import { createAgentToolRunner, CHOICE_TOOLS, CONFIRM_TOOLS, DESTRUCTIVE_TOOLS } from '@/lib/agentTools'
 import {
   cloneDefaultSkills,
   createSkill,
@@ -57,16 +57,6 @@ const formatSkills = (skills) => {
   if (!list.length) return ''
   const blocks = list.map((skill) => `【${skill.name}】\n${skill.prompt}`)
   return `\n用户本轮挂载了以下技能，按其中的指令执行：\n${blocks.join('\n\n')}\n`
-}
-
-// 本轮可用工具清单：作为 system 消息随请求发送，模型与用户都能看到工具范围
-const buildToolsPrompt = (tools) => {
-  const names = (Array.isArray(tools) ? tools : [])
-    .map((definition) => definition?.function?.name)
-    .filter(Boolean)
-  if (!names.length) return ''
-  const lines = names.map((name) => `- ${name}：${AGENT_TOOL_LABELS[name] || name}`)
-  return `本轮可用工具（共 ${names.length} 个）：\n${lines.join('\n')}`
 }
 
 const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], skills = [], mode = DEFAULT_AGENT_MODE } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
@@ -509,10 +499,8 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE, tools = [], skills = []) => {
+    // 工具范围只通过请求的 tools 字段下发，不再重复写进消息
     const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, skills, mode }) }]
-    // 工具清单单独成一条 system 消息，便于在原始消息里核对本轮范围
-    const toolsPrompt = buildToolsPrompt(tools)
-    if (toolsPrompt) apiMessages.push({ role: 'system', content: toolsPrompt })
     messages.value.forEach((message) => {
       if (message.role === 'user') {
         apiMessages.push({ role: 'user', content: toUserContent(message) })
