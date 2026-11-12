@@ -279,6 +279,23 @@ const exportSession = () => {
         </p>
       </section>
 
+      <!-- 请求参数：协议层字段单独成栏，与工具定义分开 -->
+      <section v-if="requestParamsJson" class="space-y-1.5">
+        <div class="flex items-baseline justify-between gap-2">
+          <p class="eyebrow">请求参数</p>
+          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestParamsJson.length) }} 字符</span>
+        </div>
+        <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+          <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">model · temperature · stream · tool_choice</span>
+            <span class="min-w-0 flex-1"></span>
+            <AppIcon name="chevronDown" :size="12"
+              class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <pre class="max-h-48 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
+        </details>
+      </section>
+
       <!-- 工具定义单独成块，其余消息按请求里的真实顺序排列 -->
       <section v-for="section in sections" :key="section.key" class="space-y-1.5">
         <div class="flex items-baseline justify-between gap-2">
@@ -291,16 +308,6 @@ const exportSession = () => {
 
         <!-- 可用工具：请求参数在前，工具定义在后，每条都可展开 -->
         <div v-if="section.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-          <details v-if="section.key === 'tools' && requestParamsJson"
-            class="group border-b border-hairline dark:border-hairline-dark">
-            <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-              <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">请求参数</span>
-              <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">model · temperature · stream · tool_choice</span>
-              <AppIcon name="chevronDown" :size="12"
-                class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
-            </summary>
-            <pre class="max-h-48 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
-          </details>
           <details v-for="(item, index) in section.items" :key="`${section.key}-${index}`"
             class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
             <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
