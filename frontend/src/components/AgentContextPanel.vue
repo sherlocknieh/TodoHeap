@@ -56,15 +56,22 @@ const providerLabel = computed(() => {
 // 最近一次请求实际发送的消息，是模型真正看到的内容
 const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
 
-// 参数摘要只列协议层字段；model 与 temperature 已在顶部摘要出现，这里不重复
-const requestParams = computed(() => {
+// 请求参数：只保留协议层字段，工具与消息各自成块
+const requestParamsJson = computed(() => {
   const body = latestRequest.value?.body
-  if (!body) return []
-  return [
-    { key: 'stream', label: 'stream', value: String(Boolean(body.stream)) },
-    { key: 'tool_choice', label: 'tool_choice', value: body.tool_choice || '（未发送）' }
-  ]
+  if (!body) return ''
+  return JSON.stringify({
+    model: body.model,
+    temperature: body.temperature,
+    stream: body.stream,
+    tool_choice: body.tool_choice
+  }, null, 2)
 })
+
+// 完整请求体：实际发出的 body 原样序列化
+const requestBodyJson = computed(() => (
+  latestRequest.value?.body ? JSON.stringify(latestRequest.value.body, null, 2) : ''
+))
 
 // 本轮工具定义：名称、中文标签与完整 schema，展开即可核对模型收到的约束
 const requestTools = computed(() => {
@@ -269,10 +276,6 @@ const exportSession = () => {
           <span>{{ agent.messages.length }} 条消息 / {{ requestCount }} 次请求</span>
           <span class="text-neutral-300 dark:text-neutral-600">·</span>
           <span>temperature {{ llm.config?.temperature ?? '默认' }}</span>
-          <template v-for="param in requestParams" :key="param.key">
-            <span class="text-neutral-300 dark:text-neutral-600">·</span>
-            <span>{{ param.label }} {{ param.value }}</span>
-          </template>
         </p>
       </section>
 
@@ -286,8 +289,18 @@ const exportSession = () => {
         </div>
         <p v-if="section.key === 'tools' && toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
 
-        <!-- 可用工具：每条展开可见描述与完整 schema -->
+        <!-- 可用工具：请求参数在前，工具定义在后，每条都可展开 -->
         <div v-if="section.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+          <details v-if="section.key === 'tools' && requestParamsJson"
+            class="group border-b border-hairline dark:border-hairline-dark">
+            <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+              <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">请求参数</span>
+              <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">model · temperature · stream · tool_choice</span>
+              <AppIcon name="chevronDown" :size="12"
+                class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+            </summary>
+            <pre class="max-h-48 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
+          </details>
           <details v-for="(item, index) in section.items" :key="`${section.key}-${index}`"
             class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
             <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
@@ -314,6 +327,23 @@ const exportSession = () => {
         <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
           {{ section.empty }}
         </p>
+      </section>
+
+      <!-- 完整请求体：实际发出的 body 原样展示，便于逐字段核对 -->
+      <section v-if="requestBodyJson" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
+        <div class="flex items-baseline justify-between gap-2">
+          <p class="eyebrow">完整请求体</p>
+          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestBodyJson.length) }} 字符</span>
+        </div>
+        <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+          <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">body</span>
+            <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">model · messages · tools · tool_choice</span>
+            <AppIcon name="chevronDown" :size="12"
+              class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <pre class="max-h-72 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestBodyJson }}</pre>
+        </details>
       </section>
 
       <!-- 导出入口：会话记录与请求快照一起打包 -->
