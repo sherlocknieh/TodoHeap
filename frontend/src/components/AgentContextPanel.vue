@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
 import { AGENT_TOOL_LABELS, AGENT_TOOL_NAMES } from '@/lib/agentTools'
@@ -111,6 +111,9 @@ const requestParams = computed(() => {
   if (body.thinking) rows.push({ key: 'thinking', value: body.thinking })
   return rows.map((row) => ({ ...row, text: paramText(row.key, row.value) }))
 })
+
+// 参数源码默认收起，展开才占用面板高度
+const paramsOpen = ref(false)
 
 // 参数源码：值与真实请求逐字段一致，展开后才显示
 const requestParamsJson = computed(() => (
@@ -320,22 +323,24 @@ const exportSession = () => {
     </div>
 
     <div class="flex-1 min-h-0 overflow-auto px-4 py-3 space-y-3">
-      <!-- 请求参数：协议字段一眼可见，源码结构收进展开区 -->
+      <!-- 请求参数：两列键值一眼可见，源码结构由标题右侧的图标展开 -->
       <section v-if="requestParams.length" class="space-y-1.5">
-        <p class="eyebrow">请求参数</p>
-        <dl class="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 text-[11px]">
-          <template v-for="row in requestParams" :key="row.key">
-            <dt class="font-mono text-[10px] text-neutral-500 dark:text-neutral-400">{{ row.key }}</dt>
+        <div class="flex items-center justify-between gap-2">
+          <p class="eyebrow">请求参数</p>
+          <button type="button" :aria-expanded="paramsOpen"
+            class="shrink-0 rounded p-0.5 text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            :title="paramsOpen ? '收起源码结构' : '展开源码结构'" @click="paramsOpen = !paramsOpen">
+            <AppIcon name="chevronDown" :size="12" :class="paramsOpen ? 'rotate-180' : ''" class="transition-transform" />
+          </button>
+        </div>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+          <div v-for="row in requestParams" :key="row.key" class="flex min-w-0 items-baseline gap-1.5">
+            <dt class="shrink-0 font-mono text-[10px] text-neutral-500 dark:text-neutral-400">{{ row.key }}</dt>
             <dd class="truncate text-neutral-800 dark:text-neutral-200" :title="row.text">{{ row.text }}</dd>
-          </template>
+          </div>
         </dl>
-        <details class="group">
-          <summary class="flex cursor-pointer items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            <AppIcon name="chevronDown" :size="12" class="transition-transform group-open:rotate-180" />
-            源码结构
-          </summary>
-          <pre class="mt-1.5 max-h-48 overflow-auto rounded-md border border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
-        </details>
+        <pre v-if="paramsOpen"
+          class="max-h-48 overflow-auto rounded-md border border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
       </section>
 
       <!-- 上下文构成：占比条 + 明细，顶部先给最关心的用量 -->

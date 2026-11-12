@@ -103,7 +103,7 @@ The panel on the right of the AI view shows this turn's input in a single page:
 
 | Block | Contents |
 | --- | --- |
-| Request parameters | Key/value view of protocol fields such as model, temperature and stream; expand "source structure" for the raw JSON |
+| Request parameters | Two-column key/value view of protocol fields such as model, temperature and stream; toggle the icon beside the heading for the raw JSON |
 | Context breakdown | Share of system prompt, tool definitions, reasoning, tool calls, tool output and conversation messages, with estimated tokens and counts for reasoning and calls |
 | Tools this turn | Tools actually offered in the request; flagged when limited by mode or skill |
 | Latest request | Every message the model actually received, each with a content summary (tool calls read as "调用 查看任务"), expandable to raw JSON; also exports the session |
