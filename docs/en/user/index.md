@@ -105,9 +105,9 @@ The panel on the right of the AI view shows this turn's input in a single page:
 | --- | --- |
 | Request parameters | Two-column key/value view of protocol fields such as model, temperature and stream; toggle the icon beside the heading for the raw JSON |
 | Context breakdown | Share of system prompt, tool definitions, reasoning, tool calls, tool output and conversation messages, with estimated tokens and counts for reasoning and calls |
-| Tools this turn | Tools actually offered in the request; flagged when limited by mode or skill |
-| Latest request | Every message the model actually received, each with a content summary (tool calls read as "调用 查看任务"), expandable to raw JSON; also exports the session |
-| Timeline | Created, last activity and latest request time on one line |
+| Tool definitions | Tools actually offered in the request, expandable to the full schema |
+| This turn's context | Every message the model actually received, each with a content summary (tool calls read as "调用 查看任务"), expandable to raw JSON |
+| Full request body | The raw body ordered as parameters, tools and messages; export the session from the heading |
 
 Context data comes from the latest real request, not a local estimate. Request snapshots live only in the current page, so the request list is empty after a reload — that is expected. The panel width is draggable and independent of the task detail panel in other views.
 

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
-import { AGENT_TOOL_LABELS, AGENT_TOOL_NAMES } from '@/lib/agentTools'
+import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { summarizeRequest } from '@/utils/contextStats'
 import AppIcon from '@/components/AppIcon.vue'
@@ -151,7 +151,6 @@ const requestTools = computed(() => {
       return {
         name: fn.name || '',
         label: AGENT_TOOL_LABELS[fn.name] || fn.name || '',
-        description: fn.description || '',
         json: JSON.stringify(definition, null, 2)
       }
     })
@@ -160,7 +159,6 @@ const requestTools = computed(() => {
   return (latestRequest.value?.tools || []).map((name) => ({
     name,
     label: AGENT_TOOL_LABELS[name] || name,
-    description: '',
     json: ''
   }))
 })
@@ -249,21 +247,9 @@ const sections = computed(() => [
   }
 ])
 
-// 请求里的工具少于全集，说明本轮由技能限定了工具范围
-const toolLimited = computed(() => (
-  Boolean(latestRequest.value) && latestRequest.value.tools.length < AGENT_TOOL_NAMES.length
-))
-
 const formatTokens = (value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value))
 
 const formatNumber = (value) => Number(value || 0).toLocaleString()
-
-const formatDateTime = (iso) => {
-  const date = new Date(iso)
-  if (!iso || Number.isNaN(date.getTime())) return '—'
-  const pad = (value) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
 
 // 导出当前会话（含内存中的请求快照），便于离线排查
 const exportSession = () => {
@@ -374,8 +360,6 @@ const exportSession = () => {
             {{ section.items.length }} 项 · {{ formatNumber(section.chars) }} 字符
           </span>
         </div>
-        <p v-if="section.key === 'tools' && toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
-
         <!-- 工具定义：每条都可展开看完整 schema -->
         <div v-if="section.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
           <details v-for="(item, index) in section.items" :key="`${section.key}-${index}`"
@@ -397,8 +381,7 @@ const exportSession = () => {
                 class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
             </summary>
             <div v-if="section.kind === 'tool'"
-              class="space-y-1.5 border-t border-hairline bg-neutral-50 p-2 dark:border-hairline-dark dark:bg-neutral-900">
-              <p class="text-[11px] leading-4 text-neutral-600 dark:text-neutral-400">{{ item.description }}</p>
+              class="border-t border-hairline bg-neutral-50 p-2 dark:border-hairline-dark dark:bg-neutral-900">
               <pre class="max-h-48 overflow-auto rounded bg-white p-2 text-[10px] leading-4 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{{ item.json }}</pre>
             </div>
             <pre v-else
@@ -414,7 +397,14 @@ const exportSession = () => {
       <section v-if="requestBodyJson" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
         <div class="flex items-baseline justify-between gap-2">
           <p class="eyebrow">完整请求体</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestBodyChars) }} 字符</span>
+          <div class="flex items-baseline gap-2">
+            <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestBodyChars) }} 字符</span>
+            <button type="button" :disabled="!agent.messages.length"
+              class="inline-flex shrink-0 items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
+              @click="exportSession">
+              <AppIcon name="download" :size="12" /> 导出会话
+            </button>
+          </div>
         </div>
         <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
           <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
@@ -427,24 +417,6 @@ const exportSession = () => {
         </details>
       </section>
 
-      <!-- 导出入口：会话记录与请求快照一起打包 -->
-      <div class="flex items-center justify-between gap-2 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
-          <template v-if="panelMessages.length">本轮上下文 · {{ panelMessages.length }} 条消息</template>
-          <template v-else>最近一次请求</template>
-        </p>
-        <button type="button" :disabled="!agent.messages.length"
-          class="inline-flex shrink-0 items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
-          @click="exportSession">
-          <AppIcon name="download" :size="12" /> 导出会话
-        </button>
-      </div>
-
-      <!-- 会话时间线：次要信息收进一行 -->
-      <p class="border-t border-hairline pt-2 text-[11px] leading-5 text-neutral-400 dark:border-hairline-dark dark:text-neutral-500">
-        创建 {{ formatDateTime(agent.activeSession?.createdAt) }} · 最后活动 {{ formatDateTime(agent.activeSession?.updatedAt) }}
-        <template v-if="latestRequest"> · 最近请求 {{ formatDateTime(latestRequest.createdAt) }}</template>
-      </p>
     </div>
   </div>
 </template>
