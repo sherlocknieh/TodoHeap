@@ -59,8 +59,6 @@ const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
 // 实际发出的请求体：model / temperature / stream / tool_choice / tools 与 messages 同源
 const requestBody = computed(() => latestRequest.value?.body || null)
 
-const requestBodyJson = computed(() => (requestBody.value ? JSON.stringify(latestRequest.value.body, null, 2) : ''))
-
 // 参数摘要只列协议层字段，工具定义与消息在下方分别展开
 const requestParams = computed(() => {
   const body = latestRequest.value?.body
@@ -71,6 +69,29 @@ const requestParams = computed(() => {
     { key: 'stream', label: 'stream', value: String(Boolean(body.stream)) },
     { key: 'tool_choice', label: 'tool_choice', value: body.tool_choice || '（未发送）' }
   ]
+})
+
+// 本轮工具定义：名称、中文标签与完整 schema，展开即可核对模型收到的约束
+const requestTools = computed(() => {
+  const definitions = latestRequest.value?.body?.tools
+  if (Array.isArray(definitions)) {
+    return definitions.map((definition) => {
+      const fn = definition?.function || {}
+      return {
+        name: fn.name || '',
+        label: AGENT_TOOL_LABELS[fn.name] || fn.name || '',
+        description: fn.description || '',
+        json: JSON.stringify(definition, null, 2)
+      }
+    })
+  }
+  // 旧快照只存了工具名，退化成只有名称的条目
+  return (latestRequest.value?.tools || []).map((name) => ({
+    name,
+    label: AGENT_TOOL_LABELS[name] || name,
+    description: '',
+    json: ''
+  }))
 })
 
 const requestMessageLabel = (message) => {
@@ -259,12 +280,7 @@ const exportSession = () => {
 
       <!-- 请求参数：实际发出的协议字段，与消息列表同源 -->
       <section v-if="requestBody" class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <p class="eyebrow">请求参数</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-            {{ requestBody.tools?.length || 0 }} 个工具定义
-          </span>
-        </div>
+        <p class="eyebrow">请求参数</p>
         <dl class="grid grid-cols-2 gap-1.5">
           <div v-for="param in requestParams" :key="param.key"
             class="rounded-md border border-hairline px-2 py-1 dark:border-hairline-dark">
@@ -274,29 +290,31 @@ const exportSession = () => {
             </dd>
           </div>
         </dl>
-        <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-          <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">完整请求体</span>
-            <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">model、tools、messages 原样 JSON</span>
-            <AppIcon name="chevronDown" :size="12"
-              class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
-          </summary>
-          <pre class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestBodyJson }}</pre>
-        </details>
       </section>
 
-      <!-- 本轮工具：按模式与技能限定后的实际范围 -->
+      <!-- 本轮工具：按模式与技能限定后的实际范围，展开可看完整 schema -->
       <section v-if="latestRequest" class="space-y-1.5">
         <div class="flex items-center justify-between">
           <p class="eyebrow">本轮工具</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ latestRequest.tools.length }} 个</span>
+          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ requestTools.length }} 个</span>
         </div>
         <p v-if="toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
-        <div class="flex max-h-32 flex-wrap gap-1 overflow-auto">
-          <span v-for="name in latestRequest.tools" :key="name" class="chip">
-            {{ AGENT_TOOL_LABELS[name] || name }}
-          </span>
+        <div v-if="requestTools.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+          <details v-for="tool in requestTools" :key="tool.name"
+            class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
+            <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+              <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ tool.label }}</span>
+              <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">{{ tool.name }}</span>
+              <AppIcon name="chevronDown" :size="12"
+                class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+            </summary>
+            <div class="space-y-1.5 border-t border-hairline bg-neutral-50 p-2 dark:border-hairline-dark dark:bg-neutral-900">
+              <p class="text-[11px] leading-4 text-neutral-600 dark:text-neutral-400">{{ tool.description }}</p>
+              <pre class="max-h-48 overflow-auto rounded bg-white p-2 text-[10px] leading-4 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{{ tool.json }}</pre>
+            </div>
+          </details>
         </div>
+        <p v-else class="text-[11px] text-neutral-500 dark:text-neutral-400">本轮未发送工具定义</p>
       </section>
 
       <!-- 最近一次请求：模型真正收到的消息，带内容摘要 -->
