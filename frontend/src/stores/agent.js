@@ -507,10 +507,13 @@ export const useAgentStore = defineStore('agent', () => {
         return
       }
       const calls = (message.toolCalls || []).filter((call) => call.result !== undefined)
+      // 思考内容要原样回传：DeepSeek 等要求多轮里带上上一轮的 reasoning_content
+      const reasoning = typeof message.reasoning === 'string' ? message.reasoning : ''
       if (calls.length) {
         apiMessages.push({
           role: 'assistant',
           content: message.content || null,
+          ...(reasoning ? { reasoning_content: reasoning } : {}),
           tool_calls: calls.map((call) => ({
             id: call.id,
             type: 'function',
@@ -524,8 +527,12 @@ export const useAgentStore = defineStore('agent', () => {
             content: truncate(call.result)
           })
         })
-      } else if (message.content) {
-        apiMessages.push({ role: 'assistant', content: message.content })
+      } else if (message.content || reasoning) {
+        apiMessages.push({
+          role: 'assistant',
+          content: message.content || '',
+          ...(reasoning ? { reasoning_content: reasoning } : {})
+        })
       }
     })
     return apiMessages

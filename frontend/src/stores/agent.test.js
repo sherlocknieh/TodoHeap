@@ -162,6 +162,22 @@ describe('useAgentStore', () => {
     expect(first.body.messages).toEqual(first.messages)
   })
 
+  it('多轮请求回传上一轮的思考内容', async () => {
+    mocks.chat
+      .mockResolvedValueOnce({ content: '好的', reasoning: '先想一下', tool_calls: [] })
+      .mockResolvedValueOnce({ content: '收到', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    await agent.send('第一句')
+    await agent.send('第二句')
+
+    const secondMessages = mocks.chat.mock.calls[1][0].messages
+    const assistant = secondMessages.find((message) => message.role === 'assistant')
+    expect(assistant.reasoning_content).toBe('先想一下')
+    expect(assistant.content).toBe('好的')
+  })
+
   it('破坏性操作先等待确认，取消后不执行并让模型收尾', async () => {
     mocks.chat
       .mockResolvedValueOnce(toolCallResponse('delete_todo', { id: 1 }))
