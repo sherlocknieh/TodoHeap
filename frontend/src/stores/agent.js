@@ -1,6 +1,6 @@
 // 对话 Agent：多会话管理、系统提示、模型调用、工具执行与破坏性操作确认
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useAuthStore } from './auth'
 import { useTodoStore } from './todos'
 import { useScheduleStore } from './schedules'
@@ -665,7 +665,7 @@ export const useAgentStore = defineStore('agent', () => {
         const tools = resolveTools(stepMode)
         const history = toApiMessages(userMessage.mentions, stepMode, tools, userMessage.skills)
         // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
-        const requestRecord = {
+        const requestRecord = reactive({
           model: llm.activeModel,
           temperature: llm.config?.temperature,
           tools: tools.map((definition) => definition.function.name),
@@ -680,9 +680,10 @@ export const useAgentStore = defineStore('agent', () => {
           }),
           createdAt: nowIso(),
           usage: null
-        }
+        })
         userMessage.requests.push(requestRecord)
-        const assistant = {
+        // 流式累积与工具结果都直接写这条消息，用响应式对象才能让派生视图实时跟上
+        const assistant = reactive({
           id: createId(),
           role: 'assistant',
           content: '',
@@ -690,7 +691,7 @@ export const useAgentStore = defineStore('agent', () => {
           toolCalls: [],
           createdAt: nowIso(),
           streaming: true
-        }
+        })
         messages.value.push(assistant)
 
         // 流式内容单独累积：失败重试时要判断是否已经输出过文本
@@ -798,8 +799,9 @@ export const useAgentStore = defineStore('agent', () => {
 
     init(useAuthStore().user?.id)
 
-    // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开
-    const userMessage = { id: createId(), role: 'user', content, images: attachments, mentions: references, skills: attached, toolCalls: [], requests: [], createdAt: nowIso() }
+    // requests 保存这一轮实际发给模型的完整提示词，仅在内存中供界面展开；
+    // 请求快照是 push 之后才补写进这条消息的，用响应式对象界面才能即时读到
+    const userMessage = reactive({ id: createId(), role: 'user', content, images: attachments, mentions: references, skills: attached, toolCalls: [], requests: [], createdAt: nowIso() })
     messages.value.push(userMessage)
     attachedSkills.value = []
 
@@ -840,7 +842,7 @@ export const useAgentStore = defineStore('agent', () => {
     const mentions = normalizeMentions(messages.value[index].mentions)
     const skills = normalizeAttachedSkills(messages.value[index].skills)
     messages.value.splice(index)
-    const userMessage = { id: createId(), role: 'user', content, images, mentions, skills, toolCalls: [], requests: [], createdAt: nowIso() }
+    const userMessage = reactive({ id: createId(), role: 'user', content, images, mentions, skills, toolCalls: [], requests: [], createdAt: nowIso() })
     messages.value.push(userMessage)
     persist()
     await startTurn({ userMessage })
