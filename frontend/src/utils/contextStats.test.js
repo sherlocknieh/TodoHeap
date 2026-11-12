@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { summarizeRequest } from './contextStats'
 
 describe('summarizeRequest', () => {
-  it('按上下文四类拆分字符数并估算 token', () => {
+  it('按上下文各类拆分字符数并估算 token', () => {
     const stats = summarizeRequest({
       messages: [
         { role: 'system', content: 'abcd' },
@@ -14,22 +14,26 @@ describe('summarizeRequest', () => {
 
     expect(stats.system).toBe(4)
     expect(stats.tools).toBe(0)
-    expect(stats.messages).toBe(7)
+    expect(stats.messages).toBe(4)
+    expect(stats.toolCalls).toBe(3)
+    expect(stats.toolCallCount).toBe(1)
     expect(stats.toolOutput).toBe(5)
     expect(stats.total).toBe(16)
     expect(stats.tokens).toBe(6)
   })
 
-  it('思考内容计入对话消息', () => {
+  it('思考内容单独计入思考消息', () => {
     const stats = summarizeRequest({
       messages: [
         { role: 'assistant', content: 'ab', reasoning_content: '思考' }
       ]
     })
-    expect(stats.messages).toBe(4)
+    expect(stats.messages).toBe(2)
+    expect(stats.reasoning).toBe(2)
+    expect(stats.reasoningCount).toBe(1)
   })
 
-  it('工具定义计入可用工具', () => {
+  it('工具定义计入工具定义', () => {
     const stats = summarizeRequest({
       messages: [{ role: 'user', content: 'hi' }],
       body: { tools: [{ type: 'function' }] }
@@ -45,8 +49,12 @@ describe('summarizeRequest', () => {
     expect(summarizeRequest({ messages: [] })).toEqual({
       system: 0,
       tools: 0,
-      messages: 0,
+      reasoning: 0,
+      reasoningCount: 0,
+      toolCalls: 0,
+      toolCallCount: 0,
       toolOutput: 0,
+      messages: 0,
       total: 0,
       tokens: 0
     })

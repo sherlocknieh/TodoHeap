@@ -15,8 +15,12 @@ export const summarizeRequest = (request) => {
 
   let system = 0
   let tools = 0
-  let messages = 0
+  let reasoning = 0
+  let toolCalls = 0
   let toolOutput = 0
+  let messages = 0
+  let reasoningCount = 0
+  let toolCallCount = 0
 
   request.messages.forEach((message) => {
     const length = contentLength(message.content)
@@ -29,16 +33,32 @@ export const summarizeRequest = (request) => {
       return
     }
     messages += length
-    // 思考内容随 assistant 消息一起回传，同样占用上下文
-    if (typeof message.reasoning_content === 'string') messages += message.reasoning_content.length
+    // 思考内容随 assistant 消息一起回传，单独成类以便看出推理与正文各占多少
+    if (typeof message.reasoning_content === 'string' && message.reasoning_content.length) {
+      reasoning += message.reasoning_content.length
+      reasoningCount += 1
+    }
+    // 工具调用的入参只出现在 assistant 消息的 tool_calls 里
     message.tool_calls?.forEach((call) => {
-      messages += (call.function?.arguments || '').length
+      toolCalls += (call.function?.arguments || '').length
+      toolCallCount += 1
     })
   })
 
   // 工具定义随请求发送，同样占用上下文
   if (Array.isArray(request.body?.tools)) tools += JSON.stringify(request.body.tools).length
 
-  const total = system + tools + messages + toolOutput
-  return { system, tools, messages, toolOutput, total, tokens: Math.ceil(total / 3) }
+  const total = system + tools + reasoning + toolCalls + toolOutput + messages
+  return {
+    system,
+    tools,
+    reasoning,
+    reasoningCount,
+    toolCalls,
+    toolCallCount,
+    toolOutput,
+    messages,
+    total,
+    tokens: Math.ceil(total / 3)
+  }
 }

@@ -180,16 +180,27 @@ const hasReasoning = (message) => (
   message.role === 'assistant' && typeof message.reasoning_content === 'string' && message.reasoning_content.length > 0
 )
 
-// 上下文四类：与下方四个区域一一对应
+// 上下文各类：先静态前缀，再过程类内容，正文对话放末尾
 const breakdown = computed(() => {
   const stats = contextStats.value
   if (!stats) return []
   const share = (value) => (stats.total ? (value / stats.total) * 100 : 0)
+  const row = (key, label, value, dot, extra = {}) => ({
+    key,
+    label,
+    value,
+    width: share(value),
+    percent: Math.round(share(value)),
+    dot,
+    ...extra
+  })
   return [
-    { key: 'system', label: '系统提示', value: stats.system, width: share(stats.system), percent: Math.round(share(stats.system)), dot: 'bg-context-system' },
-    { key: 'tools', label: '工具定义', value: stats.tools, width: share(stats.tools), percent: Math.round(share(stats.tools)), dot: 'bg-context-tools' },
-    { key: 'messages', label: '对话消息', value: stats.messages, width: share(stats.messages), percent: Math.round(share(stats.messages)), dot: 'bg-context-messages' },
-    { key: 'toolOutput', label: '工具输出', value: stats.toolOutput, width: share(stats.toolOutput), percent: Math.round(share(stats.toolOutput)), dot: 'bg-context-output' }
+    row('system', '系统提示', stats.system, 'bg-context-system'),
+    row('tools', '工具定义', stats.tools, 'bg-context-tools'),
+    row('reasoning', '思考消息', stats.reasoning, 'bg-context-reasoning', { count: stats.reasoningCount, unit: '段' }),
+    row('toolCalls', '工具调用', stats.toolCalls, 'bg-context-calls', { count: stats.toolCallCount, unit: '次' }),
+    row('toolOutput', '工具输出', stats.toolOutput, 'bg-context-output'),
+    row('messages', '对话消息', stats.messages, 'bg-context-messages')
   ]
 })
 
@@ -211,7 +222,7 @@ const sections = computed(() => [
     label: '本轮上下文',
     kind: 'message',
     items: panelMessages.value,
-    chars: sectionChars('system') + sectionChars('messages') + sectionChars('toolOutput'),
+    chars: sectionChars('system') + sectionChars('reasoning') + sectionChars('toolCalls') + sectionChars('toolOutput') + sectionChars('messages'),
     empty: '本轮还没有消息'
   }
 ])
@@ -319,7 +330,7 @@ const exportSession = () => {
             <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="row.dot"></span>
             <span class="text-neutral-600 dark:text-neutral-400">{{ row.label }}</span>
             <span class="ml-auto tabular-nums text-neutral-700 dark:text-neutral-300">
-              {{ formatNumber(row.value) }} 字符 · {{ row.percent }}%
+              <template v-if="row.count">{{ row.count }} {{ row.unit }} · </template>{{ formatNumber(row.value) }} 字符 · {{ row.percent }}%
             </span>
           </li>
         </ul>
