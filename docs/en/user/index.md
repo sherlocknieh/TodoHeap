@@ -119,10 +119,10 @@ Three entry points, each with one job:
 | Entry | Meaning | Contents |
 | --- | --- | --- |
 | `/` | Run an action | Add images and files, attach a skill, reference a task or schedule, new session, clear conversation, switch model, model settings |
+| `+` | Composer menu | Add images and files, attach a skill, reference a task or schedule |
 | `@` | Reference an object | Tasks and schedules, grouped by type; the selection becomes a removable chip above the input |
-| Skill button | Attach a skill | Saved skills; the skill becomes a removable chip above the input and its prompt is sent with this turn |
 
-`@` only references data objects. A skill attaches an instruction rather than referencing an object, so it stays out of the `@` list; its prompt goes into this turn's system prompt and the chip clears after sending. Referenced tasks and schedules are added to this turn's system prompt with their ids and titles, so the model knows what "this task" means. References apply to one turn only and are cleared after sending. The **+** menu is the mouse entry for attachments and never stacks with the `/` or `@` pickers.
+`@` only references data objects. A skill attaches an instruction rather than referencing an object, so it stays out of the `@` list; its prompt goes into this turn's system prompt and the chip clears after sending. Referenced tasks and schedules are added to this turn's system prompt with their ids and titles, so the model knows what "this task" means. References apply to one turn only and are cleared after sending. The **+** menu is the mouse entry for the composer and never stacks with the `/` or `@` pickers.
 
 You can also ask the agent to break an existing task down, turn a sentence into a task tree, or run a one-click optimisation. Everything happens in the chat: there are no separate AI buttons in the list or task detail panels.
 

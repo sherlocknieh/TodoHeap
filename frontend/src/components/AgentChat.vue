@@ -286,9 +286,10 @@ const onDocumentKeydown = (event) => {
 
 const pickImages = () => imageInputRef.value?.click()
 
-// + 菜单：只放附件类内容，技能与命令各有独立入口
+// + 菜单：输入框工具条的鼠标入口，附件挂载与技能都在这里
 const PLUS_MENU = [
   { key: 'image', label: '图片和文件', hint: 'Ctrl+U', icon: 'image', action: 'image' },
+  { key: 'skill', label: '挂载技能', icon: 'target', action: 'skill' },
   { key: 'context', label: '引用任务或日程', hint: '@', icon: 'link', action: 'context' }
 ]
 
@@ -296,6 +297,10 @@ const runPlusEntry = (entry) => {
   openMenu.value = ''
   if (entry.action === 'image') {
     pickImages()
+    return
+  }
+  if (entry.action === 'skill') {
+    openMenu.value = 'skill'
     return
   }
   if (entry.action === 'context') {
@@ -1055,12 +1060,12 @@ onUnmounted(() => {
 
         <p v-if="imageError" class="px-2 pb-1 text-[11px] text-rose-600 dark:text-rose-400">{{ imageError }}</p>
 
-        <!-- 工具条：+ 菜单、模型、技能、发送 -->
+        <!-- 工具条：+ 菜单、模式、模型、思考等级、发送 -->
         <div class="mt-1 flex items-center gap-1">
           <button type="button"
             class="inline-flex items-center justify-center rounded-md p-1 text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             :class="openMenu === 'plus' ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200' : ''"
-            title="添加图片和文件、引用任务或日程" @click="toggleMenu('plus')">
+            title="添加图片和文件、挂载技能、引用任务或日程" @click="toggleMenu('plus')">
             <AppIcon name="plus" :size="14" />
           </button>
           <button type="button"
@@ -1086,12 +1091,6 @@ onUnmounted(() => {
             <AppIcon name="bulb" :size="12" class="opacity-70" />
             <span>{{ reasoningLabel }}</span>
             <AppIcon name="chevronUp" :size="10" class="opacity-50" />
-          </button>
-          <button type="button"
-            class="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-neutral-600 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-            title="挂载技能" @click="toggleMenu('skill')">
-            <AppIcon name="target" :size="12" class="opacity-70" />
-            <span>技能</span>
           </button>
           <input ref="imageInputRef" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple class="hidden"
             @change="onImagePicked" />
