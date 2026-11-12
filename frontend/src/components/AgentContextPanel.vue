@@ -196,10 +196,10 @@ const breakdown = computed(() => {
   })
   return [
     row('system', '系统提示', stats.system, 'bg-context-system'),
-    row('reasoning', '思考消息', stats.reasoning, 'bg-context-reasoning', { count: stats.reasoningCount, unit: '段' }),
     row('tools', '工具定义', stats.tools, 'bg-context-tools'),
     row('toolCalls', '工具调用', stats.toolCalls, 'bg-context-calls', { count: stats.toolCallCount, unit: '次' }),
     row('toolOutput', '工具输出', stats.toolOutput, 'bg-context-output'),
+    row('reasoning', '思考消息', stats.reasoning, 'bg-context-reasoning', { count: stats.reasoningCount, unit: '段' }),
     row('messages', '对话消息', stats.messages, 'bg-context-messages')
   ]
 })
