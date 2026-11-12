@@ -115,10 +115,16 @@ const requestParamsJson = computed(() => {
   return JSON.stringify(params, null, 2)
 })
 
-// 完整请求体：实际发出的 body 原样序列化
-const requestBodyJson = computed(() => (
-  latestRequest.value?.body ? JSON.stringify(latestRequest.value.body, null, 2) : ''
-))
+// 完整请求体：值原样保留，仅按参数、工具、消息的顺序重排键，便于先看协议字段再看大块内容
+const requestBodyJson = computed(() => {
+  const body = latestRequest.value?.body
+  if (!body) return ''
+  const { tools, messages, ...params } = body
+  const ordered = { ...params }
+  if (tools !== undefined) ordered.tools = tools
+  if (messages !== undefined) ordered.messages = messages
+  return JSON.stringify(ordered, null, 2)
+})
 
 // 本轮工具定义：名称、中文标签与完整 schema，展开即可核对模型收到的约束
 const requestTools = computed(() => {
@@ -405,7 +411,7 @@ const exportSession = () => {
         </p>
       </section>
 
-      <!-- 完整请求体：实际发出的 body 原样展示，便于逐字段核对 -->
+      <!-- 完整请求体：值原样展示，键按参数、工具、消息排列，便于逐字段核对 -->
       <section v-if="requestBodyJson" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
         <div class="flex items-baseline justify-between gap-2">
           <p class="eyebrow">完整请求体</p>
@@ -414,7 +420,7 @@ const exportSession = () => {
         <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
           <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
             <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">body</span>
-            <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">model · messages · tools · tool_choice</span>
+            <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">参数 · tools · messages</span>
             <AppIcon name="chevronDown" :size="12"
               class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
           </summary>
