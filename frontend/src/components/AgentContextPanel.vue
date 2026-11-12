@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
 import { AGENT_TOOL_LABELS, AGENT_TOOL_NAMES } from '@/lib/agentTools'
-import { AGENT_MODES } from '@/lib/agentModes'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { summarizeRequest } from '@/utils/contextStats'
 import AppIcon from '@/components/AppIcon.vue'
@@ -81,11 +80,6 @@ const contextStats = computed(() => summarizeRequest({
   body: latestRequest.value?.body
 }))
 
-// 当前会话的工作模式，与输入区保持一致
-const modeLabel = computed(() => (
-  AGENT_MODES.find((mode) => mode.id === agent.activeMode)?.label || 'Plan'
-))
-
 const providerLabel = computed(() => {
   if (llm.isBuiltin) return '内置网关'
   return llm.presets.find((preset) => preset.id === llm.config?.presetId)?.label || '自定义'
@@ -94,21 +88,36 @@ const providerLabel = computed(() => {
 // 最近一次请求实际发送的消息，是模型真正看到的内容
 const rawRequestMessages = computed(() => latestRequest.value?.messages || [])
 
-// 请求参数：只保留协议层字段，工具与消息各自成块
-const requestParamsJson = computed(() => {
+// 参数在界面上的展示文案：布尔与对象转成一眼能读懂的词
+const paramText = (key, value) => {
+  if (value === undefined || value === null) return '默认'
+  if (key === 'stream') return value ? '开' : '关'
+  if (key === 'thinking') return value.type === 'disabled' ? '关闭' : '开启'
+  return String(value)
+}
+
+// 请求参数：键值与真实请求一致，展示文案单独映射
+const requestParams = computed(() => {
   const body = latestRequest.value?.body
-  if (!body) return ''
-  const params = {
-    model: body.model,
-    temperature: body.temperature,
-    stream: body.stream,
-    tool_choice: body.tool_choice
-  }
+  if (!body) return []
+  const rows = [
+    { key: 'model', value: body.model },
+    { key: 'temperature', value: body.temperature },
+    { key: 'stream', value: body.stream }
+  ]
+  if (body.tool_choice) rows.push({ key: 'tool_choice', value: body.tool_choice })
   // 只有下发思考参数时才展示，与真实请求保持一致
-  if (body.reasoning_effort) params.reasoning_effort = body.reasoning_effort
-  if (body.thinking) params.thinking = body.thinking
-  return JSON.stringify(params, null, 2)
+  if (body.reasoning_effort) rows.push({ key: 'reasoning_effort', value: body.reasoning_effort })
+  if (body.thinking) rows.push({ key: 'thinking', value: body.thinking })
+  return rows.map((row) => ({ ...row, text: paramText(row.key, row.value) }))
 })
+
+// 参数源码：值与真实请求逐字段一致，展开后才显示
+const requestParamsJson = computed(() => (
+  latestRequest.value?.body
+    ? JSON.stringify(Object.fromEntries(requestParams.value.map((row) => [row.key, row.value])), null, 2)
+    : ''
+))
 
 // 完整请求体：值原样保留，仅按参数、工具、消息的顺序重排键，便于先看协议字段再看大块内容
 const requestBody = computed(() => {
@@ -311,17 +320,23 @@ const exportSession = () => {
     </div>
 
     <div class="flex-1 min-h-0 overflow-auto px-4 py-3 space-y-3">
-      <!-- 会话摘要：标题与模式一眼可见 -->
-      <div class="space-y-1">
-        <p class="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100" :title="agent.activeSession?.title">
-          {{ agent.activeSession?.title || '新对话' }}
-        </p>
-        <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-          <span class="chip">{{ modeLabel }}</span>
-          <span class="chip">{{ providerLabel }}</span>
-          <span class="chip">{{ llm.activeModel || '未配置模型' }}</span>
-        </div>
-      </div>
+      <!-- 请求参数：协议字段一眼可见，源码结构收进展开区 -->
+      <section v-if="requestParams.length" class="space-y-1.5">
+        <p class="eyebrow">请求参数</p>
+        <dl class="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 text-[11px]">
+          <template v-for="row in requestParams" :key="row.key">
+            <dt class="font-mono text-[10px] text-neutral-500 dark:text-neutral-400">{{ row.key }}</dt>
+            <dd class="truncate text-neutral-800 dark:text-neutral-200" :title="row.text">{{ row.text }}</dd>
+          </template>
+        </dl>
+        <details class="group">
+          <summary class="flex cursor-pointer items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+            <AppIcon name="chevronDown" :size="12" class="transition-transform group-open:rotate-180" />
+            源码结构
+          </summary>
+          <pre class="mt-1.5 max-h-48 overflow-auto rounded-md border border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
+        </details>
+      </section>
 
       <!-- 上下文构成：占比条 + 明细，顶部先给最关心的用量 -->
       <section v-if="contextStats" class="space-y-1.5">
@@ -346,23 +361,6 @@ const exportSession = () => {
         </ul>
       </section>
 
-      <!-- 请求参数：协议层字段单独成栏，与工具定义分开 -->
-      <section v-if="requestParamsJson" class="space-y-1.5">
-        <div class="flex items-baseline justify-between gap-2">
-          <p class="eyebrow">请求参数</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestParamsJson.length) }} 字符</span>
-        </div>
-        <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-          <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">model · temperature · stream · tool_choice<template v-if="latestRequest?.body?.reasoning_effort"> · reasoning_effort</template><template v-if="latestRequest?.body?.thinking"> · thinking</template></span>
-            <span class="min-w-0 flex-1"></span>
-            <AppIcon name="chevronDown" :size="12"
-              class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
-          </summary>
-          <pre class="max-h-48 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
-        </details>
-      </section>
-
       <!-- 工具定义单独成块，其余消息按会话里的真实顺序排列 -->
       <section v-for="section in sections" :key="section.key" class="space-y-1.5">
         <div class="flex items-baseline justify-between gap-2">
@@ -373,7 +371,7 @@ const exportSession = () => {
         </div>
         <p v-if="section.key === 'tools' && toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
 
-        <!-- 工具定义：请求参数在前，工具定义在后，每条都可展开 -->
+        <!-- 工具定义：每条都可展开看完整 schema -->
         <div v-if="section.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
           <details v-for="(item, index) in section.items" :key="`${section.key}-${index}`"
             class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
