@@ -116,15 +116,24 @@ const requestParamsJson = computed(() => {
 })
 
 // 完整请求体：值原样保留，仅按参数、工具、消息的顺序重排键，便于先看协议字段再看大块内容
-const requestBodyJson = computed(() => {
+const requestBody = computed(() => {
   const body = latestRequest.value?.body
-  if (!body) return ''
+  if (!body) return null
   const { tools, messages, ...params } = body
   const ordered = { ...params }
   if (tools !== undefined) ordered.tools = tools
   if (messages !== undefined) ordered.messages = messages
-  return JSON.stringify(ordered, null, 2)
+  return ordered
 })
+
+const requestBodyJson = computed(() => (
+  requestBody.value ? JSON.stringify(requestBody.value, null, 2) : ''
+))
+
+// 长度按紧凑序列化计：美化用的缩进换行不占上下文，不应算进「字符」里
+const requestBodyChars = computed(() => (
+  requestBody.value ? JSON.stringify(requestBody.value).length : 0
+))
 
 // 本轮工具定义：名称、中文标签与完整 schema，展开即可核对模型收到的约束
 const requestTools = computed(() => {
@@ -415,7 +424,7 @@ const exportSession = () => {
       <section v-if="requestBodyJson" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
         <div class="flex items-baseline justify-between gap-2">
           <p class="eyebrow">完整请求体</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestBodyJson.length) }} 字符</span>
+          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestBodyChars) }} 字符</span>
         </div>
         <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
           <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
