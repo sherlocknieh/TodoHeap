@@ -86,11 +86,6 @@ const modeLabel = computed(() => (
   AGENT_MODES.find((mode) => mode.id === agent.activeMode)?.label || 'Plan'
 ))
 
-// 请求次数：一次用户消息可能触发多轮工具调用
-const requestCount = computed(() => (
-  agent.messages.reduce((sum, message) => sum + (message.requests?.length || 0), 0)
-))
-
 const providerLabel = computed(() => {
   if (llm.isBuiltin) return '内置网关'
   return llm.presets.find((preset) => preset.id === llm.config?.presetId)?.label || '自定义'
@@ -349,14 +344,6 @@ const exportSession = () => {
             </span>
           </li>
         </ul>
-        <!-- 次要指标收成一行，避免与上方占比重复 -->
-        <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-          <span>{{ formatNumber(contextStats.total) }} 字符</span>
-          <span class="text-neutral-300 dark:text-neutral-600">·</span>
-          <span>{{ agent.messages.length }} 条消息 / {{ requestCount }} 次请求</span>
-          <span class="text-neutral-300 dark:text-neutral-600">·</span>
-          <span>temperature {{ llm.config?.temperature ?? '默认' }}</span>
-        </p>
       </section>
 
       <!-- 请求参数：协议层字段单独成栏，与工具定义分开 -->

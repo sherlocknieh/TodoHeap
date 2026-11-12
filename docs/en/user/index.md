@@ -104,8 +104,7 @@ The panel on the right of the AI view shows this turn's input in a single page:
 | Block | Contents |
 | --- | --- |
 | Session summary | Title plus mode, provider and model chips |
-| Key metrics | Context estimate, character count, messages / requests, temperature |
-| Context breakdown | Share of system prompt, history and tool results, with estimated tokens |
+| Context breakdown | Share of system prompt, tool definitions, reasoning, tool calls, tool output and conversation messages, with estimated tokens and counts for reasoning and calls |
 | Tools this turn | Tools actually offered in the request; flagged when limited by mode or skill |
 | Latest request | Every message the model actually received, each with a content summary (tool calls read as "调用 查看任务"), expandable to raw JSON; also exports the session |
 | Timeline | Created, last activity and latest request time on one line |
