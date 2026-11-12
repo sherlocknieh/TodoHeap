@@ -132,51 +132,26 @@ const breakdown = computed(() => {
   ]
 })
 
-// 请求消息按四类分组，供下方区域逐项展开
-const systemMessages = computed(() => rawRequestMessages.value.filter((message) => message.role === 'system'))
-
-const conversationMessages = computed(() => rawRequestMessages.value.filter((message) => (
-  message.role === 'user' || message.role === 'assistant'
-)))
-
-const toolOutputMessages = computed(() => rawRequestMessages.value.filter((message) => message.role === 'tool'))
-
 // 每个区域标题右侧的字符数，与上方占比行同源
 const sectionChars = (key) => breakdown.value.find((row) => row.key === key)?.value || 0
 
-// 四个区域按上下文构成顺序排列，数据与统计口径同源
+// 下方只有两个区域：工具定义单独成块，其余消息按请求里的真实顺序排列
 const sections = computed(() => [
-  {
-    key: 'system',
-    label: '系统提示',
-    kind: 'message',
-    items: systemMessages.value,
-    chars: sectionChars('system'),
-    empty: '本轮没有系统提示'
-  },
   {
     key: 'tools',
     label: '可用工具',
     kind: 'tool',
     items: requestTools.value,
     chars: sectionChars('tools'),
-    empty: '本轮未发送工具定义'
+    empty: '最近一次请求未包含工具定义'
   },
   {
     key: 'messages',
-    label: '对话消息',
+    label: '请求消息',
     kind: 'message',
-    items: conversationMessages.value,
-    chars: sectionChars('messages'),
-    empty: '本轮没有对话消息'
-  },
-  {
-    key: 'toolOutput',
-    label: '工具输出',
-    kind: 'message',
-    items: toolOutputMessages.value,
-    chars: sectionChars('toolOutput'),
-    empty: '本轮没有工具输出'
+    items: rawRequestMessages.value,
+    chars: sectionChars('system') + sectionChars('messages') + sectionChars('toolOutput'),
+    empty: '最近一次请求没有消息'
   }
 ])
 
@@ -301,7 +276,7 @@ const exportSession = () => {
         </p>
       </section>
 
-      <!-- 四个区域与上下文构成一一对应：系统提示 / 可用工具 / 对话消息 / 工具输出 -->
+      <!-- 工具定义单独成块，其余消息按请求里的真实顺序排列 -->
       <section v-for="section in sections" :key="section.key" class="space-y-1.5">
         <div class="flex items-baseline justify-between gap-2">
           <p class="eyebrow">{{ section.label }}</p>
