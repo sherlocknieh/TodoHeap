@@ -147,4 +147,18 @@ html, body, #app {
     @apply inline-flex items-center gap-1 rounded-full border border-neutral-300 px-1.5 py-0.5
       text-[11px] leading-4 text-neutral-700 dark:border-neutral-600 dark:text-neutral-300;
   }
+
+  /* 源码块：面板里的 JSON 与 schema 共用同一套排版 */
+  .code-block {
+    @apply max-h-56 overflow-auto rounded-md border border-hairline bg-neutral-50 p-2
+      font-mono text-[10px] leading-4 text-neutral-700
+      dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300;
+  }
+
+  /* 列表里的源码块贴着展开行，只留分隔线，不重复外框与圆角 */
+  .code-block-flush {
+    @apply max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2
+      font-mono text-[10px] leading-4 text-neutral-700
+      dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300;
+  }
 }

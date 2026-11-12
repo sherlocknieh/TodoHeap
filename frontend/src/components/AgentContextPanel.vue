@@ -325,8 +325,7 @@ const exportSession = () => {
             <dd class="truncate text-neutral-800 dark:text-neutral-200" :title="row.text">{{ row.text }}</dd>
           </div>
         </dl>
-        <pre v-if="paramsOpen"
-          class="max-h-48 overflow-auto rounded-md border border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestParamsJson }}</pre>
+        <pre v-if="paramsOpen" class="code-block">{{ requestParamsJson }}</pre>
       </section>
 
       <!-- 上下文构成：占比条 + 明细，顶部先给最关心的用量 -->
@@ -380,12 +379,7 @@ const exportSession = () => {
               <AppIcon name="chevronDown" :size="12"
                 class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
             </summary>
-            <div v-if="section.kind === 'tool'"
-              class="border-t border-hairline bg-neutral-50 p-2 dark:border-hairline-dark dark:bg-neutral-900">
-              <pre class="max-h-48 overflow-auto rounded bg-white p-2 text-[10px] leading-4 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">{{ item.json }}</pre>
-            </div>
-            <pre v-else
-              class="max-h-56 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[11px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestMessageJson(item) }}</pre>
+            <pre class="code-block-flush">{{ section.kind === 'tool' ? item.json : requestMessageJson(item) }}</pre>
           </details>
         </div>
         <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
@@ -413,7 +407,7 @@ const exportSession = () => {
             <AppIcon name="chevronDown" :size="12"
               class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
           </summary>
-          <pre class="max-h-72 overflow-auto border-t border-hairline bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-700 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-300">{{ requestBodyJson }}</pre>
+          <pre class="code-block-flush">{{ requestBodyJson }}</pre>
         </details>
       </section>
 
