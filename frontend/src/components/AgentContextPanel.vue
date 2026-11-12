@@ -187,7 +187,7 @@ const breakdown = computed(() => {
   const share = (value) => (stats.total ? (value / stats.total) * 100 : 0)
   return [
     { key: 'system', label: '系统提示', value: stats.system, width: share(stats.system), percent: Math.round(share(stats.system)), dot: 'bg-context-system' },
-    { key: 'tools', label: '可用工具', value: stats.tools, width: share(stats.tools), percent: Math.round(share(stats.tools)), dot: 'bg-context-tools' },
+    { key: 'tools', label: '工具定义', value: stats.tools, width: share(stats.tools), percent: Math.round(share(stats.tools)), dot: 'bg-context-tools' },
     { key: 'messages', label: '对话消息', value: stats.messages, width: share(stats.messages), percent: Math.round(share(stats.messages)), dot: 'bg-context-messages' },
     { key: 'toolOutput', label: '工具输出', value: stats.toolOutput, width: share(stats.toolOutput), percent: Math.round(share(stats.toolOutput)), dot: 'bg-context-output' }
   ]
@@ -200,7 +200,7 @@ const sectionChars = (key) => breakdown.value.find((row) => row.key === key)?.va
 const sections = computed(() => [
   {
     key: 'tools',
-    label: '可用工具',
+    label: '工具定义',
     kind: 'tool',
     items: requestTools.value,
     chars: sectionChars('tools'),
@@ -360,7 +360,7 @@ const exportSession = () => {
         </div>
         <p v-if="section.key === 'tools' && toolLimited" class="text-[11px] text-accent-700 dark:text-accent-300">受模式或技能限定</p>
 
-        <!-- 可用工具：请求参数在前，工具定义在后，每条都可展开 -->
+        <!-- 工具定义：请求参数在前，工具定义在后，每条都可展开 -->
         <div v-if="section.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
           <details v-for="(item, index) in section.items" :key="`${section.key}-${index}`"
             class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
