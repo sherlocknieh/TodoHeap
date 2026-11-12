@@ -157,7 +157,7 @@ describe('streamChatCompletion', () => {
 })
 
 describe('buildChatRequestBody', () => {
-  it('不指定思考等级时不发 reasoning_effort', () => {
+  it('默认时不发 reasoning_effort', () => {
     const body = buildChatRequestBody({
       model: 'demo',
       messages: [{ role: 'user', content: 'hi' }],

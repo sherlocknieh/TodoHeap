@@ -29,11 +29,12 @@ export const DEFAULT_LLM_CONFIG = {
 }
 
 // 思考等级：off 表示不下发 reasoning_effort，其余值原样作为 reasoning_effort 下发
+// 浮层按强度从高到低展示，off 作为兜底放在最后
 export const REASONING_EFFORTS = [
-  { id: 'off', label: '不指定', description: '不发 reasoning_effort，由模型决定是否思考' },
-  { id: 'low', label: '低', description: '少量思考，响应更快' },
+  { id: 'high', label: '高', description: '深度推理，耗时更长' },
   { id: 'medium', label: '中', description: '平衡速度与推理深度' },
-  { id: 'high', label: '高', description: '深度推理，耗时更长' }
+  { id: 'low', label: '低', description: '少量思考，响应更快' },
+  { id: 'off', label: '默认', description: '不发 reasoning_effort，由模型决定是否思考' }
 ]
 
 const REASONING_EFFORT_IDS = REASONING_EFFORTS.map((item) => item.id)

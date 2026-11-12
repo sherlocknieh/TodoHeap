@@ -180,11 +180,11 @@ const switchModel = (model) => {
   openMenu.value = ''
 }
 
-// 思考等级：不指定时不发 reasoning_effort，其余值原样下发给模型
+// 思考等级：默认时不发 reasoning_effort，其余值原样下发给模型
 const reasoningEffort = computed(() => llm.config?.reasoningEffort || 'off')
 
 const reasoningLabel = computed(() => (
-  REASONING_EFFORTS.find((item) => item.id === reasoningEffort.value)?.label || '不指定'
+  REASONING_EFFORTS.find((item) => item.id === reasoningEffort.value)?.label || '默认'
 ))
 
 const switchReasoningEffort = (id) => {
@@ -973,7 +973,7 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- 思考等级浮层：不指定时不发 reasoning_effort -->
+      <!-- 思考等级浮层：默认时不发 reasoning_effort -->
       <div v-if="openMenu === 'reasoning'"
         class="absolute bottom-full left-0 z-20 mb-1.5 w-56 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
         <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">思考等级</p>
