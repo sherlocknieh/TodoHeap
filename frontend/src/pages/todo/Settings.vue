@@ -483,7 +483,8 @@ import {
   readDidaAuth,
   readDidaCallbackError,
   saveDidaAuth,
-  startDidaAuthorize
+  startDidaAuthorize,
+  onDidaAuthChange
 } from '@/lib/didaMcp'
 import AppIcon from '@/components/AppIcon.vue'
 import ProviderSettings from '@/components/ProviderSettings.vue'
@@ -713,7 +714,7 @@ const handleImportDrop = (event) => {
   loadImportFile(event.dataTransfer?.files?.[0])
 }
 
-// 连接滴答清单：整页跳转授权，回跳后在 main.ts 里换取令牌
+// 连接滴答清单：在新标签页完成授权，原页面保持不动
 const handleDidaConnect = async () => {
   if (isDidaConnecting.value) return
   didaError.value = ''
@@ -722,6 +723,7 @@ const handleDidaConnect = async () => {
     await startDidaAuthorize()
   } catch (err) {
     didaError.value = err instanceof Error ? err.message : '连接滴答清单失败'
+  } finally {
     isDidaConnecting.value = false
   }
 }
@@ -1083,6 +1085,9 @@ const handleDeleteAccount = async () => {
   }
 }
 
+// 授权在新标签页完成：收到通知后立刻刷新连接状态，不必手动刷新页面
+let stopDidaAuthWatch = () => {}
+
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
   await loadSettings()
@@ -1090,9 +1095,19 @@ onMounted(async () => {
   // 授权回跳失败的原因由 didaMcp 暂存，这里取出来展示一次
   const callbackError = readDidaCallbackError()
   if (callbackError) didaError.value = callbackError
+
+  stopDidaAuthWatch = onDidaAuthChange((detail) => {
+    if (detail?.status === 'connected') {
+      didaAuth.value = readDidaAuth(authStore.user?.id)
+      didaError.value = ''
+    } else if (detail?.status === 'failed' && detail.error) {
+      didaError.value = String(detail.error)
+    }
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  stopDidaAuthWatch()
 })
 </script>

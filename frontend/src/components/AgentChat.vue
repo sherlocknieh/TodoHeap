@@ -13,6 +13,7 @@ import { isMcpToolName, mcpToolLabel } from '@/lib/mcpServers'
 import { AGENT_MODES } from '@/lib/agentModes'
 import { REASONING_EFFORTS } from '@/lib/llmProvider'
 import { MAX_IMAGES_PER_MESSAGE, createImageAttachment } from '@/lib/agentImages'
+import { onDidaAuthChange } from '@/lib/didaMcp'
 
 const router = useRouter()
 const agent = useAgentStore()
@@ -658,6 +659,15 @@ const bootstrapMcp = () => {
   agent.completePendingPreset().finally(() => agent.refreshMcpServers())
 }
 
+// 授权在新标签页完成，原页面收到通知后补上待添加的服务，不必刷新
+let stopDidaAuthWatch = () => {}
+const watchDidaAuth = () => {
+  stopDidaAuthWatch()
+  stopDidaAuthWatch = onDidaAuthChange((detail) => {
+    if (detail?.status === 'connected') bootstrapMcp()
+  })
+}
+
 watch(() => authStore.user?.id, (id) => {
   agent.init(id)
   bootstrapMcp()
@@ -674,6 +684,7 @@ watch(() => agent.activeSessionId, () => {
 watch(() => props.selectedTaskId, (id) => agent.setContext({ selectedTaskId: id }), { immediate: true })
 
 onMounted(() => {
+  watchDidaAuth()
   agent.init(authStore.user?.id)
   // 授权回跳后先补上待添加的内置服务，再补齐其余服务的外部工具
   bootstrapMcp()
@@ -691,6 +702,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  stopDidaAuthWatch()
   document.removeEventListener('pointerdown', onDocumentPointerDown)
   document.removeEventListener('keydown', onDocumentKeydown, true)
 })

@@ -122,3 +122,23 @@ describe('buildDidaImport', () => {
     expect(buildDidaImport({ projects, tasks, includeCompleted: true }).tasks).toHaveLength(2)
   })
 })
+
+describe('跨标签页授权', () => {
+  it('待授权状态的写入与清除走同一份存储', async () => {
+    const { readPendingDidaAuth } = await import('./didaMcp')
+    // node 环境下没有 window，读取应安全返回 null 而不是抛错
+    expect(readPendingDidaAuth()).toBeNull()
+  })
+
+  it('订阅在无 window 时返回可调用的取消函数', async () => {
+    const { onDidaAuthChange } = await import('./didaMcp')
+    const stop = onDidaAuthChange(() => {})
+    expect(typeof stop).toBe('function')
+    expect(() => stop()).not.toThrow()
+  })
+
+  it('独立标签页判断在无 window 时不做任何事', async () => {
+    const { closeAuthTabIfStandalone } = await import('./didaMcp')
+    expect(closeAuthTabIfStandalone()).toBe(false)
+  })
+})

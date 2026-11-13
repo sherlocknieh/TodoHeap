@@ -9,7 +9,16 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
-import { MAX_MCP_NAME, MCP_PRESETS, findMcpPreset, findPresetServer } from '@/lib/mcpServers'
+import {
+  MAX_MCP_NAME,
+  MCP_PRESETS,
+  clearPendingPreset,
+  findMcpPreset,
+  findPresetServer,
+  isTokenFresh,
+  markPendingPreset
+} from '@/lib/mcpServers'
+import { readDidaAuth, startDidaAuthorize } from '@/lib/didaMcp'
 import { AGENT_MODES } from '@/lib/agentModes'
 import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { useResizablePanel, useResizableHeight } from '@/utils/resizablePanel'
@@ -65,9 +74,7 @@ const skillError = ref('')
 // MCP 服务编辑器：名称、地址与令牌一起保存，连接后才列出工具
 const mcpForm = ref(null)
 const mcpFormError = ref('')
-// 一键添加的独立状态：失败原因要能显示在预设按钮下面，不能藏在编辑表单里
-const presetBusyId = ref('')
-const presetError = ref('')
+
 
 // 侧栏分组默认展开，点击标题折叠；折叠选择本地保留（参考 VSCode 侧栏）
 const collapsedSections = persistedRef('sidebar-sections', { sessions: false, skills: false, mcp: false }, {
@@ -197,7 +204,7 @@ const attachSkill = (skill) => {
 const startNewMcp = () => {
   mcpFormError.value = ''
   expandSection('mcp')
-  mcpForm.value = { id: null, name: '', endpoint: '', token: '' }
+  mcpForm.value = { id: null, presetId: '', name: '', endpoint: '', token: '' }
 }
 
 const startEditMcp = (server) => {
@@ -205,6 +212,7 @@ const startEditMcp = (server) => {
   expandSection('mcp')
   mcpForm.value = {
     id: server.id,
+    presetId: server.presetId || '',
     name: server.name,
     endpoint: server.endpoint,
     token: server.token || ''
@@ -214,6 +222,14 @@ const startEditMcp = (server) => {
 const cancelMcpForm = () => {
   mcpForm.value = null
   mcpFormError.value = ''
+}
+
+// 内置预设缺令牌时先整页授权，回跳后由 completePendingPreset 建服务
+const needsPresetAuthorize = (form) => {
+  const preset = findMcpPreset(form.presetId)
+  if (!preset?.requiresDidaAuth) return false
+  if (form.token.trim()) return false
+  return !isTokenFresh(readDidaAuth(authStore.user?.id))
 }
 
 // 保存后立即连接一次：拿不到工具列表就说明地址或令牌有问题
@@ -226,6 +242,17 @@ const saveMcp = async () => {
   }
   if (!/^https?:\/\//i.test(form.endpoint.trim())) {
     mcpFormError.value = '服务地址要以 http:// 或 https:// 开头'
+    return
+  }
+
+  if (needsPresetAuthorize(form)) {
+    markPendingPreset(form.presetId)
+    try {
+      await startDidaAuthorize()
+    } catch (err) {
+      clearPendingPreset()
+      mcpFormError.value = err instanceof Error ? err.message : '无法开始滴答清单授权'
+    }
     return
   }
 
@@ -283,22 +310,18 @@ const availablePresets = computed(() => MCP_PRESETS.filter((preset) => (
 
 const isPresetServer = (server) => Boolean(server.presetId)
 
-// 预设服务需要重新授权时直接跳转，回来由 completePendingPreset 续上
-const handlePresetAdd = async (preset) => {
-  if (presetBusyId.value) return
-  presetError.value = ''
+// 一键添加先填好表单，由用户确认地址与令牌后再保存
+const handlePresetAdd = (preset) => {
+  mcpFormError.value = ''
   expandSection('mcp')
-  presetBusyId.value = preset.id
-  try {
-    const result = await agent.addMcpPreset(preset.id)
-    // 授权需要整页跳转，跳转前不给错误提示
-    if (result && result.success === false && !result.pending) {
-      presetError.value = result.error || '添加失败'
-    }
-  } catch (err) {
-    presetError.value = err instanceof Error ? err.message : '添加失败'
-  } finally {
-    presetBusyId.value = ''
+
+  const auth = readDidaAuth(authStore.user?.id)
+  mcpForm.value = {
+    id: null,
+    presetId: preset.id,
+    name: preset.name,
+    endpoint: preset.endpoint,
+    token: preset.requiresDidaAuth && isTokenFresh(auth) ? auth.accessToken : ''
   }
 }
 
@@ -575,20 +598,14 @@ const switchView = (view) => {
             <div v-if="availablePresets.length" class="mx-2 mb-1.5 space-y-1">
               <p class="text-[11px] text-neutral-400 dark:text-neutral-500">一键添加</p>
               <button v-for="preset in availablePresets" :key="preset.id" type="button"
-                class="flex w-full items-center gap-2 rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-left transition-colors hover:border-accent-400 hover:bg-accent-50/70 disabled:cursor-progress disabled:opacity-60 dark:border-neutral-700 dark:hover:bg-accent-500/[0.06]"
-                :disabled="Boolean(presetBusyId)"
+                class="flex w-full items-center gap-2 rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-left transition-colors hover:border-accent-400 hover:bg-accent-50/70 dark:border-neutral-700 dark:hover:bg-accent-500/[0.06]"
                 :title="preset.description" @click="handlePresetAdd(preset)">
-                <AppIcon :name="presetBusyId === preset.id ? 'loader' : 'plus'" :size="12"
-                  class="shrink-0 opacity-70" :class="presetBusyId === preset.id ? 'animate-spin' : ''" />
+                <AppIcon name="plus" :size="12" class="shrink-0 opacity-70" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-xs text-neutral-700 dark:text-neutral-300">{{ preset.name }}</span>
                   <span class="block truncate text-[10px] text-neutral-400 dark:text-neutral-500">{{ preset.description }}</span>
                 </span>
               </button>
-              <p v-if="presetError" class="flex items-start gap-1 text-[11px] text-rose-600 dark:text-rose-400">
-                <AppIcon name="alert" :size="11" class="mt-0.5 shrink-0" />
-                <span class="min-w-0 break-words">{{ presetError }}</span>
-              </p>
             </div>
 
             <p v-if="!agent.mcpServers.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">

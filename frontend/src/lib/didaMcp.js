@@ -17,11 +17,12 @@ const AUTH_KEY_PREFIX = 'todoheap.dida-mcp.'
 const CLIENT_KEY = 'todoheap.dida-mcp.client'
 const PENDING_KEY = 'todoheap.dida-mcp.pending'
 const CALLBACK_ERROR_KEY = 'todoheap.dida-mcp.callback-error'
+// 授权在新标签页完成，原页面通过这个通道得知结果并刷新状态
+const AUTH_CHANNEL = 'todoheap.dida-mcp.auth'
 
 const LOGIN_EXPIRED_MESSAGE = '登录状态已失效，请重新登录'
 
 const storage = () => (typeof window === 'undefined' ? null : window.localStorage)
-const sessionStore = () => (typeof window === 'undefined' ? null : window.sessionStorage)
 
 const messageOf = (err) => (err instanceof Error ? err.message : String(err ?? ''))
 
@@ -96,8 +97,9 @@ export const clearDidaAuth = (userId) => {
   }
 }
 
+// 待授权的 PKCE 校验对与 state 必须跨标签页可见，故存 localStorage
 export const readPendingDidaAuth = () => {
-  const store = sessionStore()
+  const store = storage()
   if (!store) return null
   try {
     const raw = store.getItem(PENDING_KEY)
@@ -108,18 +110,18 @@ export const readPendingDidaAuth = () => {
 }
 
 const writePendingDidaAuth = (pending) => {
-  const store = sessionStore()
+  const store = storage()
   if (store) store.setItem(PENDING_KEY, JSON.stringify(pending))
 }
 
-const clearPendingDidaAuth = () => {
-  const store = sessionStore()
+export const clearPendingDidaAuth = () => {
+  const store = storage()
   if (store) store.removeItem(PENDING_KEY)
 }
 
 // 授权失败原因留给设置页展示，回跳后地址栏已被清理，只能靠这里传递
 export const readDidaCallbackError = () => {
-  const store = sessionStore()
+  const store = storage()
   if (!store) return ''
   const message = store.getItem(CALLBACK_ERROR_KEY) ?? ''
   store.removeItem(CALLBACK_ERROR_KEY)
@@ -127,8 +129,41 @@ export const readDidaCallbackError = () => {
 }
 
 const writeDidaCallbackError = (message) => {
-  const store = sessionStore()
+  const store = storage()
   if (store) store.setItem(CALLBACK_ERROR_KEY, message)
+}
+
+// 通知原页面授权状态变化：同标签页用自定义事件，跨标签页用 BroadcastChannel
+const announceAuthChange = (payload) => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(AUTH_CHANNEL, { detail: payload }))
+  try {
+    const channel = new BroadcastChannel(AUTH_CHANNEL)
+    channel.postMessage(payload)
+    channel.close()
+  } catch {
+    // 不支持 BroadcastChannel 时原页面仍可通过 storage 事件感知
+  }
+}
+
+// 订阅授权结果，返回取消订阅函数
+export const onDidaAuthChange = (handler) => {
+  if (typeof window === 'undefined') return () => {}
+  const onLocal = (event) => handler(event.detail ?? {})
+  window.addEventListener(AUTH_CHANNEL, onLocal)
+
+  let channel = null
+  try {
+    channel = new BroadcastChannel(AUTH_CHANNEL)
+    channel.onmessage = (event) => handler(event.data ?? {})
+  } catch {
+    channel = null
+  }
+
+  return () => {
+    window.removeEventListener(AUTH_CHANNEL, onLocal)
+    channel?.close()
+  }
 }
 
 // PKCE 校验对：verifier 留在本地，challenge 随授权请求发给滴答
@@ -193,8 +228,9 @@ const callDidaGateway = async (action, payload = {}) => {
   return body
 }
 
-// 开始授权：拿到客户端后整页跳转到滴答登录页
-export const startDidaAuthorize = async () => {
+// 开始授权：在新标签页打开滴答登录页，原页面保持不动
+// 若被浏览器拦截弹窗，退化为整页跳转，保证授权总能继续
+export const startDidaAuthorize = async ({ newTab = true } = {}) => {
   const redirectUri = didaRedirectUri()
   let clientId = readCachedClient(redirectUri)
   if (!clientId) {
@@ -206,11 +242,29 @@ export const startDidaAuthorize = async () => {
   const { verifier, challenge } = await createPkcePair()
   const state = createDidaState()
 
-  writePendingDidaAuth({ clientId, verifier, state, redirectUri })
-  window.location.assign(buildDidaAuthorizeUrl({ clientId, redirectUri, challenge, state }))
+  writePendingDidaAuth({ clientId, verifier, state, redirectUri, startedAt: Date.now() })
+  const url = buildDidaAuthorizeUrl({ clientId, redirectUri, challenge, state })
+  if (!newTab) {
+    window.location.assign(url)
+    return false
+  }
+
+  // 带上 noopener 时 window.open 恒返回 null，无法区分“被拦截”，这里手动切断引用
+  const opened = window.open(url, '_blank')
+  if (!opened) {
+    window.location.assign(url)
+    return false
+  }
+  try {
+    opened.opener = null
+  } catch {
+    // 跨域后无法再改写引用，忽略
+  }
+  return true
 }
 
 // 回跳后换令牌；返回授权结果，失败时抛出可直接展示的错误
+// 该函数运行在新标签页，换到的令牌写入 localStorage 后通知原页面
 export const completeDidaAuthorize = async (search = window.location.search) => {
   const params = new URLSearchParams(search)
   const code = params.get('code')
@@ -242,10 +296,20 @@ export const completeDidaAuthorize = async (search = window.location.search) => 
   }
   saveDidaAuth(userId, auth)
   clearPendingDidaAuth()
+  announceAuthChange({ status: 'connected', userId })
   return auth
 }
 
-// 处理整页回跳：清理地址栏参数，把结果交给设置页
+// 回跳发生在独立标签页时，完成后关闭自己；无法关闭时提示用户
+export const closeAuthTabIfStandalone = () => {
+  if (typeof window === 'undefined' || window.opener) return false
+  // 只有脚本打开过的窗口才允许关闭，直接访问的授权页保持打开
+  if (window.history.length <= 1) return false
+  window.close()
+  return true
+}
+
+// 处理回跳：清理地址栏参数，换令牌并通知可能打开着的原页面
 export const handleDidaCallback = async () => {
   if (typeof window === 'undefined') return false
   const search = window.location.search
@@ -259,6 +323,7 @@ export const handleDidaCallback = async () => {
     // 客户端可能已失效（例如换成平台应用），清掉缓存让下次重新注册
     clearCachedClient()
     writeDidaCallbackError(messageOf(err))
+    announceAuthChange({ status: 'failed', error: messageOf(err) })
     return false
   }
 }
