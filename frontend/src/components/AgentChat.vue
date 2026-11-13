@@ -618,6 +618,12 @@ const regenerate = () => {
   agent.regenerate()
 }
 
+// 步数上限只是本轮被截断，接着跑而不是丢弃已完成的回复
+const continueTurn = () => {
+  if (!canRegenerate.value) return
+  agent.continueTurn()
+}
+
 const openProviderSettings = () => {
   router.push({ name: 'settings', query: { tab: 'provider' } })
 }
@@ -890,11 +896,13 @@ onUnmounted(() => {
       <AppIcon name="chevronDown" :size="14" />
     </button>
 
-    <!-- 错误提示：可一键重试，不必重新输入 -->
+    <!-- 错误提示：步数上限时接着跑，其余错误可一键重试，不必重新输入 -->
     <div v-if="agent.error" class="shrink-0 pt-2 flex items-start gap-1.5 text-xs text-rose-600 dark:text-rose-400">
       <AppIcon name="alert" :size="13" class="mt-0.5" />
       <span class="flex-1">{{ agent.error }}</span>
-      <button v-if="canRegenerate" class="shrink-0 rounded px-1 py-0.5 font-medium transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
+      <button v-if="canRegenerate && agent.stepLimited" class="shrink-0 rounded px-1 py-0.5 font-medium transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
+        @click="continueTurn">继续</button>
+      <button v-else-if="canRegenerate" class="shrink-0 rounded px-1 py-0.5 font-medium transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
         @click="regenerate">重试</button>
     </div>
 

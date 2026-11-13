@@ -262,6 +262,8 @@ export const useAgentStore = defineStore('agent', () => {
   const activeSessionId = ref(null)
   const running = ref(false)
   const error = ref('')
+  // 本轮因步数上限被截断：错误条据此提供“继续”，而不是丢弃回复重跑
+  const stepLimited = ref(false)
   // 输入草稿由聊天框维护，技能不再写入这里
   const draft = ref('')
   // 每个会话各自保留未发送的草稿，切换会话不会互相覆盖
@@ -572,6 +574,7 @@ export const useAgentStore = defineStore('agent', () => {
     }
 
     error.value = ''
+    stepLimited.value = false
     draft.value = drafts.value[activeSessionId.value] || ''
     persist()
     hydrateImages(messages.value.flatMap((message) => message.images || []))
@@ -600,6 +603,7 @@ export const useAgentStore = defineStore('agent', () => {
     draft.value = ''
     attachedSkills.value = []
     error.value = ''
+    stepLimited.value = false
     persist()
     return session.id
   }
@@ -616,6 +620,7 @@ export const useAgentStore = defineStore('agent', () => {
     draft.value = drafts.value[id] || ''
     attachedSkills.value = []
     error.value = ''
+    stepLimited.value = false
     persist()
     hydrateImages(messages.value.flatMap((message) => message.images || []))
   }
@@ -649,6 +654,7 @@ export const useAgentStore = defineStore('agent', () => {
     }
 
     error.value = ''
+    stepLimited.value = false
     persist()
   }
 
@@ -656,6 +662,7 @@ export const useAgentStore = defineStore('agent', () => {
     removeStoredImages(messages.value.flatMap((message) => message.images || []))
     messages.value.splice(0)
     error.value = ''
+    stepLimited.value = false
     setDraft('')
     attachedSkills.value = []
     persist()
@@ -799,6 +806,7 @@ export const useAgentStore = defineStore('agent', () => {
     const isCurrentSession = () => activeSessionId.value === sessionId
 
     error.value = ''
+    stepLimited.value = false
     running.value = true
     abortController = new AbortController()
     const signal = abortController.signal
@@ -932,7 +940,8 @@ export const useAgentStore = defineStore('agent', () => {
         }
 
         if (step === MAX_STEPS - 1) {
-          error.value = `本轮已达到 ${MAX_STEPS} 步工具调用上限，已完成的操作均已保存；回复“继续”即可接着处理`
+          stepLimited.value = true
+          error.value = `本轮已达到 ${MAX_STEPS} 步工具调用上限，已完成的操作均已保存；点“继续”即可接着处理`
         }
       }
     } catch (err) {
@@ -946,7 +955,10 @@ export const useAgentStore = defineStore('agent', () => {
           if (!last.content && !last.toolCalls?.length) target.pop()
         }
       } else {
-        if (isCurrentSession()) error.value = err?.message || '模型调用失败'
+        if (isCurrentSession()) {
+          stepLimited.value = false
+          error.value = err?.message || '模型调用失败'
+        }
         if (last?.role === 'assistant' && last.streaming) {
           last.streaming = false
           if (!last.content && !last.toolCalls?.length) target.pop()
@@ -1009,6 +1021,15 @@ export const useAgentStore = defineStore('agent', () => {
     await startTurn({ userMessage })
   }
 
+  // 步数上限后接着处理：保留已完成的回复与工具结果，从最后一条用户消息继续请求
+  const continueTurn = async () => {
+    if (running.value || pendingApproval.value || pendingChoice.value) return
+    const lastUserIndex = messages.value.map((message) => message.role).lastIndexOf('user')
+    if (lastUserIndex === -1) return
+
+    await startTurn({ userMessage: messages.value[lastUserIndex] })
+  }
+
   // 编辑后重发：截断该消息之后的内容，用新文本替换并重新请求
   const editAndResend = async (messageId, text) => {
     const content = String(text || '').trim()
@@ -1060,6 +1081,7 @@ export const useAgentStore = defineStore('agent', () => {
     activeSession,
     running,
     error,
+    stepLimited,
     draft,
     drafts,
     attachedSkills,
@@ -1096,6 +1118,7 @@ export const useAgentStore = defineStore('agent', () => {
     reauthorizePreset,
     detachSkill,
     regenerate,
+    continueTurn,
     editAndResend,
     deleteMessage,
     setDraft,

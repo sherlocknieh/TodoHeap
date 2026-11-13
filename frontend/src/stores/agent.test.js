@@ -415,6 +415,43 @@ describe('useAgentStore', () => {
     expect(agent.messages.at(-1).content).toBe('第二次回答')
   })
 
+  it('步数上限后继续会保留已有回复并接着请求', async () => {
+    const toolReplies = Array.from({ length: 12 }, () => toolCallResponse('list_todos', {}))
+    mocks.chat
+      .mockResolvedValueOnce(toolReplies[0])
+      .mockResolvedValueOnce(toolReplies[1])
+      .mockResolvedValueOnce(toolReplies[2])
+      .mockResolvedValueOnce(toolReplies[3])
+      .mockResolvedValueOnce(toolReplies[4])
+      .mockResolvedValueOnce(toolReplies[5])
+      .mockResolvedValueOnce(toolReplies[6])
+      .mockResolvedValueOnce(toolReplies[7])
+      .mockResolvedValueOnce(toolReplies[8])
+      .mockResolvedValueOnce(toolReplies[9])
+      .mockResolvedValueOnce(toolReplies[10])
+      .mockResolvedValueOnce(toolReplies[11])
+      .mockResolvedValueOnce({ content: '接着处理完了', tool_calls: [] })
+
+    const agent = useAgentStore()
+    await agent.send('我有哪些任务')
+
+    expect(mocks.chat).toHaveBeenCalledTimes(12)
+    expect(agent.stepLimited).toBe(true)
+    expect(agent.error).toContain('工具调用上限')
+    const beforeContinue = agent.messages.length
+
+    await agent.continueTurn()
+
+    expect(mocks.chat).toHaveBeenCalledTimes(13)
+    expect(agent.stepLimited).toBe(false)
+    expect(agent.error).toBe('')
+    // 继续时不清空历史，只在末尾追加新的回复
+    expect(agent.messages.length).toBe(beforeContinue + 1)
+    expect(agent.messages.at(-1).content).toBe('接着处理完了')
+    const lastCallMessages = mocks.chat.mock.calls.at(-1)[0].messages
+    expect(lastCallMessages.some((message) => message.role === 'tool')).toBe(true)
+  })
+
   it('编辑用户消息后截断后续内容并重新发送', async () => {
     mocks.chat
       .mockResolvedValueOnce({ content: '旧回答', tool_calls: [] })
