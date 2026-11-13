@@ -39,7 +39,7 @@
               activeTab === tab.id
                 ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-100 font-medium border-accent-600 dark:border-accent-400'
                 : 'border-transparent text-neutral-500 dark:text-neutral-400 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200'
-            ]" role="tab" :aria-selected="activeTab === tab.id" @click="activeTab = tab.id">
+            ]" role="tab" :aria-selected="activeTab === tab.id" @click="selectTab(tab.id)">
               <AppIcon :name="tab.icon" :size="15" class="opacity-70" />
               <span>{{ tab.label }}</span>
             </button>
@@ -453,7 +453,7 @@
 </style>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
@@ -469,7 +469,7 @@ import {
   rotateCalendarFeedToken
 } from '@/lib/calendarTransfer'
 import { settingsPanelOpen } from '@/utils/settingsPanel'
-import { persistedRef, readUiState } from '@/utils/uiState'
+import { persistedRef } from '@/utils/uiState'
 import {
   TICKTICK_IMPORT_MAX_BYTES,
   parseTickTickFile,
@@ -542,12 +542,19 @@ const tabs = [
   { id: 'import', label: '导入数据', icon: 'upload' }
 ]
 
-// 标签切换；优先跟随 /settings?tab=calendar 这类直达链接，否则沿用上次停留的标签
+// 标签切换：默认沿用上次停留的标签，/settings?tab=calendar 这类直达链接优先
 const isValidTab = (id) => tabs.some((tab) => tab.id === id)
-const initialTab = isValidTab(route.query.tab) ? route.query.tab : readUiState('settings-tab', 'account')
-const activeTab = persistedRef('settings-tab', isValidTab(initialTab) ? initialTab : 'account', {
-  validate: isValidTab
-})
+const activeTab = persistedRef('settings-tab', 'account', { validate: isValidTab })
+watch(() => route.query.tab, (tab) => {
+  if (isValidTab(tab)) activeTab.value = tab
+}, { immediate: true })
+
+// 手动切换标签时同步地址栏，刷新或分享链接都停在当前标签；浮窗挂在应用页上，不改路由
+const selectTab = (id) => {
+  activeTab.value = id
+  if (props.floating || route.query.tab === id) return
+  router.replace({ name: 'settings', query: { ...route.query, tab: id } })
+}
 
 // 账户设置
 const showPasswordModal = ref(false)
