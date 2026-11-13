@@ -35,6 +35,14 @@ vi.mock('@/lib/userSettings', () => ({
   fetchUserSettings: mocks.fetchUserSettings,
   saveUserSettings: mocks.saveUserSettings
 }))
+// 滴答授权会整页跳转，测试里换成桩
+const didaMocks = vi.hoisted(() => ({
+  readDidaAuth: vi.fn(),
+  clearDidaAuth: vi.fn(),
+  saveDidaAuth: vi.fn(),
+  startDidaAuthorize: vi.fn()
+}))
+vi.mock('@/lib/didaMcp', () => didaMocks)
 
 import { useAgentStore } from './agent'
 
@@ -102,6 +110,55 @@ describe('useAgentStore', () => {
       deleteSchedule: vi.fn(async () => ({ success: true }))
     }
     mocks.stores.auth = { user: { id: 'user-1' } }
+  })
+
+  it('一键添加滴答清单：有有效授权时直接建服务，无授权时跳授权', async () => {
+    const agent = useAgentStore()
+    agent.init('user-1')
+
+    didaMocks.readDidaAuth.mockReturnValue({ accessToken: 'tk', expiresAt: Date.now() + 3600_000 })
+    const added = await agent.addMcpPreset('dida')
+    expect(added.success).toBe(true)
+    expect(agent.mcpServers).toHaveLength(1)
+    expect(agent.mcpServers[0]).toMatchObject({ presetId: 'dida', token: 'tk' })
+
+    // 已存在时不重复添加
+    const again = await agent.addMcpPreset('dida')
+    expect(again.server.id).toBe(agent.mcpServers[0].id)
+    expect(agent.mcpServers).toHaveLength(1)
+  })
+
+  it('无有效授权时发起跳转，失败不留下待办标记', async () => {
+    const agent = useAgentStore()
+    agent.init('user-1')
+
+    didaMocks.readDidaAuth.mockReturnValue(null)
+    didaMocks.startDidaAuthorize.mockResolvedValue(undefined)
+    const pending = await agent.addMcpPreset('dida')
+    expect(pending).toEqual({ success: false, pending: true })
+    expect(agent.mcpServers).toHaveLength(0)
+
+    // 跳转抛错时错误要向上抛，且标记被清掉
+    didaMocks.startDidaAuthorize.mockRejectedValue(new Error('无法注册客户端'))
+    await expect(agent.addMcpPreset('dida')).rejects.toThrow('无法注册客户端')
+  })
+
+  it('删除滴答预设时同时清掉本机授权', async () => {
+    const agent = useAgentStore()
+    agent.init('user-1')
+
+    didaMocks.readDidaAuth.mockReturnValue({ accessToken: 'tk', expiresAt: Date.now() + 3600_000 })
+    const { server } = await agent.addMcpPreset('dida')
+
+    agent.deleteMcpServer(server.id)
+    expect(agent.mcpServers).toHaveLength(0)
+    expect(didaMocks.clearDidaAuth).toHaveBeenCalledWith('user-1')
+
+    // 手填服务删除时不该动滴答授权
+    didaMocks.clearDidaAuth.mockClear()
+    const manual = agent.addMcpServer({ name: '自建', endpoint: 'https://a.test/mcp' })
+    agent.deleteMcpServer(manual.id)
+    expect(didaMocks.clearDidaAuth).not.toHaveBeenCalled()
   })
 
   it('执行工具调用后继续对话并给出总结', async () => {

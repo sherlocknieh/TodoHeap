@@ -65,6 +65,9 @@ const skillError = ref('')
 // MCP 服务编辑器：名称、地址与令牌一起保存，连接后才列出工具
 const mcpForm = ref(null)
 const mcpFormError = ref('')
+// 一键添加的独立状态：失败原因要能显示在预设按钮下面，不能藏在编辑表单里
+const presetBusyId = ref('')
+const presetError = ref('')
 
 // 侧栏分组默认展开，点击标题折叠；折叠选择本地保留（参考 VSCode 侧栏）
 const collapsedSections = persistedRef('sidebar-sections', { sessions: false, skills: false, mcp: false }, {
@@ -282,9 +285,21 @@ const isPresetServer = (server) => Boolean(server.presetId)
 
 // 预设服务需要重新授权时直接跳转，回来由 completePendingPreset 续上
 const handlePresetAdd = async (preset) => {
-  mcpFormError.value = ''
+  if (presetBusyId.value) return
+  presetError.value = ''
   expandSection('mcp')
-  await agent.addMcpPreset(preset.id)
+  presetBusyId.value = preset.id
+  try {
+    const result = await agent.addMcpPreset(preset.id)
+    // 授权需要整页跳转，跳转前不给错误提示
+    if (result && result.success === false && !result.pending) {
+      presetError.value = result.error || '添加失败'
+    }
+  } catch (err) {
+    presetError.value = err instanceof Error ? err.message : '添加失败'
+  } finally {
+    presetBusyId.value = ''
+  }
 }
 
 const handleReauthorize = (server) => {
@@ -560,14 +575,20 @@ const switchView = (view) => {
             <div v-if="availablePresets.length" class="mx-2 mb-1.5 space-y-1">
               <p class="text-[11px] text-neutral-400 dark:text-neutral-500">一键添加</p>
               <button v-for="preset in availablePresets" :key="preset.id" type="button"
-                class="flex w-full items-center gap-2 rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-left transition-colors hover:border-accent-400 hover:bg-accent-50/70 dark:border-neutral-700 dark:hover:bg-accent-500/[0.06]"
+                class="flex w-full items-center gap-2 rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-left transition-colors hover:border-accent-400 hover:bg-accent-50/70 disabled:cursor-progress disabled:opacity-60 dark:border-neutral-700 dark:hover:bg-accent-500/[0.06]"
+                :disabled="Boolean(presetBusyId)"
                 :title="preset.description" @click="handlePresetAdd(preset)">
-                <AppIcon name="plus" :size="12" class="shrink-0 opacity-70" />
+                <AppIcon :name="presetBusyId === preset.id ? 'loader' : 'plus'" :size="12"
+                  class="shrink-0 opacity-70" :class="presetBusyId === preset.id ? 'animate-spin' : ''" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-xs text-neutral-700 dark:text-neutral-300">{{ preset.name }}</span>
                   <span class="block truncate text-[10px] text-neutral-400 dark:text-neutral-500">{{ preset.description }}</span>
                 </span>
               </button>
+              <p v-if="presetError" class="flex items-start gap-1 text-[11px] text-rose-600 dark:text-rose-400">
+                <AppIcon name="alert" :size="11" class="mt-0.5 shrink-0" />
+                <span class="min-w-0 break-words">{{ presetError }}</span>
+              </p>
             </div>
 
             <p v-if="!agent.mcpServers.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">

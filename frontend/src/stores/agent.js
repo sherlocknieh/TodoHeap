@@ -470,7 +470,13 @@ export const useAgentStore = defineStore('agent', () => {
       } else {
         // 授权回来前先占位，回跳后才知道该补哪个预设
         markPendingPreset(preset.id)
-        await startDidaAuthorize()
+        try {
+          await startDidaAuthorize()
+        } catch (err) {
+          // 跳转失败就不该留下待办标记，否则下次进入会误判有未完成的添加
+          clearPendingPreset()
+          throw err
+        }
         return { success: false, pending: true }
       }
     }
