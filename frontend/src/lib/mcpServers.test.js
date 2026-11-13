@@ -233,3 +233,10 @@ describe('MCP 调用链', () => {
     await expect(listMcpTools(server({ id: 'mcp_bad' }))).rejects.toThrow('鉴权失败')
   })
 })
+
+describe('删除与预置授权的关系', () => {
+  it('删除预设服务时能识别出需要一并清掉授权', () => {
+    expect(findMcpPreset(server({ presetId: 'dida' }).presetId)?.requiresDidaAuth).toBe(true)
+    expect(findMcpPreset(server().presetId)).toBeNull()
+  })
+})

@@ -12,7 +12,7 @@ import {
   normalizeSkill,
   normalizeSkills
 } from '@/lib/agentSkills'
-import { readDidaAuth, startDidaAuthorize } from '@/lib/didaMcp'
+import { clearDidaAuth, readDidaAuth, startDidaAuthorize } from '@/lib/didaMcp'
 import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
 import { buildChatRequestBody } from '@/lib/llmProvider'
 import { hydrateImages, removeStoredImages } from '@/lib/agentImages'
@@ -427,10 +427,14 @@ export const useAgentStore = defineStore('agent', () => {
     return server
   }
 
+  // 删除内置预设时一并清掉底座授权，否则再点添加会立刻复用旧令牌“复活”
   const deleteMcpServer = (id) => {
-    if (!mcpServers.value.some((server) => server.id === id)) return false
+    const current = mcpServers.value.find((server) => server.id === id)
+    if (!current) return false
     persistMcp(mcpServers.value.filter((server) => server.id !== id))
     forgetMcpSession(id)
+
+    if (findMcpPreset(current.presetId)?.requiresDidaAuth) clearDidaAuth(activeUserId.value)
     return true
   }
 

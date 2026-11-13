@@ -9,7 +9,7 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
-import { MAX_MCP_NAME, MCP_PRESETS, findPresetServer } from '@/lib/mcpServers'
+import { MAX_MCP_NAME, MCP_PRESETS, findMcpPreset, findPresetServer } from '@/lib/mcpServers'
 import { AGENT_MODES } from '@/lib/agentModes'
 import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { useResizablePanel, useResizableHeight } from '@/utils/resizablePanel'
@@ -245,7 +245,24 @@ const toggleMcpServer = async (server) => {
   if (enabled && !server.tools?.length) await agent.connectMcpServer(server.id)
 }
 
+// 删除二次确认：内置预设会连带断开滴答授权，先点一次变成确认态
+const pendingMcpDelete = ref('')
+
+// 编辑表单里的删除已经在表单内，直接执行不再二次确认
+const deleteFormServer = (id) => {
+  pendingMcpDelete.value = ''
+  agent.deleteMcpServer(id)
+  cancelMcpForm()
+}
+
 const removeMcpServer = (id) => {
+  const server = agent.mcpServers.find((item) => item.id === id)
+  const needsConfirm = Boolean(findMcpPreset(server?.presetId))
+  if (needsConfirm && pendingMcpDelete.value !== id) {
+    pendingMcpDelete.value = id
+    return
+  }
+  pendingMcpDelete.value = ''
   agent.deleteMcpServer(id)
   if (mcpForm.value?.id === id) cancelMcpForm()
 }
@@ -528,7 +545,7 @@ const switchView = (view) => {
               <div class="flex items-center justify-between gap-1">
                 <button v-if="mcpForm.id" type="button"
                   class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                  title="删除服务" @click="removeMcpServer(mcpForm.id)">
+                  title="删除服务" @click="deleteFormServer(mcpForm.id)">
                   <AppIcon name="trash" :size="12" />
                 </button>
                 <span v-else></span>
@@ -586,7 +603,12 @@ const switchView = (view) => {
                   <span class="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all"
                     :class="server.enabled ? 'left-3.5' : 'left-0.5'"></span>
                 </button>
-                <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                <button v-if="pendingMcpDelete === server.id"
+                  class="rounded px-1 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors"
+                  title="再次点击确认删除，并断开滴答授权" @click.stop="removeMcpServer(server.id)">
+                  确认删除
+                </button>
+                <button v-else class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                   title="删除服务" @click.stop="removeMcpServer(server.id)">
                   <AppIcon name="trash" :size="12" />
                 </button>
