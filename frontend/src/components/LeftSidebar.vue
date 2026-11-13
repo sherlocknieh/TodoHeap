@@ -569,19 +569,26 @@ const switchView = (view) => {
                     {{ server.error || (server.enabled ? `${mcpToolCount(server)} 个工具` : '已停用') }}
                   </span>
                 </button>
-                <button class="p-1 rounded transition-colors"
-                  :class="server.enabled ? 'text-accent-600 dark:text-accent-400' : 'text-neutral-400'"
-                  :title="server.enabled ? '停用该服务' : '启用该服务'" @click.stop="toggleMcpServer(server)">
-                  <AppIcon :name="server.enabled ? 'check' : 'eyeOff'" :size="12" />
-                </button>
                 <button v-if="isPresetServer(server)"
-                  class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+                  class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
                   title="重新授权" @click.stop="handleReauthorize(server)">
                   <AppIcon name="key" :size="12" />
                 </button>
-                <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+                <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
                   :disabled="agent.mcpBusyId === server.id" title="重新连接" @click.stop="reconnectMcpServer(server)">
                   <AppIcon :name="agent.mcpBusyId === server.id ? 'loader' : 'refresh'" :size="12" />
+                </button>
+                <!-- 开关：停用后服务保留配置，只是不再把工具发给模型 -->
+                <button type="button" role="switch" :aria-checked="server.enabled"
+                  class="relative mt-0.5 h-4 w-7 shrink-0 rounded-full transition-colors"
+                  :class="server.enabled ? 'bg-accent-600 dark:bg-accent-500' : 'bg-neutral-300 dark:bg-neutral-600'"
+                  :title="server.enabled ? '停用该服务' : '启用该服务'" @click.stop="toggleMcpServer(server)">
+                  <span class="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all"
+                    :class="server.enabled ? 'left-3.5' : 'left-0.5'"></span>
+                </button>
+                <button class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                  title="删除服务" @click.stop="removeMcpServer(server.id)">
+                  <AppIcon name="trash" :size="12" />
                 </button>
               </li>
             </ul>
