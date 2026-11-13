@@ -252,7 +252,10 @@ const saveMcp = async () => {
     } catch (err) {
       clearPendingPreset()
       mcpFormError.value = err instanceof Error ? err.message : '无法开始滴答清单授权'
+      return
     }
+    // 授权已发出，交给回跳后补建服务，表单不必留在侧栏
+    cancelMcpForm()
     return
   }
 
