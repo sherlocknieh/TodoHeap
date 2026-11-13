@@ -1,12 +1,10 @@
-// 滴答清单 MCP 网关：代理 OAuth 注册/换 token 与 MCP 调用
-// 浏览器无法直连 mcp.dida365.com（预检被拒），因此由网关代为转发；访问令牌只在请求内存中传递
+// 滴答清单 OAuth 代理：动态注册公开客户端与 PKCE 授权码换令牌
+// MCP 调用本身走通用网关 mcp_gateway；这里只处理浏览器无法直连的滴答授权端点
 import { createClient } from "@supabase/supabase-js";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const MCP_ENDPOINT = "https://mcp.dida365.com/";
 const REGISTER_ENDPOINT = "https://api.dida365.com/oauth/register";
 const TOKEN_ENDPOINT = "https://api.dida365.com/oauth/token";
-const MCP_PROTOCOL_VERSION = "2025-06-18";
 const SCOPES = "tasks:read tasks:write";
 
 const jsonResponse = (payload: unknown, status = 200) =>
@@ -47,26 +45,6 @@ const readUpstreamError = async (response: Response) => {
   } catch {
     return text.slice(0, 200) || `上游返回 ${response.status}`;
   }
-};
-
-// MCP 可能用普通 JSON 或 SSE 返回，取出最后一条完整消息
-const readMcpPayload = (contentType: string, text: string) => {
-  if (!contentType.includes("event-stream")) {
-    return text ? JSON.parse(text) : null;
-  }
-
-  let payload: unknown = null;
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.startsWith("data:")) continue;
-    const data = line.slice(5).trim();
-    if (!data || data === "[DONE]") continue;
-    try {
-      payload = JSON.parse(data);
-    } catch {
-      // 跨行分片会在后续 data 行补全，跳过当前不完整片段
-    }
-  }
-  return payload;
 };
 
 // 平台应用优先：配置了 DIDA_CLIENT_ID / DIDA_CLIENT_SECRET 时用带密钥的客户端，
@@ -160,47 +138,6 @@ const handleToken = async (body: Record<string, unknown>) => {
   });
 };
 
-// 透传 JSON-RPC 调用；上游若下发会话头，后续请求原样带回
-const handleRpc = async (body: Record<string, unknown>) => {
-  const accessToken = String(body.accessToken ?? "").trim();
-  const sessionId = String(body.sessionId ?? "").trim();
-  const rpc = body.rpc;
-  if (!accessToken) return jsonResponse({ error: "缺少滴答清单访问令牌" }, 400);
-  if (!rpc || typeof rpc !== "object") return jsonResponse({ error: "缺少 MCP 请求体" }, 400);
-
-  const upstream = await fetch(MCP_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json, text/event-stream",
-      Authorization: `Bearer ${accessToken}`,
-      "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-      ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}),
-    },
-    body: JSON.stringify(rpc),
-  });
-
-  if (!upstream.ok) {
-    const unauthorized = upstream.status === 401;
-    return jsonResponse({
-      error: unauthorized
-        ? "滴答清单授权已失效，请重新连接"
-        : `滴答清单调用失败：${await readUpstreamError(upstream)}`,
-      unauthorized,
-    }, unauthorized ? 401 : 502);
-  }
-
-  const text = await upstream.text();
-  try {
-    return jsonResponse({
-      payload: readMcpPayload(upstream.headers.get("content-type") ?? "", text),
-      sessionId: upstream.headers.get("mcp-session-id") ?? undefined,
-    });
-  } catch {
-    return jsonResponse({ error: "滴答清单返回了无法解析的响应" }, 502);
-  }
-};
-
 async function handler(req: Request) {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -225,14 +162,12 @@ async function handler(req: Request) {
         return await handleRegister(body);
       case "token":
         return await handleToken(body);
-      case "rpc":
-        return await handleRpc(body);
       default:
         return jsonResponse({ error: "未知操作" }, 400);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return jsonResponse({ error: `无法连接滴答清单：${message}` }, 502);
+    return jsonResponse({ error: `无法连接滴答清单授权服务：${message}` }, 502);
   }
 }
 

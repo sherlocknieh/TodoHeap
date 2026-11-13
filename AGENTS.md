@@ -114,8 +114,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | --- | --- |
 | `calendar_feed` | 日历订阅源：`?token=` 调用 `get_calendar_feed` RPC 输出 ICS，`verify_jwt = false` |
 | `llm_gateway` | 内置模型网关：校验用户 JWT 后用平台密钥转发 OpenAI 兼容请求；`GET` 返回实际可用模型（白名单或上游 `/models`）；订阅校验在 `authorizeRequest` 留空 |
-| `dida_mcp` | 滴答清单 MCP 网关：动态注册与 PKCE 换令牌、透传 MCP JSON-RPC；浏览器无法直连 `mcp.dida365.com`，令牌不落库 |
-| `mcp_gateway` | 通用 MCP 网关：校验用户 JWT 后转发任意 MCP 服务的 JSON-RPC，只允许 http(s) 地址，令牌只在请求内使用 |
+| `dida_auth` | 滴答清单 OAuth 代理：动态注册客户端与 PKCE 换令牌；MCP 调用统一走 `mcp_gateway`，令牌不落库 |
+| `mcp_gateway` | 通用 MCP 网关：校验用户 JWT 后转发任意 MCP 服务的 JSON-RPC（含滴答清单），只允许 http(s) 地址，令牌只在请求内使用 |
 
 密钥只放 Supabase secrets 与 GitHub Actions vars/secrets；前端仅持 `VITE_SUPABASE_PUB_KEY`。
 

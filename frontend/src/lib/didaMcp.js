@@ -1,11 +1,14 @@
 // 滴答清单 MCP 接入：OAuth 授权、MCP 工具调用与任务拉取
-// 浏览器无法直连 mcp.dida365.com，所有请求都经 Supabase 边缘函数 dida_mcp 转发
+// 浏览器无法直连滴答的授权端点，故 OAuth 两跳经边缘函数 dida_auth 转发；
+// MCP 调用本身走通用网关 mcp_gateway
 // 拉取结果直接交给 ticktickImport 的 JSON 解析器，复用同一套预览、去重与写入流程
 
 import { supabase, supabasePubKey, supabaseUrl } from '@/lib/supabase'
+import { callMcpGateway } from '@/lib/mcpServers'
 import { parseTickTickJson } from '@/lib/ticktickImport'
 
-export const DIDA_GATEWAY_ENDPOINT = `${supabaseUrl}/functions/v1/dida_mcp`
+export const DIDA_GATEWAY_ENDPOINT = `${supabaseUrl}/functions/v1/dida_auth`
+export const DIDA_MCP_ENDPOINT = 'https://mcp.dida365.com/'
 export const DIDA_AUTHORIZE_ENDPOINT = 'https://dida365.com/oauth/authorize'
 export const DIDA_SCOPE = 'tasks:read tasks:write'
 export const DIDA_MCP_PROTOCOL_VERSION = '2025-06-18'
@@ -160,7 +163,7 @@ export const buildDidaAuthorizeUrl = ({ clientId, redirectUri, challenge, state 
     state,
     code_challenge: challenge,
     code_challenge_method: 'S256',
-    resource: 'https://mcp.dida365.com/'
+    resource: DIDA_MCP_ENDPOINT
   })
   return `${DIDA_AUTHORIZE_ENDPOINT}?${params.toString()}`
 }
@@ -323,10 +326,11 @@ const initializedTokens = new Set()
 const sessionIds = new Map()
 let rpcSequence = 100
 
-// 上游下发会话头时记下来，后续请求原样带回
+// 滴答的 MCP 调用与其它服务共用通用网关，dida_auth 只保留 OAuth 两步
 const callRpc = async (accessToken, body) => {
-  const { payload, sessionId } = await callDidaGateway('rpc', {
-    accessToken,
+  const { payload, sessionId } = await callMcpGateway({
+    endpoint: DIDA_MCP_ENDPOINT,
+    token: accessToken,
     sessionId: sessionIds.get(accessToken) ?? '',
     rpc: body
   })

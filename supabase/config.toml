@@ -395,8 +395,8 @@ verify_jwt = false
 [functions.llm_gateway]
 verify_jwt = true
 
-# 滴答清单 MCP 网关：转发 OAuth 与 MCP 调用，只允许已登录用户使用
-[functions.dida_mcp]
+# 滴答清单 OAuth 代理：注册客户端与换令牌，只允许已登录用户使用
+[functions.dida_auth]
 verify_jwt = true
 
 # 通用 MCP 网关：转发任意 MCP 服务调用，只允许已登录用户使用
