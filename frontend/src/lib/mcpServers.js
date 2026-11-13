@@ -8,8 +8,29 @@ export const MCP_STORAGE_KEY = 'todoheap.mcp.v1'
 export const MAX_MCP_NAME = 32
 export const MAX_MCP_TOOLS = 60
 
+// 内置预设：滴答清单的地址与鉴权方式固定，用户只需点一次添加
+// 令牌复用「设置 → 导入数据」里的滴答授权，不必再授权一次
+export const MCP_PRESETS = [
+  {
+    id: 'dida',
+    name: '滴答清单',
+    endpoint: 'https://mcp.dida365.com/',
+    description: '读取清单与任务，导入时按任务 ID 去重',
+    requiresDidaAuth: true
+  }
+]
+
+export const findMcpPreset = (id) => MCP_PRESETS.find((preset) => preset.id === id) || null
+
+// 已经添加过的预设不再重复出现在「一键添加」里
+export const findPresetServer = (servers, presetId) => (
+  (Array.isArray(servers) ? servers : []).find((server) => server?.presetId === presetId) || null
+)
+
 const LOGIN_EXPIRED_MESSAGE = '登录状态已失效，请重新登录'
 const TOOL_PREFIX = 'mcp__'
+// 预设需要先走第三方授权：记下待添加的预设，回跳后自动补上
+const PENDING_PRESET_KEY = 'todoheap.mcp.pending-preset'
 
 const messageOf = (err) => (err instanceof Error ? err.message : String(err ?? ''))
 
@@ -35,6 +56,8 @@ export const normalizeMcpServer = (server, fallbackId) => {
   if (!name || !endpoint) return null
   return {
     id: typeof server.id === 'string' && server.id ? server.id : (fallbackId || createMcpId()),
+    // 预设标识用于识别内置服务，手填的服务为空
+    presetId: typeof server.presetId === 'string' ? server.presetId : '',
     name,
     endpoint,
     token: String(server.token ?? '').trim(),
@@ -81,13 +104,47 @@ export const saveMcpServers = (userId, servers) => {
   }
 }
 
-export const createMcpServer = ({ name, endpoint, token = '' } = {}) => normalizeMcpServer({
+export const createMcpServer = ({ name, endpoint, token = '', presetId = '' } = {}) => normalizeMcpServer({
   name,
   endpoint,
   token,
+  presetId,
   enabled: true,
   tools: []
 })
+
+const sessionStorageOf = () => (typeof window === 'undefined' ? null : window.sessionStorage)
+
+export const markPendingPreset = (presetId) => {
+  const store = sessionStorageOf()
+  if (store) store.setItem(PENDING_PRESET_KEY, String(presetId || ''))
+}
+
+export const readPendingPreset = () => {
+  const store = sessionStorageOf()
+  if (!store) return ''
+  return store.getItem(PENDING_PRESET_KEY) || ''
+}
+
+export const clearPendingPreset = () => {
+  const store = sessionStorageOf()
+  if (store) store.removeItem(PENDING_PRESET_KEY)
+}
+
+// 令牌是否还会在接下来几分钟内有效，过期就先重新授权
+export const isTokenFresh = (auth, skewMs = 60_000) => (
+  Boolean(auth?.accessToken) && (!auth.expiresAt || auth.expiresAt - skewMs > Date.now())
+)
+
+// 把预设展开成一份服务配置；令牌由调用方按预设的鉴权方式补齐
+export const createMcpServerFromPreset = (preset, { token = '' } = {}) => (
+  preset ? createMcpServer({
+    name: preset.name,
+    endpoint: preset.endpoint,
+    token,
+    presetId: preset.id
+  }) : null
+)
 
 // 工具名全局唯一：不同服务里有同名工具时靠服务前缀区分
 // 函数名上限 64 字符：前缀 + 服务 slug + 工具名要一起控制长度

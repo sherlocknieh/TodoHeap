@@ -653,7 +653,15 @@ watch(
 )
 
 watch(draft, () => nextTick(autoResize))
-watch(() => authStore.user?.id, (id) => agent.init(id))
+// 账号就绪后再补齐 MCP 服务：授权回跳时用户信息可能晚于组件挂载
+const bootstrapMcp = () => {
+  agent.completePendingPreset().finally(() => agent.refreshMcpServers())
+}
+
+watch(() => authStore.user?.id, (id) => {
+  agent.init(id)
+  bootstrapMcp()
+})
 watch(() => agent.activeSessionId, () => {
   cancelEdit()
   openMenu.value = ''
@@ -667,8 +675,8 @@ watch(() => props.selectedTaskId, (id) => agent.setContext({ selectedTaskId: id 
 
 onMounted(() => {
   agent.init(authStore.user?.id)
-  // 进入 AI 视图时补齐外部工具列表，已连上的服务不会重复握手
-  agent.refreshMcpServers()
+  // 授权回跳后先补上待添加的内置服务，再补齐其余服务的外部工具
+  bootstrapMcp()
   // 内置模式下先校准模型列表，避免继续使用已下线的旧型号
   if (llm.isBuiltin) llm.loadBuiltinModels()
   // 预取数据，工具调用时可直接命中本地缓存

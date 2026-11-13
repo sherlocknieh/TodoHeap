@@ -10,6 +10,11 @@ vi.mock('@/lib/supabase', () => ({
 
 const {
   buildMcpToolDefinitions,
+  createMcpServerFromPreset,
+  findMcpPreset,
+  findPresetServer,
+  isTokenFresh,
+  MCP_PRESETS,
   findMcpServerForTool,
   isMcpReadOnlyTool,
   isMcpToolName,
@@ -50,6 +55,40 @@ describe('normalizeMcpServer', () => {
     ])
     expect(list).toHaveLength(1)
     expect(list[0].enabled).toBe(false)
+  })
+})
+
+describe('内置预设', () => {
+  it('滴答清单预设自带固定地址', () => {
+    const preset = findMcpPreset('dida')
+    expect(preset).toMatchObject({ name: '滴答清单', endpoint: 'https://mcp.dida365.com/', requiresDidaAuth: true })
+    expect(MCP_PRESETS.map((item) => item.id)).toEqual(['dida'])
+    expect(findMcpPreset('unknown')).toBeNull()
+  })
+
+  it('预设展开成服务配置时带上 presetId 与令牌', () => {
+    const server = createMcpServerFromPreset(findMcpPreset('dida'), { token: 'token-1' })
+    expect(server).toMatchObject({
+      presetId: 'dida',
+      name: '滴答清单',
+      endpoint: 'https://mcp.dida365.com/',
+      token: 'token-1',
+      enabled: true
+    })
+    expect(createMcpServerFromPreset(null)).toBeNull()
+  })
+
+  it('能识别已添加的预设，手填服务不受影响', () => {
+    const list = [server({ id: 'a' }), server({ id: 'b', presetId: 'dida' })]
+    expect(findPresetServer(list, 'dida')?.id).toBe('b')
+    expect(findPresetServer(list, 'other')).toBeNull()
+  })
+
+  it('令牌快过期时视为需要重新授权', () => {
+    expect(isTokenFresh({ accessToken: 't', expiresAt: Date.now() + 10 * 60 * 1000 })).toBe(true)
+    expect(isTokenFresh({ accessToken: 't', expiresAt: Date.now() + 10 * 1000 })).toBe(false)
+    expect(isTokenFresh({ accessToken: 't', expiresAt: 0 })).toBe(true)
+    expect(isTokenFresh(null)).toBe(false)
   })
 })
 

@@ -12,12 +12,20 @@ import {
   normalizeSkill,
   normalizeSkills
 } from '@/lib/agentSkills'
+import { readDidaAuth, startDidaAuthorize } from '@/lib/didaMcp'
 import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
 import { buildChatRequestBody } from '@/lib/llmProvider'
 import { hydrateImages, removeStoredImages } from '@/lib/agentImages'
 import {
   connectMcpServer as connectToServer,
   createMcpServer,
+  createMcpServerFromPreset,
+  findMcpPreset,
+  findPresetServer,
+  isTokenFresh,
+  markPendingPreset,
+  readPendingPreset,
+  clearPendingPreset,
   forgetMcpSession,
   isMcpReadOnlyTool,
   isMcpToolName,
@@ -439,6 +447,71 @@ export const useAgentStore = defineStore('agent', () => {
     }
     updateMcpServer(id, { tools: result.tools, error: '' })
     return result
+  }
+
+  // 内置预设：滴答清单的令牌复用已有授权，没授权时先跳一次授权页
+  // 授权由整页跳转完成，回到应用后由 completePendingPreset 补上这条服务
+  const addMcpPreset = async (presetId) => {
+    const preset = findMcpPreset(presetId)
+    if (!preset) return { success: false, error: '未知的预设服务' }
+
+    const existing = findPresetServer(mcpServers.value, preset.id)
+    if (existing) return { success: true, server: existing }
+
+    let token = ''
+    if (preset.requiresDidaAuth) {
+      const auth = readDidaAuth(activeUserId.value)
+      if (isTokenFresh(auth)) {
+        token = auth.accessToken
+      } else {
+        // 授权回来前先占位，回跳后才知道该补哪个预设
+        markPendingPreset(preset.id)
+        await startDidaAuthorize()
+        return { success: false, pending: true }
+      }
+    }
+
+    const server = createMcpServerFromPreset(preset, { token })
+    if (!server) return { success: false, error: '预设服务配置不完整' }
+    persistMcp([...mcpServers.value, server])
+    return { success: true, server }
+  }
+
+  // 授权回跳后补上预设服务：令牌已由 didaMcp 存好，这里只负责建配置并连接
+  const completePendingPreset = async () => {
+    const presetId = readPendingPreset()
+    if (!presetId) return null
+    clearPendingPreset()
+
+    const preset = findMcpPreset(presetId)
+    if (!preset) return null
+
+    const auth = readDidaAuth(activeUserId.value)
+    if (!isTokenFresh(auth)) return null
+
+    // 同一预设重复回跳时只保留一条，令牌换成最新授权
+    const existing = findPresetServer(mcpServers.value, preset.id)
+    if (existing) {
+      updateMcpServer(existing.id, { token: auth.accessToken })
+      await connectMcpServer(existing.id)
+      return existing.id
+    }
+
+    const server = createMcpServerFromPreset(preset, { token: auth.accessToken })
+    if (!server) return null
+    persistMcp([...mcpServers.value, server])
+    await connectMcpServer(server.id)
+    return server.id
+  }
+
+  // 预设服务的授权在外部完成，刷新令牌时重新走一次授权流程
+  const reauthorizePreset = async (id) => {
+    const current = mcpServers.value.find((server) => server.id === id)
+    const preset = findMcpPreset(current?.presetId)
+    if (!preset) return false
+    markPendingPreset(preset.id)
+    await startDidaAuthorize()
+    return true
   }
 
   // 进入界面时只补齐缺工具或上次失败的服务，已连上的不重复握手
@@ -1008,6 +1081,9 @@ export const useAgentStore = defineStore('agent', () => {
     deleteMcpServer,
     connectMcpServer,
     refreshMcpServers,
+    addMcpPreset,
+    completePendingPreset,
+    reauthorizePreset,
     detachSkill,
     regenerate,
     editAndResend,

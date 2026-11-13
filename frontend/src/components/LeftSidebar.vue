@@ -9,7 +9,7 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
-import { MAX_MCP_NAME } from '@/lib/mcpServers'
+import { MAX_MCP_NAME, MCP_PRESETS, findPresetServer } from '@/lib/mcpServers'
 import { AGENT_MODES } from '@/lib/agentModes'
 import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { useResizablePanel, useResizableHeight } from '@/utils/resizablePanel'
@@ -255,6 +255,24 @@ const reconnectMcpServer = (server) => {
 }
 
 const mcpToolCount = (server) => (server.tools || []).length
+
+// 一键添加：已添加过的预设不再出现在列表里
+const availablePresets = computed(() => MCP_PRESETS.filter((preset) => (
+  !findPresetServer(agent.mcpServers, preset.id)
+)))
+
+const isPresetServer = (server) => Boolean(server.presetId)
+
+// 预设服务需要重新授权时直接跳转，回来由 completePendingPreset 续上
+const handlePresetAdd = async (preset) => {
+  mcpFormError.value = ''
+  expandSection('mcp')
+  await agent.addMcpPreset(preset.id)
+}
+
+const handleReauthorize = (server) => {
+  agent.reauthorizePreset(server.id)
+}
 
 // 会话列表只显示时间与消息数，按当天/更早两种格式
 const formatSessionTime = (iso) => {
@@ -521,6 +539,20 @@ const switchView = (view) => {
               </div>
             </form>
 
+            <!-- 内置预设：点一次即完成地址与授权配置 -->
+            <div v-if="availablePresets.length" class="mx-2 mb-1.5 space-y-1">
+              <p class="text-[11px] text-neutral-400 dark:text-neutral-500">一键添加</p>
+              <button v-for="preset in availablePresets" :key="preset.id" type="button"
+                class="flex w-full items-center gap-2 rounded-md border border-dashed border-neutral-300 px-2 py-1.5 text-left transition-colors hover:border-accent-400 hover:bg-accent-50/70 dark:border-neutral-700 dark:hover:bg-accent-500/[0.06]"
+                :title="preset.description" @click="handlePresetAdd(preset)">
+                <AppIcon name="plus" :size="12" class="shrink-0 opacity-70" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-xs text-neutral-700 dark:text-neutral-300">{{ preset.name }}</span>
+                  <span class="block truncate text-[10px] text-neutral-400 dark:text-neutral-500">{{ preset.description }}</span>
+                </span>
+              </button>
+            </div>
+
             <p v-if="!agent.mcpServers.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
               还没有 MCP 服务
             </p>
@@ -541,6 +573,11 @@ const switchView = (view) => {
                   :class="server.enabled ? 'text-accent-600 dark:text-accent-400' : 'text-neutral-400'"
                   :title="server.enabled ? '停用该服务' : '启用该服务'" @click.stop="toggleMcpServer(server)">
                   <AppIcon :name="server.enabled ? 'check' : 'eyeOff'" :size="12" />
+                </button>
+                <button v-if="isPresetServer(server)"
+                  class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+                  title="重新授权" @click.stop="handleReauthorize(server)">
+                  <AppIcon name="key" :size="12" />
                 </button>
                 <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
                   :disabled="agent.mcpBusyId === server.id" title="重新连接" @click.stop="reconnectMcpServer(server)">

@@ -55,7 +55,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
 | `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好，含 `ask_user` 选择面板与 `switch_mode` |
 | `lib/agentModes.js` | 工作模式：Plan / Build / 清单 / 日程 / 设置 / 清单+日程，各自限定工具集与提示词；Plan 为只读模式 |
-| `lib/mcpServers.js` | 通用 MCP 服务：本机配置、JSON-RPC 握手、工具列举与调用、工具名映射 |
+| `lib/mcpServers.js` | 通用 MCP 服务：本机配置、内置预设（滴答清单一键添加）、JSON-RPC 握手、工具列举与调用、工具名映射 |
 | `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建，技能只绑定工作模式 |
 | `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
 | `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
