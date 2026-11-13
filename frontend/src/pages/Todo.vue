@@ -13,7 +13,7 @@ import AgentContextPanel from '@/components/AgentContextPanel.vue'
 import ScheduleDetailPanel from '@/components/ScheduleDetailPanel.vue'
 import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
-import { settingsPanelOpen } from '@/utils/settingsPanel'
+import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import logoSrc from '@/assets/logo.svg'
 
@@ -294,6 +294,24 @@ const openSettings = () => {
 	settingsPanelOpen.value = true
 	showUserMenu.value = false
 }
+
+// 关闭设置浮窗：地址栏里的标签参数一并清掉，链接回到当前视图
+const closeSettings = () => {
+	settingsPanelOpen.value = false
+	if (!route.query.tab) return
+	const query = { ...route.query }
+	delete query.tab
+	router.replace({ query })
+}
+
+// 地址栏带合法的 tab 时直接打开浮窗：刷新或分享链接都能回到同一个设置面板
+watch(
+	() => route.query.tab,
+	(tab) => {
+		if (isValidSettingsTab(tab)) settingsPanelOpen.value = true
+	},
+	{ immediate: true }
+)
 
 const switchView = (view) => {
 	activeView.value = view
@@ -616,7 +634,7 @@ const runToastUndo = async () => {
 		</footer>
 
 		<!-- 设置浮窗：覆盖在当前视图之上，不打断任务操作 -->
-		<Settings v-if="settingsPanelOpen" floating @close="settingsPanelOpen = false" />
+		<Settings v-if="settingsPanelOpen" floating @close="closeSettings" />
 
 		<!-- 操作反馈：带撤销入口的轻提示 -->
 		<Transition name="fade">

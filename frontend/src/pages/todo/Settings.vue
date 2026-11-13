@@ -468,7 +468,7 @@ import {
   readIcsFile,
   rotateCalendarFeedToken
 } from '@/lib/calendarTransfer'
-import { settingsPanelOpen } from '@/utils/settingsPanel'
+import { settingsPanelOpen, SETTINGS_TABS, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef } from '@/utils/uiState'
 import {
   TICKTICK_IMPORT_MAX_BYTES,
@@ -510,14 +510,14 @@ const handleClose = () => {
   router.back()
 }
 
-// 从整页收为浮窗：回到应用页由它承载浮窗，保留原来的视图
+// 从整页收为浮窗：回到应用页由它承载浮窗，保留原来的视图与标签
 const handleFloat = () => {
   settingsPanelOpen.value = true
   const previous = window.history.state?.back
   if (typeof previous === 'string' && previous.includes('/app')) {
     router.back()
   } else {
-    router.push({ name: 'app' })
+    router.push({ name: 'app', query: route.query })
   }
 }
 
@@ -534,26 +534,21 @@ const handleKeydown = (event) => {
   }
 }
 
-// 标签配置
-const tabs = [
-  { id: 'account', label: '账户安全', icon: 'lock' },
-  { id: 'provider', label: '模型接入', icon: 'key' },
-  { id: 'calendar', label: '日历', icon: 'calendar' },
-  { id: 'import', label: '导入数据', icon: 'upload' }
-]
+// 标签定义来自共享模块，应用页据此识别地址栏里的 tab 参数
+const tabs = SETTINGS_TABS
 
-// 标签切换：默认沿用上次停留的标签，/settings?tab=calendar 这类直达链接优先
-const isValidTab = (id) => tabs.some((tab) => tab.id === id)
+// 标签切换：地址栏的 tab 优先，其次沿用上次停留的标签
+const isValidTab = isValidSettingsTab
 const activeTab = persistedRef('settings-tab', 'account', { validate: isValidTab })
 watch(() => route.query.tab, (tab) => {
   if (isValidTab(tab)) activeTab.value = tab
 }, { immediate: true })
 
-// 手动切换标签时同步地址栏，刷新或分享链接都停在当前标签；浮窗挂在应用页上，不改路由
+// 切换标签时同步地址栏：浮窗与整页共用同一个 tab 参数，刷新或分享都停在当前标签
 const selectTab = (id) => {
   activeTab.value = id
-  if (props.floating || route.query.tab === id) return
-  router.replace({ name: 'settings', query: { ...route.query, tab: id } })
+  if (route.query.tab === id) return
+  router.replace({ query: { ...route.query, tab: id } })
 }
 
 // 账户设置
@@ -1097,6 +1092,10 @@ let stopDidaAuthWatch = () => {}
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
+  // 浮窗打开时补齐地址栏的标签参数，链接始终反映当前面板
+  if (props.floating && !isValidTab(route.query.tab)) {
+    router.replace({ query: { ...route.query, tab: activeTab.value } })
+  }
   await loadSettings()
   didaAuth.value = readDidaAuth(authStore.user?.id)
   // 授权回跳失败的原因由 didaMcp 暂存，这里取出来展示一次
