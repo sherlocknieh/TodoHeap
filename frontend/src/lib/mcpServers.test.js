@@ -194,6 +194,36 @@ describe('MCP 调用链', () => {
     expect(JSON.parse(calls[3].options.body).rpc.params).toEqual({ name: 'forecast', arguments: { city: '杭州' } })
   })
 
+  it('滴答预设走 dida_mcp 网关，其余服务走通用网关', async () => {
+    const { listMcpTools } = await import('./mcpServers')
+    const targets = []
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { access_token: 'jwt' } } })
+    globalThis.fetch = vi.fn(async (url, options) => {
+      targets.push({ url, body: JSON.parse(options.body) })
+      return { ok: true, json: async () => ({ payload: { result: { tools: [] } } }) }
+    })
+
+    await listMcpTools(server({ id: 'mcp_dida', presetId: 'dida', endpoint: 'https://mcp.dida365.com/', token: 'tk' }))
+    await listMcpTools(server({ id: 'mcp_other', name: 'Other' }))
+
+    expect(targets[0].url).toContain('/dida_mcp')
+    expect(targets[0].body).toMatchObject({ action: 'rpc', accessToken: 'tk' })
+    const generic = targets.find((call) => call.url.includes('/mcp_gateway'))
+    expect(generic.body).toMatchObject({ endpoint: 'https://example.com/mcp' })
+    expect(targets.filter((call) => call.url.includes('/dida_mcp'))).toHaveLength(3)
+  })
+
+  it('网络层失败时提示网关未部署', async () => {
+    const { listMcpTools } = await import('./mcpServers')
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { access_token: 'jwt' } } })
+    globalThis.fetch = vi.fn(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+
+    await expect(listMcpTools(server({ id: 'mcp_net' })))
+      .rejects.toThrow('请确认边缘函数 mcp_gateway 已部署')
+  })
+
   it('网关报错时抛出可读原因', async () => {
     const { listMcpTools } = await import('./mcpServers')
     supabase.auth.getSession.mockResolvedValue({ data: { session: { access_token: 'jwt' } } })

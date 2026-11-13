@@ -3,6 +3,8 @@
 import { supabase, supabasePubKey, supabaseUrl } from '@/lib/supabase'
 
 export const MCP_GATEWAY_ENDPOINT = `${supabaseUrl}/functions/v1/mcp_gateway`
+// 滴答清单只认 dida_mcp 网关：上游拒绝跨域，走通用网关也连不通
+const DIDA_GATEWAY_ENDPOINT = `${supabaseUrl}/functions/v1/dida_mcp`
 export const MCP_PROTOCOL_VERSION = '2025-06-18'
 export const MCP_STORAGE_KEY = 'todoheap.mcp.v1'
 export const MAX_MCP_NAME = 32
@@ -159,21 +161,38 @@ export const findMcpServerForTool = (servers, toolName) => servers.find((server)
   String(toolName ?? '').startsWith(`${TOOL_PREFIX}${slug(server.name)}__`)
 )) || null
 
+// 预设服务在网关侧已有专门实现，通用网关只负责其余服务
+const isDidaServer = (server) => server?.presetId === 'dida'
+
 // 网关调用统一带上当前会话 JWT，网关据此识别用户
-const callGateway = async ({ endpoint, token, sessionId, rpc }) => {
+const callGateway = async ({ server, sessionId, rpc }) => {
   const { data } = await supabase.auth.getSession()
   const accessToken = data.session?.access_token
   if (!accessToken) throw new Error(LOGIN_EXPIRED_MESSAGE)
 
-  const response = await fetch(MCP_GATEWAY_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-      apikey: supabasePubKey
-    },
-    body: JSON.stringify({ endpoint, token: token || '', sessionId: sessionId || '', rpc })
-  })
+  const dida = isDidaServer(server)
+  const target = dida ? DIDA_GATEWAY_ENDPOINT : MCP_GATEWAY_ENDPOINT
+  const payload = dida
+    ? { action: 'rpc', accessToken: server.token || '', sessionId: sessionId || '', rpc }
+    : { endpoint: server.endpoint, token: server.token || '', sessionId: sessionId || '', rpc }
+
+  let response
+  try {
+    response = await fetch(target, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabasePubKey
+      },
+      body: JSON.stringify(payload)
+    })
+  } catch (err) {
+    // fetch 抛错说明请求没到服务端：函数未部署、域名不可达或被浏览器拦截
+    throw new Error(`无法连接 MCP 网关（${messageOf(err)}），请确认边缘函数 ${
+      dida ? 'dida_mcp' : 'mcp_gateway'
+    } 已部署`)
+  }
 
   const body = await response.json().catch(() => ({}))
   if (!response.ok || body?.error) {
@@ -190,8 +209,7 @@ let rpcSequence = 100
 
 const rpcCall = async (server, body) => {
   const next = await callGateway({
-    endpoint: server.endpoint,
-    token: server.token,
+    server,
     sessionId: sessionIds.get(server.id) ?? '',
     rpc: body
   })
