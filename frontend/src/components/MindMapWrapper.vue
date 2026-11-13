@@ -75,11 +75,12 @@
         <g v-if="selectedEdge && selectedEdge.midpoint"
           :transform="`translate(${selectedEdge.midpoint.x} ${selectedEdge.midpoint.y})`"
           @pointerdown.stop @click.stop="deleteSelectedEdge">
-          <circle r="10" class="cursor-pointer fill-white stroke-accent-600 hover:fill-accent-50 dark:fill-neutral-900 dark:stroke-accent-400 dark:hover:fill-neutral-800" stroke-width="1.2">
+          <circle r="12" class="cursor-pointer fill-transparent stroke-transparent" />
+          <circle r="7" class="cursor-pointer fill-white stroke-accent-600 hover:fill-accent-50 dark:fill-neutral-900 dark:stroke-accent-400 dark:hover:fill-neutral-800" stroke-width="1.1">
             <title>删除连接线</title>
           </circle>
-          <path d="M-3 -3 L3 3 M3 -3 L-3 3" fill="none"
-            class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="1.6"
+          <path d="M-2.2 -2.2 L2.2 2.2 M2.2 -2.2 L-2.2 2.2" fill="none"
+            class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="1.4"
             stroke-linecap="round" />
         </g>
       </g>
