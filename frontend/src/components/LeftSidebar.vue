@@ -74,6 +74,8 @@ const skillError = ref('')
 // MCP 服务编辑器：名称、地址与令牌一起保存，连接后才列出工具
 const mcpForm = ref(null)
 const mcpFormError = ref('')
+// 令牌多数服务不需要，默认收起，已填过时展开以便查看
+const mcpTokenOpen = ref(false)
 
 
 // 侧栏分组默认展开，点击标题折叠；折叠选择本地保留（参考 VSCode 侧栏）
@@ -203,12 +205,15 @@ const attachSkill = (skill) => {
 
 const startNewMcp = () => {
   mcpFormError.value = ''
+  mcpTokenOpen.value = false
   expandSection('mcp')
   mcpForm.value = { id: null, presetId: '', name: '', endpoint: '', token: '' }
 }
 
 const startEditMcp = (server) => {
   mcpFormError.value = ''
+  // 已存令牌时展开，避免用户以为令牌丢了
+  mcpTokenOpen.value = Boolean(server.token)
   expandSection('mcp')
   mcpForm.value = {
     id: server.id,
@@ -222,6 +227,7 @@ const startEditMcp = (server) => {
 const cancelMcpForm = () => {
   mcpForm.value = null
   mcpFormError.value = ''
+  mcpTokenOpen.value = false
 }
 
 // 内置预设缺令牌时先整页授权，回跳后由 completePendingPreset 建服务
@@ -319,12 +325,14 @@ const handlePresetAdd = (preset) => {
   expandSection('mcp')
 
   const auth = readDidaAuth(authStore.user?.id)
+  const token = preset.requiresDidaAuth && isTokenFresh(auth) ? auth.accessToken : ''
+  mcpTokenOpen.value = Boolean(token)
   mcpForm.value = {
     id: null,
     presetId: preset.id,
     name: preset.name,
     endpoint: preset.endpoint,
-    token: preset.requiresDidaAuth && isTokenFresh(auth) ? auth.accessToken : ''
+    token
   }
 }
 
@@ -580,8 +588,22 @@ const switchView = (view) => {
                 :maxlength="MAX_MCP_NAME" placeholder="服务名称，如 高德地图" />
               <input v-model="mcpForm.endpoint" class="field w-full px-1.5 py-1 font-mono text-[11px]"
                 placeholder="https://example.com/mcp" autocomplete="off" spellcheck="false" />
-              <input v-model="mcpForm.token" type="password" class="field w-full px-1.5 py-1 font-mono text-[11px]"
-                placeholder="访问令牌，可选" autocomplete="off" />
+              <button v-if="!mcpTokenOpen" type="button"
+                class="flex w-full items-center gap-1 px-0.5 text-[11px] text-neutral-500 transition-colors hover:text-accent-700 dark:text-neutral-400 dark:hover:text-accent-300"
+                :aria-expanded="false" @click="mcpTokenOpen = true">
+                <AppIcon name="chevronRight" :size="12" class="opacity-70" />
+                <span>访问令牌{{ mcpForm.token.trim() ? '（已填写）' : '，可选' }}</span>
+              </button>
+              <div v-else class="space-y-1">
+                <button type="button"
+                  class="flex w-full items-center gap-1 px-0.5 text-[11px] text-neutral-500 transition-colors hover:text-accent-700 dark:text-neutral-400 dark:hover:text-accent-300"
+                  :aria-expanded="true" @click="mcpTokenOpen = false">
+                  <AppIcon name="chevronDown" :size="12" class="opacity-70" />
+                  <span>访问令牌</span>
+                </button>
+                <input v-model="mcpForm.token" type="password" class="field w-full px-1.5 py-1 font-mono text-[11px]"
+                  placeholder="访问令牌，可选" autocomplete="off" />
+              </div>
               <p v-if="mcpFormError" class="text-[11px] text-rose-600 dark:text-rose-400">{{ mcpFormError }}</p>
               <div class="flex items-center justify-between gap-1">
                 <button v-if="mcpForm.id" type="button"
