@@ -74,13 +74,18 @@
         <!-- 选中连线：在连线中点显示删除按钮，置于节点之上以免被遮挡 -->
         <g v-if="selectedEdge && selectedEdge.midpoint"
           :transform="`translate(${selectedEdge.midpoint.x} ${selectedEdge.midpoint.y})`"
-          @pointerdown.stop @click.stop="deleteSelectedEdge">
+          @pointerdown.stop @click.stop="onUnlinkClick">
           <circle r="12" class="cursor-pointer fill-transparent stroke-transparent" />
-          <circle r="7" class="cursor-pointer fill-white stroke-accent-600 hover:fill-accent-50 dark:fill-neutral-900 dark:stroke-accent-400 dark:hover:fill-neutral-800" stroke-width="1.1">
-            <title>删除连接线</title>
+          <circle r="6" class="cursor-pointer transition-colors" stroke-width="1.1" :class="confirmUnlink
+            ? 'fill-accent-600 stroke-accent-600 dark:fill-accent-500 dark:stroke-accent-500'
+            : 'fill-white stroke-accent-600 hover:fill-accent-50 dark:fill-neutral-900 dark:stroke-accent-400 dark:hover:fill-neutral-800'">
+            <title>{{ confirmUnlink ? '再次点击删除连接线' : '删除连接线' }}</title>
           </circle>
-          <path d="M-2.2 -2.2 L2.2 2.2 M2.2 -2.2 L-2.2 2.2" fill="none"
-            class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="1.4"
+          <path v-if="confirmUnlink" d="M-2.4 0 L-0.7 1.8 L2.6 -2" fill="none"
+            class="pointer-events-none stroke-white" stroke-width="1.4" stroke-linecap="round"
+            stroke-linejoin="round" />
+          <path v-else d="M-1.8 -1.8 L1.8 1.8 M1.8 -1.8 L-1.8 1.8" fill="none"
+            class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="1.3"
             stroke-linecap="round" />
         </g>
       </g>
@@ -693,6 +698,23 @@ const deleteSelectedEdge = () => {
   emit('unlink-task', { parentId: Number(edge.from), childId: Number(edge.to) })
 }
 
+// 删除按钮两段式确认：首次点击变成待确认，再次点击才真正删除
+const confirmUnlink = ref(false)
+
+const onUnlinkClick = () => {
+  if (!confirmUnlink.value) {
+    confirmUnlink.value = true
+    return
+  }
+  confirmUnlink.value = false
+  deleteSelectedEdge()
+}
+
+// 切换到别的连线或取消选中时，收起待确认状态
+watch(selectedEdgeKey, () => {
+  confirmUnlink.value = false
+})
+
 // 布局变化后旧连线可能已不存在，清掉悬空的选中
 watch(layout, () => {
   if (selectedEdgeKey.value == null) return
@@ -1017,6 +1039,8 @@ const onDragEnd = () => {
 
 const onPointerDown = (event) => {
   if (event.button !== 0) return
+  // 点击空白处即放弃删除按钮的待确认状态
+  confirmUnlink.value = false
   hasInteracted = true
   panning.value = true
   panStart = { x: event.clientX, y: event.clientY, originX: view.x, originY: view.y }
