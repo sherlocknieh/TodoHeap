@@ -15,7 +15,19 @@ import {
 import { fetchUserSettings, saveUserSettings } from '@/lib/userSettings'
 import { buildChatRequestBody } from '@/lib/llmProvider'
 import { hydrateImages, removeStoredImages } from '@/lib/agentImages'
-import { DEFAULT_AGENT_MODE, findAgentMode, resolveAllowedTools } from '@/lib/agentModes'
+import {
+  connectMcpServer as connectToServer,
+  createMcpServer,
+  forgetMcpSession,
+  isMcpReadOnlyTool,
+  isMcpToolName,
+  mcpToolName,
+  normalizeMcpServer,
+  normalizeMcpServers,
+  readMcpServers,
+  saveMcpServers
+} from '@/lib/mcpServers'
+import { DEFAULT_AGENT_MODE, findAgentMode, isReadOnlyMode, resolveAllowedTools } from '@/lib/agentModes'
 
 const STORAGE_PREFIX = 'todoheap.agent.v2.'
 const LEGACY_STORAGE_PREFIX = 'todoheap.agent.v1.'
@@ -59,10 +71,22 @@ const formatSkills = (skills) => {
   return `\n用户本轮挂载了以下技能，按其中的指令执行：\n${blocks.join('\n\n')}\n`
 }
 
-const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], skills = [], mode = DEFAULT_AGENT_MODE } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
+// 已接入的 MCP 服务与工具写进提示词，模型才知道什么时候该用外部能力
+const formatMcpServers = (servers) => {
+  const list = (Array.isArray(servers) ? servers : []).filter((server) => server?.enabled)
+  if (!list.length) return ''
+  const lines = list.map((server) => {
+    const names = (server.tools || []).slice(0, 12).map((tool) => mcpToolName(server, tool.name))
+    const suffix = (server.tools || []).length > names.length ? ' 等' : ''
+    return `- ${server.name}：${names.join('、') || '尚未读取工具'}${suffix}`
+  })
+  return `\n已连接的 MCP 服务（外部工具，名称以 mcp__ 开头）：\n${lines.join('\n')}\n外部工具调用前先确认参数与服务语义；未声明只读的工具会要求用户确认。\n`
+}
+
+const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], skills = [], mode = DEFAULT_AGENT_MODE, mcpServers = [] } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
 
 当前本地时间：${formatNow()}
-${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}${formatSkills(skills)}${findAgentMode(mode).prompt ? `\n${findAgentMode(mode).prompt}\n` : ''}
+${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}${formatSkills(skills)}${formatMcpServers(mcpServers)}${findAgentMode(mode).prompt ? `\n${findAgentMode(mode).prompt}\n` : ''}
 工具使用规则：
 - 涉及数据的问题先调用工具获取真实数据，不要凭空编造任务 id 或内容。
 - id 必须来自工具返回结果；不确定 id 时先用 list_todos 或 list_trash 查找。
@@ -244,6 +268,9 @@ export const useAgentStore = defineStore('agent', () => {
   const skills = ref(cloneDefaultSkills())
   const skillsLoading = ref(false)
   const skillsError = ref('')
+  // MCP 服务按账号存本机浏览器：地址与令牌不上传，换设备需要重新配置
+  const mcpServers = ref([])
+  const mcpBusyId = ref('')
 
   let abortController = null
   let approvalResolver = null
@@ -368,6 +395,61 @@ export const useAgentStore = defineStore('agent', () => {
     return true
   }
 
+  // MCP 服务配置只落本机，写入后同时刷新对话可用的外部工具
+  const persistMcp = (next) => {
+    mcpServers.value = normalizeMcpServers(next)
+    saveMcpServers(activeUserId.value, mcpServers.value)
+  }
+
+  const addMcpServer = (draft) => {
+    const server = createMcpServer(draft)
+    if (!server) return null
+    persistMcp([...mcpServers.value, server])
+    return server
+  }
+
+  const updateMcpServer = (id, patch) => {
+    const current = mcpServers.value.find((server) => server.id === id)
+    if (!current) return null
+    const server = normalizeMcpServer({ ...current, ...patch, updatedAt: nowIso() }, id)
+    if (!server) return null
+    // 地址或令牌变更后旧会话头无法复用
+    if (server.endpoint !== current.endpoint || server.token !== current.token) forgetMcpSession(id)
+    persistMcp(mcpServers.value.map((item) => (item.id === id ? server : item)))
+    return server
+  }
+
+  const deleteMcpServer = (id) => {
+    if (!mcpServers.value.some((server) => server.id === id)) return false
+    persistMcp(mcpServers.value.filter((server) => server.id !== id))
+    forgetMcpSession(id)
+    return true
+  }
+
+  // 连接：握手并拉取工具列表，结果连成败原因一起写回该服务
+  const connectMcpServer = async (id) => {
+    const current = mcpServers.value.find((server) => server.id === id)
+    if (!current) return { success: false, error: 'MCP 服务不存在' }
+    mcpBusyId.value = id
+    const result = await connectToServer(current)
+    mcpBusyId.value = ''
+    if (!result.success) {
+      updateMcpServer(id, { tools: [], error: result.error })
+      return result
+    }
+    updateMcpServer(id, { tools: result.tools, error: '' })
+    return result
+  }
+
+  // 进入界面时只补齐缺工具或上次失败的服务，已连上的不重复握手
+  const refreshMcpServers = async () => {
+    const pending = mcpServers.value.filter((server) => (
+      server.enabled && (!server.tools?.length || server.error)
+    ))
+    if (!pending.length) return
+    await Promise.all(pending.map((server) => connectMcpServer(server.id)))
+  }
+
   // 挂载技能：指令随本轮消息发送，并切到它绑定的模式
   const useSkill = (id) => {
     const skill = skills.value.find((item) => item.id === id)
@@ -388,6 +470,9 @@ export const useAgentStore = defineStore('agent', () => {
       return
     }
     activeUserId.value = key
+
+    // 服务配置跟着账号走，切换账号后重新读取本机缓存
+    mcpServers.value = readMcpServers(userId)
 
     const stored = loadStoredState(key)
     if (stored?.sessions?.length) {
@@ -500,7 +585,7 @@ export const useAgentStore = defineStore('agent', () => {
 
   const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE, tools = [], skills = []) => {
     // 工具范围只通过请求的 tools 字段下发，不再重复写进消息
-    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, skills, mode }) }]
+    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, skills, mode, mcpServers: mcpServers.value }) }]
     messages.value.forEach((message) => {
       if (message.role === 'user') {
         apiMessages.push({ role: 'user', content: toUserContent(message) })
@@ -598,7 +683,9 @@ export const useAgentStore = defineStore('agent', () => {
       return answer == null
     }
 
-    if (DESTRUCTIVE_TOOLS.has(call.name) || CONFIRM_TOOLS.has(call.name)) {
+      // 外部工具没声明只读时按写操作处理，先让用户确认再发出请求
+    const isUnsafeMcp = isMcpToolName(call.name) && !isMcpReadOnlyTool(mcpServers.value, call.name)
+    if (DESTRUCTIVE_TOOLS.has(call.name) || CONFIRM_TOOLS.has(call.name) || isUnsafeMcp) {
       const approved = await requestApproval(call)
       if (!approved) {
         call.status = 'cancelled'
@@ -639,6 +726,8 @@ export const useAgentStore = defineStore('agent', () => {
         scheduleStore: useScheduleStore(),
         authStore,
         llmStore: llm,
+        // 工具定义随服务配置变化，运行时再读，避免拿到旧快照
+        mcpServers: () => mcpServers.value,
         agentStore: {
           skills,
           addSkill,
@@ -650,11 +739,17 @@ export const useAgentStore = defineStore('agent', () => {
         }
       })
       // 工具集只由模式决定；模式可能被 switch_mode 改掉，每步重新解析
+      // MCP 外部工具不受模式清单限制，只读模式仅保留声明了 readOnlyHint 的那些
       const resolveTools = (modeId) => {
         const allowed = resolveAllowedTools(modeId)
-        return allowed
-          ? runner.definitions.filter((definition) => allowed.has(definition.function.name))
-          : runner.definitions
+        if (!allowed) return runner.definitions
+        const readOnlyMode = isReadOnlyMode(modeId)
+        return runner.definitions.filter((definition) => {
+          const name = definition.function.name
+          if (allowed.has(name)) return true
+          if (!isMcpToolName(name)) return false
+          return !readOnlyMode || isMcpReadOnlyTool(mcpServers.value, name)
+        })
       }
 
       for (let step = 0; step < MAX_STEPS; step += 1) {
@@ -906,6 +1001,13 @@ export const useAgentStore = defineStore('agent', () => {
     updateSkill,
     deleteSkill,
     useSkill,
+    mcpServers,
+    mcpBusyId,
+    addMcpServer,
+    updateMcpServer,
+    deleteMcpServer,
+    connectMcpServer,
+    refreshMcpServers,
     detachSkill,
     regenerate,
     editAndResend,

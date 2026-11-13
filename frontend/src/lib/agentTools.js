@@ -9,6 +9,7 @@ import {
 } from './appSettings'
 import { SKILL_ICONS } from './agentSkills'
 import { disableCalendarFeed, rotateCalendarFeedToken } from './calendarTransfer'
+import { buildMcpToolDefinitions, callMcpTool, findMcpServerForTool, isMcpToolName, mcpToolName } from './mcpServers'
 import { fetchUserSettings } from './userSettings'
 
 // 破坏性操作先由界面确认，避免模型直接清空数据或让订阅链接失效
@@ -27,6 +28,8 @@ export const CONFIRM_TOOLS = new Set(['switch_mode'])
 
 // 需要用户选择：由界面弹出选项面板，点选结果直接作为工具结果返回
 export const CHOICE_TOOLS = new Set(['ask_user'])
+
+// MCP 工具由外部服务提供，写操作是否安全由服务声明决定，确认逻辑在 store 里按需触发
 
 const objectSchema = (properties, required = []) => ({
   type: 'object',
@@ -474,7 +477,19 @@ const serializeSchedule = (schedule) => ({
   todo_id: schedule.todo_id ?? null
 })
 
-export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llmStore, agentStore }) => {
+export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llmStore, agentStore, mcpServers }) => {
+  // 已启用的 MCP 服务把外部工具接进同一套循环，模式过滤只作用于内置工具
+  const readMcpServers = () => (typeof mcpServers === 'function' ? mcpServers() : [])
+
+  const runMcpTool = async (name, args) => {
+    const servers = readMcpServers()
+    const server = findMcpServerForTool(servers, name)
+    if (!server) throw new Error(`MCP 服务未启用：${name}`)
+    const tool = (server.tools || []).find((item) => mcpToolName(server, item.name) === name)
+    if (!tool) throw new Error(`MCP 工具不存在：${name}`)
+    return callMcpTool({ server, toolName: tool.name, args })
+  }
+
   const requireUserId = () => {
     const userId = authStore.user?.id
     if (!userId) throw new Error('请先登录')
@@ -993,6 +1008,14 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
 
   // 统一捕获参数或数据错误，让模型看到可读的失败原因并自行调整
   const run = async (name, args) => {
+    if (isMcpToolName(name)) {
+      try {
+        return { ok: true, data: await runMcpTool(name, args && typeof args === 'object' ? args : {}) }
+      } catch (err) {
+        return { ok: false, error: err?.message || String(err) }
+      }
+    }
+
     const handler = handlers[name]
     if (!handler) return { ok: false, error: `未知工具：${name}` }
     try {
@@ -1002,5 +1025,11 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
     }
   }
 
-  return { definitions: AGENT_TOOL_DEFINITIONS, run }
+  // MCP 工具随服务配置变化，取定义时再合并，避免快照过期
+  return {
+    get definitions() {
+      return [...AGENT_TOOL_DEFINITIONS, ...buildMcpToolDefinitions(readMcpServers())]
+    },
+    run
+  }
 }

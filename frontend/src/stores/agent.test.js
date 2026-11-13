@@ -22,7 +22,11 @@ vi.mock('./llm', () => ({
 vi.mock('./todos', () => ({ useTodoStore: () => mocks.stores.todo }))
 vi.mock('./schedules', () => ({ useScheduleStore: () => mocks.stores.schedule }))
 vi.mock('./auth', () => ({ useAuthStore: () => mocks.stores.auth }))
-vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+vi.mock('@/lib/supabase', () => ({
+  supabase: {},
+  supabaseUrl: 'https://example.supabase.co',
+  supabasePubKey: 'anon-key'
+}))
 vi.mock('@/lib/agentImages', () => ({
   hydrateImages: vi.fn(async () => {}),
   removeStoredImages: vi.fn()

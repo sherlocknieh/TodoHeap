@@ -9,6 +9,7 @@ import { parseDateKey, scheduleRangeOf, toDateKey } from '@/utils/scheduleRange'
 import { storeToRefs } from 'pinia'
 import AppIcon from '@/components/AppIcon.vue'
 import { DEFAULT_SKILL_ICON, MAX_SKILL_NAME, MAX_SKILL_PROMPT, SKILL_ICONS } from '@/lib/agentSkills'
+import { MAX_MCP_NAME } from '@/lib/mcpServers'
 import { AGENT_MODES } from '@/lib/agentModes'
 import { persistedRef, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { useResizablePanel, useResizableHeight } from '@/utils/resizablePanel'
@@ -61,8 +62,12 @@ const renameInput = ref(null)
 const skillForm = ref(null)
 const skillError = ref('')
 
+// MCP 服务编辑器：名称、地址与令牌一起保存，连接后才列出工具
+const mcpForm = ref(null)
+const mcpFormError = ref('')
+
 // 侧栏分组默认展开，点击标题折叠；折叠选择本地保留（参考 VSCode 侧栏）
-const collapsedSections = persistedRef('sidebar-sections', { sessions: false, skills: false }, {
+const collapsedSections = persistedRef('sidebar-sections', { sessions: false, skills: false, mcp: false }, {
   validate: (value) => value && typeof value === 'object'
 })
 
@@ -185,6 +190,71 @@ const attachSkill = (skill) => {
   agent.useSkill(skill.id)
   closeOnNarrowScreen()
 }
+
+const startNewMcp = () => {
+  mcpFormError.value = ''
+  expandSection('mcp')
+  mcpForm.value = { id: null, name: '', endpoint: '', token: '' }
+}
+
+const startEditMcp = (server) => {
+  mcpFormError.value = ''
+  expandSection('mcp')
+  mcpForm.value = {
+    id: server.id,
+    name: server.name,
+    endpoint: server.endpoint,
+    token: server.token || ''
+  }
+}
+
+const cancelMcpForm = () => {
+  mcpForm.value = null
+  mcpFormError.value = ''
+}
+
+// 保存后立即连接一次：拿不到工具列表就说明地址或令牌有问题
+const saveMcp = async () => {
+  const form = mcpForm.value
+  if (!form) return
+  if (!form.name.trim()) {
+    mcpFormError.value = '给服务起个名字'
+    return
+  }
+  if (!/^https?:\/\//i.test(form.endpoint.trim())) {
+    mcpFormError.value = '服务地址要以 http:// 或 https:// 开头'
+    return
+  }
+
+  const saved = form.id
+    ? agent.updateMcpServer(form.id, form)
+    : agent.addMcpServer(form)
+  if (!saved) {
+    mcpFormError.value = '服务名与地址不能为空'
+    return
+  }
+
+  cancelMcpForm()
+  await agent.connectMcpServer(saved.id)
+}
+
+// 重新启用时顺手补一次工具列表，避免提示词里只有服务名没有工具
+const toggleMcpServer = async (server) => {
+  const enabled = !server.enabled
+  agent.updateMcpServer(server.id, { enabled })
+  if (enabled && !server.tools?.length) await agent.connectMcpServer(server.id)
+}
+
+const removeMcpServer = (id) => {
+  agent.deleteMcpServer(id)
+  if (mcpForm.value?.id === id) cancelMcpForm()
+}
+
+const reconnectMcpServer = (server) => {
+  agent.connectMcpServer(server.id)
+}
+
+const mcpToolCount = (server) => (server.tools || []).length
 
 // 会话列表只显示时间与消息数，按当天/更早两种格式
 const formatSessionTime = (iso) => {
@@ -411,6 +481,75 @@ const switchView = (view) => {
         </section>
 
         </div>
+
+        <!-- MCP 服务：常驻底部分组，上方是会话列表的滚动区 -->
+        <section class="shrink-0 flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark">
+          <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
+            <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+              :aria-expanded="!collapsedSections.mcp" @click="toggleSection('mcp')">
+              <AppIcon :name="collapsedSections.mcp ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
+              <span class="eyebrow">MCP 服务</span>
+              <span v-if="agent.mcpServers.length" class="font-mono text-[10px] text-neutral-400 dark:text-neutral-500">{{ agent.mcpServers.length }}</span>
+            </button>
+            <button class="p-1 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300 transition-colors"
+              title="新增 MCP 服务" @click="startNewMcp">
+              <AppIcon name="plus" :size="14" />
+            </button>
+          </div>
+
+          <div v-show="!collapsedSections.mcp" class="max-h-60 min-h-0 overflow-auto space-y-0.5">
+            <form v-if="mcpForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
+              @submit.prevent="saveMcp">
+              <input v-model="mcpForm.name" class="field w-full px-1.5 py-1 text-xs"
+                :maxlength="MAX_MCP_NAME" placeholder="服务名称，如 高德地图" />
+              <input v-model="mcpForm.endpoint" class="field w-full px-1.5 py-1 font-mono text-[11px]"
+                placeholder="https://example.com/mcp" autocomplete="off" spellcheck="false" />
+              <input v-model="mcpForm.token" type="password" class="field w-full px-1.5 py-1 font-mono text-[11px]"
+                placeholder="访问令牌，可选" autocomplete="off" />
+              <p v-if="mcpFormError" class="text-[11px] text-rose-600 dark:text-rose-400">{{ mcpFormError }}</p>
+              <div class="flex items-center justify-between gap-1">
+                <button v-if="mcpForm.id" type="button"
+                  class="p-1 rounded text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                  title="删除服务" @click="removeMcpServer(mcpForm.id)">
+                  <AppIcon name="trash" :size="12" />
+                </button>
+                <span v-else></span>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="btn-ghost px-2 py-1 text-xs" @click="cancelMcpForm">取消</button>
+                  <button type="submit" class="btn-primary px-2 py-1 text-xs">保存并连接</button>
+                </div>
+              </div>
+            </form>
+
+            <p v-if="!agent.mcpServers.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
+              还没有 MCP 服务
+            </p>
+            <ul v-else class="space-y-0.5">
+              <li v-for="server in agent.mcpServers" :key="server.id"
+                class="group flex items-start gap-0.5 rounded-lg px-1.5 py-1 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06]">
+                <button class="min-w-0 flex-1 px-1 text-left" title="编辑服务" @click="startEditMcp(server)">
+                  <span class="flex items-center gap-1.5">
+                    <AppIcon name="link" :size="13" class="shrink-0 opacity-70" />
+                    <span class="truncate text-sm text-neutral-700 dark:text-neutral-300">{{ server.name }}</span>
+                  </span>
+                  <span class="mt-0.5 block truncate font-mono text-[10px]"
+                    :class="server.error ? 'text-rose-600 dark:text-rose-400' : 'text-neutral-400 dark:text-neutral-500'">
+                    {{ server.error || (server.enabled ? `${mcpToolCount(server)} 个工具` : '已停用') }}
+                  </span>
+                </button>
+                <button class="p-1 rounded transition-colors"
+                  :class="server.enabled ? 'text-accent-600 dark:text-accent-400' : 'text-neutral-400'"
+                  :title="server.enabled ? '停用该服务' : '启用该服务'" @click.stop="toggleMcpServer(server)">
+                  <AppIcon :name="server.enabled ? 'check' : 'eyeOff'" :size="12" />
+                </button>
+                <button class="p-1 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+                  :disabled="agent.mcpBusyId === server.id" title="重新连接" @click.stop="reconnectMcpServer(server)">
+                  <AppIcon :name="agent.mcpBusyId === server.id ? 'loader' : 'refresh'" :size="12" />
+                </button>
+              </li>
+            </ul>
+          </div>
+        </section>
 
         <!-- 技能：常驻底部分组，上缘可拖拽调高，折叠后只保留标题行 -->
         <div v-show="!collapsedSections.skills" class="shrink-0 -mt-1 h-2 flex items-center justify-center cursor-row-resize touch-none transition-colors"

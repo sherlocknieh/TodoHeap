@@ -9,6 +9,7 @@ import { useScheduleStore } from '@/stores/schedules'
 import AppIcon from '@/components/AppIcon.vue'
 import ComposerPicker from '@/components/ComposerPicker.vue'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
+import { isMcpToolName, mcpToolLabel } from '@/lib/mcpServers'
 import { AGENT_MODES } from '@/lib/agentModes'
 import { REASONING_EFFORTS } from '@/lib/llmProvider'
 import { MAX_IMAGES_PER_MESSAGE, createImageAttachment } from '@/lib/agentImages'
@@ -63,7 +64,8 @@ const SUGGESTIONS = [
   { icon: 'target', text: '帮我做一次全局任务优化', skillId: 'global-optimize' }
 ]
 
-const toolLabel = (name) => AGENT_TOOL_LABELS[name] || name
+// 外部工具名带服务前缀，展示时还原成「服务 / 工具」
+const toolLabel = (name) => (isMcpToolName(name) ? mcpToolLabel(name) : AGENT_TOOL_LABELS[name] || name)
 
 const parseArguments = (call) => {
   if (call.args) return call.args
@@ -74,9 +76,17 @@ const parseArguments = (call) => {
   }
 }
 
+// 外部工具参数结构由对方定义，取前两个标量值做概览
+const mcpCallSummary = (args) => Object.values(args)
+  .filter((value) => typeof value === 'string' || typeof value === 'number')
+  .slice(0, 2)
+  .map((value) => String(value).slice(0, 40))
+  .join(' · ')
+
 // 用最关键的参数概括一次工具调用，避免把完整 JSON 塞进气泡
 const callSummary = (call) => {
   const args = parseArguments(call)
+  if (isMcpToolName(call.name)) return mcpCallSummary(args)
   const parts = []
   if (args.title) parts.push(args.title)
   if (args.query) parts.push(`“${args.query}”`)
@@ -619,6 +629,8 @@ const approvalDescription = computed(() => {
 
 // 切换模式不是破坏性操作，确认文案要说清影响范围
 const isModeSwitch = computed(() => agent.pendingApproval?.name === 'switch_mode')
+// 外部 MCP 工具未声明只读时也要确认，文案与外置服务相关
+const isMcpCall = computed(() => isMcpToolName(agent.pendingApproval?.name))
 
 const modeSwitchTarget = computed(() => {
   const args = agent.pendingApproval?.args || {}
@@ -655,6 +667,8 @@ watch(() => props.selectedTaskId, (id) => agent.setContext({ selectedTaskId: id 
 
 onMounted(() => {
   agent.init(authStore.user?.id)
+  // 进入 AI 视图时补齐外部工具列表，已连上的服务不会重复握手
+  agent.refreshMcpServers()
   // 内置模式下先校准模型列表，避免继续使用已下线的旧型号
   if (llm.isBuiltin) llm.loadBuiltinModels()
   // 预取数据，工具调用时可直接命中本地缓存
@@ -894,6 +908,12 @@ onUnmounted(() => {
             <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
               {{ agent.pendingApproval.args?.reason || 'Agent 请求切换工作模式。' }}
               {{ modeSwitchHint }}
+            </p>
+          </template>
+          <template v-else-if="isMcpCall">
+            <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">调用外部工具{{ approvalDescription }}？</p>
+            <p class="mt-0.5 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
+              该 MCP 工具没有声明只读，确认后会把参数发送到你配置的外部服务。
             </p>
           </template>
           <template v-else>

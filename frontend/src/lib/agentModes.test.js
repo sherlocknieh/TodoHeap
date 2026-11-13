@@ -50,3 +50,13 @@ describe('agentModes', () => {
     expect(resolveAllowedTools('build')).toBeNull()
   })
 })
+
+describe('只读模式', () => {
+  it('Plan 是只读模式，其余模式可写', async () => {
+    const { isReadOnlyMode } = await import('./agentModes')
+    expect(isReadOnlyMode('plan')).toBe(true)
+    expect(isReadOnlyMode('build')).toBe(false)
+    expect(isReadOnlyMode('list')).toBe(false)
+    expect(isReadOnlyMode('unknown')).toBe(true)
+  })
+})

@@ -10,8 +10,14 @@ vi.mock('./calendarTransfer', () => ({
   rotateCalendarFeedToken: vi.fn(async () => ({ success: true, token: 'new-token' })),
   disableCalendarFeed: vi.fn(async () => ({ success: true }))
 }))
+// 外部 MCP 服务的网络调用换成桩，其余名称映射仍用真实实现
+vi.mock('./mcpServers', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, callMcpTool: vi.fn(async () => ({ temperature: 21 })) }
+})
 
 import { AGENT_TOOL_NAMES, CHOICE_TOOLS, createAgentToolRunner, DESTRUCTIVE_TOOLS } from './agentTools'
+import { callMcpTool } from './mcpServers'
 
 let nextTempId
 
@@ -174,6 +180,41 @@ describe('createAgentToolRunner', () => {
     expect(grandChild.path).toBe('根任务 / 子任务 / 孙任务')
     expect(grandChild.parent_id).toBe(2)
     expect(grandChild.completed).toBe(true)
+  })
+
+  it('外部 MCP 工具随配置注册进工具表并能执行', async () => {
+    const mcpServer = {
+      id: 'mcp_1',
+      name: 'Weather',
+      endpoint: 'https://weather.test/mcp',
+      enabled: true,
+      tools: [{ name: 'forecast', description: '查天气', readOnly: true, inputSchema: { type: 'object', properties: { city: { type: 'string' } } } }]
+    }
+    const withMcp = createAgentToolRunner({
+      todoStore,
+      scheduleStore,
+      authStore: { user: { id: 'user-1' } },
+      llmStore,
+      agentStore,
+      mcpServers: () => [mcpServer]
+    })
+
+    expect(withMcp.definitions.some((item) => item.function.name === 'mcp__weather__forecast')).toBe(true)
+
+    const result = await withMcp.run('mcp__weather__forecast', { city: '杭州' })
+    expect(result).toEqual({ ok: true, data: { temperature: 21 } })
+    expect(callMcpTool).toHaveBeenCalledWith({ server: mcpServer, toolName: 'forecast', args: { city: '杭州' } })
+
+    // 服务停用后工具不再下发给模型
+    const disabled = createAgentToolRunner({
+      todoStore,
+      scheduleStore,
+      authStore: { user: { id: 'user-1' } },
+      llmStore,
+      agentStore,
+      mcpServers: () => [{ ...mcpServer, enabled: false }]
+    })
+    expect(disabled.definitions.some((item) => item.function.name === 'mcp__weather__forecast')).toBe(false)
   })
 
   it('默认只看未完成任务，并支持关键词筛选', async () => {

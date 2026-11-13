@@ -119,6 +119,11 @@ export const findAgentMode = (id) => (
   || AGENT_MODES[0]
 )
 
+// 只读模式：内置工具都被限制在读取范围内，外部 MCP 工具也只保留声明只读的那些
+export const READ_ONLY_MODE_IDS = ['plan']
+
+export const isReadOnlyMode = (modeId) => READ_ONLY_MODE_IDS.includes(findAgentMode(modeId).id)
+
 // 模式决定本轮可用工具：null 表示不限制；提问与切换入口始终保留
 export const resolveAllowedTools = (modeId) => {
   const mode = findAgentMode(modeId)

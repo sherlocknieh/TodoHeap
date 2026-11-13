@@ -54,7 +54,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/didaMcp.js` | 滴答清单 MCP：OAuth 授权、工具调用、拉取任务后交给导入解析 |
 | `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
 | `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好，含 `ask_user` 选择面板与 `switch_mode` |
-| `lib/agentModes.js` | 工作模式：Plan / Build / 清单 / 日程 / 设置 / 清单+日程，各自限定工具集与提示词 |
+| `lib/agentModes.js` | 工作模式：Plan / Build / 清单 / 日程 / 设置 / 清单+日程，各自限定工具集与提示词；Plan 为只读模式 |
+| `lib/mcpServers.js` | 通用 MCP 服务：本机配置、JSON-RPC 握手、工具列举与调用、工具名映射 |
 | `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建，技能只绑定工作模式 |
 | `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
 | `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
@@ -70,7 +71,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 文件 | 职责 |
 | --- | --- |
 | `AppIcon.vue` | 线性图标全集（`name` + `size`），全站唯一图标来源 |
-| `LeftSidebar.vue` | 视图切换、AI 会话列表 |
+| `LeftSidebar.vue` | 视图切换、AI 会话列表、技能与 MCP 服务管理 |
 | `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单 |
 | `TodoDetailEditor.vue` | 右栏详情：标题、起止时间、难度、Markdown 描述 |
 | `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
@@ -114,6 +115,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `calendar_feed` | 日历订阅源：`?token=` 调用 `get_calendar_feed` RPC 输出 ICS，`verify_jwt = false` |
 | `llm_gateway` | 内置模型网关：校验用户 JWT 后用平台密钥转发 OpenAI 兼容请求；`GET` 返回实际可用模型（白名单或上游 `/models`）；订阅校验在 `authorizeRequest` 留空 |
 | `dida_mcp` | 滴答清单 MCP 网关：动态注册与 PKCE 换令牌、透传 MCP JSON-RPC；浏览器无法直连 `mcp.dida365.com`，令牌不落库 |
+| `mcp_gateway` | 通用 MCP 网关：校验用户 JWT 后转发任意 MCP 服务的 JSON-RPC，只允许 http(s) 地址，令牌只在请求内使用 |
 
 密钥只放 Supabase secrets 与 GitHub Actions vars/secrets；前端仅持 `VITE_SUPABASE_PUB_KEY`。
 

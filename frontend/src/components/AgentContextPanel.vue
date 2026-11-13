@@ -3,9 +3,13 @@ import { computed, ref } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
+import { isMcpToolName, mcpToolLabel } from '@/lib/mcpServers'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { summarizeRequest } from '@/utils/contextStats'
 import AppIcon from '@/components/AppIcon.vue'
+
+// 外部工具名带服务前缀，展示时还原成「服务 / 工具」
+const toolLabel = (name) => (isMcpToolName(name) ? mcpToolLabel(name) : AGENT_TOOL_LABELS[name] || name)
 
 defineProps({
   show: { type: Boolean, default: false }
@@ -150,7 +154,7 @@ const requestTools = computed(() => {
       const fn = definition?.function || {}
       return {
         name: fn.name || '',
-        label: AGENT_TOOL_LABELS[fn.name] || fn.name || '',
+        label: toolLabel(fn.name),
         json: JSON.stringify(definition, null, 2)
       }
     })
@@ -158,7 +162,7 @@ const requestTools = computed(() => {
   // 旧快照只存了工具名，退化成只有名称的条目
   return (latestRequest.value?.tools || []).map((name) => ({
     name,
-    label: AGENT_TOOL_LABELS[name] || name,
+    label: toolLabel(name),
     json: ''
   }))
 })
@@ -184,7 +188,7 @@ const summarizeContent = (content) => {
 
 const requestMessageSummary = (message) => {
   if (message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length) {
-    const names = message.tool_calls.map((call) => AGENT_TOOL_LABELS[call.function?.name] || call.function?.name)
+    const names = message.tool_calls.map((call) => toolLabel(call.function?.name))
     return `调用 ${names.join('、')}`
   }
   if (message.role === 'tool') return summarizeContent(message.content).slice(0, 80)
