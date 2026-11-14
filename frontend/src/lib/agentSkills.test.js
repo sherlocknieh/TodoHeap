@@ -50,11 +50,9 @@ describe('agentSkills', () => {
   })
 
   it('绑定已删除模式的技能按原权限落到全能模式', () => {
-    const [bySettings, byBoth] = normalizeSkills([
-      { id: 'a', name: '改设置', prompt: '指令', mode: 'settings' },
-      { id: 'b', name: '任务与日程', prompt: '指令', mode: 'list-schedule' }
+    const [byBoth] = normalizeSkills([
+      { id: 'a', name: '任务与日程', prompt: '指令', mode: 'list-schedule' }
     ])
-    expect(bySettings.mode).toBe('build')
     expect(byBoth.mode).toBe('build')
   })
 

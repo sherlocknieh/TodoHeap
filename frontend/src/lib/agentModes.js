@@ -36,6 +36,17 @@ export const SCHEDULE_TOOLS = [
   'delete_schedule'
 ]
 
+// 设置域：界面偏好、模型参数、技能与日历订阅
+export const SETTINGS_TOOLS = [
+  'list_app_settings',
+  'update_app_setting',
+  'create_skill',
+  'update_skill',
+  'delete_skill',
+  'rotate_calendar_feed',
+  'disable_calendar_feed'
+]
+
 // 切换模式本身在所有模式下都可用，否则受限模式无法请求放开权限
 export const MODE_SWITCH_TOOL = 'switch_mode'
 
@@ -79,6 +90,15 @@ export const AGENT_MODES = [
     prompt: `当前处于日程读写模式：只处理日程事件，不碰任务清单与应用设置。
 - 可以创建、修改、删除日程；需要任务信息时只能读取，不能改动任务。
 - 用户提到任务或设置时，说明当前模式不覆盖，并在同一条回复里调用 switch_mode 请求切到对应模式，不要只让用户自己切换。`
+  },
+  {
+    id: 'settings',
+    label: '设置读写',
+    description: '只管理应用设置与技能',
+    tools: [...SETTINGS_TOOLS, MODE_SWITCH_TOOL],
+    prompt: `当前处于设置读写模式：只处理应用设置与技能，不碰任务清单与日程。
+- 改设置前先调用 list_app_settings 确认键名与当前值。
+- 用户提到任务或日程时，说明当前模式不覆盖，并在同一条回复里调用 switch_mode 请求切到对应模式，不要只让用户自己切换。`
   }
 ]
 
@@ -86,7 +106,7 @@ export const AGENT_MODES = [
 export const DEFAULT_AGENT_MODE = 'plan'
 
 // 已删除的模式：历史会话与技能仍带着旧 id，落到全能模式避免丢掉原有权限
-export const LEGACY_MODE_ALIASES = { settings: 'build', 'list-schedule': 'build' }
+export const LEGACY_MODE_ALIASES = { 'list-schedule': 'build' }
 
 export const findAgentMode = (id) => (
   AGENT_MODES.find((mode) => mode.id === id)

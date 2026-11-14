@@ -6,6 +6,7 @@ import {
   MODE_SWITCH_TOOL,
   READ_ONLY_TOOLS,
   SCHEDULE_TOOLS,
+  SETTINGS_TOOLS,
   TODO_TOOLS,
   findAgentMode,
   isValidModeTools,
@@ -21,15 +22,14 @@ describe('agentModes', () => {
     expect(DEFAULT_AGENT_MODE).toBe('plan')
     expect(findAgentMode('build').tools).toBeNull()
     expect(findAgentMode('plan').tools).toEqual([...READ_ONLY_TOOLS, MODE_SWITCH_TOOL])
-    expect(AGENT_MODES.map((mode) => mode.id)).toEqual(['plan', 'build', 'list', 'schedule'])
+    expect(AGENT_MODES.map((mode) => mode.id)).toEqual(['plan', 'build', 'list', 'schedule', 'settings'])
   })
 
   it('模式名称按读写范围命名', () => {
-    expect(AGENT_MODES.map((mode) => mode.label)).toEqual(['只读模式', '全能模式', '清单读写', '日程读写'])
+    expect(AGENT_MODES.map((mode) => mode.label)).toEqual(['只读模式', '全能模式', '清单读写', '日程读写', '设置读写'])
   })
 
   it('已移除的模式按原权限落到全能模式', () => {
-    expect(findAgentMode('settings').id).toBe('build')
     expect(findAgentMode('list-schedule').id).toBe('build')
   })
 
@@ -40,6 +40,7 @@ describe('agentModes', () => {
   it('单域模式只给本域工具，切换与提问入口始终保留', () => {
     expect([...resolveAllowedTools('list')]).toEqual([...TODO_TOOLS, MODE_SWITCH_TOOL, ASK_USER_TOOL])
     expect([...resolveAllowedTools('schedule')]).toEqual([...SCHEDULE_TOOLS, MODE_SWITCH_TOOL, ASK_USER_TOOL])
+    expect([...resolveAllowedTools('settings')]).toEqual([...SETTINGS_TOOLS, MODE_SWITCH_TOOL, ASK_USER_TOOL])
   })
 
   it('全能模式不限制工具', () => {
