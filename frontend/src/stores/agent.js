@@ -810,6 +810,11 @@ export const useAgentStore = defineStore('agent', () => {
     running.value = true
     abortController = new AbortController()
     const signal = abortController.signal
+    // 只读模式放开权限只作用于本轮，收尾后要回到原模式
+    const turnStartMode = activeMode.value
+    let modeOpenedByTool = false
+    let turnStoppedByUser = false
+    let turnFailed = false
 
     try {
       const runner = createAgentToolRunner({
@@ -824,7 +829,12 @@ export const useAgentStore = defineStore('agent', () => {
           addSkill,
           updateSkill,
           deleteSkill,
-          setMode,
+          // 工具发起的切换记为临时放开，界面手动切换不算
+          setMode: (modeId) => {
+            const before = activeMode.value
+            setMode(modeId)
+            if (activeMode.value !== before) modeOpenedByTool = true
+          },
           // 切换后要读到新模式，用 getter 而不是快照
           get activeMode() { return activeMode.value }
         }
@@ -935,6 +945,7 @@ export const useAgentStore = defineStore('agent', () => {
         }
         // 用户取消提问或确认后直接收尾，保持空闲等下一句
         if (stopTurn) {
+          turnStoppedByUser = true
           persist()
           break
         }
@@ -945,6 +956,7 @@ export const useAgentStore = defineStore('agent', () => {
         }
       }
     } catch (err) {
+      turnFailed = true
       // 会话被切走时只收尾原会话，不影响新会话的消息
       const target = isCurrentSession() ? messages.value : (sessionOfTurn()?.messages || [])
       const last = target[target.length - 1]
@@ -965,6 +977,12 @@ export const useAgentStore = defineStore('agent', () => {
         }
       }
     } finally {
+      // 本轮为执行任务临时放开的只读模式，正常做完后回到原模式；
+      // 用户取消、出错或撞上步数上限时保留新模式，方便接着处理
+      if (modeOpenedByTool && isReadOnlyMode(turnStartMode) && !turnStoppedByUser && !turnFailed && !stepLimited.value) {
+        const target = sessionOfTurn()
+        if (target && target.mode !== turnStartMode) setModeForSession(target, turnStartMode)
+      }
       running.value = false
       abortController = null
       persist()
@@ -1064,15 +1082,15 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   // 切换工作模式：只影响当前会话，后续请求按新模式发送工具与提示词
-  const setMode = (modeId) => {
-    const session = activeSession.value
-    if (!session) return
+  const setModeForSession = (session, modeId) => {
     const next = findAgentMode(modeId).id
-    if (session.mode === next) return
+    if (!session || session.mode === next) return
     session.mode = next
     session.updatedAt = nowIso()
     persist()
   }
+
+  const setMode = (modeId) => setModeForSession(activeSession.value, modeId)
 
   return {
     messages,

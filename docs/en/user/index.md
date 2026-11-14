@@ -93,7 +93,7 @@ The mode button in the composer switches between Plan and Build; the mode is sto
 | Plan | Read-only: list/read tasks, trash, schedules, app settings, plus `switch_mode` | Asks for a plan first and forbids write tools |
 | Build | All tools; can read and write tasks, schedules and settings | Regular task-management rules |
 
-Plan sends only the read-only tools, so write-tool schemas and rules cost no tokens — useful for discussing an approach before acting. The agent can request a switch with `switch_mode`; a confirmation card appears and, once accepted, the rest of the turn already uses the new mode's tools. A skill's tool allowlist is intersected with the mode, so a skill cannot grant write access in Plan.
+Plan sends only the read-only tools, so write-tool schemas and rules cost no tokens — useful for discussing an approach before acting. The agent can request a switch with `switch_mode`; a confirmation card appears and, once accepted, the rest of the turn already uses the new mode's tools. Leaving Plan lasts only for that turn: when the turn finishes normally the session returns to Plan. If you cancel a prompt or the model errors, the broader mode is kept so you can continue. Modes you switch to by hand in the UI are never reverted. A skill's tool allowlist is intersected with the mode, so a skill cannot grant write access in Plan.
 
 The list of tools available in a turn is also sent as a separate `system` message, so you can inspect it in the context panel alongside the system prompt.
 

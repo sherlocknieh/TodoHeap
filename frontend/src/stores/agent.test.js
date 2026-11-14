@@ -599,11 +599,63 @@ describe('useAgentStore', () => {
     agent.resolveApproval(true)
     await pending
 
-    expect(agent.activeMode).toBe('build')
+    // 本轮任务做完后自动回到 Plan，下一轮仍然先规划
+    expect(agent.activeMode).toBe('plan')
     expect(agent.messages[1].content).toContain('计划如下')
     const secondTools = mocks.chat.mock.calls[1][0].tools.map((tool) => tool.function.name)
     expect(secondTools).toContain('create_schedule')
     expect(secondTools).toContain('create_todo')
+  })
+
+  it('Plan 切出后本轮正常结束回到 Plan，用户取消提问则保留新模式', async () => {
+    mocks.chat
+      .mockResolvedValueOnce(toolCallResponse('switch_mode', { mode: 'build', reason: '需要新建任务' }))
+      .mockResolvedValueOnce(toolCallResponse('ask_user', { question: '建到哪个清单？', options: ['工作', '生活'] }))
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const pending = agent.send('建一个任务')
+
+    await vi.waitFor(() => expect(agent.pendingApproval).not.toBeNull())
+    agent.resolveApproval(true)
+    await vi.waitFor(() => expect(agent.pendingChoice).not.toBeNull())
+    expect(agent.activeMode).toBe('build')
+
+    agent.resolveChoice(null)
+    await pending
+    // 本轮没做完，保留放宽后的模式，方便接着说
+    expect(agent.activeMode).toBe('build')
+  })
+
+  it('Plan 切出后撞上步数上限时保留新模式，便于继续', async () => {
+    for (let step = 0; step < 13; step += 1) {
+      mocks.chat.mockResolvedValueOnce(step === 0
+        ? toolCallResponse('switch_mode', { mode: 'build', reason: '需要写入' })
+        : toolCallResponse('list_todos', {}))
+    }
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const pending = agent.send('一路做下去')
+
+    await vi.waitFor(() => expect(agent.pendingApproval).not.toBeNull())
+    agent.resolveApproval(true)
+    await pending
+
+    expect(agent.stepLimited).toBe(true)
+    expect(agent.activeMode).toBe('build')
+  })
+
+  it('界面手动切换的模式不会被本轮自动回切覆盖', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '好的。', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.init('user-1')
+    const pending = agent.send('先聊聊')
+    agent.setMode('list')
+    await pending
+
+    expect(agent.activeMode).toBe('list')
   })
 
   it('ask_user 弹出选择面板，点选结果作为工具结果继续本轮', async () => {
