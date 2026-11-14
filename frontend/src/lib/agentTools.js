@@ -280,11 +280,11 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'switch_mode',
-      description: '请求切换工作模式。plan 只读、build 全量、list 只管理清单、schedule 只管理日程、settings 只管理设置、list-schedule 清单与日程双向。需要其他模式的工具时，在同一条回复里直接调用，不要先停下等用户再发消息；用户确认后立即生效，本轮后续请求按新模式发送工具。从 Plan 切出后，本轮正常结束时会自动回到 Plan。',
+      description: '请求切换工作模式。plan 只读、build 全能、list 只管理清单、schedule 只管理日程。需要其他模式的工具时，在同一条回复里直接调用，不要先停下等用户再发消息；用户确认后立即生效，本轮后续请求按新模式发送工具。从只读模式切出后，本轮正常结束时会自动回到只读模式。',
       parameters: objectSchema({
         mode: {
           type: 'string',
-          enum: ['plan', 'build', 'list', 'schedule', 'settings', 'list-schedule'],
+          enum: ['plan', 'build', 'list', 'schedule'],
           description: '目标模式'
         },
         reason: text('为什么要切换，一句话说明')
@@ -322,7 +322,7 @@ export const AGENT_TOOL_DEFINITIONS = [
         name: text('技能名称，最多 24 字'),
         prompt: text('技能指令全文'),
         icon: text('图标名，可选：sparkles、target、bulb、book、chart、calendar、list、clock'),
-        mode: text('技能绑定的工作模式 id：plan、build、list、schedule、settings、list-schedule；留空表示沿用会话当前模式')
+        mode: text('技能绑定的工作模式 id：plan、build、list、schedule；留空表示沿用会话当前模式')
       }, ['name', 'prompt'])
     }
   },

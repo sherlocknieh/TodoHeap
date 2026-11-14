@@ -567,7 +567,7 @@ describe('useAgentStore', () => {
     expect(agent.messages[0].mentions).toHaveLength(2)
   })
 
-  it('Plan 模式只发送只读工具与规划提示词', async () => {
+  it('只读模式只发送只读工具与规划提示词', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '建议先拆成三步。', tool_calls: [] })
 
     const agent = useAgentStore()
@@ -578,10 +578,10 @@ describe('useAgentStore', () => {
     const toolNames = request.tools.map((tool) => tool.function.name)
     expect(toolNames).toEqual(['list_todos', 'get_todo', 'list_trash', 'list_schedules', 'ask_user', 'switch_mode', 'list_app_settings'])
     expect(toolNames).not.toContain('create_todo')
-    expect(request.messages[0].content).toContain('Plan 模式')
+    expect(request.messages[0].content).toContain('只读模式')
   })
 
-  it('switch_mode 确认后本轮后续请求改用 Build 的完整工具集', async () => {
+  it('switch_mode 确认后本轮后续请求改用全能模式的完整工具集', async () => {
     // 方案文本与切换请求在同一条回复里发出，确认卡片随方案一起出现
     mocks.chat
       .mockResolvedValueOnce({
@@ -599,7 +599,7 @@ describe('useAgentStore', () => {
     agent.resolveApproval(true)
     await pending
 
-    // 本轮任务做完后自动回到 Plan，下一轮仍然先规划
+    // 本轮任务做完后自动回到只读模式，下一轮仍然先规划
     expect(agent.activeMode).toBe('plan')
     expect(agent.messages[1].content).toContain('计划如下')
     const secondTools = mocks.chat.mock.calls[1][0].tools.map((tool) => tool.function.name)
@@ -607,7 +607,7 @@ describe('useAgentStore', () => {
     expect(secondTools).toContain('create_todo')
   })
 
-  it('Plan 切出后本轮正常结束回到 Plan，用户取消提问则保留新模式', async () => {
+  it('只读模式切出后本轮正常结束回到只读模式，用户取消提问则保留新模式', async () => {
     mocks.chat
       .mockResolvedValueOnce(toolCallResponse('switch_mode', { mode: 'build', reason: '需要新建任务' }))
       .mockResolvedValueOnce(toolCallResponse('ask_user', { question: '建到哪个清单？', options: ['工作', '生活'] }))
@@ -627,7 +627,7 @@ describe('useAgentStore', () => {
     expect(agent.activeMode).toBe('build')
   })
 
-  it('Plan 切出后撞上步数上限时保留新模式，便于继续', async () => {
+  it('只读模式切出后撞上步数上限时保留新模式，便于继续', async () => {
     for (let step = 0; step < 13; step += 1) {
       mocks.chat.mockResolvedValueOnce(step === 0
         ? toolCallResponse('switch_mode', { mode: 'build', reason: '需要写入' })

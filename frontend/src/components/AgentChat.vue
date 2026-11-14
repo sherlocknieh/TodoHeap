@@ -203,9 +203,9 @@ const switchReasoningEffort = (id) => {
   openMenu.value = ''
 }
 
-// 工作模式：Build 可读写，Plan 只读，切换后下一轮请求即按新模式发送
+// 工作模式：全能模式可读写，只读模式只查看，切换后下一轮请求即按新模式发送
 const activeModeLabel = computed(() => (
-  AGENT_MODES.find((mode) => mode.id === agent.activeMode)?.label || 'Build'
+  AGENT_MODES.find((mode) => mode.id === agent.activeMode)?.label || '全能模式'
 ))
 
 const modeLabel = (id) => AGENT_MODES.find((mode) => mode.id === id)?.label || ''
@@ -641,7 +641,7 @@ const isMcpCall = computed(() => isMcpToolName(agent.pendingApproval?.name))
 
 const modeSwitchTarget = computed(() => {
   const args = agent.pendingApproval?.args || {}
-  return AGENT_MODES.find((mode) => mode.id === args.mode)?.label || 'Build'
+  return AGENT_MODES.find((mode) => mode.id === args.mode)?.label || '全能模式'
 })
 
 // 确认文案按目标模式的工具范围说明影响
@@ -979,7 +979,7 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- 模式浮层：Build 可读写，Plan 只读 -->
+      <!-- 模式浮层：全能模式可读写，只读模式只查看 -->
       <div v-if="openMenu === 'mode'"
         class="absolute bottom-full left-0 z-20 mb-1.5 w-56 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg dark:border-hairline-dark dark:bg-surface-dark">
         <button v-for="mode in AGENT_MODES" :key="mode.id" type="button"

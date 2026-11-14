@@ -1,5 +1,5 @@
 // Agent 技能：把一段固定指令保存成可复用入口，运行时在新会话里发给模型
-import { AGENT_MODES, DEFAULT_AGENT_MODE } from './agentModes'
+import { AGENT_MODES, DEFAULT_AGENT_MODE, LEGACY_MODE_ALIASES, findAgentMode } from './agentModes'
 
 export const MAX_SKILL_NAME = 24
 export const MAX_SKILL_PROMPT = 4000
@@ -33,10 +33,11 @@ const createSkillId = () => {
 
 const cleanText = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
 
-// 技能只绑定工作模式：空值表示沿用会话当前模式，未知模式回退到默认模式
+// 技能只绑定工作模式：空值表示沿用会话当前模式，旧模式按原权限复用，未知模式回退到默认模式
 const normalizeMode = (mode) => {
   if (mode === undefined || mode === null || mode === '') return ''
-  return AGENT_MODES.some((item) => item.id === mode) ? mode : DEFAULT_AGENT_MODE
+  const known = AGENT_MODES.some((item) => item.id === mode) || mode in LEGACY_MODE_ALIASES
+  return known ? findAgentMode(mode).id : DEFAULT_AGENT_MODE
 }
 
 export const normalizeSkill = (skill, fallbackId) => {
