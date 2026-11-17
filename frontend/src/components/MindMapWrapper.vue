@@ -866,15 +866,20 @@ const toggleCollapse = (node) => {
   }
 
   // 折叠/展开会重排可见节点：先记下被点节点此刻的屏幕位置，重排后再把它钉回原处
-  const anchor = { id, offsetX: view.x, offsetY: view.y, scale: view.scale, graphX: null, graphY: null }
-  const anchorNode = layout.value.nodes.find((item) => item.id === id)
-  if (anchorNode) {
-    anchor.graphX = anchorNode.x
-    anchor.graphY = anchorNode.y
-  }
-
+  const anchor = captureAnchor(id)
   collapsedIds.value = [...next]
   pinNodeAfterLayout(anchor)
+}
+
+// 记下节点此刻的图坐标与视口，重排后据此补偿平移，让它在屏幕上停住
+const captureAnchor = (id) => {
+  const anchor = { id, offsetX: view.x, offsetY: view.y, scale: view.scale, graphX: null, graphY: null }
+  const node = layout.value.nodes.find((item) => item.id === id)
+  if (node) {
+    anchor.graphX = node.x
+    anchor.graphY = node.y
+  }
+  return anchor
 }
 
 // 布局重排后只平移视口，让锚点节点留在切换前的位置，避免整张图跟着跳
@@ -898,6 +903,19 @@ const toggleDone = (node) => {
 // 已完成节点上的删除按钮：两段式确认，避免误删
 const confirmDeleteId = ref(null)
 
+// 删除任务前记下父节点位置：父节点一定还在，删除后把它钉回原处，与折叠保持同一套重排行为
+const deleteAnchorFor = (id) => {
+  const parent = nodeIndex.value.parentOf.get(String(id)) ?? 'root'
+  return captureAnchor(String(parent))
+}
+
+// 图内删除的统一出口：按钮与快捷键都先锚定父节点再删除，重排后视口不跳
+const emitDelete = (id) => {
+  const anchor = deleteAnchorFor(id)
+  emit('delete-task', Number(id))
+  pinNodeAfterLayout(anchor)
+}
+
 const deleteNode = (node) => {
   if (node.isRoot) return
   if (confirmDeleteId.value !== node.id) {
@@ -905,7 +923,7 @@ const deleteNode = (node) => {
     return
   }
   confirmDeleteId.value = null
-  emit('delete-task', Number(node.id))
+  emitDelete(node.id)
 }
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
@@ -1363,7 +1381,7 @@ const onKeydown = (event) => {
       }
       if (!id || id === 'root') return
       event.preventDefault()
-      emit('delete-task', Number(id))
+      emitDelete(id)
       return
     case ' ':
       if (!id || id === 'root') return
