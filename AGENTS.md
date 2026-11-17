@@ -30,7 +30,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 构建前端 | `cd frontend && npm run build` |
 | 单元测试 | `cd frontend && npm test`（vitest，覆盖 store 层与滴答清单导入解析） |
 | 类型检查 | `cd frontend && npm run type-check`；⚠️ vue-tsc 1.8 与 TS 5.9 不兼容会直接崩，属已知问题，不是新引入的错误 |
-| 数据库迁移 | `npx supabase migration list --remote` 看远程状态；`npx supabase db push --remote --yes` 推送新迁移；直连被拦截时加 `--db-url`（pooler 地址在 `supabase/.temp/pooler-url`，仍需 `--password`） |
+| 数据库迁移 | `npx supabase migration list --remote` 看远程状态；`npx supabase db push --remote --yes` 推送新迁移；直连 `db.<ref>.supabase.co` 在本机被拦截，改用 pooler：`npx supabase db push --yes --db-url "postgresql://postgres.<ref>:<密码>@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"`（密码需 URL 编码） |
 
 `frontend/` 与 `docs/` 各自安装依赖，仓库根只装 `concurrently`。
 
