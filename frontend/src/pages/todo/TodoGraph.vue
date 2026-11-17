@@ -131,7 +131,7 @@ const toggleDone = async (id) => {
 }
 
 // 链接后改为移动：摘掉落点以外的所有父链接，让任务只留在新父级下
-const unlinkOtherParents = async ({ childId, parentId, targetChildIds, childTitle, parentTitle }) => {
+const unlinkOtherParents = async ({ childId, parentId }) => {
 	const snapshots = findParentIds(todoStore.todos, childId)
 		.filter(id => id !== parentId)
 		.map(id => ({ id, child_ids: [...(todoStore.findTodoById(id)?.child_ids || [])] }))
@@ -141,25 +141,12 @@ const unlinkOtherParents = async ({ childId, parentId, targetChildIds, childTitl
 		child_ids: snapshot.child_ids.filter(id => id !== childId)
 	})))
 	const failed = results.find(result => !result.success)
-	if (failed) {
-		if (failed.error) emit('notify', { message: failed.error })
-		return
-	}
-
-	emit('notify', {
-		message: `已移动「${childTitle}」到「${parentTitle}」`,
-		undo: async () => {
-			await todoStore.updateTodo(parentId, { child_ids: targetChildIds })
-			for (const snapshot of snapshots) {
-				await todoStore.updateTodo(snapshot.id, { child_ids: snapshot.child_ids })
-			}
-		}
-	})
+	if (failed?.error) emit('notify', { message: failed.error })
 }
 
 // 拖拽落点：拖节点本体时，子任务只有一个父级就移动、多个父级就新增链接；
 // 从折叠/加号按钮拉出的拖拽只建立链接，不搬动任务。
-// 多父链接后的提示提供「改为移动」，点了才摘掉其余父链接
+// 只有链接需要提示；移动是直接结果，不弹提示
 const dropTask = async ({ parentId, childId, linkOnly = false }) => {
 	if (parentId === childId) return
 	const parent = todoStore.findTodoById(parentId)
@@ -178,11 +165,10 @@ const dropTask = async ({ parentId, childId, linkOnly = false }) => {
 		return
 	}
 
-	const childTitle = child.title || '任务'
-	const parentTitle = parent.title || '任务'
-	const targetChildIds = [...(parent.child_ids || [])]
-
 	if (linkOnly || parentIds.length > 1) {
+		const childTitle = child.title || '任务'
+		const parentTitle = parent.title || '任务'
+		const targetChildIds = [...(parent.child_ids || [])]
 		const result = await todoStore.updateTodo(parentId, { child_ids: [...targetChildIds, childId] })
 		if (!result.success) {
 			if (result.error) emit('notify', { message: result.error })
@@ -192,8 +178,9 @@ const dropTask = async ({ parentId, childId, linkOnly = false }) => {
 		emit('notify', {
 			message: `已将「${childTitle}」链接到「${parentTitle}」`,
 			action: linkOnly ? null : {
-				label: '改为移动',
-				run: () => unlinkOtherParents({ childId, parentId, targetChildIds, childTitle, parentTitle })
+				// 改为移动会摘掉该任务其余父链接，提示里直接标明代价
+				label: '改为移动（断开旧连接）',
+				run: () => unlinkOtherParents({ childId, parentId })
 			},
 			undo: () => todoStore.updateTodo(parentId, { child_ids: targetChildIds })
 		})
@@ -201,30 +188,12 @@ const dropTask = async ({ parentId, childId, linkOnly = false }) => {
 	}
 
 	// 单父任务（含只挂在根任务下的顶层任务）直接移动，落到新父级末尾
-	const sourceParentId = parentIds[0] ?? null
-	const sourceParent = sourceParentId == null ? null : todoStore.findTodoById(sourceParentId)
-	const sourceChildIds = sourceParent ? [...(sourceParent.child_ids || [])] : null
-
 	const result = await todoStore.moveTodo(childId, {
 		targetId: parentId,
 		position: 'inside',
-		sourceParentId
+		sourceParentId: parentIds[0] ?? null
 	})
-	if (!result.success) {
-		if (result.error) emit('notify', { message: result.error })
-		return
-	}
-
-	emit('notify', {
-		message: `已移动「${childTitle}」到「${parentTitle}」`,
-		undo: async () => {
-			const actions = [todoStore.updateTodo(parentId, { child_ids: targetChildIds })]
-			if (sourceParentId != null && sourceChildIds) {
-				actions.push(todoStore.updateTodo(sourceParentId, { child_ids: sourceChildIds }))
-			}
-			await Promise.all(actions)
-		}
-	})
+	if (!result.success && result.error) emit('notify', { message: result.error })
 }
 
 // 删除连线：只从父任务的 child_ids 移除引用；最后一个父级被摘掉时任务回到顶层

@@ -30,7 +30,7 @@ outline: deep
 | 底栏 / 状态栏 / 底部统计 / 进度条 | `pages/Todo.vue`「底栏统计」「底栏：导航开关、统计与同步状态」 | 根任务不计入统计 |
 | 同步状态 / 断线 / 待同步 | `pages/Todo.vue` `syncStatus`；`stores/syncQueue.js` | 优先级：断线 > 待同步 > 连接中 > 已同步 |
 | 设置浮窗 / 设置弹窗 / 齿轮 | `pages/todo/Settings.vue`；`pages/Todo.vue`「设置浮窗」 | 地址栏 `tab` 参数控制，刷新可回到同一面板 |
-| 轻提示 / toast / 撤销提示 | `pages/Todo.vue` `const toast = ref`、「轻提示：删除、完成、批量操作后」 | 删除等操作后可从提示里撤销 |
+| 轻提示 / toast / 撤销提示 | `pages/Todo.vue` `const toast = ref`、「轻提示：删除、完成、批量操作后」 | 删除等操作后可从提示里撤销；链接提示额外提供「改为移动」按钮 |
 | 点空白关闭详情 / 点别处收起右栏 | `pages/Todo.vue`「点击中栏区域时关闭详情面板」 | 点在详情面板内或任务项上不关 |
 
 ## 任务列表
@@ -66,6 +66,7 @@ outline: deep
 | 适应视图 / 缩放到刚好 / 操作提示 | `components/MindMapWrapper.vue` `fitView`、`helpOpen` | 视图控件在右下角，提示收进按钮浮层 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
 | 拖拽落点 / 预览线 / 拖到节点上 | `components/MindMapWrapper.vue` `dragState.preview`、`onNodePointerDown` | 节点拖拽与按钮拖拽都画预览线 |
+| 拖拽移动 / 拖节点换父级 / 单父节点拖动 / 移动后没提示 | `pages/todo/TodoGraph.vue` `dropTask`；`components/MindMapWrapper.vue` `onDragEnd` | 单父任务拖到节点上直接移动且不弹提示；多父任务拖节点只建链接，提示里可选「改为移动（断开旧连接）」；从折叠/加号按钮拉线只建链接 |
 | 拖拽建链接 / 按钮拉线 / 拉到附近就命中 / 箭头被鼠标挡住 | `components/MindMapWrapper.vue` `linkTargetAtPoint`、`LINK_HIT_PADDING`、`DRAG_ARROW_GAP` | 从折叠/加号按钮拉线时按屏幕像素外扩命中范围，多节点取最近；预览线箭头再越过指针 18px，避免被光标遮住；拖节点移动仍要求压在节点上 |
 
 ## 侧栏与 AI
