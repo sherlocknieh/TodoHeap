@@ -1227,34 +1227,31 @@ const focusScale = () => Math.max(0.15, Math.min(
   (size.width - 96) / nodeWidth
 ))
 
-// 聚焦范围：选中节点连同它可见的父级与子级，缩放要刚好把这一圈放进视口
-const focusBounds = (node) => {
+// 聚焦范围只看主方向（层级展开方向）：父级与子级各占一层，
+// 把这三层的左右（上下）边缘放进视口即可。交叉方向上子级可能排很多，
+// 不参与缩放计算，避免子级一多就整张图缩小
+const focusMainSpan = (node) => {
   const ids = new Set([node.id])
   layout.value.edges.forEach((edge) => {
     if (edge.to === node.id) ids.add(edge.from)
     if (edge.from === node.id) ids.add(edge.to)
   })
   const related = layout.value.nodes.filter((item) => ids.has(item.id))
-  const left = Math.min(...related.map((item) => item.x))
-  const top = Math.min(...related.map((item) => item.y))
-  const right = Math.max(...related.map((item) => item.x + nodeWidth))
-  const bottom = Math.max(...related.map((item) => item.y + item.height))
-  return { width: right - left, height: bottom - top }
+  const vertical = isVertical.value
+  const min = Math.min(...related.map((item) => (vertical ? item.y : item.x)))
+  const max = Math.max(...related.map((item) => (vertical ? item.y + item.height : item.x + nodeWidth)))
+  return Math.max(max - min, vertical ? node.height : nodeWidth)
 }
 
-// 把选中节点移到视口中心，并缩放到刚好能看清它的父级与子级；
-// 子级过多时不再继续缩小，保证文字仍可辨认
-const FOCUS_MIN_SCALE = 0.55
-
+// 把选中节点移到视口中心，并缩放到父级与子级的边缘都完整可见
 const centerOnNode = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
-  const bounds = focusBounds(node)
   const pad = 48
-  const scale = Math.max(FOCUS_MIN_SCALE, Math.min(
+  const viewportMain = isVertical.value ? size.height : size.width
+  const scale = Math.max(0.15, Math.min(
     FOCUS_SCALE,
-    (size.width - pad * 2) / Math.max(bounds.width, 1),
-    (size.height - pad * 2) / Math.max(bounds.height, 1)
+    (viewportMain - pad * 2) / Math.max(focusMainSpan(node), 1)
   ))
   const target = {
     x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
