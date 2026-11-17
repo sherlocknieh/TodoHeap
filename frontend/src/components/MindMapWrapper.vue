@@ -1869,6 +1869,9 @@ const startDrag = (event, sourceId, fromToggle) => {
   window.addEventListener('pointercancel', onDragEnd)
 }
 
+// 预览线终点再越过指针一小段（屏幕像素），让箭头露在鼠标图标之外，避免被指针盖住
+const DRAG_ARROW_GAP = 18
+
 // 预览线：节点拖拽从指针连向源的入边锚点，箭头落在源节点上；
 // 按钮拖拽从源的折叠按钮连向指针，箭头指向待挂接的节点
 const updateDrag = (event) => {
@@ -1877,7 +1880,12 @@ const updateDrag = (event) => {
   const point = toGraphPoint(event)
   if (dragState.fromToggle) {
     const tip = outAnchor(source)
-    dragState.preview = `M${tip.x} ${tip.y} L${point.x} ${point.y}`
+    const dx = point.x - tip.x
+    const dy = point.y - tip.y
+    const length = Math.hypot(dx, dy) || 1
+    const ahead = DRAG_ARROW_GAP / view.scale
+    const end = { x: point.x + (dx / length) * ahead, y: point.y + (dy / length) * ahead }
+    dragState.preview = `M${tip.x} ${tip.y} L${end.x} ${end.y}`
   } else {
     const tip = inAnchor(source)
     // 线端沿法线后退一个箭头长度，箭头尖端正好落在节点边缘
