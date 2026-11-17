@@ -439,28 +439,52 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
 }
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
-// 折叠的节点只保留自身，子节点与出边一并隐藏
+// 多父节点只要还有一条未折叠的父链就保持可见
 const buildGraphData = (forest) => {
-  const nodes = new Map()
+  const allNodes = new Map()
   const edges = []
+  const roots = []
 
+  // 先完整遍历森林收集节点与边，折叠只影响可见性判定，不参与收集
   const walk = (node, parentId) => {
     const id = String(node.id)
     const children = node.children || []
-    const collapsed = collapsedSet.value.has(id)
-    if (!node.isRef && !nodes.has(id)) {
-      nodes.set(id, { ...node, childCount: children.length, collapsed })
+    if (!node.isRef && !allNodes.has(id)) {
+      allNodes.set(id, { ...node, childCount: children.length, collapsed: collapsedSet.value.has(id) })
     }
-    if (parentId !== null) {
+    if (parentId === null) {
+      if (!node.isRef) roots.push(id)
+    } else {
       edges.push({ from: parentId, to: node.isRef ? String(node.targetId) : id, isRef: !!node.isRef })
     }
-    if (!node.isRef && !collapsed) {
-      children.forEach((child) => walk(child, id))
-    }
+    if (!node.isRef) children.forEach((child) => walk(child, id))
   }
 
   ;(forest || []).forEach((root) => walk(root, null))
-  return { nodes: [...nodes.values()], edges }
+
+  // 从根沿未折叠的边扩散：任一父链展开即可见，避免多父节点被单支折叠隐藏
+  const outgoing = new Map()
+  edges.forEach((edge) => {
+    if (!outgoing.has(edge.from)) outgoing.set(edge.from, [])
+    outgoing.get(edge.from).push(edge.to)
+  })
+
+  const visible = new Set(roots)
+  const queue = [...roots]
+  while (queue.length) {
+    const id = queue.shift()
+    if (allNodes.get(id)?.collapsed) continue
+    ;(outgoing.get(id) || []).forEach((to) => {
+      if (visible.has(to)) return
+      visible.add(to)
+      queue.push(to)
+    })
+  }
+
+  return {
+    nodes: [...allNodes.values()].filter((node) => visible.has(node.id)),
+    edges: edges.filter((edge) => visible.has(edge.from) && visible.has(edge.to))
+  }
 }
 
 // 有向图：按强连通分量分层，环内节点顺序排列，回边绕行展示
