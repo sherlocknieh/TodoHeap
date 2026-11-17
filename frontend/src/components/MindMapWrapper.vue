@@ -750,21 +750,24 @@ const graphLayout = computed(() => {
     childrenOf.get(edge.from).push(edge.to)
   })
 
-  // 层内顺序：森林的深度优先序，兄弟天然相邻，作为初始顺序
+  // 层内顺序：沿可见边（未折叠父节点的出边）做森林的深度优先序，兄弟仍按 child_ids 相邻，作为初始顺序。
+  // 折叠父节点的出边已被剔除，共享子节点因此跟着仍然可见的父级排序，不会被折叠支的旧位置钉在层首。
   const order = new Map(layerKeys.map((layer) => [layer, []]))
   const dfsIndex = new Map()
+  const visibleChildren = new Map(nodes.map((node) => [node.id, []]))
+  rawEdges.forEach((edge) => {
+    if (visibleChildren.has(edge.from)) visibleChildren.get(edge.from).push(edge.to)
+  })
   let dfsCursor = 0
-  const walkForest = (node) => {
-    const id = String(node.id)
+  const walkVisible = (id) => {
     if (dfsIndex.has(id)) return
     dfsIndex.set(id, dfsCursor)
     dfsCursor += 1
-    ;(node.children || []).forEach((child) => {
-      if (byId.has(String(child.id))) walkForest(child)
-    })
+    ;(visibleChildren.get(id) || []).forEach(walkVisible)
   }
   ;(props.nodes || []).forEach((root) => {
-    if (byId.has(String(root.id))) walkForest(root)
+    const id = String(root.id)
+    if (byId.has(id)) walkVisible(id)
   })
   nodes.forEach((node) => {
     const layer = nodeLayer.get(node.id) ?? 0
@@ -838,7 +841,7 @@ const graphLayout = computed(() => {
       const target = mode === 'down' ? (parents ?? children) : children
       if (target !== null) crossCenter.set(node.id, target)
     })
-    // 层内顺序固定为初始 DFS 序，只让坐标收敛；每轮重排会让折叠/展开后顺序漂移
+    // 层内顺序固定为初始顺序，只让坐标收敛；每轮重排会让折叠/展开后顺序漂移
     projectLayer(layer)
   }
 
