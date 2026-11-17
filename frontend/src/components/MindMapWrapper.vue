@@ -88,23 +88,18 @@
             {{ node.subtitle }}
           </text>
 
-          <!-- 展开/收起按钮：计数与加减号紧贴成一个整体，宽度随位数增长 -->
+          <!-- 展开/收起按钮：折叠时圆内显示子任务计数，展开后变为减号 -->
           <g v-if="node.childCount > 0" :transform="`translate(${node.controlX} ${node.height / 2})`"
             @pointerdown.stop @click.stop="toggleCollapse(node)">
-            <rect :x="-(node.toggleWidth)" :y="-8" :width="node.toggleWidth" height="16" :rx="8"
-              class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
-                ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
-                : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
-            <text :x="-(node.toggleWidth) + togglePadding" y="0" text-anchor="start"
-              dominant-baseline="central" class="pointer-events-none text-[10px] tabular-nums"
-              :class="node.isRoot ? 'fill-white' : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
-            <path :d="`M${toggleSymbolX - 3} 0 H${toggleSymbolX + 3}`" fill="none" stroke-width="1.3"
-              stroke-linecap="round" class="pointer-events-none" :class="node.isRoot
-                ? 'stroke-white'
-                : 'stroke-neutral-500 dark:stroke-neutral-300'" />
-            <!-- 折叠时显示加号、展开时显示减号 -->
-            <path v-if="node.collapsed" :d="`M${toggleSymbolX} -3 V3`" fill="none" stroke-width="1.3"
-              stroke-linecap="round" class="pointer-events-none" :class="node.isRoot
+            <circle :r="toggleRadius" class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
+              ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
+              : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
+            <text v-if="node.collapsed" y="0" text-anchor="middle" dominant-baseline="central"
+              class="pointer-events-none text-[10px] tabular-nums" :class="node.isRoot
+                ? 'fill-white'
+                : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
+            <path v-else d="M-3 0 H3" fill="none" stroke-width="1.3" stroke-linecap="round"
+              class="pointer-events-none" :class="node.isRoot
                 ? 'stroke-white'
                 : 'stroke-neutral-500 dark:stroke-neutral-300'" />
             <title>{{ node.collapsed ? `展开 ${node.childCount} 个子任务` : '折叠子任务' }}</title>
@@ -199,14 +194,9 @@ const paddingX = 10
 const maxLines = 3
 const crossGap = 24
 const mainGap = 84
-// 展开/收起胶囊：计数与加减号紧贴，宽度随位数增长
-const togglePadding = 6
-const toggleDigitWidth = 5.6
-const toggleGap = 3
-const toggleSymbolWidth = 6
-const toggleSymbolX = -(togglePadding + toggleSymbolWidth / 2)
-const toggleWidthFor = (count) =>
-  togglePadding * 2 + String(count).length * toggleDigitWidth + toggleGap + toggleSymbolWidth
+// 展开/收起按钮：单个圆形按钮，折叠时显示计数、展开时显示减号
+const toggleRadius = 8
+const toggleReserve = toggleRadius * 2 + 6
 // 勾选框：真实任务左侧的完成开关，根节点没有
 const checkboxSize = 14
 const checkboxGap = 8
@@ -259,10 +249,10 @@ const isForward = computed(() => direction.value === 'down' || direction.value =
 const nodeMainSize = (node) => (isVertical.value ? node.height : nodeWidth)
 const nodeCrossSize = (node) => (isVertical.value ? nodeWidth : node.height)
 
-// 有折叠控件时右侧要让出胶囊，可用字数随之减少
-const textUnitsFor = (toggleWidth, hasCheckbox, completed) => {
+// 有折叠按钮时右侧要让出圆形按钮，可用字数随之减少
+const textUnitsFor = (hasToggle, hasCheckbox, completed) => {
   const available = nodeWidth - paddingX * 2
-    - (toggleWidth ? toggleWidth + 6 : 0)
+    - (hasToggle ? toggleReserve : 0)
     - (hasCheckbox ? checkboxReserve : 0)
     - (completed ? deleteReserve : 0)
   return Math.max(4, Math.floor(available / fontSize))
@@ -297,8 +287,8 @@ const wrapLines = (text, unitsPerLine) => {
 const measureNode = (raw) => {
   const hasCheckbox = !raw.isRoot
   const completed = Boolean(raw.completed_at)
-  const toggleWidth = raw.childCount > 0 ? toggleWidthFor(raw.childCount) : 0
-  const lines = wrapLines(raw.title, textUnitsFor(toggleWidth, hasCheckbox, completed))
+  const hasToggle = raw.childCount > 0
+  const lines = wrapLines(raw.title, textUnitsFor(hasToggle, hasCheckbox, completed))
   const subtitle = raw.subtitle || ''
   return {
     ...raw,
@@ -306,7 +296,6 @@ const measureNode = (raw) => {
     subtitle,
     hasCheckbox,
     completed,
-    toggleWidth,
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
     // 折叠控件在已完成节点上要给删除按钮让位
