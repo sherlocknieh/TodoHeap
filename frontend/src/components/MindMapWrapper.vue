@@ -30,7 +30,7 @@
 
         <!-- 连线热区：透明加宽描边，便于点中细线；data-mm-edge 供滚轮判断是否缩放 -->
         <path v-for="edge in layout.edges" :key="`hit-${edge.key}`" :d="edge.d" fill="none"
-          stroke="transparent" stroke-width="14" stroke-linecap="round" data-mm-edge
+          stroke="transparent" stroke-width="14" stroke-linecap="round" :data-mm-edge="edge.key"
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
@@ -41,8 +41,8 @@
 
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
-          :opacity="node.completed_at ? 0.55 : 1" data-mm-node
-          :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
+          :opacity="node.completed_at ? 0.55 : 1" :data-mm-node="node.id"
+          class="cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
@@ -147,7 +147,7 @@
     </div>
     <p
       class="absolute bottom-3 left-3 z-10 max-w-[calc(100%-8rem)] rounded bg-white/85 px-2 py-1 text-[11px] leading-4 text-neutral-400 backdrop-blur-sm pointer-events-none dark:bg-neutral-950/80 dark:text-neutral-500">
-      节点/连线滚轮缩放 · 空白处滚轮平移 · 拖拽平移 · 拖节点到另一节点建立链接 · 点选连线可删除 · Enter 同级 · Tab 子级 · F2 重命名
+      选中节点/连线后滚轮缩放 · 空白处滚轮平移 · 拖拽平移 · 拖节点到另一节点建立链接 · 点选连线可删除 · Enter 同级 · Tab 子级 · F2 重命名
     </p>
   </div>
 </template>
@@ -184,6 +184,9 @@ const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
+
+// 根节点「全部任务」不是真实任务，选中状态只在图内维护
+const rootSelected = ref(false)
 
 const directionOptions = [
   { value: 'down', icon: 'chevronDown', label: '从上到下' },
@@ -260,7 +263,7 @@ const measureNode = (raw) => {
     lines,
     subtitle,
     height: paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0),
-    selected: String(raw.id) === String(props.selectedTaskId)
+    selected: String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
   }
 }
 
@@ -715,14 +718,16 @@ const fitView = () => {
   if (!contentWidth || !size.width || !size.height) return
 
   const pad = 48
-  const scale = Math.min(
+  const scale = Math.max(0.15, Math.min(
     (size.width - pad * 2) / contentWidth,
     (size.height - pad * 2) / contentHeight,
     1.25
-  )
-  view.scale = Math.max(0.15, scale)
-  view.x = (size.width - contentWidth * view.scale) / 2
-  view.y = (size.height - contentHeight * view.scale) / 2
+  ))
+  animateView({
+    scale,
+    x: (size.width - contentWidth * scale) / 2,
+    y: (size.height - contentHeight * scale) / 2
+  })
 }
 
 // 折叠开关：只切换该节点的展开状态，子任务数据不受影响
@@ -735,11 +740,12 @@ const toggleCollapse = (node) => {
 
   // 折叠后选中项若被藏起来，选中落到折叠节点上，避免详情面板指向看不见的任务
   const selected = selectedId.value
-  if (collapsing && selected && selected !== id) {
+  if (collapsing && selected && selected !== id && selected !== 'root') {
     const { parentOf } = nodeIndex.value
     let current = parentOf.get(selected)
     while (current != null && current !== 'root') {
       if (String(current) === id) {
+        rootSelected.value = false
         emit('task-selected', Number(id))
         break
       }
@@ -752,13 +758,29 @@ const toggleCollapse = (node) => {
   skipNextAutoFit = true
 }
 
+// 根节点「全部任务」不是真实任务，选中状态只在图内维护
 const selectNode = (node) => {
   // 拖拽建链接后紧跟的 click 不应改变选中
   if (Date.now() - lastDragEndAt < 250) return
-  if (node.isRoot) return
   selectedEdgeKey.value = null
   container.value?.focus({ preventScroll: true })
+
+  if (node.isRoot) {
+    rootSelected.value = true
+    // 图内点击自己负责居中，标记一下让 watch 跳过，避免重复启动动画
+    localSelection = true
+    emit('task-selected', null)
+    centerOnNode(node.id)
+    nextTick(() => { localSelection = false })
+    return
+  }
+
+  rootSelected.value = false
+  // 图内点击自己负责居中，标记一下让 watch 跳过，避免重复启动动画
+  localSelection = true
   emit('task-selected', Number(node.id))
+  centerOnNode(node.id)
+  nextTick(() => { localSelection = false })
 }
 
 // 连线选中：与节点选中互斥，选中连线时收起任务详情
@@ -860,9 +882,62 @@ const nodeIndex = computed(() => {
   return { parentOf, childrenOf }
 })
 
-const selectedId = computed(() => (props.selectedTaskId == null ? null : String(props.selectedTaskId)))
+const selectedId = computed(() => {
+  if (rootSelected.value) return 'root'
+  return props.selectedTaskId == null ? null : String(props.selectedTaskId)
+})
+
+// 视口动画：居中与适应视图都走同一套缓动，避免画面瞬移
+let viewAnimation = null
+
+const stopViewAnimation = () => {
+  if (viewAnimation == null) return
+  cancelAnimationFrame(viewAnimation)
+  viewAnimation = null
+}
+
+// 缓出曲线：起步快、收尾稳，长距离移动也不会显得拖沓
+const easeOutCubic = (t) => 1 - (1 - t) ** 3
+
+const animateView = (target, duration = 320) => {
+  stopViewAnimation()
+  const from = { x: view.x, y: view.y, scale: view.scale }
+  const start = performance.now()
+
+  const step = (now) => {
+    const progress = Math.min(1, (now - start) / duration)
+    const eased = easeOutCubic(progress)
+    view.x = from.x + (target.x - from.x) * eased
+    view.y = from.y + (target.y - from.y) * eased
+    view.scale = from.scale + (target.scale - from.scale) * eased
+    if (progress < 1) {
+      viewAnimation = requestAnimationFrame(step)
+    } else {
+      viewAnimation = null
+    }
+  }
+
+  viewAnimation = requestAnimationFrame(step)
+}
+
+// 把选中节点平移到视口中心；缩放不变，只调整平移量
+const centerOnNode = (id) => {
+  const node = layout.value.nodes.find((item) => item.id === String(id))
+  if (!node || !size.width || !size.height) return
+  const target = {
+    x: size.width / 2 - (node.x + nodeWidth / 2) * view.scale,
+    y: size.height / 2 - (node.y + node.height / 2) * view.scale,
+    scale: view.scale
+  }
+  // 已经在中心时不再启动动画，重复点击同一节点不会抖动
+  if (Math.abs(target.x - view.x) < 0.5 && Math.abs(target.y - view.y) < 0.5) return
+  animateView(target)
+}
 
 // 从别处选中任务时，若它被折叠隐藏，自动展开祖先链，保证选中项可见
+// 图内点击已在 selectNode 里居中，这里只处理外部来源，避免重复启动动画
+let localSelection = false
+
 watch(selectedId, (id) => {
   if (!id) return
   const { parentOf } = nodeIndex.value
@@ -874,6 +949,12 @@ watch(selectedId, (id) => {
     current = parentOf.get(String(current))
   }
   if (changed) collapsedIds.value = [...collapsed]
+  if (localSelection) {
+    localSelection = false
+    return
+  }
+  // 展开后布局会重算，等节点落位再居中
+  nextTick(() => centerOnNode(id))
 })
 
 // 主方向键沿层级深入/返回，交叉方向键在同级之间移动
@@ -893,6 +974,7 @@ const axisKeys = computed(() => {
 const focusTask = (id) => {
   if (id == null) return
   selectedEdgeKey.value = null
+  rootSelected.value = false
   emit('task-selected', Number(id))
 }
 
@@ -928,19 +1010,21 @@ const navigate = (key) => {
 }
 
 // 新建任务：同级插到当前节点之后，子级挂到当前节点下
+// 选中根节点时两者都落到顶层，根节点本身不是真实任务
 const createSibling = () => {
   const id = selectedId.value
-  const parent = id ? nodeIndex.value.parentOf.get(id) : 'root'
+  const isRoot = id === 'root'
+  const parent = id && !isRoot ? nodeIndex.value.parentOf.get(id) : 'root'
   emit('create-task', {
     parentId: parent && parent !== 'root' ? Number(parent) : null,
-    afterId: id ? Number(id) : null
+    afterId: id && !isRoot ? Number(id) : null
   })
 }
 
 const createChild = () => {
   const id = selectedId.value
   if (!id) return
-  emit('create-task', { parentId: Number(id), afterId: null })
+  emit('create-task', { parentId: id === 'root' ? null : Number(id), afterId: null })
 }
 
 const editingId = ref(null)
@@ -1034,7 +1118,7 @@ const onKeydown = (event) => {
       return
     case 'F2':
       event.preventDefault()
-      if (id) startEditById(id)
+      if (id && id !== 'root') startEditById(id)
       return
     case 'Delete':
     case 'Backspace':
@@ -1044,12 +1128,12 @@ const onKeydown = (event) => {
         deleteSelectedEdge()
         return
       }
-      if (!id) return
+      if (!id || id === 'root') return
       event.preventDefault()
       emit('delete-task', Number(id))
       return
     case ' ':
-      if (!id) return
+      if (!id || id === 'root') return
       event.preventDefault()
       emit('toggle-done', Number(id))
       return
@@ -1058,6 +1142,7 @@ const onKeydown = (event) => {
         selectedEdgeKey.value = null
         return
       }
+      rootSelected.value = false
       emit('task-selected', null)
       return
     case 'ArrowUp':
@@ -1071,12 +1156,14 @@ const onKeydown = (event) => {
   }
 }
 
-// 点击空白画布取消连线选中
+// 点击空白画布取消选中：连线选中与节点选中一并清掉
 const onCanvasClick = () => {
   selectedEdgeKey.value = null
+  rootSelected.value = false
+  if (selectedId.value != null) emit('task-selected', null)
 }
 
-// 滚轮模式在一次连续滚动序列内锁定：起始落在节点/连线上就缩放，落在空白处就平移，
+// 滚轮模式在一次连续滚动序列内锁定：起始落在选中项上就缩放，否则平移，
 // 中途指针扫过节点也不切换，避免滚动过程中画面突然变焦
 let wheelMode = null
 let wheelIdleTimer = null
@@ -1087,19 +1174,29 @@ const resetWheelMode = () => {
   wheelIdleTimer = null
 }
 
-// 滚轮：指针落在节点或连线上时缩放，落在空白处时上下平移画布
+// 指针是否落在当前选中项上：选中节点看节点本身，选中连线看连线热区
+const isOnSelection = (target) => {
+  if (!(target instanceof Element)) return false
+  const nodeEl = target.closest('[data-mm-node]')
+  if (nodeEl) return selectedId.value != null && nodeEl.dataset.mmNode === selectedId.value
+  const edgeEl = target.closest('[data-mm-edge]')
+  if (edgeEl) return selectedEdgeKey.value != null && edgeEl.dataset.mmEdge === selectedEdgeKey.value
+  return false
+}
+
+// 滚轮：指针在选中项上时缩放，其余位置上下平移画布
 const onWheel = (event) => {
   const el = container.value
   if (!el) return
   hasInteracted = true
+  // 手动缩放/平移优先，打断正在进行的居中动画
+  stopViewAnimation()
 
   // 行模式滚轮（部分鼠标/触控板）的 delta 单位是行，换算成像素
   const unit = event.deltaMode === 1 ? 16 : 1
 
   if (wheelMode === null) {
-    const onItem = event.target instanceof Element
-      && event.target.closest('[data-mm-node], [data-mm-edge]')
-    wheelMode = onItem ? 'zoom' : 'pan'
+    wheelMode = isOnSelection(event.target) ? 'zoom' : 'pan'
   }
 
   // 停止滚动一小段时间后解锁，下一次滚动重新按落点判定
@@ -1210,6 +1307,8 @@ const onPointerDown = (event) => {
   // 点击空白处即放弃删除按钮的待确认状态
   confirmUnlink.value = false
   hasInteracted = true
+  // 拖拽平移优先，打断正在进行的居中动画
+  stopViewAnimation()
   panning.value = true
   panStart = { x: event.clientX, y: event.clientY, originX: view.x, originY: view.y }
   container.value?.setPointerCapture(event.pointerId)
@@ -1241,6 +1340,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  stopViewAnimation()
   if (saveViewTimer) clearTimeout(saveViewTimer)
   clearTimeout(wheelIdleTimer)
   window.removeEventListener('pointermove', onDragMove)
