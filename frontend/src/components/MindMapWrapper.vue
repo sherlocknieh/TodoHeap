@@ -172,6 +172,11 @@
       @keydown.stop @keydown.escape.stop="helpOpen = false">
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        :title="allExpanded ? '收起全部' : '展开全部'" @click.stop="toggleAllCollapse">
+        <AppIcon :name="allExpanded ? 'shrink' : 'expand'" :size="14" />
+      </button>
+      <button
+        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
         <AppIcon :name="currentDirection.icon" :size="14" />
       </button>
@@ -295,6 +300,49 @@ const collapsedIds = persistedRef('mindmap-collapsed', [], {
 })
 
 const collapsedSet = computed(() => new Set(collapsedIds.value.map(String)))
+
+// 可折叠的任务：带子任务的非根节点；根节点保持展开，收起全部后仍能看到第一层
+const collapsibleIds = computed(() => {
+  const ids = []
+  const walk = (node) => {
+    if (node.isRef) return
+    const id = String(node.id)
+    if (id !== 'root' && (node.children || []).length) ids.push(id)
+    ;(node.children || []).forEach(walk)
+  }
+  ;(props.nodes || []).forEach(walk)
+  return ids
+})
+
+const allExpanded = computed(() =>
+  collapsibleIds.value.every((id) => !collapsedSet.value.has(id)))
+
+// 收起全部后选中项若被藏起来，选中落到它所在的第一层任务上，避免详情面板指向看不见的任务
+const revealSelectionAfterCollapse = () => {
+  const selected = selectedId.value
+  if (!selected || selected === 'root') return
+  const { parentOf } = nodeIndex.value
+  let current = selected
+  while (true) {
+    const parent = parentOf.get(String(current))
+    if (parent == null) return
+    if (parent === 'root') break
+    current = parent
+  }
+  if (String(current) === selected) return
+  rootSelected.value = false
+  emit('task-selected', Number(current))
+}
+
+// 工具栏的展开/收起全部：只改折叠标记，任务数据不受影响
+const toggleAllCollapse = () => {
+  if (allExpanded.value) {
+    collapsedIds.value = [...collapsibleIds.value]
+    revealSelectionAfterCollapse()
+    return
+  }
+  collapsedIds.value = []
+}
 
 // 单个按钮按固定顺序轮换四个方向
 const cycleDirection = () => {
