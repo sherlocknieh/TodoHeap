@@ -301,13 +301,12 @@ const collapsedIds = persistedRef('mindmap-collapsed', [], {
 
 const collapsedSet = computed(() => new Set(collapsedIds.value.map(String)))
 
-// 可折叠的任务：带子任务的非根节点；根节点保持展开，收起全部后仍能看到第一层
+// 可折叠的任务：含根节点在内，凡是有子任务的节点
 const collapsibleIds = computed(() => {
   const ids = []
   const walk = (node) => {
     if (node.isRef) return
-    const id = String(node.id)
-    if (id !== 'root' && (node.children || []).length) ids.push(id)
+    if ((node.children || []).length) ids.push(String(node.id))
     ;(node.children || []).forEach(walk)
   }
   ;(props.nodes || []).forEach(walk)
@@ -317,31 +316,24 @@ const collapsibleIds = computed(() => {
 const allExpanded = computed(() =>
   collapsibleIds.value.every((id) => !collapsedSet.value.has(id)))
 
-// 收起全部后选中项若被藏起来，选中落到它所在的第一层任务上，避免详情面板指向看不见的任务
-const revealSelectionAfterCollapse = () => {
-  const selected = selectedId.value
-  if (!selected || selected === 'root') return
-  const { parentOf } = nodeIndex.value
-  let current = selected
-  while (true) {
-    const parent = parentOf.get(String(current))
-    if (parent == null) return
-    if (parent === 'root') break
-    current = parent
-  }
-  if (String(current) === selected) return
-  rootSelected.value = false
-  emit('task-selected', Number(current))
-}
-
-// 工具栏的展开/收起全部：只改折叠标记，任务数据不受影响
+// 工具栏的展开/收起全部：只改折叠标记，任务数据不受影响；
+// 收起时连根节点一起折叠，画布上只剩根节点
 const toggleAllCollapse = () => {
+  // 收起/展开会重排整张图，锚定根节点，让它留在切换前的屏幕位置
+  const anchor = captureAnchor('root')
   if (allExpanded.value) {
     collapsedIds.value = [...collapsibleIds.value]
-    revealSelectionAfterCollapse()
-    return
+    // 选中任务被收起隐藏后，选中回到根节点，详情面板随之收起
+    if (selectedId.value !== 'root') {
+      rootSelected.value = true
+      localSelection = true
+      emit('task-selected', null)
+      nextTick(() => { localSelection = false })
+    }
+  } else {
+    collapsedIds.value = []
   }
-  collapsedIds.value = []
+  pinNodeAfterLayout(anchor)
 }
 
 // 单个按钮按固定顺序轮换四个方向
