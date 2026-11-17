@@ -148,8 +148,9 @@
       </g>
     </svg>
 
-    <!-- 视图控件：布局方向循环切换与适应视图 -->
-    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop>
+    <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布 -->
+    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop
+      @keydown.stop @keydown.escape.stop="helpOpen = false">
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
@@ -160,6 +161,31 @@
         title="适应视图" @click.stop="fitView">
         <AppIcon name="target" :size="14" />
       </button>
+      <div ref="helpRef" class="relative">
+        <button type="button" :aria-expanded="helpOpen" :aria-label="helpOpen ? '收起操作提示' : '操作提示'"
+          :title="helpOpen ? '收起操作提示' : '操作提示'"
+          class="flex rounded border p-1.5 transition-colors"
+          :class="helpOpen
+            ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
+            : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
+          @click.stop="helpOpen = !helpOpen">
+          <AppIcon name="info" :size="14" />
+        </button>
+        <Transition enter-active-class="transition ease-out duration-100"
+          enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95">
+          <div v-if="helpOpen"
+            class="absolute bottom-full right-0 mb-2 w-72 origin-bottom-right panel p-2.5 text-[11px] leading-5 text-neutral-600 shadow-lg dark:text-neutral-400"
+            @keydown.escape.stop="helpOpen = false">
+            <p class="mb-1.5 eyebrow">操作提示</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">滚轮</span>：选中节点/连线后缩放，空白处平移</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">拖拽</span>：空白处平移，节点拖到另一节点建立链接</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">点选</span>：点选连线可删除</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">快捷键</span>：Enter 同级 · Tab 子级 · F2 重命名</p>
+          </div>
+        </Transition>
+      </div>
     </div>
 
     <!-- 编辑浮层：脱离 SVG 缩放，字号固定可读；长文本自动换行并在限高内滚动 -->
@@ -219,6 +245,18 @@ const panning = ref(false)
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
 const rootSelected = ref(false)
+
+// 操作提示浮层：点按钮开关，点浮层或画布之外收起
+const helpOpen = ref(false)
+const helpRef = ref(null)
+const onHelpOutside = (event) => {
+  if (!helpOpen.value || helpRef.value?.contains(event.target)) return
+  helpOpen.value = false
+}
+watch(helpOpen, (open) => {
+  if (open) document.addEventListener('pointerdown', onHelpOutside)
+  else document.removeEventListener('pointerdown', onHelpOutside)
+})
 
 const directionOptions = [
   { value: 'down', icon: 'chevronDown', label: '从上到下' },
@@ -1550,6 +1588,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  document.removeEventListener('pointerdown', onHelpOutside)
   stopViewAnimation()
   cancelPendingCenter()
   if (saveViewTimer) clearTimeout(saveViewTimer)
