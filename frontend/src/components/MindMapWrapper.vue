@@ -1100,14 +1100,17 @@ const editingNode = computed(() => {
   return layout.value.nodes.find((node) => node.id === String(editingId.value)) ?? null
 })
 
-// 输入框跟随节点位置与缩放，始终覆盖在节点上
+// 输入框跟随节点位置与缩放，只覆盖文字区域，左侧勾选框保持可见
 const editStyle = computed(() => {
   const node = editingNode.value
   if (!node) return {}
+  // 输入框自带 px-2 内边距，左侧留出 2px 间隙避免边框压到勾选框
+  const inset = 6
+  const left = node.textX - inset
   return {
-    left: `${view.x + node.x * view.scale}px`,
+    left: `${view.x + (node.x + left) * view.scale}px`,
     top: `${view.y + node.y * view.scale}px`,
-    width: `${nodeWidth * view.scale}px`,
+    width: `${(nodeWidth - paddingX - left + inset) * view.scale}px`,
     height: `${node.height * view.scale}px`,
     fontSize: `${fontSize * view.scale}px`
   }
