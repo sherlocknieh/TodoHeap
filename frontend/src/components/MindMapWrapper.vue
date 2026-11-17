@@ -1231,9 +1231,19 @@ const editingText = ref('')
 let consumedEditId = null
 // 节点文字输入框按节点 ID 收集，编辑时聚焦对应那个
 const editInputs = new Map()
+// 正在编辑的输入框本身：节点重建会换掉元素，结束时按它清选区比按 ID 查更可靠
+let editEl = null
+// 待恢复的选区：新建时全选、重建后沿用原光标位置
+let editSelection = null
+// 临时 ID 换成真实 ID 会让节点元素整体重建，这段窗口里的 blur 不算用户离开
+let remapEdit = false
 const setEditInput = (el, node) => {
   if (el) editInputs.set(String(node.id), el)
   else editInputs.delete(String(node.id))
+  // 编辑中的输入框被重建后，新元素接管焦点与选区
+  if (el && editingId.value === Number(node.id) && el !== editEl) {
+    nextTick(() => focusEditInput(Number(node.id)))
+  }
 }
 
 // 输入框与节点文字同字号同行高，随 SVG 一起缩放
@@ -1274,6 +1284,21 @@ const ensureEditScale = (node) => {
   })
 }
 
+// 聚焦编辑中的输入框并恢复选区。延迟执行期间编辑可能已结束或换了目标，必须复核
+const focusEditInput = (id) => {
+  if (id == null || editingId.value !== id) return
+  const input = editInputs.get(String(id))
+  if (!input) return
+  // 已经由这里聚焦过就不再重设选区，否则会覆盖刚应用的全选/光标位置
+  if (input === editEl && document.activeElement === input) return
+  editEl = input
+  input.focus({ preventScroll: true })
+  const end = input.value.length
+  const [start, stop] = editSelection ?? [end, end]
+  input.setSelectionRange(Math.min(start, end), Math.min(stop, end))
+  editSelection = null
+}
+
 // selectText 只在预填占位文字（新建任务）时全选，直接输入即可覆盖；
 // 编辑已有文字时保留内容、光标落在末尾，避免误输把原文冲掉
 const startEdit = (node, { selectText = false } = {}) => {
@@ -1281,18 +1306,13 @@ const startEdit = (node, { selectText = false } = {}) => {
   // 双击编辑时取消待执行的居中，避免输入框刚出现就被移走
   cancelPendingCenter()
   stopViewAnimation()
-  editingId.value = Number(node.id)
+  const id = Number(node.id)
+  editingId.value = id
   editingText.value = node.title
   editLines.value = lineCountOf(node.title, node.unitsPerLine)
+  editSelection = selectText ? [0, node.title.length] : null
   ensureEditScale(node)
-  nextTick(() => {
-    const input = editInputs.get(String(node.id))
-    if (!input) return
-    input.focus()
-    const end = input.value.length
-    input.setSelectionRange(end, end)
-    if (selectText) input.select()
-  })
+  nextTick(() => focusEditInput(id))
 }
 
 const startEditById = (id) => {
@@ -1302,8 +1322,7 @@ const startEditById = (id) => {
 
 // 结束编辑时清掉输入框与文档残留的选区：blur 不会自动取消全选，
 // 否则离开节点后文字仍显示成选中态
-const releaseSelection = (id) => {
-  const el = editInputs.get(String(id))
+const releaseSelection = (el) => {
   try {
     el?.setSelectionRange(0, 0)
   } catch {
@@ -1312,14 +1331,27 @@ const releaseSelection = (id) => {
   window.getSelection()?.removeAllRanges()
 }
 
-const commitEdit = () => {
+const finishEdit = (el) => {
   const id = editingId.value
-  if (id == null) return
-  const title = editingText.value.replace(/\s+/g, ' ').trim()
   editingId.value = null
-  releaseSelection(id)
+  editEl = null
+  editSelection = null
+  releaseSelection(el)
   // 交还焦点，键盘操作可以继续
   container.value?.focus({ preventScroll: true })
+  return id
+}
+
+const commitEdit = (event) => {
+  // 节点重建期间旧输入框会失焦，编辑交给新元素继续
+  if (remapEdit) return
+  const el = event?.target ?? editEl
+  if (editingId.value == null) {
+    releaseSelection(el)
+    return
+  }
+  const title = editingText.value.replace(/\s+/g, ' ').trim()
+  const id = finishEdit(el)
   if (!title) return
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (node && node.title === title) return
@@ -1327,16 +1359,13 @@ const commitEdit = () => {
 }
 
 const cancelEdit = () => {
-  const id = editingId.value
-  editingId.value = null
-  releaseSelection(id)
-  container.value?.focus({ preventScroll: true })
+  finishEdit(editEl)
 }
 
 const onEditKeydown = (event) => {
   if (event.key === 'Enter') {
     event.preventDefault()
-    commitEdit()
+    commitEdit(event)
   } else if (event.key === 'Escape') {
     event.preventDefault()
     cancelEdit()
@@ -1344,7 +1373,22 @@ const onEditKeydown = (event) => {
 }
 
 // 新建后父级指定要重命名的任务，等它出现在布局里再打开输入框
-watch([() => props.editTaskId, layout], ([id]) => {
+watch([() => props.editTaskId, layout], ([id], [prevId]) => {
+  // 新建任务拿到真实 ID 后 editTaskId 会从临时 ID 换成真实 ID，仍是同一次编辑：
+  // 只把编辑目标与消费标记挪到新 ID，避免清空已输入内容并重新全选
+  if (prevId != null && id != null && prevId !== id) {
+    if (consumedEditId === prevId) consumedEditId = id
+    if (editingId.value === Number(prevId)) {
+      // 把旧输入框当前的选区带到重建后的新元素上，全选与已输入内容都不丢
+      const el = editEl
+      editSelection = el && document.activeElement === el
+        ? [el.selectionStart, el.selectionEnd]
+        : null
+      editingId.value = Number(id)
+      remapEdit = true
+      nextTick(() => { remapEdit = false })
+    }
+  }
   if (id == null || id === consumedEditId) return
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node) return
