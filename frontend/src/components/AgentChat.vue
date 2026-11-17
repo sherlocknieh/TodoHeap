@@ -383,7 +383,7 @@ const COMMANDS = [
 // @ 上下文候选：只引用任务与日程这类数据对象，技能走独立入口
 const contextItems = computed(() => {
   const items = []
-  todoStore.todos.forEach((todo) => {
+  todoStore.tasks.forEach((todo) => {
     items.push({
       key: `todo:${todo.id}`,
       type: 'todo',

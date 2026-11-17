@@ -9,6 +9,7 @@ import { createTodosRealtimeManager } from './todos.realtime'
 import { createTodoOptimisticActions } from './todos.optimistic'
 import { createTodoRollbackHandler } from './todos.rollback'
 import { buildTaskForest } from '@/utils/taskGraph'
+import { findRootTodo, isRootTodo, withoutRootTodos } from '@/utils/rootTask'
 
 
 export const useTodoStore = defineStore('todos', () => {
@@ -187,7 +188,14 @@ export const useTodoStore = defineStore('todos', () => {
       // 合并服务器数据与本地未同步的数据
       const syncQueue = getSyncQueue()
       const serverTodos = data || []
-      
+
+      // 新用户或旧数据还没建根任务时, 在这里懒创建一次, 顶层任务才有挂载点
+      if (!serverTodos.some(isRootTodo)) {
+        const { data: rootTodo, error: rootError } = await supabase.rpc('ensure_root_todo')
+        if (rootError) throw rootError
+        if (rootTodo) serverTodos.push(rootTodo)
+      }
+
       // 保留本地临时ID的todo (还未同步到服务器的)
       const localTempTodos = todos.value.filter(t => syncQueue.isTempId(t.id))
       
@@ -225,7 +233,7 @@ export const useTodoStore = defineStore('todos', () => {
         .order('deleted_at', { ascending: false })
 
       if (fetchError) throw fetchError
-      trashTodos.value = data || []
+      trashTodos.value = (data || []).filter(todo => !isRootTodo(todo))
       isTrashFetched.value = true
       return { success: true }
     } catch (err) {
@@ -274,6 +282,12 @@ export const useTodoStore = defineStore('todos', () => {
     })
   }
 
+  // Getters - 根任务与普通任务
+  // todos 保留根任务供构树; 计数、堆视图、Agent、导入等普通出口一律走 tasks
+  const rootTodo = computed(() => findRootTodo(todos.value))
+  const rootTaskId = computed(() => rootTodo.value?.id ?? null)
+  const tasks = computed(() => withoutRootTodos(todos.value))
+
   // Getters - 树形结构
   const treeNodes = computed(() => {
     const syncQueue = getSyncQueue()
@@ -288,6 +302,7 @@ export const useTodoStore = defineStore('todos', () => {
         sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
         difficulty: item.difficulty ?? null,
         created_at: item.created_at || null,
+        is_root: Boolean(item.is_root),
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
       }),
@@ -341,6 +356,9 @@ export const useTodoStore = defineStore('todos', () => {
     // 计算属性
     treeNodes,
     trashTreeNodes,
+    rootTodo,
+    rootTaskId,
+    tasks,
     // 方法
     fetchTodos,
     addTodo,

@@ -86,11 +86,11 @@ const activeViewTitle = computed(() => {
 	return '任务表'
 })
 
-// 底栏统计：全局完成进度，侧栏收起时也能一眼看到
+// 底栏统计：全局完成进度，侧栏收起时也能一眼看到；根任务不计入
 const taskStats = computed(() => {
-	const total = todoStore.todos.length
-	const completed = todoStore.todos.filter(todo => todo.completed_at).length
-	return { total, completed, pending: total - completed }
+	const list = todoStore.tasks
+	const completed = list.filter(todo => todo.completed_at).length
+	return { total: list.length, completed, pending: list.length - completed }
 })
 
 const completionRate = computed(() =>
@@ -173,7 +173,7 @@ const syncState = computed(() => {
 
 const viewProps = computed(() => {
 	if (activeView.value === 'schedule') return { selectedEventId: selectedEventId.value }
-	if (activeView.value === 'heap') return { todos: todoStore.todos }
+	if (activeView.value === 'heap') return { todos: todoStore.tasks }
 	return {}
 })
 

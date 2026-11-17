@@ -12,6 +12,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import MindMapWrapper from '@/components/MindMapWrapper.vue'
 import { collectDescendantIds } from '@/utils/taskGraph'
+import { ROOT_TODO_TITLE } from '@/utils/rootTask'
 
 const props = defineProps({
 	selectedTaskId: { type: Number, default: null }
@@ -52,14 +53,27 @@ const mapNode = (todo) => ({
 	children: (todo.children || []).map(mapNode)
 })
 
-// 复用 store 中已排序并展开回边的森林，外层补一个总根节点
-const mindMapNodes = computed(() => [{
-	id: 'root',
-	title: '全部任务',
-	subtitle: `${todoStore.todos.length} 个任务`,
-	isRoot: true,
-	children: (todoStore.treeNodes || []).map(mapNode)
-}])
+// 复用 store 中已排序并展开回边的森林；图的根节点就是真实的根任务
+const mindMapNodes = computed(() => {
+	const forest = todoStore.treeNodes || []
+	const rootNode = forest.find(node => node.is_root)
+	const subtitle = `${todoStore.tasks.length} 个任务`
+
+	// 根任务还没拉到时用合成根兜底，离线首屏仍能看图
+	if (!rootNode) {
+		return [{ id: 'root', title: ROOT_TODO_TITLE, subtitle, isRoot: true, children: forest.map(mapNode) }]
+	}
+
+	// 根任务尚未挂上顶层任务时（离线首屏或旧数据）把森林里其它根一并挂上，避免任务在图里消失
+	const orphans = forest.filter(node => node !== rootNode)
+	return [{
+		id: String(rootNode.id),
+		title: rootNode.title || ROOT_TODO_TITLE,
+		subtitle,
+		isRoot: true,
+		children: [...rootNode.children, ...orphans].map(mapNode)
+	}]
+})
 
 // 新建任务：同级插到当前节点之后，子级挂到当前节点下，随后进入重命名
 const createTask = async ({ parentId = null, afterId = null } = {}) => {

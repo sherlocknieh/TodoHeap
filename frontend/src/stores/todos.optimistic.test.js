@@ -371,4 +371,36 @@ describe('createTodoOptimisticActions', () => {
     expect((await actions.moveTodo(1, { targetId: 1, position: 'inside' })).success).toBe(false)
     expect((await actions.moveTodo(1, { targetId: 2, position: 'inside' })).success).toBe(false)
   })
+
+  it('addTodo 未指定父级时挂到根任务下', async () => {
+    todosRef.value = [{ id: 42, title: '全部任务', is_root: true, child_ids: [], sort_order: 0 }]
+
+    const result = await actions.addTodo('顶层任务')
+
+    expect(result.data.parent_id).toBe(42)
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ title: '顶层任务', parent_id: 42 })
+    }))
+  })
+
+  it('addTodo 在根任务未拉到时保持无父级，交给服务端兜底', async () => {
+    const result = await actions.addTodo('离线任务')
+
+    expect(result.data.parent_id).toBeNull()
+  })
+
+  it('moveTodo 拖到根层级时挂到根任务并保留孤儿 ID', async () => {
+    todosRef.value = [
+      { id: 42, title: '全部任务', is_root: true, child_ids: [1, 999], sort_order: 0, deleted_at: null },
+      { id: 1, title: '旧父', child_ids: [3], sort_order: 0, deleted_at: null },
+      { id: 3, title: '移动项', child_ids: [], sort_order: 0, deleted_at: null }
+    ]
+
+    const result = await actions.moveTodo(3, { targetId: null })
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([])
+    // 999 是被物理删除的子任务 ID，重排时不能丢
+    expect(todosRef.value.find(todo => todo.id === 42).child_ids).toEqual([1, 3, 999])
+  })
 })

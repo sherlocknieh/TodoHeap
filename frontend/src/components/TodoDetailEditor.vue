@@ -220,7 +220,7 @@ const directChildren = computed(() => {
 const linkCandidates = computed(() => {
   if (!todo.value) return []
   const childIds = new Set((todo.value.child_ids || []).map(String))
-  return todoStore.todos
+  return todoStore.tasks
     .filter((item) => String(item.id) !== String(todo.value.id) && !childIds.has(String(item.id)))
     .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
 })

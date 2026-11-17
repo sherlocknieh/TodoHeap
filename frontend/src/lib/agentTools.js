@@ -10,6 +10,7 @@ import {
 import { SKILL_ICONS } from './agentSkills'
 import { disableCalendarFeed, rotateCalendarFeedToken } from './calendarTransfer'
 import { buildMcpToolDefinitions, callMcpTool, findMcpServerForTool, isMcpToolName, mcpToolName } from './mcpServers'
+import { findRootTodo, isRootTodo, withoutRootTodos } from '@/utils/rootTask'
 import { fetchUserSettings } from './userSettings'
 
 // 破坏性操作先由界面确认，避免模型直接清空数据或让订阅链接失效
@@ -528,6 +529,13 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
     return todo
   }
 
+  // 根任务是系统挂载点，不允许被当作普通任务改写; 需要根任务本身时用 findTodo
+  const requireTask = (id) => {
+    const todo = findTodo(id)
+    if (isRootTodo(todo)) throw new Error('根任务不是普通任务')
+    return todo
+  }
+
   const findSchedule = (id) => {
     const numericId = normalizeInteger(id, '日程 id')
     const schedule = scheduleStore.schedules.find((item) => toNumber(item.id) === numericId)
@@ -543,7 +551,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const query = String(args.query || '').trim().toLowerCase()
       const now = Date.now()
 
-      const filtered = todoStore.todos.filter((todo) => {
+      const filtered = withoutRootTodos(todoStore.todos).filter((todo) => {
         if (mode === 'active' && todo.completed_at) return false
         if (mode === 'done' && !todo.completed_at) return false
         if (query) {
@@ -571,7 +579,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
 
     async get_todo(args) {
       await ensureTodos()
-      const todo = findTodo(args.id)
+      const todo = requireTask(args.id)
       const { byId, parentOf, parentsOf } = indexTodos(todoStore.todos)
       const children = (todo.child_ids || [])
         .map((childId) => byId.get(toNumber(childId)))
@@ -626,7 +634,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
 
     async update_todo(args) {
       await ensureTodos()
-      const todo = findTodo(args.id)
+      const todo = requireTask(args.id)
       const updates = {}
 
       if ('title' in args) {
@@ -647,10 +655,12 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
 
     async move_todo(args) {
       await ensureTodos()
-      const todo = findTodo(args.id)
+      const todo = requireTask(args.id)
       const { parentOf } = indexTodos(todoStore.todos)
       const oldParentId = parentOf.get(toNumber(todo.id)) ?? null
+      // 移到根层级等于挂到根任务下；根任务还没有时保持无父级
       const newParentId = normalizeInteger(args.new_parent_id, '新父任务 id')
+        ?? (findRootTodo(todoStore.todos)?.id ?? null)
 
       if (newParentId === toNumber(todo.id)) throw new Error('任务不能成为自己的父任务')
       if (oldParentId === newParentId) return { ok: true, unchanged: true }
@@ -700,7 +710,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
 
       for (const rawId of ids) {
         try {
-          const todo = findTodo(rawId)
+          const todo = requireTask(rawId)
           if (Boolean(todo.completed_at) === completed) {
             unchanged.push({ id: toNumber(todo.id), title: todo.title })
             continue
@@ -723,7 +733,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
     async link_todo(args) {
       await ensureTodos()
       const parent = findTodo(args.parent_id)
-      const child = findTodo(args.child_id)
+      const child = requireTask(args.child_id)
       if (toNumber(parent.id) === toNumber(child.id)) throw new Error('任务不能链接到自己')
 
       const childIds = parent.child_ids || []
@@ -748,6 +758,8 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
     async unlink_todo(args) {
       await ensureTodos()
       const parent = findTodo(args.parent_id)
+      // 根任务的子任务断开后会变成没有挂载点的孤儿，只能用 move_todo 移到别的任务下
+      if (isRootTodo(parent)) throw new Error('根任务的子任务不能直接断开，请移动到其它任务下')
       const child = findTodo(args.child_id)
       const childIds = parent.child_ids || []
       const nextIds = childIds.filter((id) => toNumber(id) !== toNumber(child.id))
@@ -771,7 +783,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
 
     async delete_todo(args) {
       await ensureTodos()
-      const todo = findTodo(args.id)
+      const todo = requireTask(args.id)
       const result = await todoStore.deleteTodo(todo.id)
       if (!result.success) throw new Error(result.error || '删除任务失败')
       return { ok: true, deleted: { id: todo.id, title: todo.title } }

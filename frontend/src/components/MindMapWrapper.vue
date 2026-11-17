@@ -266,7 +266,16 @@ const size = reactive({ width: 0, height: 0 })
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
 
-// 根节点「全部任务」不是真实任务，选中状态只在图内维护
+// 根节点是真实任务：它的 id 就是根任务的 id；根任务还没拉到时用合成根 'root' 占位
+const rootNodeId = computed(() => {
+  const root = (props.nodes || []).find((node) => node.isRoot)
+  return root ? String(root.id) : null
+})
+
+// 节点 id 在图里都是字符串；合成根没有真实任务 id，新建时不带父级
+const toTaskId = (id) => (id != null && Number.isFinite(Number(id)) ? Number(id) : null)
+
+// 根节点选中状态只在图内维护：根任务不进入任务详情面板
 const rootSelected = ref(false)
 
 // 悬停的节点：叶子节点悬停时露出加号按钮，可用它新建子任务或拖出链接
@@ -318,7 +327,7 @@ const collapsibleIds = computed(() => {
 
 // 当前图里的真实任务 ID 变化时清理已删除任务的折叠记录；空图跳过，避免数据未到时清空
 watch(() => props.nodes, (nodes) => {
-  pruneTaskCollapseTree(nodes, { keep: ['root'] })
+  pruneTaskCollapseTree(nodes, { keep: rootNodeId.value ? [rootNodeId.value] : [] })
 }, { immediate: true })
 
 const allExpanded = computed(() =>
@@ -330,7 +339,7 @@ const toggleAllCollapse = () => {
   if (allExpanded.value) {
     setTasksCollapsed(collapsibleIds.value, true)
     // 选中任务被收起隐藏后，选中回到根节点，详情面板随之收起
-    if (selectedId.value !== 'root') {
+    if (selectedId.value !== rootNodeId.value) {
       rootSelected.value = true
       localSelection = true
       emit('task-selected', null)
@@ -554,7 +563,7 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
     midpoint = cubicMidpoint(start, c1, c2, end)
   }
 
-  return { key, d, midpoint, from: from.id, to: to.id, deletable: from.id !== 'root' }
+  return { key, d, midpoint, from: from.id, to: to.id, deletable: from.id !== rootNodeId.value }
 }
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
@@ -958,12 +967,20 @@ const toggleCollapse = (node) => {
   // 折叠后选中项确实被藏起来时，选中落到折叠节点上，避免详情面板指向看不见的任务；
   // 多父任务仍可经由其它父链显示，这种情况下保持选中不动
   const selected = selectedId.value
-  if (collapsing && selected && selected !== id && selected !== 'root') {
+  if (collapsing && selected && selected !== id && selected !== rootNodeId.value) {
     const stillVisible = buildGraphData(props.nodes, next).nodes
       .some((node) => node.id === selected)
     if (!stillVisible) {
-      rootSelected.value = false
-      emit('task-selected', Number(id))
+      if (id === rootNodeId.value) {
+        // 折叠根节点后选中回到根节点自身，不把根任务交给详情面板
+        rootSelected.value = true
+        localSelection = true
+        emit('task-selected', null)
+        nextTick(() => { localSelection = false })
+      } else {
+        rootSelected.value = false
+        emit('task-selected', Number(id))
+      }
     }
   }
 
@@ -1135,7 +1152,7 @@ const visibleParentOf = (id) => {
 }
 
 const selectedId = computed(() => {
-  if (rootSelected.value) return 'root'
+  if (rootSelected.value) return rootNodeId.value
   return props.selectedTaskId == null ? null : String(props.selectedTaskId)
 })
 
@@ -1287,7 +1304,7 @@ const navigate = (key) => {
 
   if (key === backward) {
     const parent = visibleParentOf(id)
-    if (parent && parent !== 'root') focusTask(parent)
+    if (parent && parent !== rootNodeId.value) focusTask(parent)
     return
   }
 
@@ -1300,23 +1317,23 @@ const navigate = (key) => {
 }
 
 // 新建任务：同级插到当前节点之后，子级挂到当前节点下
-// 选中根节点时两者都落到顶层，根节点本身不是真实任务
+// 选中根节点时两者都落到顶层，父级就是根任务
 const createSibling = () => {
   const id = selectedId.value
-  const isRoot = id === 'root'
-  const parent = id && !isRoot
-    ? (visibleParentOf(id) ?? nodeIndex.value.parentOf.get(id))
-    : 'root'
+  const atRoot = id == null || id === rootNodeId.value
+  const parent = atRoot
+    ? rootNodeId.value
+    : (visibleParentOf(id) ?? nodeIndex.value.parentOf.get(id))
   emit('create-task', {
-    parentId: parent && parent !== 'root' ? Number(parent) : null,
-    afterId: id && !isRoot ? Number(id) : null
+    parentId: toTaskId(parent),
+    afterId: atRoot ? null : toTaskId(id)
   })
 }
 
 const createChild = () => {
   const id = selectedId.value
   if (!id) return
-  emit('create-task', { parentId: id === 'root' ? null : Number(id), afterId: null })
+  emit('create-task', { parentId: toTaskId(id), afterId: null })
 }
 
 const editingId = ref(null)
@@ -1505,7 +1522,7 @@ const onKeydown = (event) => {
       return
     case 'F2':
       event.preventDefault()
-      if (id && id !== 'root') startEditById(id)
+      if (id && id !== rootNodeId.value) startEditById(id)
       return
     case 'Delete':
     case 'Backspace':
@@ -1515,12 +1532,12 @@ const onKeydown = (event) => {
         deleteSelectedEdge()
         return
       }
-      if (!id || id === 'root') return
+      if (!id || id === rootNodeId.value) return
       event.preventDefault()
       emitDelete(id)
       return
     case ' ':
-      if (!id || id === 'root') return
+      if (!id || id === rootNodeId.value) return
       event.preventDefault()
       emit('toggle-done', Number(id))
       return

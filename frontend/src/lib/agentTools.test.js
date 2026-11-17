@@ -182,6 +182,40 @@ describe('createAgentToolRunner', () => {
     expect(grandChild.completed).toBe(true)
   })
 
+  it('根任务不出现在任务列表，也不能被当作普通任务改写', async () => {
+    todoStore.todos.push(createTodoRow({ id: 99, title: '全部任务', is_root: true, child_ids: [1, 4] }))
+
+    const listed = await runner.run('list_todos', { completed: 'all' })
+    expect(listed.tasks.some((task) => task.id === 99)).toBe(false)
+    expect(listed.matching).toBe(4)
+
+    const read = await runner.run('get_todo', { id: 99 })
+    expect(read.ok).toBe(false)
+    expect(read.error).toContain('根任务')
+
+    const renamed = await runner.run('update_todo', { id: 99, title: '改名' })
+    expect(renamed.ok).toBe(false)
+    expect(todoStore.todos.find((item) => item.id === 99).title).toBe('全部任务')
+  })
+
+  it('移动到根层级时挂到根任务下', async () => {
+    todoStore.todos.push(createTodoRow({ id: 99, title: '全部任务', is_root: true }))
+
+    const result = await runner.run('move_todo', { id: 3, new_parent_id: null })
+
+    expect(result.ok).toBe(true)
+    expect(todoStore.todos.find((item) => item.id === 99).child_ids).toContain(3)
+    expect(todoStore.todos.find((item) => item.id === 2).child_ids).not.toContain(3)
+  })
+
+  it('没有根任务时不把根层级操作变成孤儿', async () => {
+    const result = await runner.run('move_todo', { id: 3, new_parent_id: null })
+
+    expect(result.ok).toBe(true)
+    // 旧数据环境没有根任务，任务回到无父级状态，与改造前一致
+    expect(todoStore.todos.find((item) => item.id === 2).child_ids).not.toContain(3)
+  })
+
   it('外部 MCP 工具随配置注册进工具表并能执行', async () => {
     const mcpServer = {
       id: 'mcp_1',

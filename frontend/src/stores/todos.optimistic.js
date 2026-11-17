@@ -104,7 +104,9 @@ export const createTodoOptimisticActions = ({
 
     const syncQueue = getSyncQueue()
     const tempId = syncQueue.generateTempId()
-    const parentId = options.parent_id ?? null
+    // 顶层任务统一挂到根任务下; 根任务还没拉到时先留空, 由服务端 create_todo 兜底
+    const rootTaskId = todosRef.value.find(todo => todo.is_root)?.id ?? null
+    const parentId = options.parent_id ?? rootTaskId
 
     const newTodo = {
       id: tempId,
@@ -257,10 +259,11 @@ export const createTodoOptimisticActions = ({
     const target = realTargetId == null ? null : todosRef.value.find(todo => todo.id === realTargetId)
     if (realTargetId != null && !target) return { success: false, error: '目标任务不存在' }
 
-    // 拖到任务内部即成为其子任务，拖到上下方则与其同级
+    // 拖到任务内部即成为其子任务，拖到上下方则与其同级；同级没有父级时落到根任务
+    const rootTaskId = todosRef.value.find(todo => todo.is_root)?.id ?? null
     const newParentId = target
-      ? (position === 'inside' ? target.id : (findParentIds(todosRef.value, target.id)[0] ?? null))
-      : null
+      ? (position === 'inside' ? target.id : (findParentIds(todosRef.value, target.id)[0] ?? rootTaskId))
+      : rootTaskId
 
     const oldParentIds = findParentIds(todosRef.value, realId).filter(parentId => parentId !== newParentId)
 

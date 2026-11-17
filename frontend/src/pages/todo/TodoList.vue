@@ -206,7 +206,7 @@ const isFetched = computed(() => todoStore.isFetched)
 const errorText = computed(() => todoStore.error)
 
 onMounted(async () => {
-  if (authStore.isAuthenticated && todoStore.todos.length === 0) {
+  if (authStore.isAuthenticated && !todoStore.isFetched) {
     await todoStore.fetchTodos()
   }
 })
@@ -217,7 +217,12 @@ const storedSortMode = localStorage.getItem(SORT_STORAGE_KEY)
 const sortMode = ref(LIST_SORT_OPTIONS.some(option => option.value === storedSortMode) ? storedSortMode : 'manual')
 watch(sortMode, (value) => localStorage.setItem(SORT_STORAGE_KEY, value))
 
-const sortedTree = computed(() => sortTodoTree(todoStore.treeNodes, sortMode.value))
+// 根任务是挂载点，不渲染成列表行：列表展示它的子级
+const sortedTree = computed(() => {
+  const forest = sortTodoTree(todoStore.treeNodes, sortMode.value)
+  const root = forest.find(node => node.is_root)
+  return root ? root.children : forest
+})
 
 // 任务删除或移入回收站后，清掉共享折叠状态里已经不存在的任务 ID
 watch(() => todoStore.treeNodes, (nodes) => {
@@ -225,8 +230,8 @@ watch(() => todoStore.treeNodes, (nodes) => {
 }, { immediate: true })
 
 const countNodes = (list) => list.reduce((acc, n) => acc + (n._isRef || n.completed_at ? 0 : 1) + countNodes(n.children || []), 0)
-const visibleCount = computed(() => countNodes(todoStore.treeNodes))
-const completedTodos = computed(() => todoStore.todos.filter(todo => todo.completed_at))
+const visibleCount = computed(() => countNodes(sortedTree.value))
+const completedTodos = computed(() => todoStore.tasks.filter(todo => todo.completed_at))
 const completedCount = computed(() => completedTodos.value.length)
 
 // 已完成区域默认展开，与列表同属一页；展开状态本地保留
