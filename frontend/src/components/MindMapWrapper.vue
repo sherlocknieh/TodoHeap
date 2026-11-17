@@ -793,10 +793,6 @@ const graphLayout = computed(() => {
 
 const layout = computed(() => graphLayout.value)
 
-// 结构签名：节点集合变化（含折叠导致的可见性变化）都算结构变化
-const layoutSignature = computed(() =>
-  `${direction.value}:${layout.value.nodes.map((node) => node.id).join('|')}`)
-
 let hasInteracted = false
 
 // 上次离开时的平移与缩放：尺寸未变时直接沿用，不重新适配
@@ -880,7 +876,6 @@ const captureAnchor = (id) => {
 
 // 布局重排后只平移视口，让锚点节点留在切换前的位置，避免整张图跟着跳
 const pinNodeAfterLayout = (anchor) => {
-  skipNextAutoFit = true
   if (anchor.graphX == null) return
   nextTick(() => {
     const moved = layout.value.nodes.find((item) => item.id === anchor.id)
@@ -1660,25 +1655,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointercancel', onDragEnd)
 })
 
-// 模式、方向或任务增删后重新适配视图；恢复的视口先让数据落位，不打断离开时的位置
-// 折叠/展开由 pinNodeAfterLayout 负责保持位置，这里跳过自动适配
-let skipNextAutoFit = restoredView
-let previousNodeIds = new Set(layout.value.nodes.map((node) => node.id))
-let previousDirection = direction.value
-watch(layoutSignature, () => {
-  const ids = layout.value.nodes.map((node) => node.id)
-  // 纯删除（节点只减不增）保持当前视口，避免删掉一个节点就跳回全景
-  const onlyRemoved = direction.value === previousDirection
-    && ids.every((id) => previousNodeIds.has(id))
-  previousNodeIds = new Set(ids)
-  previousDirection = direction.value
-  if (skipNextAutoFit) {
-    skipNextAutoFit = false
-    return
-  }
-  if (onlyRemoved) return
-  nextTick(fitView)
-})
+// 只有布局方向切换会整体重排、需要重新适配；任务增删与折叠都是局部重排，
+// 保持当前视口，避免新建或删除一个任务就把画面拉回全景
+watch(direction, () => nextTick(fitView))
 </script>
 
 <style scoped>
