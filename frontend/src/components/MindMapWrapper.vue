@@ -838,7 +838,7 @@ const selectNode = (node) => {
     // 图内点击自己负责居中，标记一下让 watch 跳过，避免重复启动动画
     localSelection = true
     emit('task-selected', null)
-    centerOnNode(node.id)
+    scheduleCenter(node.id)
     nextTick(() => { localSelection = false })
     return
   }
@@ -847,7 +847,7 @@ const selectNode = (node) => {
   // 图内点击自己负责居中，标记一下让 watch 跳过，避免重复启动动画
   localSelection = true
   emit('task-selected', Number(node.id))
-  centerOnNode(node.id)
+  scheduleCenter(node.id)
   nextTick(() => { localSelection = false })
 }
 
@@ -1007,6 +1007,23 @@ const centerOnNode = (id) => {
   animateView(target)
 }
 
+// 单击选中后稍等再居中：双击编辑时节点还没移走，可以原地改字
+let pendingCenter = null
+
+const scheduleCenter = (id) => {
+  cancelPendingCenter()
+  pendingCenter = setTimeout(() => {
+    pendingCenter = null
+    centerOnNode(id)
+  }, 220)
+}
+
+const cancelPendingCenter = () => {
+  if (pendingCenter == null) return
+  clearTimeout(pendingCenter)
+  pendingCenter = null
+}
+
 // 从别处选中任务时，若它被折叠隐藏，自动展开祖先链，保证选中项可见
 // 图内点击已在 selectNode 里居中，这里只处理外部来源，避免重复启动动画
 let localSelection = false
@@ -1119,6 +1136,9 @@ const textStyle = {
 
 const startEdit = (node) => {
   if (!node || node.isRoot || node.isRef) return
+  // 双击编辑时取消待执行的居中，避免输入框刚出现就被移走
+  cancelPendingCenter()
+  stopViewAnimation()
   editingId.value = Number(node.id)
   editingText.value = node.title
   nextTick(() => {
@@ -1409,6 +1429,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   stopViewAnimation()
+  cancelPendingCenter()
   if (saveViewTimer) clearTimeout(saveViewTimer)
   clearTimeout(wheelIdleTimer)
   window.removeEventListener('pointermove', onDragMove)
