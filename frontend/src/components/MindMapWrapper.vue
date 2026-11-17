@@ -73,14 +73,27 @@
               stroke-linejoin="round" />
             <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
           </g>
-          <text v-if="editingId !== Number(node.id)" :x="node.textX" :y="0" class="text-[13px] font-medium" :class="node.isRoot
-            ? 'fill-white'
-            : node.completed_at
-              ? 'fill-neutral-400 line-through dark:fill-neutral-500'
-              : 'fill-neutral-800 dark:fill-neutral-100'">
-            <tspan v-for="(line, index) in node.lines" :key="index" :x="node.textX"
-              :dy="index === 0 ? paddingTop + fontSize : lineHeight">{{ line }}</tspan>
-          </text>
+          <!-- 节点文字：常驻输入框承载，平时只读，双击后原地编辑 -->
+          <foreignObject :x="node.textX" :y="paddingTop + 1" :width="node.textWidth"
+            :height="node.lines.length * lineHeight">
+            <textarea :ref="(el) => setEditInput(el, node)"
+              :value="editingId === Number(node.id) ? editingText : node.lines.join('\n')"
+              :readonly="editingId !== Number(node.id)"
+              :tabindex="editingId === Number(node.id) ? 0 : -1"
+              wrap="off" spellcheck="false" :style="textStyle"
+              class="block h-full w-full resize-none overflow-hidden border-0 bg-transparent p-0 font-medium outline-none"
+              :class="[
+                node.isRoot
+                  ? 'text-white'
+                  : node.completed_at
+                    ? 'text-neutral-400 line-through dark:text-neutral-500'
+                    : 'text-neutral-800 dark:text-neutral-100',
+                editingId === Number(node.id) ? 'pointer-events-auto select-text' : 'pointer-events-none select-none'
+              ]"
+              @input="editingText = $event.target.value"
+              @pointerdown.stop @click.stop @dblclick.stop
+              @keydown.stop="onEditKeydown" @blur="commitEdit" />
+          </foreignObject>
           <!-- 根节点副标题：说明这张图代表什么，与参考图的「作品集导航」同位 -->
           <text v-if="node.subtitle" :x="node.textX"
             :y="paddingTop + node.lines.length * lineHeight + 12" class="text-[11px]"
@@ -146,11 +159,6 @@
         </g>
       </g>
     </svg>
-
-    <!-- 内联重命名：输入框与节点文字同位同色，看起来就是原地编辑 -->
-    <input v-if="editingNode" ref="editInput" v-model="editingText"
-      class="absolute z-20 bg-transparent font-medium text-neutral-900 outline-none select-text dark:text-neutral-100"
-      :style="editStyle" @keydown.stop="onEditKeydown" @blur="commitEdit" />
 
     <!-- 视图控件：布局方向循环切换与适应视图 -->
     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop>
@@ -298,6 +306,9 @@ const measureNode = (raw) => {
     completed,
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
+    // 文字可用宽度：右侧让出折叠按钮与删除按钮
+    textWidth: nodeWidth - paddingX - (paddingX + (hasCheckbox ? checkboxReserve : 0))
+      - (hasToggle ? toggleReserve : 0) - (completed ? deleteReserve : 0),
     // 折叠控件在已完成节点上要给删除按钮让位
     controlX: nodeWidth - paddingX - (completed ? deleteReserve : 0),
     height: paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0),
@@ -1091,37 +1102,29 @@ const createChild = () => {
 
 const editingId = ref(null)
 const editingText = ref('')
-const editInput = ref(null)
 // 已消费的新建标记，避免提交后又被父级传入的 id 重新打开
 let consumedEditId = null
+// 节点文字输入框按节点 ID 收集，编辑时聚焦对应那个
+const editInputs = new Map()
+const setEditInput = (el, node) => {
+  if (el) editInputs.set(String(node.id), el)
+  else editInputs.delete(String(node.id))
+}
 
-const editingNode = computed(() => {
-  if (editingId.value == null) return null
-  return layout.value.nodes.find((node) => node.id === String(editingId.value)) ?? null
-})
-
-// 输入框与节点文字同位同尺寸，编辑时看起来就是原地改字
-const editStyle = computed(() => {
-  const node = editingNode.value
-  if (!node) return {}
-  return {
-    left: `${view.x + (node.x + node.textX) * view.scale}px`,
-    top: `${view.y + node.y * view.scale}px`,
-    width: `${(nodeWidth - paddingX - node.textX) * view.scale}px`,
-    height: `${node.height * view.scale}px`,
-    paddingTop: `${paddingTop * view.scale}px`,
-    fontSize: `${fontSize * view.scale}px`,
-    lineHeight: `${lineHeight * view.scale}px`
-  }
-})
+// 输入框与节点文字同字号同行高，随 SVG 一起缩放
+const textStyle = {
+  fontSize: `${fontSize}px`,
+  lineHeight: `${lineHeight}px`
+}
 
 const startEdit = (node) => {
   if (!node || node.isRoot || node.isRef) return
   editingId.value = Number(node.id)
   editingText.value = node.title
   nextTick(() => {
-    editInput.value?.focus()
-    editInput.value?.select()
+    const input = editInputs.get(String(node.id))
+    input?.focus()
+    input?.select()
   })
 }
 
