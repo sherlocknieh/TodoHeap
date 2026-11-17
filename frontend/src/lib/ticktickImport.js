@@ -581,7 +581,9 @@ const diffExisting = (row, node) => {
   return patch
 }
 
-// 顺序执行导入计划：父子依赖决定不能并发，逐条调用 create_todo 并记录真实 ID
+// 顺序执行导入计划：父子依赖决定不能并发，逐条调用 create_todo 并记录真实 ID。
+// 计划按导出顺序发出，create_todo 追加到父级 child_ids 末尾，导入顺序即手动顺序；
+// parentKey 为空的任务不传 p_parent_id，由服务端挂到根任务下。
 export async function executeTickTickImport({ supabase, nodes = [], onProgress, isCancelled } = {}) {
   if (!supabase) throw new Error('缺少 Supabase 客户端')
 

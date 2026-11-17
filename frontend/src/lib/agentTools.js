@@ -45,14 +45,6 @@ const nullableText = (description) => ({ type: ['string', 'null'], description }
 const nullableNumber = (description) => ({ type: ['number', 'null'], description })
 const nullableInteger = (description) => ({ type: ['integer', 'null'], description })
 
-const taskFields = {
-  title: text('任务标题'),
-  details: nullableText('任务详情，Markdown 文本；null 表示清空'),
-  deadline: nullableText('截止时间，带时区的 ISO 8601，如 2026-11-10T18:00:00+08:00；null 表示清空'),
-  difficulty: nullableNumber('预计工时，单位小时；null 表示清空'),
-  sort_order: nullableInteger('同级排序序号，越小越靠前')
-}
-
 const subtaskSchema = objectSchema({
   title: text('子任务标题'),
   details: nullableText('子任务详情'),
@@ -93,8 +85,7 @@ export const AGENT_TOOL_DEFINITIONS = [
         details: nullableText('任务详情，Markdown 文本'),
         deadline: nullableText('截止时间，带时区的 ISO 8601'),
         difficulty: nullableNumber('预计工时，单位小时'),
-        sort_order: nullableInteger('排序序号'),
-        parent_id: nullableInteger('父任务 id，不填则创建为根任务'),
+        parent_id: nullableInteger('父任务 id，不填则创建为顶层任务'),
         subtasks: {
           type: 'array',
           description: '要挂在该任务下的子任务',
@@ -113,8 +104,7 @@ export const AGENT_TOOL_DEFINITIONS = [
         title: text('新标题'),
         details: nullableText('新详情；null 清空'),
         deadline: nullableText('新截止时间；null 清空'),
-        difficulty: nullableNumber('新工时；null 清空'),
-        sort_order: nullableInteger('新排序序号')
+        difficulty: nullableNumber('新工时；null 清空')
       }, ['id'])
     }
   },
@@ -122,10 +112,10 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'move_todo',
-      description: '把任务移动到另一个父任务下，或移动到根层级。',
+      description: '把任务移动到另一个父任务下，或移动到顶层。',
       parameters: objectSchema({
         id: integer('要移动的任务 id'),
-        new_parent_id: nullableInteger('新父任务 id；null 表示移到根层级')
+        new_parent_id: nullableInteger('新父任务 id；null 表示移到顶层')
       }, ['id', 'new_parent_id'])
     }
   },
@@ -465,7 +455,6 @@ const serializeTodo = (todo, { byId, parentOf, parentsOf, includeDetails = false
     completed_at: todo.completed_at || null,
     deadline: todo.deadline || null,
     difficulty: todo.difficulty ?? null,
-    sort_order: todo.sort_order ?? null,
     parent_id: parentIds[0] ?? null,
     parent_ids: parentIds,
     child_ids: (todo.child_ids || []).map(toNumber),
@@ -608,7 +597,6 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
         details: args.details ?? null,
         deadline: normalizeDate(args.deadline, '截止时间'),
         difficulty: normalizeNumber(args.difficulty, '工时'),
-        sort_order: normalizeInteger(args.sort_order, '排序序号'),
         parent_id: parentId
       })
       if (!result.success) throw new Error(result.error || '创建任务失败')
@@ -616,14 +604,13 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const created = result.data
       const subtasks = []
       const pendingSubtasks = Array.isArray(args.subtasks) ? args.subtasks : []
-      for (const [index, sub] of pendingSubtasks.entries()) {
+      for (const sub of pendingSubtasks) {
         const subTitle = String(sub?.title || '').trim()
         if (!subTitle) continue
         const subResult = await todoStore.addTodo(subTitle, {
           details: sub.details ?? null,
           deadline: normalizeDate(sub.deadline, '子任务截止时间'),
           difficulty: normalizeNumber(sub.difficulty, '子任务工时'),
-          sort_order: index + 1,
           parent_id: created.id
         })
         if (subResult.success) subtasks.push({ id: subResult.data.id, title: subResult.data.title })
@@ -649,7 +636,6 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       if ('details' in args) updates.details = args.details ?? null
       if ('deadline' in args) updates.deadline = normalizeDate(args.deadline, '截止时间')
       if ('difficulty' in args) updates.difficulty = normalizeNumber(args.difficulty, '工时')
-      if ('sort_order' in args) updates.sort_order = normalizeInteger(args.sort_order, '排序序号')
       if (Object.keys(updates).length === 0) throw new Error('没有要更新的字段')
 
       const result = await todoStore.updateTodo(todo.id, updates)

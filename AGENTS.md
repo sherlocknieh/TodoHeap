@@ -60,7 +60,10 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
 | `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
 | `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
-| `utils/taskGraph.js` | 任务图遍历：后代收集、多父查找、森林展开（支持环） |
+| `utils/rootTask.js` | 根任务唯一判定入口（`isRootTodo` / `findRootTodo` / `withoutRootTodos`）与列表顶层展开 |
+| `utils/taskGraph.js` | 任务图遍历：后代收集、多父查找、森林展开（支持环，兄弟顺序直接取 `child_ids`） |
+| `utils/taskCollapse.js` | 跨视图共享的折叠状态（保存显式切换过的任务 ID） |
+| `utils/todoDrag.js` | 列表拖拽状态：源任务 ID、源父级与落点提示 |
 | `utils/detailPanelContext.js` | provide/inject key，供深层组件打开详情面板 |
 | `utils/settingsPanel.js` | 设置浮窗的共享状态 |
 | `utils/handleAuthCallback.ts` | 认证回调处理 |
@@ -88,7 +91,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 | 文件 | 职责 |
 | --- | --- |
-| `stores/todos.js` | 主 store：拉取、树构建、CRUD 入口、realtime 状态 |
+| `stores/todos.js` | 主 store：拉取（缺根任务时懒建）、树构建（兄弟顺序取 `child_ids`）、CRUD 入口、realtime 状态 |
 | `stores/todos.optimistic.js` | 乐观更新与级联（删父删子等） |
 | `stores/todos.rollback.js` | 失败回滚 |
 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
@@ -105,7 +108,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 ## Supabase
 
-`todos` 表：`id, user_id, child_ids(BIGINT[] 子任务 ID 列表), title, details, deadline, difficulty(工时, DECIMAL(5,2)), sort_order, completed_at, external_id(外部来源标识), created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
+`todos` 表：`id, user_id, child_ids(BIGINT[] 子任务 ID 列表), title, details, deadline, difficulty(工时, DECIMAL(5,2)), sort_order, is_root, completed_at, external_id(外部来源标识), created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
+每个用户有一条 `is_root` 根任务「全部任务」，顶层任务挂在它的 `child_ids` 下；`ensure_root_todo()` 幂等补建，`attach_root_children()` 供旧数据恢复后补挂。根任务由 RLS 禁止插入/删除（删号的外键级联不受影响），触发器只放行 `child_ids` 修改。
 `user_settings` 表：用户偏好，如 `autoApplyAITasks`。
 `schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, start_at, end_at, created_at, updated_at`；已启 RLS 与 Realtime。
 `get_calendar_feed(feed_token)`：SECURITY DEFINER 函数，按 `user_settings.settings.calendarFeedToken` 返回该用户的日程，授权 anon 调用，供日历订阅使用。
@@ -123,6 +127,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 - **UI**：颜色只用 `neutral-*` 与 `accent-*`，配 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` 基元；图标一律用 `AppIcon`，**不要用 emoji**；圆角以 `rounded-md` 为主，避免大阴影与渐变。
 - **完成状态判定用 `completed_at` 是否为空**，不存在 `status` / `completed` 字段。
+- **手动顺序的唯一来源是父级 `child_ids` 的数组顺序**；新任务追加到末尾。`sort_order` 只为兼容旧客户端保留，不要用它排序或批量回写。
+- **顶层任务必须挂在根任务（`is_root`）下**：新增任务统一走 `addTodo`（默认挂根），Agent 工具与导入的顶层任务同样挂根。根任务不出现在列表、统计、回收站、Agent 输出里。
 - **会话外改动**：发现工作区有本次会话之外的改动，先弹框问怎么处理
 - 中文注释描述"这段代码负责什么"，不写步骤流水账。
 - 部署路径带 `/TodoHeap/` 前缀，资源引用不要写死站点根路径。
