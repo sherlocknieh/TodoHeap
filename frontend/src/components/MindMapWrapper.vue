@@ -73,7 +73,7 @@
               stroke-linejoin="round" />
             <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
           </g>
-          <text :x="node.textX" :y="0" class="text-[13px] font-medium" :class="node.isRoot
+          <text v-if="editingId !== Number(node.id)" :x="node.textX" :y="0" class="text-[13px] font-medium" :class="node.isRoot
             ? 'fill-white'
             : node.completed_at
               ? 'fill-neutral-400 line-through dark:fill-neutral-500'
@@ -147,9 +147,9 @@
       </g>
     </svg>
 
-    <!-- 内联重命名：输入框浮在节点上方，回车保存、Esc 取消 -->
+    <!-- 内联重命名：输入框与节点文字同位同色，看起来就是原地编辑 -->
     <input v-if="editingNode" ref="editInput" v-model="editingText"
-      class="absolute z-20 rounded-md border border-accent-500 bg-white px-2 font-medium text-neutral-900 shadow-sm outline-none select-text dark:bg-neutral-900 dark:text-neutral-100"
+      class="absolute z-20 bg-transparent font-medium text-neutral-900 outline-none select-text dark:text-neutral-100"
       :style="editStyle" @keydown.stop="onEditKeydown" @blur="commitEdit" />
 
     <!-- 视图控件：布局方向循环切换与适应视图 -->
@@ -1100,19 +1100,18 @@ const editingNode = computed(() => {
   return layout.value.nodes.find((node) => node.id === String(editingId.value)) ?? null
 })
 
-// 输入框跟随节点位置与缩放，只覆盖文字区域，左侧勾选框保持可见
+// 输入框与节点文字同位同尺寸，编辑时看起来就是原地改字
 const editStyle = computed(() => {
   const node = editingNode.value
   if (!node) return {}
-  // 输入框自带 px-2 内边距，左侧留出 2px 间隙避免边框压到勾选框
-  const inset = 6
-  const left = node.textX - inset
   return {
-    left: `${view.x + (node.x + left) * view.scale}px`,
+    left: `${view.x + (node.x + node.textX) * view.scale}px`,
     top: `${view.y + node.y * view.scale}px`,
-    width: `${(nodeWidth - paddingX - left + inset) * view.scale}px`,
+    width: `${(nodeWidth - paddingX - node.textX) * view.scale}px`,
     height: `${node.height * view.scale}px`,
-    fontSize: `${fontSize * view.scale}px`
+    paddingTop: `${paddingTop * view.scale}px`,
+    fontSize: `${fontSize * view.scale}px`,
+    lineHeight: `${lineHeight * view.scale}px`
   }
 })
 
