@@ -554,7 +554,7 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
 // 多父节点只要还有一条未折叠的父链就保持可见
-const buildGraphData = (forest) => {
+const buildGraphData = (forest, collapsed) => {
   const allNodes = new Map()
   const edges = []
   const roots = []
@@ -564,7 +564,7 @@ const buildGraphData = (forest) => {
     const id = String(node.id)
     const children = node.children || []
     if (!node.isRef && !allNodes.has(id)) {
-      allNodes.set(id, { ...node, childCount: children.length, collapsed: collapsedSet.value.has(id) })
+      allNodes.set(id, { ...node, childCount: children.length, collapsed: collapsed.has(id) })
     }
     if (parentId === null) {
       if (!node.isRef) roots.push(id)
@@ -595,9 +595,11 @@ const buildGraphData = (forest) => {
     })
   }
 
-  // 折叠父节点不再展开子节点：布局只吃可见节点，子节点才能贴着父节点排布
+  // 折叠父节点不再展开子节点：布局只吃可见节点，子节点才能贴着父节点排布；
+  // 折叠节点的出边也一并去掉，避免共享子节点经由另一父级可见时仍被折叠支拉深、拉偏
   const nodeList = [...allNodes.values()].filter((node) => visible.has(node.id))
-  const edgeList = edges.filter((edge) => visible.has(edge.from) && visible.has(edge.to))
+  const edgeList = edges.filter((edge) => visible.has(edge.from) && visible.has(edge.to)
+    && !collapsed.has(edge.from))
 
   return { nodes: nodeList, edges: edgeList }
 }
@@ -605,8 +607,10 @@ const buildGraphData = (forest) => {
 // 有向图：按强连通分量分层，环内节点顺序排列，回边绕行展示
 // 只用可见节点参与布局：折叠后兄弟节点收拢到折叠父节点周围，展开后子节点重新贴回父节点
 const graphLayout = computed(() => {
-  const { nodes: rawNodes, edges: rawEdges } = buildGraphData(props.nodes)
-  if (rawNodes.length === 0) return { nodes: [], edges: [], contentWidth: 0, contentHeight: 0 }
+  const { nodes: rawNodes, edges: rawEdges } = buildGraphData(props.nodes, collapsedSet.value)
+  if (rawNodes.length === 0) {
+    return { nodes: [], edges: [], contentWidth: 0, contentHeight: 0, minX: 0, minY: 0 }
+  }
 
   const nodes = rawNodes.map(measureNode)
   const byId = new Map(nodes.map((node) => [node.id, node]))
@@ -837,20 +841,37 @@ const graphLayout = computed(() => {
     minCross = Math.min(minCross, center - half)
     maxCross = Math.max(maxCross, center + half)
   })
-  const contentCross = maxCross - minCross
+
+  // 坐标原点钉在根节点的左上角：展开/折叠只改变其它节点的相对位置，根节点在图上不动
+  const anchorNode = nodes.find((node) => node.isRoot) ?? nodes[0]
+  const crossOrigin = crossCenter.get(anchorNode.id) - crossSizeOf(anchorNode.id) / 2
+  const anchorLayer = nodeLayer.get(anchorNode.id) ?? 0
+  const anchorMain = layerStart.get(anchorLayer)
+    + (layerMain.get(anchorLayer) - nodeMainSize(anchorNode)) / 2
+  const mainOrigin = isForward.value
+    ? anchorMain
+    : contentMain - anchorMain - nodeMainSize(anchorNode)
 
   nodes.forEach((node) => {
-    const cross = crossCenter.get(node.id) - nodeCrossSize(node) / 2 - minCross
+    const cross = crossCenter.get(node.id) - nodeCrossSize(node) / 2 - crossOrigin
     const layer = nodeLayer.get(node.id) ?? 0
     const mainOffset = layerStart.get(layer) + (layerMain.get(layer) - nodeMainSize(node)) / 2
+    const main = (isForward.value ? mainOffset : contentMain - mainOffset - nodeMainSize(node))
+      - mainOrigin
     if (isVertical.value) {
       node.x = cross
-      node.y = isForward.value ? mainOffset : contentMain - mainOffset - node.height
+      node.y = main
     } else {
       node.y = cross
-      node.x = isForward.value ? mainOffset : contentMain - mainOffset - nodeWidth
+      node.x = main
     }
   })
+
+  // 内容包围盒同样是相对根节点的偏移，可能为负值
+  const crossMin = minCross - crossOrigin
+  const crossMax = maxCross - crossOrigin
+  const contentCross = crossMax - crossMin
+  const mainMin = -mainOrigin
 
   const routedEdges = rawEdges.map((edge, index) => {
     const from = byId.get(edge.from)
@@ -859,7 +880,7 @@ const graphLayout = computed(() => {
     const backward = (nodeLayer.get(to.id) ?? 0) <= (nodeLayer.get(from.id) ?? 0)
     // 回边绕到内容外侧，通道按边序号错开避免重叠
     const laneCross = backward
-      ? contentCross + 24 + (index % 4) * 14
+      ? crossMax + 24 + (index % 4) * 14
       : null
     return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, backward, laneCross)
   }).filter(Boolean)
@@ -869,7 +890,10 @@ const graphLayout = computed(() => {
     nodes,
     edges: routedEdges,
     contentWidth: isVertical.value ? contentCross : contentMain,
-    contentHeight: isVertical.value ? contentMain : contentCross
+    contentHeight: isVertical.value ? contentMain : contentCross,
+    // 内容左上角在图坐标里的位置，供适应视图对齐
+    minX: isVertical.value ? crossMin : mainMin,
+    minY: isVertical.value ? mainMin : crossMin
   }
 })
 
@@ -878,7 +902,7 @@ const layout = computed(() => graphLayout.value)
 let hasInteracted = false
 
 // 上次离开时的平移与缩放：尺寸未变时直接沿用，不重新适配
-const savedView = readUiState('mindmap-view', null)
+const savedView = readUiState('mindmap-view:v2', null)
 const restoredView = Boolean(savedView
   && Number.isFinite(savedView.x)
   && Number.isFinite(savedView.y)
@@ -889,18 +913,19 @@ if (restoredView) {
   hasInteracted = true
 }
 
-// 平移缩放后记住视口；连续操作时合并成一次写入
+// 平移缩放后记住视口；连续操作时合并成一次写入。
+// 键名带 v2：布局坐标原点改到根节点，旧的平移量与新区间不通用
 let saveViewTimer = null
 watch(view, () => {
   if (!hasInteracted) return
   clearTimeout(saveViewTimer)
-  saveViewTimer = setTimeout(() => writeUiState('mindmap-view', { ...view }), 200)
+  saveViewTimer = setTimeout(() => writeUiState('mindmap-view:v2', { ...view }), 200)
 }, { deep: true })
 
 const fitView = () => {
   const el = container.value
   if (!el) return
-  const { contentWidth, contentHeight } = layout.value
+  const { contentWidth, contentHeight, minX, minY } = layout.value
   if (!contentWidth || !size.width || !size.height) return
 
   const pad = 48
@@ -911,8 +936,9 @@ const fitView = () => {
   ))
   animateView({
     scale,
-    x: (size.width - contentWidth * scale) / 2,
-    y: (size.height - contentHeight * scale) / 2
+    // 内容左上角不在原点：按 minX / minY 把包围盒摆到视口中央
+    x: (size.width - contentWidth * scale) / 2 - minX * scale,
+    y: (size.height - contentHeight * scale) / 2 - minY * scale
   })
 }
 
@@ -924,18 +950,15 @@ const toggleCollapse = (node) => {
   if (collapsing) next.add(id)
   else next.delete(id)
 
-  // 折叠后选中项若被藏起来，选中落到折叠节点上，避免详情面板指向看不见的任务
+  // 折叠后选中项确实被藏起来时，选中落到折叠节点上，避免详情面板指向看不见的任务；
+  // 多父任务仍可经由其它父链显示，这种情况下保持选中不动
   const selected = selectedId.value
   if (collapsing && selected && selected !== id && selected !== 'root') {
-    const { parentOf } = nodeIndex.value
-    let current = parentOf.get(selected)
-    while (current != null && current !== 'root') {
-      if (String(current) === id) {
-        rootSelected.value = false
-        emit('task-selected', Number(id))
-        break
-      }
-      current = parentOf.get(String(current))
+    const stillVisible = buildGraphData(props.nodes, next).nodes
+      .some((node) => node.id === selected)
+    if (!stillVisible) {
+      rootSelected.value = false
+      emit('task-selected', Number(id))
     }
   }
 
@@ -1215,15 +1238,19 @@ let localSelection = false
 
 watch(selectedId, (id) => {
   if (!id) return
-  const { parentOf } = nodeIndex.value
-  const collapsed = new Set(collapsedIds.value.map(String))
-  let changed = false
-  let current = parentOf.get(id)
-  while (current != null && current !== 'root') {
-    if (collapsed.delete(String(current))) changed = true
-    current = parentOf.get(String(current))
+  // 选中项已被任一父链显示时不再展开，避免选中多父任务时把用户刚折叠的父级重新打开
+  if (!layout.value.nodes.some((node) => node.id === id)) {
+    const { parentOf } = nodeIndex.value
+    const collapsed = new Set(collapsedIds.value.map(String))
+    let changed = false
+    let current = parentOf.get(id)
+    // 收起全部会把根节点也折叠，展开到选中项可见为止
+    while (current != null) {
+      if (collapsed.delete(String(current))) changed = true
+      current = parentOf.get(String(current))
+    }
+    if (changed) collapsedIds.value = [...collapsed]
   }
-  if (changed) collapsedIds.value = [...collapsed]
   if (localSelection) {
     localSelection = false
     return

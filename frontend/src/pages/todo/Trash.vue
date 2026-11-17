@@ -317,18 +317,18 @@ function flattenTree(nodes, level = 0, arr = []) {
 }
 
 const flatTrashList = computed(() => flattenTree(trashTreeNodes.value))
+const flatTrashMap = computed(() => new Map(flatTrashList.value.map(item => [item.id, item])))
 
-// 判断任务是否应该显示
+// 判断任务是否应该显示：沿父链逐级检查折叠状态。
+// 只为垃圾箱内的父级负责，父任务未删除时当前任务作为根节点显示。
 function shouldShowItem(item) {
-  // 如果没有父任务，显示
-  if (!item.parent_id) return true
-  
-  // 如果父任务不在垃圾箱中（父任务未被删除），作为根节点显示
-  if (!isParentInTrash(item.parent_id)) return true
-  
-  // 如果父任务在垃圾箱中，根据展开状态决定是否显示
-  // 默认为展开状态（expandedMap中不存在时视为true）
-  return expandedMap.value[item.parent_id] !== false
+  let current = item.parent_id
+  while (current) {
+    if (!isParentInTrash(current)) return true
+    if (expandedMap.value[current] === false) return false
+    current = flatTrashMap.value.get(current)?.parent_id || null
+  }
+  return true
 }
 
 // 展开/折叠状态本地保留，刷新后仍停在原来的层级
