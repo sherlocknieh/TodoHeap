@@ -1192,7 +1192,9 @@ const textStyle = {
   lineHeight: `${lineHeight}px`
 }
 
-const startEdit = (node) => {
+// selectText 只在预填占位文字（新建任务）时全选，直接输入即可覆盖；
+// 编辑已有文字时保留内容、光标落在末尾，避免误输把原文冲掉
+const startEdit = (node, { selectText = false } = {}) => {
   if (!node || node.isRoot || node.isRef) return
   // 双击编辑时取消待执行的居中，避免输入框刚出现就被移走
   cancelPendingCenter()
@@ -1201,8 +1203,11 @@ const startEdit = (node) => {
   editingText.value = node.title
   nextTick(() => {
     const input = editInputs.get(String(node.id))
-    input?.focus()
-    input?.select()
+    if (!input) return
+    input.focus()
+    const end = input.value.length
+    input.setSelectionRange(end, end)
+    if (selectText) input.select()
   })
 }
 
@@ -1245,7 +1250,7 @@ watch([() => props.editTaskId, layout], ([id]) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node) return
   consumedEditId = id
-  startEdit(node)
+  startEdit(node, { selectText: true })
 })
 
 const onKeydown = (event) => {
