@@ -132,18 +132,17 @@
             </template>
           </g>
 
-          <!-- 选中节点右侧的删除按钮：就地提供删除入口，根节点没有 -->
+          <!-- 选中节点右侧的删除按钮：只有垃圾桶图标，悬停变红，确认态保持红色；
+               透明热区承担点击与悬停判定 -->
           <g v-if="node.selected && !node.isRoot"
             :transform="`translate(${nodeWidth - paddingX - deleteSize / 2} ${node.height / 2})`"
+            class="cursor-pointer transition-colors"
+            :class="confirmDeleteId === node.id
+              ? 'text-danger-600 dark:text-danger-500'
+              : 'text-neutral-400 hover:text-danger-600 dark:text-neutral-500 dark:hover:text-danger-400'"
             @pointerdown.stop @click.stop="deleteNode(node)">
-            <circle r="8" class="cursor-pointer transition-colors" stroke-width="1"
-              :class="confirmDeleteId === node.id
-                ? 'fill-danger-600 stroke-danger-600 dark:fill-danger-500 dark:stroke-danger-500'
-                : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
-            <g transform="translate(-6 -6)" class="pointer-events-none"
-              :class="confirmDeleteId === node.id
-                ? 'text-white'
-                : 'text-neutral-500 dark:text-neutral-300'">
+            <circle r="9" class="fill-transparent" />
+            <g transform="translate(-6 -6)" class="pointer-events-none">
               <AppIcon name="trash" :size="12" />
             </g>
             <title>{{ confirmDeleteId === node.id ? '再次点击删除任务' : '删除任务' }}</title>
