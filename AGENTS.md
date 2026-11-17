@@ -128,6 +128,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 ## 改动的验证
 
+- **不要自行打开浏览器调试**：改完代码后若想启动 dev server 并用浏览器查看效果，先问我；简单的视觉变化我自己看就行。
 - 前端：`cd frontend && npm run build`；涉及 store 再 `npm test`
 - 数据库：项目处于实验阶段，**结构可以随时调整**；迁移按领域拆成有序文件（表结构 / 索引 / RLS / 视图 / 函数 / 触发器 / Realtime），需要时直接改写并重置数据库，无需兼容历史数据
 - 迁移校验：本机没有 Postgres 时用 **PGlite**（`npm i @electric-sql/pglite`）按时间戳顺序执行 `supabase/migrations/*.sql`；执行前先建桩：`auth` schema、`auth.users(id uuid)` 表、`auth.uid()` 函数，以及 `anon` / `authenticated` 角色
