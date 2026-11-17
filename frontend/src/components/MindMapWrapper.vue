@@ -28,9 +28,9 @@
           :stroke-width="highlightedEdges.has(edge.key) ? 1.8 : 1.2"
           marker-end="url(#mm-arrow)" />
 
-        <!-- 连线热区：透明加宽描边，便于点中细线 -->
+        <!-- 连线热区：透明加宽描边，便于点中细线；data-mm-edge 供滚轮判断是否缩放 -->
         <path v-for="edge in layout.edges" :key="`hit-${edge.key}`" :d="edge.d" fill="none"
-          stroke="transparent" stroke-width="14" stroke-linecap="round"
+          stroke="transparent" stroke-width="14" stroke-linecap="round" data-mm-edge
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
@@ -41,7 +41,7 @@
 
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
-          :opacity="node.completed_at ? 0.55 : 1"
+          :opacity="node.completed_at ? 0.55 : 1" data-mm-node
           :class="node.isRoot ? 'cursor-default' : 'cursor-pointer'"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @click.stop="selectNode(node)">
@@ -146,8 +146,8 @@
       </button>
     </div>
     <p
-      class="absolute bottom-3 left-3 z-10 max-w-[calc(100%-8rem)] rounded bg-white/85 px-2 py-1 text-[11px] text-neutral-400 backdrop-blur-sm pointer-events-none dark:bg-neutral-950/80 dark:text-neutral-500">
-      滚轮缩放 · 拖拽平移 · 拖节点到另一节点建立链接 · 点选连线可删除 · Enter 同级 · Tab 子级 · F2 重命名
+      class="absolute bottom-3 left-3 z-10 max-w-[calc(100%-8rem)] rounded bg-white/85 px-2 py-1 text-[11px] leading-4 text-neutral-400 backdrop-blur-sm pointer-events-none dark:bg-neutral-950/80 dark:text-neutral-500">
+      节点/连线滚轮缩放 · 空白处滚轮平移 · 拖拽平移 · 拖节点到另一节点建立链接 · 点选连线可删除 · Enter 同级 · Tab 子级 · F2 重命名
     </p>
   </div>
 </template>
@@ -1076,15 +1076,28 @@ const onCanvasClick = () => {
   selectedEdgeKey.value = null
 }
 
-// 以指针位置为中心缩放，避免缩放后视线漂移
+// 滚轮：指针落在节点或连线上时缩放，落在空白处时上下平移画布
 const onWheel = (event) => {
   const el = container.value
   if (!el) return
   hasInteracted = true
+
+  // 行模式滚轮（部分鼠标/触控板）的 delta 单位是行，换算成像素
+  const unit = event.deltaMode === 1 ? 16 : 1
+  const onItem = event.target instanceof Element
+    && event.target.closest('[data-mm-node], [data-mm-edge]')
+
+  if (!onItem) {
+    view.x -= event.deltaX * unit
+    view.y -= event.deltaY * unit
+    return
+  }
+
+  // 以指针位置为中心缩放，避免缩放后视线漂移
   const rect = el.getBoundingClientRect()
   const pointerX = event.clientX - rect.left
   const pointerY = event.clientY - rect.top
-  const nextScale = Math.min(2.5, Math.max(0.15, view.scale * Math.exp(-event.deltaY * 0.0015)))
+  const nextScale = Math.min(2.5, Math.max(0.15, view.scale * Math.exp(-event.deltaY * unit * 0.0015)))
   const ratio = nextScale / view.scale
 
   view.x = pointerX - (pointerX - view.x) * ratio
