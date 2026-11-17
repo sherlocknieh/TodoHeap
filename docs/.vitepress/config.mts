@@ -126,6 +126,7 @@ const sidebarConfigs = languages.flatMap(lang =>
       'index.md',
       'user',
       'dev',
+      'logic',
     ]
   }))
 );

@@ -49,6 +49,11 @@ pnpm dev
 
 - [**开发流程与任务**](./03.development.md) - 开发流程、常见任务、本地调试
 
+### 逻辑文档
+按机制讲清实现链路与约束，修 bug 时更新对应篇
+
+- [**任务创建逻辑**](./logic/task-create.md) - 从界面到落库的创建链路、临时 ID 与幂等键
+
 ### AI 功能实现
 深入理解三大 AI 功能的后端实现
 
@@ -89,7 +94,8 @@ docs/zh/dev/
 ├── 00.goals.md           ← 项目愿景与方案
 ├── 01.setup.md           ← 环境搭建
 ├── 02.architecture.md    ← 架构与技术栈
-└── 03.development.md     ← 开发流程与常见任务
+├── 03.development.md     ← 开发流程与常见任务
+└── logic/                ← 机制与链路文档（修 bug 时更新）
 
 supabase/functions/       ← Edge Functions 实现
 frontend/src/             ← 前端源码（详见仓库根目录 AGENTS.md）
