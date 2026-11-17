@@ -184,7 +184,12 @@ export const useTodoStore = defineStore('todos', () => {
       }
 
       // 保留本地临时ID的todo (还未同步到服务器的)
+      // 若服务端已有同 client_key 的记录(创建成功但响应丢失), 以服务端为准, 丢弃本地临时项
+      const serverClientKeys = new Set(
+        serverTodos.map(todo => todo.client_key).filter(Boolean)
+      )
       const localTempTodos = todos.value.filter(t => syncQueue.isTempId(t.id))
+        .filter(t => !(t.client_key && serverClientKeys.has(t.client_key)))
       
       // 合并数据
       todos.value = [...serverTodos, ...localTempTodos]

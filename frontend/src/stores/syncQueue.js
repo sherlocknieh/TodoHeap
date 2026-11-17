@@ -11,6 +11,19 @@ const syncStorage = localforage.createInstance({
   storeName: 'syncQueue'
 })
 
+// 创建幂等键依赖服务端的 client_key 列; 旧库上探到缺失后本次会话不再尝试
+let clientKeySupported = true
+
+// PostgREST 找不到函数签名, 或列/索引尚不存在
+const isMissingClientKeySupport = (error) => {
+  if (!error) return false
+  if (['PGRST202', '42883', '42703', '42P10'].includes(error.code)) return true
+  const message = String(error.message || '')
+  return message.includes('Could not find the function')
+    || message.includes('p_client_key')
+    || message.includes('client_key')
+}
+
 // 操作类型常量
 export const OperationType = {
   ADD: 'ADD',
@@ -352,8 +365,9 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
           return { success: false, error: '未知操作类型', needsRollback: true }
       }
     } catch (e) {
-      // 判断是否是网络错误
-      const isNetworkError = !navigator.onLine || 
+      // 判断是否是网络错误; 无 navigator 时按网络状态未知处理, 只认错误信息
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+      const isNetworkError = offline ||
         e.message?.includes('Failed to fetch') ||
         e.message?.includes('Network') ||
         e.code === 'NETWORK_ERROR'
@@ -379,15 +393,27 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     }
 
     // 创建与挂载在同一个函数内完成, 避免只建出孤立任务
-    const { data, error } = await supabase
-      .rpc('create_todo', {
-        p_title: payload.title,
-        p_details: payload.details ?? null,
-        p_deadline: payload.deadline ?? null,
-        p_duration: payload.duration ?? null,
-        p_completed_at: payload.completed_at ?? null,
-        p_parent_id: realParentId
-      })
+    const rpcArgs = {
+      p_title: payload.title,
+      p_details: payload.details ?? null,
+      p_deadline: payload.deadline ?? null,
+      p_duration: payload.duration ?? null,
+      p_completed_at: payload.completed_at ?? null,
+      p_parent_id: realParentId
+    }
+    const clientKey = clientKeySupported ? payload.client_key : null
+
+    let { data, error } = await supabase.rpc(
+      'create_todo',
+      clientKey ? { ...rpcArgs, p_client_key: clientKey } : rpcArgs
+    )
+
+    // 数据库还没应用 client_key 迁移时退回旧签名, 否则创建会整条失败
+    if (error && clientKey && isMissingClientKeySupport(error)) {
+      clientKeySupported = false
+      console.warn('数据库未应用 client_key 迁移, 本次起退回去重保护:', error.message)
+      ;({ data, error } = await supabase.rpc('create_todo', rpcArgs))
+    }
 
     if (error) {
       // 检查是否是认证错误

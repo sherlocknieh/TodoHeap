@@ -69,6 +69,24 @@ describe('createTodoOptimisticActions', () => {
     }))
   })
 
+  it('addTodo 生成创建幂等键并随 ADD 队列下发', async () => {
+    const result = await actions.addTodo('幂等任务', { parent_id: 9 })
+
+    expect(result.data.client_key).toBeTruthy()
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ client_key: result.data.client_key })
+    }))
+  })
+
+  it('addTodo 复用调用方传入的 client_key', async () => {
+    const result = await actions.addTodo('重试任务', { parent_id: 9, client_key: 'key-1' })
+
+    expect(result.data.client_key).toBe('key-1')
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ client_key: 'key-1' })
+    }))
+  })
+
   it('updateTodo 对临时任务应只更新队列 payload 并持久化', async () => {
     todosRef.value = [{ id: -1, title: '原任务', completed_at: null, updated_at: 'old' }]
     syncQueue.queue = [{ type: OperationType.ADD, targetId: -1, payload: { title: '原任务', completed_at: null } }]

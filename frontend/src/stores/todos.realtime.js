@@ -54,10 +54,25 @@ export const createTodosRealtimeManager = ({
   // 回收站只在完整拉取过一次后才跟随推送, 否则局部数据会掩盖真正缺失的记录
   const shouldMaintainTrash = () => isTrashFetchedRef.value
 
+  // 乐观创建的任务在服务端落库后会先收到 INSERT 推送, 此时本地还挂着临时 ID。
+  // 用 client_key 认领: 走与 RPC 响应相同的 ID 替换流程, 避免临时项与真实项同时存在。
+  const claimLocalTempTodo = (record) => {
+    if (!record?.client_key) return false
+    const local = todosRef.value.find(
+      (todo) => todo.client_key === record.client_key && getSyncQueue().isTempId(todo.id)
+    )
+    if (!local) return false
+
+    window.dispatchEvent(new CustomEvent('sync:id-replaced', {
+      detail: { tempId: local.id, realId: record.id, data: record }
+    }))
+    return true
+  }
+
   const handleRealtimeInsert = (record) => {
-    if (record.deleted_at === null) {
-      upsertTodoById(todosRef, record)
-    }
+    if (record.deleted_at !== null) return
+    if (claimLocalTempTodo(record)) return
+    upsertTodoById(todosRef, record)
   }
 
   const handleRealtimeDeletedState = (record) => {

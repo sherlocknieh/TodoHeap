@@ -1,4 +1,5 @@
 // Todo 乐观更新与级联操作
+import { v4 as uuidv4 } from 'uuid'
 import { collectCascadeIds, collectDescendantIds, findParentIds } from '@/utils/taskGraph'
 
 export const createTodoOptimisticActions = ({
@@ -98,6 +99,8 @@ export const createTodoOptimisticActions = ({
     // 顶层任务统一挂到根任务下; 根任务还没拉到时先留空, 由服务端 create_todo 兜底
     const rootTaskId = todosRef.value.find(todo => todo.is_root)?.id ?? null
     const parentId = options.parent_id ?? rootTaskId
+    // 创建幂等键: 重试与实时回推都靠它认出「同一条任务」
+    const clientKey = options.client_key ?? uuidv4()
 
     const newTodo = {
       id: tempId,
@@ -107,6 +110,7 @@ export const createTodoOptimisticActions = ({
       child_ids: [],
       // 仅本地保留的父引用, 用于延迟同步时补入 ADD 队列
       parent_id: parentId,
+      client_key: clientKey,
       deadline: options.deadline || null,
       details: options.details || null,
       created_at: new Date().toISOString(),
@@ -138,6 +142,7 @@ export const createTodoOptimisticActions = ({
         user_id: newTodo.user_id,
         completed_at: newTodo.completed_at,
         parent_id: parentId,
+        client_key: clientKey,
         deadline: newTodo.deadline,
         details: newTodo.details,
         duration: newTodo.duration
@@ -185,6 +190,7 @@ export const createTodoOptimisticActions = ({
           user_id: current.user_id,
           completed_at: current.completed_at,
           parent_id: current.parent_id ?? null,
+          client_key: current.client_key ?? uuidv4(),
           deadline: current.deadline,
           details: current.details,
           duration: current.duration

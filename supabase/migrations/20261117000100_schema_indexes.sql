@@ -20,6 +20,10 @@ CREATE UNIQUE INDEX idx_todos_user_root ON todos(user_id) WHERE is_root;
 -- 导入去重: 同一用户下来源标识唯一, 手工任务不参与
 CREATE UNIQUE INDEX idx_todos_user_external ON todos(user_id, external_id);
 
+-- 创建幂等: 同一用户下客户端键唯一, 重试不会插出第二条
+CREATE UNIQUE INDEX idx_todos_user_client_key ON todos(user_id, client_key)
+WHERE client_key IS NOT NULL;
+
 -- 回收站: 按用户筛选已删除任务并按删除时间倒序
 CREATE INDEX idx_todos_user_trash ON todos(user_id, deleted_at DESC)
 WHERE deleted_at IS NOT NULL;

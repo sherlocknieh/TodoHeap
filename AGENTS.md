@@ -108,7 +108,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 ## Supabase
 
-`todos` 表：`id, user_id, child_ids(BIGINT[] 子任务 ID 列表), title, details, deadline, duration(预计耗时, 小时, DECIMAL(5,2)), completed_at, external_id(外部来源标识), is_root, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
+`todos` 表：`id, user_id, child_ids(BIGINT[] 子任务 ID 列表), title, details, deadline, duration(预计耗时, 小时, DECIMAL(5,2)), completed_at, external_id(外部来源标识), client_key(创建幂等键, 同一用户下唯一), is_root, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
 每个用户有一条 `is_root` 根任务「全部任务」，顶层任务挂在它的 `child_ids` 下；`ensure_root_todo()` 幂等补建，`attach_root_children()` 供旧数据恢复后补挂。根任务由 RLS 禁止插入/删除（删号的外键级联不受影响），触发器只放行 `child_ids` 修改。
 `user_settings` 表：用户偏好，如 `autoApplyAITasks`。
 `schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, location, url, attendees(TEXT[]), all_day, status, color, reminder_minutes(INTEGER[]), external_id, start_at, end_at, created_at, updated_at`；已启 RLS 与 Realtime。

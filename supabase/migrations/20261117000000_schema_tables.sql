@@ -17,6 +17,7 @@ CREATE TABLE todos (
     duration DECIMAL(5,2) DEFAULT NULL,     -- 预计耗时(小时), 小数表示半小时等粒度
     completed_at TIMESTAMPTZ DEFAULT NULL,  -- 完成时间, 非空表示已完成
     external_id TEXT DEFAULT NULL,          -- 外部系统来源标识, 形如 ticktick:<task id>
+    client_key TEXT DEFAULT NULL,           -- 客户端生成的创建幂等键, 重试与实时回推靠它认领同一条
     is_root BOOLEAN NOT NULL DEFAULT FALSE, -- 每个用户一条系统根任务「全部任务」
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -26,6 +27,7 @@ CREATE TABLE todos (
 COMMENT ON COLUMN todos.child_ids IS '子任务 ID 列表, 数组顺序就是手动显示顺序';
 COMMENT ON COLUMN todos.duration IS '预计耗时(小时), 小数表示半小时等粒度';
 COMMENT ON COLUMN todos.external_id IS '外部系统来源标识, 形如 ticktick:<task id>; 手工创建的任务保持 NULL';
+COMMENT ON COLUMN todos.client_key IS '客户端生成的创建幂等键; 同一用户下唯一, 用于重试去重与实时回推认领';
 COMMENT ON COLUMN todos.is_root IS '系统根任务标记, 每个用户恰好一条; 顶层任务挂在它的 child_ids 下';
 
 -- ---------------------------------------------------------------------------
