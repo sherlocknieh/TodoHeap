@@ -71,14 +71,6 @@ const formatMentions = (mentions) => {
   return `\n用户本轮通过 @ 引用了以下对象，优先围绕它们回答；涉及写操作前仍先用工具确认：\n${lines.join('\n')}\n`
 }
 
-// 本轮挂上的技能：指令写进系统提示，输入框只保留用户自己的文字
-const formatSkills = (skills) => {
-  const list = Array.isArray(skills) ? skills.filter((skill) => skill?.prompt) : []
-  if (!list.length) return ''
-  const blocks = list.map((skill) => `【${skill.name}】\n${skill.prompt}`)
-  return `\n用户本轮挂载了以下技能，按其中的指令执行：\n${blocks.join('\n\n')}\n`
-}
-
 // 已接入的 MCP 服务与工具写进提示词，模型才知道什么时候该用外部能力
 const formatMcpServers = (servers) => {
   const list = (Array.isArray(servers) ? servers : []).filter((server) => server?.enabled)
@@ -91,10 +83,10 @@ const formatMcpServers = (servers) => {
   return `\n已连接的 MCP 服务（外部工具，名称以 mcp__ 开头）：\n${lines.join('\n')}\n外部工具调用前先确认参数与服务语义；未声明只读的工具会要求用户确认。\n`
 }
 
-const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], skills = [], mode = DEFAULT_AGENT_MODE, mcpServers = [] } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
+const buildSystemPrompt = ({ selectedTaskId = null, mentions = [], mode = DEFAULT_AGENT_MODE, mcpServers = [] } = {}) => `你是 TodoHeap 的任务管理 Agent，可以直接读写当前登录用户的全部数据：任务（树形结构与回收站）、日程事件，以及应用设置。
 
 当前本地时间：${formatNow()}
-${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}${formatSkills(skills)}${formatMcpServers(mcpServers)}${findAgentMode(mode).prompt ? `\n${findAgentMode(mode).prompt}\n` : ''}
+${selectedTaskId != null ? `用户当前在界面上选中了任务 id ${selectedTaskId}；用户说“这个任务”时优先指它，但执行写操作前先用 get_todo 确认。` : ''}${formatMentions(mentions)}${formatMcpServers(mcpServers)}${findAgentMode(mode).prompt ? `\n${findAgentMode(mode).prompt}\n` : ''}
 工具使用规则：
 - 涉及数据的问题先调用工具获取真实数据，不要凭空编造任务 id 或内容。
 - id 必须来自工具返回结果；不确定 id 时先用 list_todos 或 list_trash 查找。
@@ -172,20 +164,26 @@ const titleFromMessages = (messages) => {
   return firstUser?.images?.length ? '图片对话' : DEFAULT_TITLE
 }
 
-// 只挂技能或 @ 引用、不写文字时补一句指令：空的 user 消息会被模型当成“没看到内容”
-const attachmentPrompt = (message) => {
-  const names = (message.skills || []).map((skill) => skill.name || skill.id).filter(Boolean)
+// 技能内容随 user 消息下发（对齐 OpenCode 的 skill_content 块）：
+// 正文为空时模型仍拿得到指令，重放历史消息也能还原技能
+const formatSkillBlocks = (message) => (message.skills || [])
+  .filter((skill) => skill?.prompt)
+  .map((skill) => {
+    const name = String(skill.name || skill.id || '技能').replace(/"/g, "'")
+    return `<skill_content name="${name}">\n# Skill: ${name}\n\n${skill.prompt}\n</skill_content>`
+  })
+  .join('\n\n')
+
+// 只 @ 引用对象、不写文字时补一句指令，避免空的 user 消息
+const mentionPrompt = (message) => {
   const labels = (message.mentions || []).map((item) => item.label || item.id).filter(Boolean)
-  const parts = []
-  if (names.length) parts.push(`按本轮挂载的技能执行：${names.join('、')}`)
-  if (labels.length) parts.push(`针对本轮引用的对象回答：${labels.join('、')}`)
-  return parts.length ? `请${parts.join('；')}` : ''
+  return labels.length ? `请针对本轮引用的对象回答：${labels.join('、')}` : ''
 }
 
 // 带图消息按 OpenAI 多模态格式发送：文本在前，图片按顺序附后
 const toUserContent = (message) => {
   const images = (message.images || []).filter((image) => image.dataUrl)
-  const text = message.content || attachmentPrompt(message)
+  const text = [formatSkillBlocks(message), message.content || mentionPrompt(message)].filter(Boolean).join('\n\n')
   if (!images.length) return text
   const parts = []
   if (text) parts.push({ type: 'text', text })
@@ -684,9 +682,9 @@ export const useAgentStore = defineStore('agent', () => {
     context.value = { ...context.value, ...patch }
   }
 
-  const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE, tools = [], skills = []) => {
+  const toApiMessages = (mentions = [], mode = DEFAULT_AGENT_MODE, tools = []) => {
     // 工具范围只通过请求的 tools 字段下发，不再重复写进消息
-    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, skills, mode, mcpServers: mcpServers.value }) }]
+    const apiMessages = [{ role: 'system', content: buildSystemPrompt({ ...context.value, mentions, mode, mcpServers: mcpServers.value }) }]
     messages.value.forEach((message) => {
       if (message.role === 'user') {
         apiMessages.push({ role: 'user', content: toUserContent(message) })
@@ -870,7 +868,7 @@ export const useAgentStore = defineStore('agent', () => {
         // 每步都按当前模式取工具与提示词：确认切换后本轮立即生效
         const stepMode = activeMode.value
         const tools = resolveTools(stepMode)
-        const history = toApiMessages(userMessage.mentions, stepMode, tools, userMessage.skills)
+        const history = toApiMessages(userMessage.mentions, stepMode, tools)
         // 每次请求都留存快照：包含系统提示、完整历史与本次可用工具
         const requestRecord = reactive({
           model: llm.activeModel,
@@ -1008,7 +1006,7 @@ export const useAgentStore = defineStore('agent', () => {
       .filter((item) => item?.type && item.id != null)
       .map((item) => ({ key: item.key || `${item.type}:${item.id}`, type: item.type, id: item.id, label: item.label || '', hint: item.hint || '' }))
     const attached = normalizeAttachedSkills(skills)
-    if ((!content && !attachments.length && !attached.length) || running.value || pendingApproval.value || pendingChoice.value) return
+    if ((!content && !attachments.length && !attached.length && !references.length) || running.value || pendingApproval.value || pendingChoice.value) return
 
     const llm = useLlmStore()
     if (!llm.isConfigured) {

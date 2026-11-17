@@ -343,7 +343,7 @@ describe('useAgentStore', () => {
     expect(agent.attachedSkills).toHaveLength(0)
   })
 
-  it('挂载的技能指令写进本轮系统提示，发送后清空', async () => {
+  it('挂载的技能内容以 skill_content 块随 user 消息下发，发送后清空', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
 
     const agent = useAgentStore()
@@ -351,13 +351,17 @@ describe('useAgentStore', () => {
     await agent.send('开始吧')
 
     const system = mocks.chat.mock.calls[0][0].messages[0].content
-    expect(system).toContain('全局任务优化')
-    expect(system).toContain('全局优化')
+    expect(system).not.toContain('全局优化')
+    const sent = mocks.chat.mock.calls[0][0].messages.at(-1)
+    expect(sent.role).toBe('user')
+    expect(sent.content).toContain('<skill_content name="全局任务优化">')
+    expect(sent.content).toContain('全局优化')
+    expect(sent.content).toContain('开始吧')
     expect(agent.messages[0].skills).toHaveLength(1)
     expect(agent.attachedSkills).toHaveLength(0)
   })
 
-  it('只挂技能或只 @ 引用、不写文字时补上指令，避免模型收到空的 user 消息', async () => {
+  it('只挂技能或只 @ 引用、不写文字时仍下发非空 user 消息', async () => {
     mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
 
     const agent = useAgentStore()
@@ -366,11 +370,10 @@ describe('useAgentStore', () => {
 
     const sent = mocks.chat.mock.calls[0][0].messages.at(-1)
     expect(sent.role).toBe('user')
-    expect(sent.content).toContain('全局任务优化')
-    // 界面气泡仍只显示技能标签，不把补的指令当用户输入
+    expect(sent.content).toContain('<skill_content name="全局任务优化">')
+    // 界面气泡仍只显示技能标签，不把技能内容当用户输入
     expect(agent.messages[0].content).toBe('')
 
-    agent.useSkill('global-optimize')
     await agent.send('', [], [{ type: 'todo', id: 1, label: '写周报' }])
     expect(mocks.chat.mock.calls[1][0].messages.at(-1).content).toContain('写周报')
   })

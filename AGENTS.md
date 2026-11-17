@@ -101,7 +101,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 写操作链路：UI → `todos.js` action → 本地乐观更新并入队 → Supabase → 成功派发 `sync:id-replaced` / 失败回滚。
 
-对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。技能（名称 + 图标 + 指令 + 绑定模式）存于 `user_settings.settings.skills`，点选技能会切到它绑定的模式并把指令填入输入框；全局优化只是默认技能，没有独立的边缘函数。
+对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。技能（名称 + 图标 + 指令 + 绑定模式）存于 `user_settings.settings.skills`，点选技能会切到它绑定的模式，指令以 `<skill_content>` 块随该轮用户消息下发；全局优化只是默认技能，没有独立的边缘函数。
 
 ## Supabase
 
