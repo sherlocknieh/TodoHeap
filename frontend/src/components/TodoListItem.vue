@@ -297,7 +297,8 @@ const applyDeadlinePreset = (id, preset) => {
 }
 
 // 拖拽：上四分位插到前面，下四分位插到后面，中间成为子任务
-const canDrag = (item) => !props.selectionMode && !item._isRef
+// 编辑中的行禁用拖拽，否则在输入框内拖选文字会被 dragstart 劫持
+const canDrag = (item) => !props.selectionMode && !item._isRef && editingId.value !== item.id
 
 const dropStyle = (id) => {
   const indicator = dropIndicator.value
