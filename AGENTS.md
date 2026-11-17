@@ -1,6 +1,7 @@
 # TodoHeap 项目索引
 
 > 给 agent 的导航文件：**先读这一份，再按需打开具体文件**，不要为了了解结构而全量阅读源码。
+> 用户用现象描述界面细节（如「节点垃圾桶悬停变红」）时，先查 `docs/zh/dev/keyword-index.md`。
 
 ## 一句话
 
@@ -15,6 +16,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `frontend/src/` | 应用源码，见下文 |
 | `frontend/vite.config.ts` | `base: '/TodoHeap/'`、构建输出 `../dist`、`@` → `src` 别名 |
 | `docs/zh/dev/logic/` | 机制与链路文档：讲现状逻辑、约束与验证，如 `task-create.md`；修 bug 时更新对应篇 |
+| `docs/zh/dev/keyword-index.md` | 关键词索引：用户对界面的说法 → 代码位置；定位 UI 需求先查，定位后补登记 |
 | `docs/` | VitePress 站点，`base: '/TodoHeap/docs/'`，中英双语（`zh/`、`en/`），侧栏由 `vitepress-sidebar` 自动生成；`zh/features/` 是按功能域记录已实现需求的特性文档，只有中文 |
 | `supabase/migrations/` | 按时间戳排序的 SQL 迁移，**数据库结构的唯一事实来源** |
 | `supabase/functions/` | Deno 边缘函数 |
@@ -132,6 +134,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 - **手动顺序的唯一来源是父级 `child_ids` 的数组顺序**；新任务追加到末尾，不再有 `sort_order` 字段或兼容写入。
 - **顶层任务必须挂在根任务（`is_root`）下**：新增任务统一走 `addTodo`（默认挂根），Agent 工具与导入的顶层任务同样挂根。根任务不出现在列表、统计、回收站、Agent 输出里。
 - **会话外改动**：发现工作区有本次会话之外的改动，先弹框问怎么处理
+- **关键词索引**：用户用现象描述界面细节（如「节点垃圾桶悬停变红」）时，先查 `docs/zh/dev/keyword-index.md`，命中就直接打开对应位置；定位到代码后把「用户说法 → 文件 + 锚点」补进最贴近的分组。同一对象出现新说法时，合并进同一条的「用户可能说」列，用 ` / ` 分隔，不新增重复行。
 - **需求记录**：新需求或新功能实现后，在 `docs/zh/features/` 最贴近的篇目追加一行（日期 / 需求 / 实现要点与文件）；没有合适篇目再新建，并在 `index.md` 的篇目表登记。英文文档暂不维护。
 - **缺陷记录**：修 bug 不写进 features，而是更新 `docs/zh/dev/logic/` 下对应的机制文档：讲清受影响的机制、根因与修正后的现状逻辑；没有对应篇目就新建一篇，并在该目录 `index.md` 登记。
 - 中文注释描述"这段代码负责什么"，不写步骤流水账。

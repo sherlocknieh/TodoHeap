@@ -54,6 +54,11 @@ pnpm dev
 
 - [**任务创建逻辑**](./logic/task-create.md) - 从界面到落库的创建链路、临时 ID 与幂等键
 
+### 关键词索引
+定位用户描述的界面细节时，先按用户说法查代码位置
+
+- [**关键词索引**](./keyword-index.md) - 用户说法 → 文件 + 锚点；定位后回填，同一对象的新说法合并到同一条
+
 ### AI 功能实现
 深入理解三大 AI 功能的后端实现
 
@@ -95,6 +100,7 @@ docs/zh/dev/
 ├── 01.setup.md           ← 环境搭建
 ├── 02.architecture.md    ← 架构与技术栈
 ├── 03.development.md     ← 开发流程与常见任务
+├── keyword-index.md      ← 用户说法 → 代码位置的关键词索引
 └── logic/                ← 机制与链路文档（修 bug 时更新）
 
 supabase/functions/       ← Edge Functions 实现
