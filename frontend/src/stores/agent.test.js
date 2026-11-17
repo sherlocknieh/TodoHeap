@@ -357,6 +357,24 @@ describe('useAgentStore', () => {
     expect(agent.attachedSkills).toHaveLength(0)
   })
 
+  it('只挂技能或只 @ 引用、不写文字时补上指令，避免模型收到空的 user 消息', async () => {
+    mocks.chat.mockResolvedValueOnce({ content: '好的', tool_calls: [] })
+
+    const agent = useAgentStore()
+    agent.useSkill('global-optimize')
+    await agent.send('')
+
+    const sent = mocks.chat.mock.calls[0][0].messages.at(-1)
+    expect(sent.role).toBe('user')
+    expect(sent.content).toContain('全局任务优化')
+    // 界面气泡仍只显示技能标签，不把补的指令当用户输入
+    expect(agent.messages[0].content).toBe('')
+
+    agent.useSkill('global-optimize')
+    await agent.send('', [], [{ type: 'todo', id: 1, label: '写周报' }])
+    expect(mocks.chat.mock.calls[1][0].messages.at(-1).content).toContain('写周报')
+  })
+
   it('同步技能的新增、修改与删除到用户设置', async () => {
     const agent = useAgentStore()
     agent.init('user-1')

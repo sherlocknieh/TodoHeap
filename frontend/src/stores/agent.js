@@ -172,12 +172,23 @@ const titleFromMessages = (messages) => {
   return firstUser?.images?.length ? '图片对话' : DEFAULT_TITLE
 }
 
+// 只挂技能或 @ 引用、不写文字时补一句指令：空的 user 消息会被模型当成“没看到内容”
+const attachmentPrompt = (message) => {
+  const names = (message.skills || []).map((skill) => skill.name || skill.id).filter(Boolean)
+  const labels = (message.mentions || []).map((item) => item.label || item.id).filter(Boolean)
+  const parts = []
+  if (names.length) parts.push(`按本轮挂载的技能执行：${names.join('、')}`)
+  if (labels.length) parts.push(`针对本轮引用的对象回答：${labels.join('、')}`)
+  return parts.length ? `请${parts.join('；')}` : ''
+}
+
 // 带图消息按 OpenAI 多模态格式发送：文本在前，图片按顺序附后
 const toUserContent = (message) => {
   const images = (message.images || []).filter((image) => image.dataUrl)
-  if (!images.length) return message.content
+  const text = message.content || attachmentPrompt(message)
+  if (!images.length) return text
   const parts = []
-  if (message.content) parts.push({ type: 'text', text: message.content })
+  if (text) parts.push({ type: 'text', text })
   images.forEach((image) => {
     parts.push({ type: 'image_url', image_url: { url: image.dataUrl } })
   })
