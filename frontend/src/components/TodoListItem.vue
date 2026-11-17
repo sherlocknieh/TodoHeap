@@ -57,13 +57,13 @@
               @keyup.esc="editingId = null" />
           </div>
 
-          <div v-if="editingId !== item.id && (item.deadline || item.difficulty != null)"
+          <div v-if="editingId !== item.id && (item.deadline || item.duration != null)"
             class="flex shrink-0 items-center gap-1.5">
             <button v-if="item.deadline" type="button" class="chip hover:border-accent-500 transition-colors"
               data-deadline-trigger title="修改截止时间" @click.stop="toggleDeadlineMenu(item)">
               <AppIcon name="clock" :size="10" />{{ formatMetaDate(item.deadline) }}
             </button>
-            <span v-if="item.difficulty != null" class="chip font-mono">{{ formatDifficulty(item.difficulty) }}h</span>
+            <span v-if="item.duration != null" class="chip font-mono">{{ formatDuration(item.duration) }}h</span>
           </div>
         </div>
 
@@ -498,7 +498,7 @@ function formatMetaDate(value) {
   return formatDeadline(value)
 }
 
-function formatDifficulty(value) {
+function formatDuration(value) {
   const num = Number(value)
   if (!Number.isFinite(num)) return '-'
   return num % 1 === 0 ? String(num) : num.toFixed(2)

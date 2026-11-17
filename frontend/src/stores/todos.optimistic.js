@@ -113,7 +113,7 @@ export const createTodoOptimisticActions = ({
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       deleted_at: null,
-      difficulty: options.difficulty ?? null
+      duration: options.duration ?? null
     }
 
     todosRef.value.push(newTodo)
@@ -142,7 +142,7 @@ export const createTodoOptimisticActions = ({
         deadline: newTodo.deadline,
         details: newTodo.details,
         sort_order: newTodo.sort_order,
-        difficulty: newTodo.difficulty
+        duration: newTodo.duration
       }
     })
 
@@ -190,7 +190,7 @@ export const createTodoOptimisticActions = ({
           deadline: current.deadline,
           details: current.details,
           sort_order: current.sort_order,
-          difficulty: current.difficulty
+          duration: current.duration
         }
       })
       return { success: true, data: current }

@@ -3,7 +3,7 @@ export const LIST_SORT_OPTIONS = [
   { value: 'manual', label: '手动顺序' },
   { value: 'deadline', label: '按截止时间' },
   { value: 'created', label: '按创建时间' },
-  { value: 'difficulty', label: '按难度' }
+  { value: 'duration', label: '按耗时' }
 ]
 
 const toTimestamp = (value) => {
@@ -30,15 +30,15 @@ const compareByCreated = (a, b) => {
   return bTime - aTime
 }
 
-const compareByDifficulty = (a, b) => {
+const compareByDuration = (a, b) => {
   const normalise = (value) => (value == null || !Number.isFinite(Number(value)) ? Number.POSITIVE_INFINITY : Number(value))
-  return compareFinite(normalise(a.difficulty), normalise(b.difficulty))
+  return compareFinite(normalise(a.duration), normalise(b.duration))
 }
 
 const COMPARATORS = {
   deadline: compareByDeadline,
   created: compareByCreated,
-  difficulty: compareByDifficulty
+  duration: compareByDuration
 }
 
 export const sortTodoTree = (nodes, mode) => {

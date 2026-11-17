@@ -8,7 +8,7 @@ export const DEFAULT_SKILL_ICON = 'sparkles'
 
 export const GLOBAL_OPTIMIZE_PROMPT = `请对当前用户的所有任务做一次全局优化。
 步骤：
-1. 先用 list_todos 读取全部未完成任务，理解任务树、截止时间与难度。
+1. 先用 list_todos 读取全部未完成任务，理解任务树、截止时间与预计耗时。
 2. 调整不合理的截止时间，让先后顺序合理；缺少时间的任务按需要补上。
 3. 把过于笼统的任务拆成 3-6 个可执行子任务。
 4. 合并重复或过碎的任务。

@@ -287,7 +287,7 @@ export const useTodoStore = defineStore('todos', () => {
         completed_at: item.completed_at || null,
         deadline: item.deadline || null,
         sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
-        difficulty: item.difficulty ?? null,
+        duration: item.duration ?? null,
         created_at: item.created_at || null,
         is_root: Boolean(item.is_root),
         // 标记是否是临时ID (用于UI显示同步状态)
@@ -317,7 +317,7 @@ export const useTodoStore = defineStore('todos', () => {
         completed_at: item.completed_at || null,
         deadline: item.deadline || null,
         sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
-        difficulty: item.difficulty ?? null,
+        duration: item.duration ?? null,
         deleted_at: item.deleted_at,
         // 标记层级深度
         _depth: 0

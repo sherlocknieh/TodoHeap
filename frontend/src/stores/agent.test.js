@@ -163,14 +163,14 @@ describe('useAgentStore', () => {
 
   it('执行工具调用后继续对话并给出总结', async () => {
     mocks.chat
-      .mockResolvedValueOnce(toolCallResponse('create_todo', { title: '写季度总结', difficulty: 2 }))
+      .mockResolvedValueOnce(toolCallResponse('create_todo', { title: '写季度总结', duration: 2 }))
       .mockResolvedValueOnce({ content: '已创建「写季度总结」。', tool_calls: [] })
 
     const agent = useAgentStore()
     await agent.send('帮我建一个写季度总结的任务')
 
     expect(mocks.chat).toHaveBeenCalledTimes(2)
-    expect(mocks.addTodo).toHaveBeenCalledWith('写季度总结', expect.objectContaining({ difficulty: 2 }))
+    expect(mocks.addTodo).toHaveBeenCalledWith('写季度总结', expect.objectContaining({ duration: 2 }))
 
     const [, assistantWithTool, finalAssistant] = agent.messages
     expect(assistantWithTool.role).toBe('assistant')

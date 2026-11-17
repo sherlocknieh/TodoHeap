@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { sortTodoTree } from './todoSort'
 
 const makeTree = () => ([
-  { id: 1, title: '无截止', deadline: null, created_at: '2026-01-01T00:00:00.000Z', difficulty: 3, children: [] },
-  { id: 2, title: '晚截止', deadline: '2026-03-02T00:00:00.000Z', created_at: '2026-01-03T00:00:00.000Z', difficulty: 1, children: [] },
-  { id: 3, title: '早截止', deadline: '2026-03-01T00:00:00.000Z', created_at: '2026-01-02T00:00:00.000Z', difficulty: 5, children: [] }
+  { id: 1, title: '无截止', deadline: null, created_at: '2026-01-01T00:00:00.000Z', duration: 3, children: [] },
+  { id: 2, title: '晚截止', deadline: '2026-03-02T00:00:00.000Z', created_at: '2026-01-03T00:00:00.000Z', duration: 1, children: [] },
+  { id: 3, title: '早截止', deadline: '2026-03-01T00:00:00.000Z', created_at: '2026-01-02T00:00:00.000Z', duration: 5, children: [] }
 ])
 
 describe('sortTodoTree', () => {
@@ -30,10 +30,10 @@ describe('sortTodoTree', () => {
     expect(sortTodoTree(makeTree(), 'created').map(node => node.id)).toEqual([2, 3, 1])
   })
 
-  it('按难度升序，无难度排最后', () => {
+  it('按耗时升序，无耗时排最后', () => {
     const tree = makeTree()
-    tree[0].difficulty = null
-    expect(sortTodoTree(tree, 'difficulty').map(node => node.id)).toEqual([2, 3, 1])
+    tree[0].duration = null
+    expect(sortTodoTree(tree, 'duration').map(node => node.id)).toEqual([2, 3, 1])
   })
 
   it('引用行固定排在末尾，子树递归排序', () => {

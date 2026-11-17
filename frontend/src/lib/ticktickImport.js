@@ -660,7 +660,7 @@ export async function executeTickTickImport({ supabase, nodes = [], onProgress, 
       p_details: node.details ?? null,
       p_deadline: node.deadline ?? null,
       p_sort_order: node.sortOrder ?? null,
-      p_difficulty: null,
+      p_duration: null,
       p_completed_at: node.completedAt ?? null,
       p_parent_id: parentId,
       p_external_id: node.externalId ?? null

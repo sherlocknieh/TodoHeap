@@ -26,7 +26,7 @@ const createTodoRow = (overrides = {}) => ({
   title: '根任务',
   details: '',
   deadline: null,
-  difficulty: null,
+  duration: null,
   sort_order: null,
   completed_at: null,
   child_ids: [],
@@ -54,7 +54,7 @@ const makeTodoStore = (initial = []) => {
         title,
         details: options.details ?? null,
         deadline: options.deadline ?? null,
-        difficulty: options.difficulty ?? null,
+        duration: options.duration ?? null,
         sort_order: options.sort_order ?? null,
         completed_at: null,
         child_ids: []
@@ -283,7 +283,7 @@ describe('createAgentToolRunner', () => {
     const result = await runner.run('create_todo', {
       title: '准备季度汇报',
       parent_id: 1,
-      difficulty: 3,
+      duration: 3,
       subtasks: [{ title: '收集数据' }, { title: '写提纲' }]
     })
 

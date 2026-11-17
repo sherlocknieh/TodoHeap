@@ -216,7 +216,9 @@ onMounted(async () => {
 // 排序只影响显示，偏好存在本地，不写数据库
 const SORT_STORAGE_KEY = 'todoheap:list-sort'
 const storedSortMode = localStorage.getItem(SORT_STORAGE_KEY)
-const sortMode = ref(LIST_SORT_OPTIONS.some(option => option.value === storedSortMode) ? storedSortMode : 'manual')
+// 旧的「按难度」选项已改名「按耗时」，沿用用户已存的偏好
+const legacySortMode = storedSortMode === 'difficulty' ? 'duration' : storedSortMode
+const sortMode = ref(LIST_SORT_OPTIONS.some(option => option.value === legacySortMode) ? legacySortMode : 'manual')
 watch(sortMode, (value) => localStorage.setItem(SORT_STORAGE_KEY, value))
 
 // 根任务是挂载点，不渲染成列表行：列表展示它的子级

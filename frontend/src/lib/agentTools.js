@@ -49,7 +49,7 @@ const subtaskSchema = objectSchema({
   title: text('子任务标题'),
   details: nullableText('子任务详情'),
   deadline: nullableText('子任务截止时间'),
-  difficulty: nullableNumber('子任务预计工时')
+  duration: nullableNumber('子任务预计耗时，单位小时')
 }, ['title'])
 
 export const AGENT_TOOL_DEFINITIONS = [
@@ -84,7 +84,7 @@ export const AGENT_TOOL_DEFINITIONS = [
         title: text('任务标题'),
         details: nullableText('任务详情，Markdown 文本'),
         deadline: nullableText('截止时间，带时区的 ISO 8601'),
-        difficulty: nullableNumber('预计工时，单位小时'),
+        duration: nullableNumber('预计耗时，单位小时'),
         parent_id: nullableInteger('父任务 id，不填则创建为顶层任务'),
         subtasks: {
           type: 'array',
@@ -98,13 +98,13 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'update_todo',
-      description: '修改任务字段。只需传要改的字段；传 null 清空详情、截止时间或工时。',
+      description: '修改任务字段。只需传要改的字段；传 null 清空详情、截止时间或耗时。',
       parameters: objectSchema({
         id: integer('任务 id'),
         title: text('新标题'),
         details: nullableText('新详情；null 清空'),
         deadline: nullableText('新截止时间；null 清空'),
-        difficulty: nullableNumber('新工时；null 清空')
+        duration: nullableNumber('新耗时；null 清空')
       }, ['id'])
     }
   },
@@ -454,7 +454,7 @@ const serializeTodo = (todo, { byId, parentOf, parentsOf, includeDetails = false
     completed: Boolean(todo.completed_at),
     completed_at: todo.completed_at || null,
     deadline: todo.deadline || null,
-    difficulty: todo.difficulty ?? null,
+    duration: todo.duration ?? null,
     parent_id: parentIds[0] ?? null,
     parent_ids: parentIds,
     child_ids: (todo.child_ids || []).map(toNumber),
@@ -596,7 +596,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const result = await todoStore.addTodo(title, {
         details: args.details ?? null,
         deadline: normalizeDate(args.deadline, '截止时间'),
-        difficulty: normalizeNumber(args.difficulty, '工时'),
+        duration: normalizeNumber(args.duration, '耗时'),
         parent_id: parentId
       })
       if (!result.success) throw new Error(result.error || '创建任务失败')
@@ -610,7 +610,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
         const subResult = await todoStore.addTodo(subTitle, {
           details: sub.details ?? null,
           deadline: normalizeDate(sub.deadline, '子任务截止时间'),
-          difficulty: normalizeNumber(sub.difficulty, '子任务工时'),
+          duration: normalizeNumber(sub.duration, '子任务耗时'),
           parent_id: created.id
         })
         if (subResult.success) subtasks.push({ id: subResult.data.id, title: subResult.data.title })
@@ -635,7 +635,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       }
       if ('details' in args) updates.details = args.details ?? null
       if ('deadline' in args) updates.deadline = normalizeDate(args.deadline, '截止时间')
-      if ('difficulty' in args) updates.difficulty = normalizeNumber(args.difficulty, '工时')
+      if ('duration' in args) updates.duration = normalizeNumber(args.duration, '耗时')
       if (Object.keys(updates).length === 0) throw new Error('没有要更新的字段')
 
       const result = await todoStore.updateTodo(todo.id, updates)

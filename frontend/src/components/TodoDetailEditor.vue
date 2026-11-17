@@ -50,15 +50,15 @@
               />
             </label>
             <label class="text-[11px] text-neutral-500">
-              难度(预计工时)
+              耗时(小时)
               <input
-                v-model="draftDifficulty"
+                v-model="draftDuration"
                 type="number"
                 step="0.25"
                 min="0"
                 :disabled="isDeleted"
                 class="field mt-1"
-                @blur="saveDifficultyField"
+                @blur="saveDurationField"
               />
             </label>
           </div>
@@ -262,7 +262,7 @@ const formatDate = (dateStr) => {
 const draftTitle = ref('')
 const draftDetails = ref('')
 const draftDeadline = ref('')
-const draftDifficulty = ref('')
+const draftDuration = ref('')
 
 const initialTitle = ref('')
 const initialDetails = ref('')
@@ -367,14 +367,14 @@ const saveDateField = async (field, localValue) => {
   await savePayload({ [field]: next })
 }
 
-const saveDifficultyField = async () => {
+const saveDurationField = async () => {
   if (!todo.value || isDeleted.value) return
-  const text = String(draftDifficulty.value || '').trim()
+  const text = String(draftDuration.value || '').trim()
   const next = text === '' ? null : Number(text)
   if (next !== null && !Number.isFinite(next)) return
-  const current = todo.value.difficulty == null ? null : Number(todo.value.difficulty)
+  const current = todo.value.duration == null ? null : Number(todo.value.duration)
   if (next === current) return
-  await savePayload({ difficulty: next })
+  await savePayload({ duration: next })
 }
 
 const resetDraftFromTodo = () => {
@@ -382,7 +382,7 @@ const resetDraftFromTodo = () => {
     draftTitle.value = ''
     draftDetails.value = ''
     draftDeadline.value = ''
-    draftDifficulty.value = ''
+    draftDuration.value = ''
     initialTitle.value = ''
     initialDetails.value = ''
     dirtyTitle.value = false
@@ -397,7 +397,7 @@ const resetDraftFromTodo = () => {
   draftTitle.value = initialTitle.value
   draftDetails.value = initialDetails.value
   draftDeadline.value = toDateTimeLocal(todo.value.deadline)
-  draftDifficulty.value = todo.value.difficulty == null ? '' : String(todo.value.difficulty)
+  draftDuration.value = todo.value.duration == null ? '' : String(todo.value.duration)
 
   dirtyTitle.value = false
   dirtyDetails.value = false
@@ -435,9 +435,9 @@ watch(
     if (nextDeadline !== draftDeadline.value) {
       draftDeadline.value = nextDeadline
     }
-    const nextDifficulty = newTodo.difficulty == null ? '' : String(newTodo.difficulty)
-    if (nextDifficulty !== draftDifficulty.value) {
-      draftDifficulty.value = nextDifficulty
+    const nextDuration = newTodo.duration == null ? '' : String(newTodo.duration)
+    if (nextDuration !== draftDuration.value) {
+      draftDuration.value = nextDuration
     }
   },
   { deep: true }
