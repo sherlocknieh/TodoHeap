@@ -56,6 +56,7 @@ const mapNode = (todo) => ({
 const mindMapNodes = computed(() => [{
 	id: 'root',
 	title: '全部任务',
+	subtitle: `${todoStore.todos.length} 个任务`,
 	isRoot: true,
 	children: (todoStore.treeNodes || []).map(mapNode)
 }])

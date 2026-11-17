@@ -20,9 +20,12 @@
       </defs>
 
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
-        <!-- 未选中的连线铺在节点下层，节点框可以压住线头 -->
+        <!-- 未选中的连线铺在节点下层，节点框可以压住线头；选中节点的祖先链用强调色 -->
         <path v-for="edge in baseEdges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
-          class="stroke-neutral-300 dark:stroke-neutral-600" stroke-width="1.2"
+          :class="highlightedEdges.has(edge.key)
+            ? 'stroke-accent-500 dark:stroke-accent-400'
+            : 'stroke-neutral-300 dark:stroke-neutral-600'"
+          :stroke-width="highlightedEdges.has(edge.key) ? 1.8 : 1.2"
           marker-end="url(#mm-arrow)" />
 
         <!-- 连线热区：透明加宽描边，便于点中细线 -->
@@ -58,12 +61,45 @@
                     ? 'fill-accent-50 dark:fill-neutral-800'
                     : 'fill-white dark:fill-neutral-900'
             ]" />
-          <text :x="10" :y="0" class="text-[13px] font-medium" :class="node.isRoot
+          <text :x="paddingX" :y="0" class="text-[13px] font-medium" :class="node.isRoot
             ? 'fill-white'
             : 'fill-neutral-800 dark:fill-neutral-100'">
-            <tspan v-for="(line, index) in node.lines" :key="index" :x="10"
+            <tspan v-for="(line, index) in node.lines" :key="index" :x="paddingX"
               :dy="index === 0 ? paddingTop + fontSize : lineHeight">{{ line }}</tspan>
           </text>
+          <!-- 根节点副标题：说明这张图代表什么，与参考图的「作品集导航」同位 -->
+          <text v-if="node.subtitle" :x="paddingX"
+            :y="paddingTop + node.lines.length * lineHeight + 12" class="text-[11px]"
+            :class="node.isRoot ? 'fill-white/70' : 'fill-neutral-500 dark:fill-neutral-400'">
+            {{ node.subtitle }}
+          </text>
+
+          <!-- 子任务数量徽标与折叠开关：固定在节点右侧，与参考图一致 -->
+          <g v-if="node.childCount > 0" :transform="`translate(${nodeWidth - paddingX} ${node.height / 2})`"
+            @pointerdown.stop @click.stop="toggleCollapse(node)">
+            <rect :x="-(badgeWidth + badgeGap + toggleSize)" :y="-8" :width="badgeWidth" height="16" rx="8"
+              class="pointer-events-none" :class="node.isRoot
+                ? 'fill-white/20'
+                : 'fill-neutral-100 dark:fill-neutral-800'" />
+            <text :x="-(badgeWidth + badgeGap + toggleSize) + badgeWidth / 2" y="0" text-anchor="middle"
+              dominant-baseline="central" class="pointer-events-none text-[10px] tabular-nums" :class="node.isRoot
+                ? 'fill-white'
+                : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
+            <circle :cx="-toggleSize / 2" r="8" class="cursor-pointer transition-colors" stroke-width="1"
+              :class="node.isRoot
+                ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
+                : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
+            <path :d="`M${-toggleSize / 2 - 3.5} 0 H${-toggleSize / 2 + 3.5}`" fill="none" stroke-width="1.3"
+              stroke-linecap="round" class="pointer-events-none" :class="node.isRoot
+                ? 'stroke-white'
+                : 'stroke-neutral-500 dark:stroke-neutral-300'" />
+            <!-- 折叠时显示加号、展开时显示减号，与参考图一致 -->
+            <path v-if="node.collapsed" :d="`M${-toggleSize / 2} -3.5 V3.5`" fill="none" stroke-width="1.3"
+              stroke-linecap="round" class="pointer-events-none" :class="node.isRoot
+                ? 'stroke-white'
+                : 'stroke-neutral-500 dark:stroke-neutral-300'" />
+            <title>{{ node.collapsed ? `展开 ${node.childCount} 个子任务` : '折叠子任务' }}</title>
+          </g>
         </g>
 
         <!-- 选中连线：压在节点之上高亮，配合中点删除按钮 -->
@@ -109,7 +145,8 @@
         <AppIcon name="target" :size="14" />
       </button>
     </div>
-    <p class="absolute bottom-3 left-3 z-10 text-[11px] text-neutral-400 dark:text-neutral-600 pointer-events-none">
+    <p
+      class="absolute bottom-3 left-3 z-10 max-w-[calc(100%-8rem)] rounded bg-white/85 px-2 py-1 text-[11px] text-neutral-400 backdrop-blur-sm pointer-events-none dark:bg-neutral-950/80 dark:text-neutral-500">
       滚轮缩放 · 拖拽平移 · 拖节点到另一节点建立链接 · 点选连线可删除 · Enter 同级 · Tab 子级 · F2 重命名
     </p>
   </div>
@@ -129,14 +166,19 @@ const props = defineProps({
 
 const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'link-task', 'unlink-task'])
 
-const nodeWidth = 200
+const nodeWidth = 216
 const fontSize = 13
 const lineHeight = 16
 const paddingTop = 10
+const paddingX = 10
 const maxLines = 3
 const crossGap = 24
 const mainGap = 84
-const textUnitsPerLine = 13
+// 折叠控件：数量徽标 + 加减开关，固定在节点右侧，文字要为其让出宽度
+const toggleSize = 16
+const badgeWidth = 22
+const badgeGap = 4
+const controlReserve = toggleSize + badgeGap + badgeWidth + 6
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -158,6 +200,13 @@ const direction = persistedRef('mindmap-direction', 'right', {
 const currentDirection = computed(() =>
   directionOptions.find((option) => option.value === direction.value) ?? directionOptions[1])
 
+// 折叠状态按任务 ID 记录：折叠后只隐藏子节点，任务本身与其它父级链接不受影响
+const collapsedIds = persistedRef('mindmap-collapsed', [], {
+  validate: (value) => Array.isArray(value)
+})
+
+const collapsedSet = computed(() => new Set(collapsedIds.value.map(String)))
+
 // 单个按钮按固定顺序轮换四个方向
 const cycleDirection = () => {
   const index = directionOptions.findIndex((option) => option.value === direction.value)
@@ -171,8 +220,14 @@ const isForward = computed(() => direction.value === 'down' || direction.value =
 const nodeMainSize = (node) => (isVertical.value ? node.height : nodeWidth)
 const nodeCrossSize = (node) => (isVertical.value ? nodeWidth : node.height)
 
+// 有折叠控件时右侧要让出徽标与开关，可用字数随之减少
+const textUnitsFor = (hasChildren) => {
+  const available = nodeWidth - paddingX * 2 - (hasChildren ? controlReserve : 0)
+  return Math.max(4, Math.floor(available / fontSize))
+}
+
 // 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出
-const wrapLines = (text) => {
+const wrapLines = (text, unitsPerLine) => {
   const chars = [...String(text || '未命名任务')]
   const lines = []
   let line = ''
@@ -180,7 +235,7 @@ const wrapLines = (text) => {
 
   for (const char of chars) {
     const charUnits = /[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 1 : 0.55
-    if (units + charUnits > textUnitsPerLine && line) {
+    if (units + charUnits > unitsPerLine && line) {
       lines.push(line)
       line = ''
       units = 0
@@ -198,11 +253,13 @@ const wrapLines = (text) => {
 
 // 节点文案与高度统一在这里计算，布局只负责摆放
 const measureNode = (raw) => {
-  const lines = wrapLines(raw.title)
+  const lines = wrapLines(raw.title, textUnitsFor(raw.childCount > 0))
+  const subtitle = raw.subtitle || ''
   return {
     ...raw,
     lines,
-    height: paddingTop + lines.length * lineHeight + 12,
+    subtitle,
+    height: paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0),
     selected: String(raw.id) === String(props.selectedTaskId)
   }
 }
@@ -330,18 +387,23 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
 }
 
 // 从展开森林还原唯一节点与全部边：回边节点折叠成指向目标的边
+// 折叠的节点只保留自身，子节点与出边一并隐藏
 const buildGraphData = (forest) => {
   const nodes = new Map()
   const edges = []
 
   const walk = (node, parentId) => {
     const id = String(node.id)
-    if (!node.isRef && !nodes.has(id)) nodes.set(id, node)
+    const children = node.children || []
+    const collapsed = collapsedSet.value.has(id)
+    if (!node.isRef && !nodes.has(id)) {
+      nodes.set(id, { ...node, childCount: children.length, collapsed })
+    }
     if (parentId !== null) {
       edges.push({ from: parentId, to: node.isRef ? String(node.targetId) : id, isRef: !!node.isRef })
     }
-    if (!node.isRef) {
-      (node.children || []).forEach((child) => walk(child, id))
+    if (!node.isRef && !collapsed) {
+      children.forEach((child) => walk(child, id))
     }
   }
 
@@ -663,6 +725,33 @@ const fitView = () => {
   view.y = (size.height - contentHeight * view.scale) / 2
 }
 
+// 折叠开关：只切换该节点的展开状态，子任务数据不受影响
+const toggleCollapse = (node) => {
+  const id = String(node.id)
+  const next = new Set(collapsedSet.value)
+  const collapsing = !next.has(id)
+  if (collapsing) next.add(id)
+  else next.delete(id)
+
+  // 折叠后选中项若被藏起来，选中落到折叠节点上，避免详情面板指向看不见的任务
+  const selected = selectedId.value
+  if (collapsing && selected && selected !== id) {
+    const { parentOf } = nodeIndex.value
+    let current = parentOf.get(selected)
+    while (current != null && current !== 'root') {
+      if (String(current) === id) {
+        emit('task-selected', Number(id))
+        break
+      }
+      current = parentOf.get(String(current))
+    }
+  }
+
+  collapsedIds.value = [...next]
+  // 折叠只改变可见范围，保持当前视口，避免画面跳动
+  skipNextAutoFit = true
+}
+
 const selectNode = (node) => {
   // 拖拽建链接后紧跟的 click 不应改变选中
   if (Date.now() - lastDragEndAt < 250) return
@@ -682,6 +771,33 @@ const selectedEdge = computed(() =>
 // 未选中的连线只铺在节点下层，选中的单独画在节点之上
 const baseEdges = computed(() =>
   layout.value.edges.filter((edge) => edge.key !== selectedEdgeKey.value))
+
+// 选中节点的祖先链：沿入边回溯到根，用强调色标出当前任务所在分支
+const highlightedEdges = computed(() => {
+  const id = selectedId.value
+  const keys = new Set()
+  if (!id) return keys
+
+  const incoming = new Map()
+  layout.value.edges.forEach((edge) => {
+    if (!incoming.has(edge.to)) incoming.set(edge.to, [])
+    incoming.get(edge.to).push(edge)
+  })
+
+  const visited = new Set([id])
+  const queue = [id]
+  while (queue.length > 0) {
+    const current = queue.shift()
+    ;(incoming.get(current) || []).forEach((edge) => {
+      keys.add(edge.key)
+      if (!visited.has(edge.from)) {
+        visited.add(edge.from)
+        queue.push(edge.from)
+      }
+    })
+  }
+  return keys
+})
 
 const selectEdge = (edge) => {
   if (!edge.deletable) return
@@ -746,6 +862,20 @@ const nodeIndex = computed(() => {
 
 const selectedId = computed(() => (props.selectedTaskId == null ? null : String(props.selectedTaskId)))
 
+// 从别处选中任务时，若它被折叠隐藏，自动展开祖先链，保证选中项可见
+watch(selectedId, (id) => {
+  if (!id) return
+  const { parentOf } = nodeIndex.value
+  const collapsed = new Set(collapsedIds.value.map(String))
+  let changed = false
+  let current = parentOf.get(id)
+  while (current != null && current !== 'root') {
+    if (collapsed.delete(String(current))) changed = true
+    current = parentOf.get(String(current))
+  }
+  if (changed) collapsedIds.value = [...collapsed]
+})
+
 // 主方向键沿层级深入/返回，交叉方向键在同级之间移动
 const axisKeys = computed(() => {
   switch (direction.value) {
@@ -774,7 +904,13 @@ const navigate = (key) => {
 
   if (key === forward) {
     const children = childrenOf.get(id) || []
-    if (children.length > 0) focusTask(children[0])
+    if (children.length === 0) return
+    // 折叠状态下向前导航先展开，避免选中看不见的节点
+    if (collapsedSet.value.has(id)) {
+      const node = layout.value.nodes.find((item) => item.id === id)
+      if (node) toggleCollapse(node)
+    }
+    focusTask(children[0])
     return
   }
 
