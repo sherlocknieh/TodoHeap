@@ -49,4 +49,14 @@ describe('sortTodoTree', () => {
     expect(sorted.map(node => node.id)).toEqual([1, 'ref:2:1'])
     expect(sorted[0].children.map(node => node.id)).toEqual([11, 12])
   })
+
+  it('显示排序只产出副本，不改写原始树与 child_ids 顺序', () => {
+    const tree = makeTree()
+    tree[0].children = [{ id: 4, title: '子', deadline: '2026-03-05T00:00:00.000Z', children: [] }]
+
+    sortTodoTree(tree, 'deadline')
+
+    expect(tree.map(node => node.id)).toEqual([1, 2, 3])
+    expect(tree[0].children.map(node => node.id)).toEqual([4])
+  })
 })

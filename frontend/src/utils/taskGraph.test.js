@@ -18,6 +18,44 @@ describe('buildTaskForest', () => {
     expect(forest[0].children[0].parent_id).toBe(1)
   })
 
+  it('不传 sortFn 时兄弟顺序完全按 child_ids，排序字段不参与', () => {
+    const forest = buildTaskForest([
+      { id: 1, title: '父', child_ids: [3, 2] },
+      { id: 2, title: 'A', sort_order: 0, child_ids: [] },
+      { id: 3, title: 'Z', sort_order: 10, child_ids: [] }
+    ], { mapItem })
+
+    expect(forest[0].children.map(node => node.id)).toEqual([3, 2])
+  })
+
+  it('根任务作为唯一的森林根，顶层顺序就是它自己的 child_ids', () => {
+    const forest = buildTaskForest([
+      { id: 99, title: '全部任务', is_root: true, child_ids: [3, 1, 2] },
+      { id: 1, title: '一', child_ids: [] },
+      { id: 2, title: '二', child_ids: [] },
+      { id: 3, title: '三', child_ids: [] }
+    ], { mapItem })
+
+    expect(forest).toHaveLength(1)
+    expect(forest[0].id).toBe(99)
+    expect(forest[0].children.map(node => node.id)).toEqual([3, 1, 2])
+  })
+
+  it('多父任务在每个父级下按各自的 child_ids 定位，引用行位置稳定', () => {
+    const forest = buildTaskForest([
+      { id: 1, title: 'A', child_ids: [9, 2] },
+      { id: 3, title: 'B', child_ids: [4, 9] },
+      { id: 2, title: 'A 独有', child_ids: [] },
+      { id: 4, title: 'B 独有', child_ids: [] },
+      { id: 9, title: '共享', child_ids: [] }
+    ], { mapItem })
+
+    expect(forest.map(node => node.id)).toEqual([1, 3])
+    expect(forest[0].children.map(node => node.id)).toEqual([9, 2])
+    // B 下的共享任务落到 child_ids 指定的位置（4 之后），而不是被排到末尾
+    expect(forest[1].children.map(node => node.id)).toEqual([4, 'ref:3:9'])
+  })
+
   it('多父引用在第二次出现时收缩为回边节点', () => {
     const forest = buildTaskForest([
       { id: 1, title: '父一', child_ids: [3] },

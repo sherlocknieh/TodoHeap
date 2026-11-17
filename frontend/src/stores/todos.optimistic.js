@@ -8,17 +8,8 @@ export const createTodoOptimisticActions = ({
   getSyncQueue,
   requireAuthUser,
   setError,
-  compareTodos: compareTodosOption,
   OperationType
 }) => {
-  // 未注入排序函数时退化为按序号比较, 保证移动操作独立可用
-  const compareTodos = compareTodosOption || ((a, b) => {
-    const aOrder = Number.isFinite(a?.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY
-    const bOrder = Number.isFinite(b?.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY
-    if (aOrder !== bOrder) return aOrder - bOrder
-    return String(a?.title || '').localeCompare(String(b?.title || ''))
-  })
-
   const findTodoById = (id) => {
     const syncQueue = getSyncQueue()
     const realId = syncQueue.getRealId(id)
@@ -239,11 +230,6 @@ export const createTodoOptimisticActions = ({
     return todosRef.value.filter(todo => !referenced.has(todo.id)).map(todo => todo.id)
   }
 
-  const sortSiblingIds = (ids) => {
-    const byId = new Map(todosRef.value.map(todo => [todo.id, todo]))
-    return [...ids].sort((a, b) => compareTodos(byId.get(a), byId.get(b)))
-  }
-
   const moveTodo = async (id, { targetId = null, position = 'after' } = {}) => {
     const syncQueue = getSyncQueue()
     const realId = syncQueue.getRealId(id)
@@ -267,8 +253,8 @@ export const createTodoOptimisticActions = ({
 
     const oldParentIds = findParentIds(todosRef.value, realId).filter(parentId => parentId !== newParentId)
 
-    // 新层级的兄弟序列去掉自身后插到落点位置
-    const siblings = sortSiblingIds(siblingIdsOf(newParentId).filter(siblingId => siblingId !== realId))
+    // 新层级的兄弟序列沿用父级 child_ids 的现有顺序, 去掉自身后插到落点位置
+    const siblings = siblingIdsOf(newParentId).filter(siblingId => siblingId !== realId)
     let insertAt = siblings.length
     if (target && position !== 'inside') {
       const targetIndex = siblings.indexOf(target.id)
@@ -292,7 +278,7 @@ export const createTodoOptimisticActions = ({
       await updateTodo(newParentId, { child_ids: [...siblings, ...orphanIds] })
     }
 
-    // 同级顺序由 sort_order 决定，逐个写回新序号
+    // 手动顺序已经写在 child_ids 里; sort_order 仅为兼容旧客户端同步，不再参与显示
     for (const [index, siblingId] of siblings.entries()) {
       const sibling = todosRef.value.find(todo => todo.id === siblingId)
       if (!sibling || sibling.sort_order === index * ORDER_STEP) continue

@@ -403,4 +403,19 @@ describe('createTodoOptimisticActions', () => {
     // 999 是被物理删除的子任务 ID，重排时不能丢
     expect(todosRef.value.find(todo => todo.id === 42).child_ids).toEqual([1, 3, 999])
   })
+
+  it('moveTodo 重排按 child_ids 现有顺序计算，不再看 sort_order', async () => {
+    todosRef.value = [
+      { id: 1, title: '父', child_ids: [3, 4, 5], sort_order: 0, deleted_at: null },
+      { id: 3, title: 'C', child_ids: [], sort_order: 20, deleted_at: null },
+      { id: 4, title: 'A', child_ids: [], sort_order: 0, deleted_at: null },
+      { id: 5, title: 'B', child_ids: [], sort_order: 10, deleted_at: null }
+    ]
+
+    const result = await actions.moveTodo(3, { targetId: 5, position: 'after' })
+
+    expect(result.success).toBe(true)
+    // 未参与移动的兄弟保持原有相对顺序 [4, 5]，不按 sort_order 重排
+    expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([4, 5, 3])
+  })
 })

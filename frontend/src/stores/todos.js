@@ -35,31 +35,6 @@ export const useTodoStore = defineStore('todos', () => {
     return { ok: true, user: authStore.user }
   }
 
-  const todoTitleCollator = new Intl.Collator('zh-Hans-CN', {
-    sensitivity: 'base',
-    numeric: true
-  })
-
-  const compareTodos = (a, b) => {
-    const aOrder = Number.isFinite(a.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY
-    const bOrder = Number.isFinite(b.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY
-    if (aOrder !== bOrder) return aOrder - bOrder
-
-    const titleDiff = todoTitleCollator.compare(String(a.title || ''), String(b.title || ''))
-    if (titleDiff !== 0) return titleDiff
-
-    const aIsTemp = a.id < 0
-    const bIsTemp = b.id < 0
-    if (aIsTemp && !bIsTemp) return 1
-    if (!aIsTemp && bIsTemp) return -1
-
-    const aCreatedAt = new Date(a.created_at || 0).getTime()
-    const bCreatedAt = new Date(b.created_at || 0).getTime()
-    if (aCreatedAt !== bCreatedAt) return aCreatedAt - bCreatedAt
-
-    return a.id - b.id
-  }
-
   const {
     findTodoById,
     findTodoIndexById,
@@ -85,7 +60,6 @@ export const useTodoStore = defineStore('todos', () => {
     setError: (message) => {
       error.value = message
     },
-    compareTodos,
     OperationType
   })
 
@@ -317,8 +291,8 @@ export const useTodoStore = defineStore('todos', () => {
         is_root: Boolean(item.is_root),
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
-      }),
-      sortFn: compareTodos
+      })
+      // 手动顺序 = 父级 child_ids 的数组顺序，不再按 sort_order 重排
     })
   })
 
