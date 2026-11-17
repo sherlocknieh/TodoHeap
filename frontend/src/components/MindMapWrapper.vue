@@ -204,7 +204,7 @@
             @keydown.escape.stop="helpOpen = false">
             <p class="mb-1.5 eyebrow">操作提示</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">滚轮</span>：选中节点/连线后缩放，空白处平移</p>
-            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">拖拽</span>：空白处平移，节点拖到另一节点建立链接</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">拖拽</span>：空白处或根节点平移，节点拖到另一节点建立链接</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">点选</span>：点选连线可删除</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">快捷键</span>：Enter 同级 · Tab 子级 · F2 重命名</p>
           </div>
@@ -317,10 +317,8 @@ const allExpanded = computed(() =>
   collapsibleIds.value.every((id) => !collapsedSet.value.has(id)))
 
 // 工具栏的展开/收起全部：只改折叠标记，任务数据不受影响；
-// 收起时连根节点一起折叠，画布上只剩根节点
+// 收起时连根节点一起折叠，画布上只剩根节点。根节点由布局钉在原点，切换后不会跳动
 const toggleAllCollapse = () => {
-  // 收起/展开会重排整张图，锚定根节点，让它留在切换前的屏幕位置
-  const anchor = captureAnchor('root')
   if (allExpanded.value) {
     collapsedIds.value = [...collapsibleIds.value]
     // 选中任务被收起隐藏后，选中回到根节点，详情面板随之收起
@@ -330,10 +328,9 @@ const toggleAllCollapse = () => {
       emit('task-selected', null)
       nextTick(() => { localSelection = false })
     }
-  } else {
-    collapsedIds.value = []
+    return
   }
-  pinNodeAfterLayout(anchor)
+  collapsedIds.value = []
 }
 
 // 单个按钮按固定顺序轮换四个方向
@@ -962,32 +959,8 @@ const toggleCollapse = (node) => {
     }
   }
 
-  // 折叠/展开会重排可见节点：先记下被点节点此刻的屏幕位置，重排后再把它钉回原处
-  const anchor = captureAnchor(id)
+  // 布局以根节点为原点，重排不会带动视口，展开/折叠只改变其它节点的位置
   collapsedIds.value = [...next]
-  pinNodeAfterLayout(anchor)
-}
-
-// 记下节点此刻的图坐标与视口，重排后据此补偿平移，让它在屏幕上停住
-const captureAnchor = (id) => {
-  const anchor = { id, offsetX: view.x, offsetY: view.y, scale: view.scale, graphX: null, graphY: null }
-  const node = layout.value.nodes.find((item) => item.id === id)
-  if (node) {
-    anchor.graphX = node.x
-    anchor.graphY = node.y
-  }
-  return anchor
-}
-
-// 布局重排后只平移视口，让锚点节点留在切换前的位置，避免整张图跟着跳
-const pinNodeAfterLayout = (anchor) => {
-  if (anchor.graphX == null) return
-  nextTick(() => {
-    const moved = layout.value.nodes.find((item) => item.id === anchor.id)
-    if (!moved) return
-    view.x = anchor.offsetX + (anchor.graphX - moved.x) * anchor.scale
-    view.y = anchor.offsetY + (anchor.graphY - moved.y) * anchor.scale
-  })
 }
 
 // 勾选框：切换完成状态，根节点不是真实任务，不参与
@@ -999,17 +972,9 @@ const toggleDone = (node) => {
 // 已完成节点上的删除按钮：两段式确认，避免误删
 const confirmDeleteId = ref(null)
 
-// 删除任务前记下父节点位置：父节点一定还在，删除后把它钉回原处，与折叠保持同一套重排行为
-const deleteAnchorFor = (id) => {
-  const parent = nodeIndex.value.parentOf.get(String(id)) ?? 'root'
-  return captureAnchor(String(parent))
-}
-
-// 图内删除的统一出口：按钮与快捷键都先锚定父节点再删除，重排后视口不跳
+// 图内删除的统一出口：按钮与快捷键共用
 const emitDelete = (id) => {
-  const anchor = deleteAnchorFor(id)
   emit('delete-task', Number(id))
-  pinNodeAfterLayout(anchor)
 }
 
 const deleteNode = (node) => {
@@ -1623,6 +1588,8 @@ const onWheel = (event) => {
 
 let panStart = { x: 0, y: 0, originX: 0, originY: 0 }
 let panMoved = false
+// 本次平移是否从根节点按起：松手后按位移分派选中或平移
+let panFromRoot = false
 let lastPanEndAt = 0
 
 // 拖拽建链接：从节点拖到另一个节点上，把源节点链接为目标节点的子任务
@@ -1649,7 +1616,12 @@ const nodeAtPoint = (point) => layout.value.nodes.find((node) => (
 )) ?? null
 
 const onNodePointerDown = (event, node) => {
-  if (event.button !== 0 || node.isRoot || node.isRef) return
+  if (event.button !== 0 || node.isRef) return
+  // 根节点不参与建链接：按住它等同按住空白处，直接拖动整张图
+  if (node.isRoot) {
+    onPointerDown(event, true)
+    return
+  }
   // 编辑中不启动拖拽建链接，避免在节点内拖选文字时被拖走
   if (editingId.value != null) return
   startDrag(event, node.id, false)
@@ -1742,7 +1714,7 @@ const onDragEnd = () => {
     : { parentId: Number(targetId), childId: Number(sourceId) })
 }
 
-const onPointerDown = (event) => {
+const onPointerDown = (event, fromRoot = false) => {
   if (event.button !== 0) return
   // 点击空白处即放弃删除按钮的待确认状态
   confirmUnlink.value = false
@@ -1751,6 +1723,7 @@ const onPointerDown = (event) => {
   stopViewAnimation()
   panning.value = true
   panMoved = false
+  panFromRoot = fromRoot
   panStart = { x: event.clientX, y: event.clientY, originX: view.x, originY: view.y }
   container.value?.setPointerCapture(event.pointerId)
 }
@@ -1769,9 +1742,17 @@ const onPointerMove = (event) => {
 const endPan = () => {
   if (!panning.value) return
   panning.value = false
-  // 真正发生过平移才记录时间，纯点击仍按点击处理
-  if (panMoved) lastPanEndAt = Date.now()
+  if (panMoved) {
+    // 真正发生过平移才记录时间，纯点击仍按点击处理
+    lastPanEndAt = Date.now()
+  } else if (panFromRoot) {
+    // 指针捕获会把 click 改派到画布，按在根节点上的点击在这里补成选中
+    lastPanEndAt = Date.now()
+    const root = layout.value.nodes.find((node) => node.isRoot)
+    if (root) selectNode(root)
+  }
   panMoved = false
+  panFromRoot = false
 }
 
 let resizeObserver = null
