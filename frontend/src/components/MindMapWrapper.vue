@@ -1016,17 +1016,29 @@ const animateView = (target, duration = 320) => {
   viewAnimation = requestAnimationFrame(step)
 }
 
-// 把选中节点平移到视口中心；缩放不变，只调整平移量
+// 选中节点时的标准观看档位：节点主体约占视口宽度的 1/5，
+// 窄视口下退让到刚好放得下节点，避免被裁切
+const FOCUS_SCALE = 1.1
+const focusScale = () => Math.max(0.15, Math.min(
+  FOCUS_SCALE,
+  (size.width - 96) / nodeWidth
+))
+
+// 把选中节点移到视口中心，并缩放到便于阅读的标准大小
 const centerOnNode = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
+  const scale = focusScale()
   const target = {
-    x: size.width / 2 - (node.x + nodeWidth / 2) * view.scale,
-    y: size.height / 2 - (node.y + node.height / 2) * view.scale,
-    scale: view.scale
+    x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
+    y: size.height / 2 - (node.y + node.height / 2) * scale,
+    scale
   }
-  // 已经在中心时不再启动动画，重复点击同一节点不会抖动
-  if (Math.abs(target.x - view.x) < 0.5 && Math.abs(target.y - view.y) < 0.5) return
+  // 位置与缩放都已到位时不再启动动画，重复点击同一节点不会抖动
+  const settled = Math.abs(target.x - view.x) < 0.5
+    && Math.abs(target.y - view.y) < 0.5
+    && Math.abs(target.scale - view.scale) < 0.001
+  if (settled) return
   animateView(target)
 }
 
