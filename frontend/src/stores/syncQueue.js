@@ -11,7 +11,7 @@ const syncStorage = localforage.createInstance({
   storeName: 'syncQueue'
 })
 
-// 创建幂等键依赖服务端的 client_key 列; 旧库上探到缺失后本次会话不再尝试
+// 创建幂等键依赖服务端的 client_key 列; 探到缺失后本次会话不再尝试, 避免每条创建都多一次失败请求
 let clientKeySupported = true
 
 // PostgREST 找不到函数签名, 或列/索引尚不存在
@@ -408,10 +408,10 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
       clientKey ? { ...rpcArgs, p_client_key: clientKey } : rpcArgs
     )
 
-    // 数据库还没应用 client_key 迁移时退回旧签名, 否则创建会整条失败
+    // 服务端缺少 client_key 支持时退回不带幂等键的签名, 保证任务仍能创建
     if (error && clientKey && isMissingClientKeySupport(error)) {
       clientKeySupported = false
-      console.warn('数据库未应用 client_key 迁移, 本次起退回去重保护:', error.message)
+      console.warn('服务端缺少 client_key 支持, 已退化为非幂等创建:', error.message)
       ;({ data, error } = await supabase.rpc('create_todo', rpcArgs))
     }
 
