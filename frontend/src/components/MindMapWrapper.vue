@@ -140,11 +140,12 @@
               :class="confirmDeleteId === node.id
                 ? 'fill-danger-600 stroke-danger-600 dark:fill-danger-500 dark:stroke-danger-500'
                 : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
-            <path d="M-2.6 -2.6 L2.6 2.6 M2.6 -2.6 L-2.6 2.6" fill="none" stroke-width="1.3"
-              stroke-linecap="round" class="pointer-events-none"
+            <g transform="translate(-6 -6)" class="pointer-events-none"
               :class="confirmDeleteId === node.id
-                ? 'stroke-white'
-                : 'stroke-neutral-500 dark:stroke-neutral-300'" />
+                ? 'text-white'
+                : 'text-neutral-500 dark:text-neutral-300'">
+              <AppIcon name="trash" :size="12" />
+            </g>
             <title>{{ confirmDeleteId === node.id ? '再次点击删除任务' : '删除任务' }}</title>
           </g>
         </g>
