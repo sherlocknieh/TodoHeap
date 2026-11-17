@@ -3,7 +3,8 @@
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
-			@delete-task="deleteTask" @toggle-done="toggleDone" @link-task="linkTask" @unlink-task="unlinkTask" />
+			@delete-task="deleteTask" @toggle-done="toggleDone" @link-task="linkTask" @unlink-task="unlinkTask"
+			@notify="payload => emit('notify', payload)" />
 	</div>
 </template>
 

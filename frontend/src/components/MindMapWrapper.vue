@@ -211,6 +211,7 @@
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">拖拽</span>：空白处或根节点平移，节点拖到另一节点建立链接</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">点选</span>：点选连线可删除</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">快捷键</span>：Enter 同级 · Tab 子级 · F2 重命名</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">Ctrl+C</span>：复制选中节点及其子节点为 Markdown 列表</p>
           </div>
         </Transition>
       </div>
@@ -238,7 +239,7 @@ const props = defineProps({
   editTaskId: { type: Number, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'link-task', 'unlink-task'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'link-task', 'unlink-task', 'notify'])
 
 const nodeWidth = 216
 const fontSize = 13
@@ -1587,9 +1588,75 @@ watch([() => props.editTaskId, layout], ([id], [prevId]) => {
   startEdit(node, { selectText: true })
 })
 
+// 剪辑板写入：优先异步剪贴板 API，局域网 http 等非安全上下文退回隐藏输入框 + execCommand，
+// 避免复制功能在这些环境下静默失效；返回是否写入成功，供轻提示区分成功与失败
+const writeClipboard = async (text) => {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // 权限被拒或被策略拦截时继续走兜底方案
+  }
+  const input = document.createElement('textarea')
+  try {
+    input.value = text
+    input.setAttribute('readonly', '')
+    input.style.cssText = 'position:fixed;top:0;left:0;opacity:0'
+    document.body.appendChild(input)
+    input.select()
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    input.remove()
+  }
+}
+
+// 复制为 Markdown 树状列表：选中节点连同全部后代，只取标题，不受折叠影响。
+// 多父任务在图里只画一份、以引用节点出现在其它父级下，向下遍历时跳过引用，避免重复与成环
+const copySubtreeAsMarkdown = async (id) => {
+  const byId = new Map()
+  const collect = (node) => {
+    if (node.isRef) return
+    const nodeId = String(node.id)
+    if (!byId.has(nodeId)) byId.set(nodeId, node)
+    ;(node.children || []).forEach(collect)
+  }
+  ;(props.nodes || []).forEach(collect)
+
+  const start = byId.get(String(id))
+  if (!start) return
+
+  const lines = []
+  const visited = new Set()
+  const render = (node, depth) => {
+    const nodeId = String(node.id)
+    if (visited.has(nodeId)) return
+    visited.add(nodeId)
+    lines.push(`${'  '.repeat(depth)}- ${node.title || '未命名任务'}`)
+    ;(node.children || []).forEach((child) => {
+      if (!child.isRef) render(child, depth + 1)
+    })
+  }
+  render(start, 0)
+  const copied = await writeClipboard(lines.join('\n'))
+  emit('notify', {
+    message: copied ? `已复制 ${lines.length} 个任务为 Markdown` : '复制失败，请检查浏览器剪贴板权限'
+  })
+}
+
+// 画布快捷键：选中节点后按 Ctrl/Cmd+C 复制子树为 Markdown，其余组合键留给浏览器
 const onKeydown = (event) => {
-  if (event.metaKey || event.ctrlKey || event.altKey) return
   const id = selectedId.value
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'c') {
+    if (!id) return
+    event.preventDefault()
+    copySubtreeAsMarkdown(id)
+    return
+  }
+  if (event.metaKey || event.ctrlKey || event.altKey) return
 
   switch (event.key) {
     case 'Enter':
