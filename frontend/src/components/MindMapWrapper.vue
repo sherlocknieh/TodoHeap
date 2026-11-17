@@ -704,8 +704,7 @@ const graphLayout = computed(() => {
       const target = mode === 'down' ? (parents ?? children) : children
       if (target !== null) crossCenter.set(node.id, target)
     })
-    // 按期望位置重排层内顺序，投影时才能保持左右关系与期望一致
-    order.get(layer).sort((a, b) => crossCenter.get(a.id) - crossCenter.get(b.id))
+    // 层内顺序固定为初始 DFS 序，只让坐标收敛；每轮重排会让折叠/展开后顺序漂移
     projectLayer(layer)
   }
 
