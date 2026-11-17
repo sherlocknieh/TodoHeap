@@ -66,6 +66,7 @@ outline: deep
 | 适应视图 / 缩放到刚好 / 操作提示 | `components/MindMapWrapper.vue` `fitView`、`helpOpen` | 视图控件在右下角，提示收进按钮浮层 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
 | 拖拽落点 / 预览线 / 拖到节点上 | `components/MindMapWrapper.vue` `dragState.preview`、`onNodePointerDown` | 节点拖拽与按钮拖拽都画预览线 |
+| 拖拽建链接 / 按钮拉线 / 拉到附近就命中 | `components/MindMapWrapper.vue` `linkTargetAtPoint`、`LINK_HIT_PADDING` | 从折叠/加号按钮拉线时按屏幕像素外扩命中范围，多节点取最近；拖节点移动仍要求压在节点上 |
 
 ## 侧栏与 AI
 

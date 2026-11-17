@@ -1802,11 +1802,28 @@ const toGraphPoint = (event) => {
   }
 }
 
-// 命中检测：指针落在哪个节点矩形内
-const nodeAtPoint = (point) => layout.value.nodes.find((node) => (
-  point.x >= node.x && point.x <= node.x + nodeWidth
-  && point.y >= node.y && point.y <= node.y + node.height
-)) ?? null
+// 拖拽建链接的落点：从折叠/加号按钮拉线时，指针不必精确压在目标节点上，
+// 落在节点附近同样命中；多个节点同时进入范围时取最近的那个，避免在两个节点之间抖动。
+// 余量按屏幕像素折算，缩小时仍保持手感，但设上限，防止缩小后跨到相邻节点。
+const LINK_HIT_PADDING = 24
+const LINK_HIT_PADDING_MAX = 48
+const linkHitPadding = () => Math.min(LINK_HIT_PADDING / view.scale, LINK_HIT_PADDING_MAX)
+const linkTargetAtPoint = (point) => {
+  const padding = dragState.fromToggle ? linkHitPadding() : 0
+  let nearest = null
+  let nearestDistance = Infinity
+  for (const node of layout.value.nodes) {
+    if (node.id === dragState.sourceId || node.isRef) continue
+    // 点到节点矩形的最近距离：矩形内为 0，外部按横向/纵向空隙计算
+    const dx = Math.max(node.x - point.x, 0, point.x - (node.x + nodeWidth))
+    const dy = Math.max(node.y - point.y, 0, point.y - (node.y + node.height))
+    const distance = Math.hypot(dx, dy)
+    if (distance > padding || distance >= nearestDistance) continue
+    nearest = node
+    nearestDistance = distance
+  }
+  return nearest
+}
 
 const onNodePointerDown = (event, node) => {
   if (event.button !== 0 || node.isRef) return
@@ -1868,9 +1885,8 @@ const updateDrag = (event) => {
     dragState.preview = `M${point.x} ${point.y} L${end.x} ${end.y}`
   }
 
-  const hit = nodeAtPoint(point)
-  const linkable = hit && hit.id !== dragState.sourceId && !hit.isRef
-  dragState.targetId = linkable ? hit.id : null
+  const hit = linkTargetAtPoint(point)
+  dragState.targetId = hit ? hit.id : null
 }
 
 const onDragMove = (event) => {
