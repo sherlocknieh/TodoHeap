@@ -62,11 +62,22 @@ const showDetailPanel = persistedRef('detail-open', false)
 const selectedEventId = persistedRef('selected-event', null, {
 	validate: (value) => value === null || Number.isFinite(value)
 })
-// 侧栏显示状态：首次进入窄屏默认收起，之后沿用上次的开合
-const showLeftSidebar = persistedRef('sidebar-open', window.innerWidth >= SIDEBAR_FLOAT_BREAKPOINT)
+const windowWidth = ref(window.innerWidth)
+const isNarrowScreen = computed(() => windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
+// 宽屏侧栏是常驻栏：开合由用户手动选择，跨会话沿用
+const sidebarPreferredOpen = persistedRef('sidebar-open', window.innerWidth >= SIDEBAR_FLOAT_BREAKPOINT)
+// 窄屏侧栏是覆盖内容的抽屉：只在当次打开，收窄时自动关，不覆盖宽屏偏好
+const sidebarDrawerOpen = ref(false)
+// 实际显示状态：宽度只决定用哪套状态，跨过断点不再改写用户选择
+const showLeftSidebar = computed({
+	get: () => (isNarrowScreen.value ? sidebarDrawerOpen.value : sidebarPreferredOpen.value),
+	set: (open) => {
+		if (isNarrowScreen.value) sidebarDrawerOpen.value = open
+		else sidebarPreferredOpen.value = open
+	}
+})
 // 活动栏显示状态：收起后由顶栏按钮开回
 const showActivityRail = persistedRef('rail-open', true)
-const windowWidth = ref(window.innerWidth)
 
 // 中栏滚动位置记忆：每个视图各存一份，刷新或切换回来后回到原处
 const mainScrollRef = ref(null)
@@ -136,7 +147,7 @@ const openNavEntry = (entry) => {
 		return
 	}
 	switchView(entry.id)
-	showLeftSidebar.value = window.innerWidth >= SIDEBAR_FLOAT_BREAKPOINT
+	showLeftSidebar.value = !isNarrowScreen.value
 }
 
 const syncStatusLabel = computed(() => hasUnsyncedChanges.value ? '有待同步更改' : '已同步')
@@ -215,13 +226,14 @@ provide(TODO_DETAIL_PANEL_CONTEXT, {
 })
 
 // 页面离开警告处理
-// 跨过桌面/窄屏阈值时自动切换侧栏，窄屏不遮住清单
+// 跨过桌面/窄屏阈值时只处理抽屉：收窄会把侧栏变成浮层，先关上避免盖住清单；
+// 放宽时按宽屏偏好还原，不因宽度变化强行展开
 let lastWindowWidth = typeof window === 'undefined' ? SIDEBAR_FLOAT_BREAKPOINT : window.innerWidth
 const handleWindowResize = () => {
 	const width = window.innerWidth
+	const wasWide = lastWindowWidth >= SIDEBAR_FLOAT_BREAKPOINT
 	windowWidth.value = width
-	if (width < SIDEBAR_FLOAT_BREAKPOINT && lastWindowWidth >= SIDEBAR_FLOAT_BREAKPOINT) showLeftSidebar.value = false
-	if (width >= SIDEBAR_FLOAT_BREAKPOINT && lastWindowWidth < SIDEBAR_FLOAT_BREAKPOINT) showLeftSidebar.value = true
+	if (wasWide && width < SIDEBAR_FLOAT_BREAKPOINT) sidebarDrawerOpen.value = false
 	lastWindowWidth = width
 }
 
