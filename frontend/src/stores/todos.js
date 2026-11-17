@@ -86,6 +86,15 @@ export const useTodoStore = defineStore('todos', () => {
   }
 
   // ID替换事件处理 (临时ID -> 真实ID)
+  // 创建刚落地时队列里可能还有针对这条任务的 UPDATE, 取出它们的字段用于覆盖服务端旧快照
+  const resolvePendingUpdates = (tempId, realId) => {
+    const syncQueue = getSyncQueue()
+    return syncQueue.queue
+      .filter(item => item.type === OperationType.UPDATE
+        && (item.targetId === tempId || item.targetId === realId))
+      .reduce((merged, item) => ({ ...merged, ...(item.payload || {}) }), {})
+  }
+
   const handleIdReplaced = (event) => {
     const { tempId, realId, data } = event.detail
 
@@ -102,9 +111,11 @@ export const useTodoStore = defineStore('todos', () => {
 
     if (index !== -1) {
       const localChildIds = todos.value[index].child_ids || []
-      // 服务器刚创建的任务还没有子节点, 合并本地已挂上的子任务
+      // 服务端返回的是创建时的快照; 本地还有待执行的 UPDATE 时保留本地值, 避免界面回退
+      const pendingUpdates = resolvePendingUpdates(tempId, realId)
       todos.value[index] = {
         ...data,
+        ...pendingUpdates,
         child_ids: [...new Set([...(data.child_ids || []), ...localChildIds])]
       }
     }

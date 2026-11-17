@@ -320,6 +320,9 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     }
   }
 
+  // 操作是否已经取出正在发送: 此时再改 payload 不会影响已发出的请求
+  const isOperationActive = (operationId) => activeOperations.value.has(operationId)
+
   // 从队列移除指定操作
   const removeFromQueue = (operationId) => {
     const index = queue.value.findIndex(item => item.id === operationId)
@@ -647,6 +650,7 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     clearQueue,
     updateQueueTargetIds,
     markRemoteUpdate,
+    isOperationActive,
     
     // 常量
     OperationType,

@@ -177,6 +177,24 @@ export const createTodoOptimisticActions = ({
       if (queueItem) {
         Object.assign(queueItem.payload, updates)
         await syncQueue.persistQueue()
+        // ADD 已经发出时改 payload 不会生效, 补一条 UPDATE 在落地后按真实 ID 执行
+        if (syncQueue.isOperationActive?.(queueItem.id)) {
+          await syncQueue.enqueue({
+            type: OperationType.UPDATE,
+            targetId: id,
+            payload: updates
+          })
+        }
+        return { success: true, data: todosRef.value[index] }
+      }
+
+      // 创建已完成但调用方仍拿着临时 ID: 按真实 ID 走普通更新, 不能再补一条 ADD
+      if (!syncQueue.isTempId(realId)) {
+        await syncQueue.enqueue({
+          type: OperationType.UPDATE,
+          targetId: realId,
+          payload: updates
+        })
         return { success: true, data: todosRef.value[index] }
       }
 

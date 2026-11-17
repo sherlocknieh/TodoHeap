@@ -100,6 +100,49 @@ describe('createTodoOptimisticActions', () => {
     expect(syncQueue.queue[0].payload).toMatchObject({ title: '已修改', completed_at: '2026-01-01T00:00:00.000Z' })
   })
 
+  it('updateTodo 对已落地的临时 ID 应按真实 ID 入队 UPDATE, 而不是再建一条', async () => {
+    todosRef.value = [{ id: -1, title: '新任务', completed_at: null, client_key: 'key-1' }]
+    syncQueue.queue = []
+    syncQueue.getRealId = vi.fn((value) => (Number(value) === -1 ? 7 : value))
+    syncQueue.isTempId = vi.fn((value) => Number(value) < 0)
+
+    const result = await actions.updateTodo(-1, { title: '改名后' })
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value[0].title).toBe('改名后')
+    expect(syncQueue.enqueue).toHaveBeenCalledTimes(1)
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.UPDATE,
+      targetId: 7,
+      payload: { title: '改名后' }
+    }))
+  })
+
+  it('updateTodo 在 ADD 已发出时补一条 UPDATE, 保证改名不丢', async () => {
+    todosRef.value = [{ id: -1, title: '新任务', completed_at: null }]
+    syncQueue.queue = [{ id: 'op-1', type: OperationType.ADD, targetId: -1, payload: { title: '新任务' } }]
+    syncQueue.isOperationActive = vi.fn(() => true)
+
+    await actions.updateTodo(-1, { title: '改名后' })
+
+    expect(syncQueue.queue[0].payload.title).toBe('改名后')
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.UPDATE,
+      targetId: -1,
+      payload: { title: '改名后' }
+    }))
+  })
+
+  it('updateTodo 在 ADD 尚未发出时不额外入队', async () => {
+    todosRef.value = [{ id: -1, title: '新任务', completed_at: null }]
+    syncQueue.queue = [{ id: 'op-1', type: OperationType.ADD, targetId: -1, payload: { title: '新任务' } }]
+    syncQueue.isOperationActive = vi.fn(() => false)
+
+    await actions.updateTodo(-1, { title: '改名后' })
+
+    expect(syncQueue.enqueue).not.toHaveBeenCalled()
+  })
+
   it('deleteTodo 应级联移除后代并写入垃圾箱与同步队列', async () => {
     todosRef.value = [
       { id: 1, title: '父任务', child_ids: [2], deleted_at: null },
