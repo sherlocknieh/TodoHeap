@@ -54,7 +54,7 @@ outline: deep
 
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
-| 节点垃圾桶 / 图上删除按钮 / 悬停变红 | `components/MindMapWrapper.vue`「选中节点右侧的删除按钮」+ class `hover:text-danger-600` | 常态灰，悬停只把图标染红；只有选中节点才显示，根节点没有 |
+| 节点垃圾桶 / 图上删除按钮 / 悬停绿圈 / 悬停变绿 | `components/MindMapWrapper.vue`「选中节点右侧的删除按钮」+ class `hover:stroke-accent-600` | 常态灰图标，悬停只让圆环描边转绿（与勾选框同理），图标保持中性；只有选中节点才显示，根节点没有 |
 | 删除二次确认 / 再点一次 / 实心红底 | `components/MindMapWrapper.vue` `confirmDeleteId`、`deleteNode` | 第一次点进入待确认态（红底白图标），再点才删 |
 | 连线删除 / 线中点叉号 / 断开父子关系 | `components/MindMapWrapper.vue` `confirmUnlink`、`onUnlinkClick`、`selectEdge` | 只从父任务 `child_ids` 移除引用；最后一个父级被摘掉时回顶层 |
 | 加号 / 出边按钮 / 新建子任务 / 折叠计数 / 靠近就显示加号 / 拉线时加号消失 | `components/MindMapWrapper.vue`「出边按钮」、`onToggleClick`、`holdLeafControl`、`updateLeafControlHover`、`draggingLeafId` | 有子任务时是折叠开关；叶子节点指针靠近按钮位置即显示加号，从加号拉线期间保持可见，拖到别的节点建立链接 |

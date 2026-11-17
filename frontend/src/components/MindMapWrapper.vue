@@ -132,18 +132,20 @@
             </template>
           </g>
 
-          <!-- 选中节点右侧的删除按钮：常态灰图标，悬停只把图标染红；待确认态换成实心红底白图标，
-               靠底色而非色相与悬停区分，透明热区承担点击与悬停判定 -->
+          <!-- 选中节点右侧的删除按钮：常态灰图标，悬停时圆环描边转绿（与勾选框一致），图标保持中性；
+               待确认态换成实心红底白图标。圆环继承组的 stroke，透明热区承担点击与悬停判定 -->
           <g v-if="node.selected && !node.isRoot"
             :transform="`translate(${nodeWidth - paddingX - deleteSize / 2} ${node.height / 2})`"
             class="cursor-pointer transition-colors"
             :class="confirmDeleteId === node.id
-              ? 'text-white'
-              : 'text-neutral-400 hover:text-danger-600 dark:text-neutral-500 dark:hover:text-danger-500'"
+              ? 'text-white stroke-danger-600 dark:stroke-danger-500'
+              : 'text-neutral-400 stroke-transparent hover:stroke-accent-600 dark:text-neutral-500 dark:hover:stroke-accent-400'"
             @pointerdown.stop @click.stop="deleteNode(node)">
             <circle r="9" class="fill-transparent" />
-            <circle v-if="confirmDeleteId === node.id" r="8"
-              class="fill-danger-600 transition-colors dark:fill-danger-500" />
+            <circle r="8" stroke-width="1.2" class="transition-colors"
+              :class="confirmDeleteId === node.id
+                ? 'fill-danger-600 dark:fill-danger-500'
+                : 'fill-transparent'" />
             <g transform="translate(-6 -6)" class="pointer-events-none">
               <AppIcon name="trash" :size="12" />
             </g>
