@@ -4,7 +4,7 @@
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
     :class="panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab'"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
-    @pointerup="endPan" @pointerleave="endPan" @click.stop="onCanvasClick" @dblclick="fitView"
+    @pointerup="endPan" @pointerleave="endPan" @click.stop="onCanvasClick"
     @keydown="onKeydown">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
@@ -44,7 +44,6 @@
           :opacity="node.completed_at ? 0.55 : 1" :data-mm-node="node.id"
           class="cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
-          @pointerenter="hoveredId = node.id" @pointerleave="hoveredId = null"
           @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? selectedNodeStroke : nodeStroke"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
@@ -102,9 +101,9 @@
             {{ node.subtitle }}
           </text>
 
-          <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号），叶子节点悬停时出现加号。
+          <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号），叶子节点常驻加号。
                单击折叠/新建子任务，拖到别的节点上则把那个任务挂成当前节点的子任务 -->
-          <g v-if="node.childCount > 0 || isLeafHovered(node)"
+          <g v-if="node.childCount > 0 || !node.isRoot"
             :transform="`translate(${node.controlX} ${node.controlY})`"
             @pointerdown.stop="onTogglePointerDown($event, node)" @click.stop="onToggleClick(node)">
             <circle :r="toggleRadius" class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
@@ -277,11 +276,6 @@ const toTaskId = (id) => (id != null && Number.isFinite(Number(id)) ? Number(id)
 
 // 根节点选中状态只在图内维护：根任务不进入任务详情面板
 const rootSelected = ref(false)
-
-// 悬停的节点：叶子节点悬停时露出加号按钮，可用它新建子任务或拖出链接
-const hoveredId = ref(null)
-const isLeafHovered = (node) => !node.isRoot && node.childCount === 0
-  && hoveredId.value === String(node.id)
 
 // 操作提示浮层：点按钮开关，点浮层或画布之外收起
 const helpOpen = ref(false)
@@ -1205,11 +1199,35 @@ const focusScale = () => Math.max(0.15, Math.min(
   (size.width - 96) / nodeWidth
 ))
 
-// 把选中节点移到视口中心，并缩放到便于阅读的标准大小
+// 聚焦范围：选中节点连同它可见的父级与子级，缩放要刚好把这一圈放进视口
+const focusBounds = (node) => {
+  const ids = new Set([node.id])
+  layout.value.edges.forEach((edge) => {
+    if (edge.to === node.id) ids.add(edge.from)
+    if (edge.from === node.id) ids.add(edge.to)
+  })
+  const related = layout.value.nodes.filter((item) => ids.has(item.id))
+  const left = Math.min(...related.map((item) => item.x))
+  const top = Math.min(...related.map((item) => item.y))
+  const right = Math.max(...related.map((item) => item.x + nodeWidth))
+  const bottom = Math.max(...related.map((item) => item.y + item.height))
+  return { width: right - left, height: bottom - top }
+}
+
+// 把选中节点移到视口中心，并缩放到刚好能看清它的父级与子级；
+// 子级过多时不再继续缩小，保证文字仍可辨认
+const FOCUS_MIN_SCALE = 0.55
+
 const centerOnNode = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
-  const scale = focusScale()
+  const bounds = focusBounds(node)
+  const pad = 48
+  const scale = Math.max(FOCUS_MIN_SCALE, Math.min(
+    FOCUS_SCALE,
+    (size.width - pad * 2) / Math.max(bounds.width, 1),
+    (size.height - pad * 2) / Math.max(bounds.height, 1)
+  ))
   const target = {
     x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
     y: size.height / 2 - (node.y + node.height / 2) * scale,
