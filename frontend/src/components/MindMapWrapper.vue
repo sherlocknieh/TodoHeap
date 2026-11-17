@@ -118,8 +118,9 @@
             <title>{{ node.collapsed ? `展开 ${node.childCount} 个子任务` : '折叠子任务' }}</title>
           </g>
 
-          <!-- 已完成节点右侧的删除按钮：完成即收尾，就地提供删除入口 -->
-          <g v-if="node.completed" :transform="`translate(${nodeWidth - paddingX - deleteSize / 2} ${node.height / 2})`"
+          <!-- 选中节点右侧的删除按钮：就地提供删除入口，根节点没有 -->
+          <g v-if="node.selected && !node.isRoot"
+            :transform="`translate(${nodeWidth - paddingX - deleteSize / 2} ${node.height / 2})`"
             @pointerdown.stop @click.stop="deleteNode(node)">
             <circle r="8" class="cursor-pointer transition-colors" stroke-width="1"
               :class="confirmDeleteId === node.id
@@ -227,10 +228,10 @@ const toggleReserve = toggleRadius * 2 + 6
 const checkboxSize = 14
 const checkboxGap = 8
 const checkboxReserve = checkboxSize + checkboxGap
-// 已完成节点右侧的删除按钮，与折叠控件同排，折叠控件相应左移
+// 选中节点右侧的删除按钮，与折叠控件同排；预留宽度含两枚按钮之间的间隔
 const deleteSize = 16
 const deleteGap = 4
-const deleteReserve = deleteSize + deleteGap
+const deleteReserve = deleteSize + deleteGap * 2
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -288,11 +289,11 @@ const nodeMainSize = (node) => (isVertical.value ? node.height : nodeWidth)
 const nodeCrossSize = (node) => (isVertical.value ? nodeWidth : node.height)
 
 // 有折叠按钮时右侧要让出圆形按钮，可用字数随之减少
-const textUnitsFor = (hasToggle, hasCheckbox, completed) => {
+const textUnitsFor = (hasToggle, hasCheckbox) => {
   const available = nodeWidth - paddingX * 2
     - (hasToggle ? toggleReserve : 0)
     - (hasCheckbox ? checkboxReserve : 0)
-    - (completed ? deleteReserve : 0)
+    - deleteReserve
   return Math.max(4, Math.floor(available / fontSize))
 }
 
@@ -326,7 +327,9 @@ const measureNode = (raw) => {
   const hasCheckbox = !raw.isRoot
   const completed = Boolean(raw.completed_at)
   const hasToggle = raw.childCount > 0
-  const unitsPerLine = textUnitsFor(hasToggle, hasCheckbox, completed)
+  // 选中态决定是否显示删除按钮：根节点不是真实任务，选中也不给删除入口
+  const selected = String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
+  const unitsPerLine = textUnitsFor(hasToggle, hasCheckbox)
   const lines = wrapLines(raw.title, unitsPerLine)
   const subtitle = raw.subtitle || ''
   return {
@@ -338,13 +341,13 @@ const measureNode = (raw) => {
     completed,
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
-    // 文字可用宽度：右侧让出折叠按钮与删除按钮
+    // 文字可用宽度：右侧固定让出折叠按钮与删除按钮，选中时不再重排
     textWidth: nodeWidth - paddingX - (paddingX + (hasCheckbox ? checkboxReserve : 0))
-      - (hasToggle ? toggleReserve : 0) - (completed ? deleteReserve : 0),
-    // 折叠控件在已完成节点上要给删除按钮让位
-    controlX: nodeWidth - paddingX - (completed ? deleteReserve : 0),
+      - (hasToggle ? toggleReserve : 0) - deleteReserve,
+    // 折叠控件要和删除按钮保持间隔，两者都不随选中变化
+    controlX: nodeWidth - paddingX - deleteReserve,
     height: paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0),
-    selected: String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
+    selected
   }
 }
 
