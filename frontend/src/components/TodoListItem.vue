@@ -137,12 +137,14 @@ import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue } from '@/utils/deadline'
-import { draggingTodoId as draggingId, dropIndicator, resetDragState } from '@/utils/todoDrag'
+import { draggingTodoId as draggingId, draggingParentTodoId, dropIndicator, resetDragState } from '@/utils/todoDrag'
 import { isTaskCollapsed, setTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
 
 const props = defineProps({
   node: Object,
   selectedTaskId: Number,
+  // 顶层行在上层视图里的父级：列表里是根任务，缺省时按无父级处理
+  parentId: { type: [Number, String], default: null },
   // 多选模式：用勾选框替换完成状态与行内操作
   selectionMode: { type: Boolean, default: false },
   selectedIds: { type: Array, default: () => [] }
@@ -180,7 +182,7 @@ function flattenTree(node, level = 0, arr = [], parent_id = null) {
   }
   return arr
 }
-const flatList = computed(() => flattenTree(props.node))
+const flatList = computed(() => flattenTree(props.node, 0, [], props.parentId))
 const flatMap = computed(() => {
   const map = new Map()
   flatList.value.forEach(item => map.set(item.id, item))
@@ -295,6 +297,7 @@ const dropStyle = (id) => {
 const onDragStart = (item, event) => {
   if (!canDrag(item)) return
   draggingId.value = item.id
+  draggingParentTodoId.value = item.parent_id ?? null
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', String(item.id))
   closeMoreMenu()
@@ -322,14 +325,22 @@ const onDragLeave = (item, event) => {
 
 const onDrop = (item, event) => {
   const sourceId = draggingId.value
+  const sourceParentId = draggingParentTodoId.value
   resetDragState()
-  if (sourceId == null) return
+  // 引用行只是回边，不作为落点
+  if (sourceId == null || item._isRef) return
 
   // 落点按投放时的实际位置判断，避免中途 dragleave 清空提示后无法落位
   const rect = event.currentTarget.getBoundingClientRect()
   const offset = (event.clientY - rect.top) / rect.height
   const position = offset < 0.25 ? 'before' : offset > 0.75 ? 'after' : 'inside'
-  emit('move-todo', { id: sourceId, targetId: item.id, position })
+  emit('move-todo', {
+    id: sourceId,
+    targetId: item.id,
+    position,
+    sourceParentId,
+    targetParentId: item.parent_id ?? null
+  })
 }
 
 const onDragEnd = () => {

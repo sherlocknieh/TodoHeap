@@ -767,12 +767,9 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
     async unlink_todo(args) {
       await ensureTodos()
       const parent = findTodo(args.parent_id)
-      // 根任务的子任务断开后会变成没有挂载点的孤儿，只能用 move_todo 移到别的任务下
-      if (isRootTodo(parent)) throw new Error('根任务的子任务不能直接断开，请移动到其它任务下')
-      const child = findTodo(args.child_id)
+      const child = requireTask(args.child_id)
       const childIds = parent.child_ids || []
-      const nextIds = childIds.filter((id) => toNumber(id) !== toNumber(child.id))
-      if (nextIds.length === childIds.length) {
+      if (!childIds.map(toNumber).includes(toNumber(child.id))) {
         return {
           ok: true,
           unchanged: true,
@@ -781,7 +778,7 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
         }
       }
 
-      const result = await todoStore.updateTodo(parent.id, { child_ids: nextIds })
+      const result = await todoStore.unlinkTodo(parent.id, child.id)
       if (!result.success) throw new Error(result.error || '取消链接失败')
       return {
         ok: true,

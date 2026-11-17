@@ -247,11 +247,10 @@ const linkChild = async () => {
   linkTargetId.value = ''
 }
 
-// 取消链接：只从当前任务的 child_ids 移除引用，子任务本身与其他父关系不受影响
+// 取消链接：只摘掉这条父链接；最后一个父级被摘掉时子任务回到顶层
 const unlinkChild = async (child) => {
   if (!todo.value || isDeleted.value) return
-  const nextIds = (todo.value.child_ids || []).filter((id) => String(id) !== String(child.id))
-  await todoStore.updateTodo(todo.value.id, { child_ids: nextIds })
+  await todoStore.unlinkTodo(todo.value.id, child.id)
 }
 
 // 格式化日期

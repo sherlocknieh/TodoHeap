@@ -214,9 +214,7 @@ export const createTodoOptimisticActions = ({
     })
   }
 
-  // 移动任务：调整父关系或同级顺序，序号按固定步长写回
-  const ORDER_STEP = 10
-
+  // 移动任务：调整父关系或同级顺序；手动序号以 child_ids 为准
   // 取出某一层级当前的兄弟任务；根层级没有容器，用「未被任何父引用」判定
   const siblingIdsOf = (parentId) => {
     const existing = new Set(todosRef.value.map(todo => todo.id))
@@ -230,7 +228,15 @@ export const createTodoOptimisticActions = ({
     return todosRef.value.filter(todo => !referenced.has(todo.id)).map(todo => todo.id)
   }
 
-  const moveTodo = async (id, { targetId = null, position = 'after' } = {}) => {
+  // 拖放语义分成两条路径：
+  // - reorder（落点前/后）：只调整落点所在父级的 child_ids，其它父级不动
+  // - move（拖进节点 / 拖到根层级）：只从来源父级摘掉链接，任务保留其它父链接
+  const moveTodo = async (id, {
+    targetId = null,
+    position = 'after',
+    sourceParentId = null,
+    targetParentId = null
+  } = {}) => {
     const syncQueue = getSyncQueue()
     const realId = syncQueue.getRealId(id)
     const moving = todosRef.value.find(todo => todo.id === realId)
@@ -245,15 +251,33 @@ export const createTodoOptimisticActions = ({
     const target = realTargetId == null ? null : todosRef.value.find(todo => todo.id === realTargetId)
     if (realTargetId != null && !target) return { success: false, error: '目标任务不存在' }
 
-    // 拖到任务内部即成为其子任务，拖到上下方则与其同级；同级没有父级时落到根任务
     const rootTaskId = todosRef.value.find(todo => todo.is_root)?.id ?? null
-    const newParentId = target
-      ? (position === 'inside' ? target.id : (findParentIds(todosRef.value, target.id)[0] ?? rootTaskId))
-      : rootTaskId
+    // 只认当前列表里存在的父级：临时 ID 先映射成真实 ID
+    const resolveParent = (value) => {
+      if (value == null) return null
+      const realParentId = syncQueue.getRealId(value)
+      return todosRef.value.some(todo => todo.id === realParentId) ? realParentId : null
+    }
+    const currentParentIds = findParentIds(todosRef.value, realId)
+    // 来源父级优先用拖拽行记录的父级；旧调用没带上下文时退回首个父级
+    const sourceParentIdResolved = resolveParent(sourceParentId) ?? currentParentIds[0] ?? null
+    // 目标父级：前/后落在落点行所在父级，拖进节点落在该节点，否则落到根任务
+    const newParentId = position === 'inside'
+      ? (target?.id ?? rootTaskId)
+      : (resolveParent(targetParentId)
+        ?? (target ? (findParentIds(todosRef.value, target.id)[0] ?? rootTaskId) : rootTaskId))
 
-    const oldParentIds = findParentIds(todosRef.value, realId).filter(parentId => parentId !== newParentId)
+    // 换父级时只摘来源那一条链接，多父任务的其它父级保持原样
+    if (sourceParentIdResolved != null && sourceParentIdResolved !== newParentId) {
+      const source = todosRef.value.find(todo => todo.id === sourceParentIdResolved)
+      if (source) {
+        await updateTodo(sourceParentIdResolved, {
+          child_ids: (source.child_ids || []).filter(childId => childId !== realId)
+        })
+      }
+    }
 
-    // 新层级的兄弟序列沿用父级 child_ids 的现有顺序, 去掉自身后插到落点位置
+    // 目标父级下沿用 child_ids 现有顺序，去掉自身后插到落点位置
     const siblings = siblingIdsOf(newParentId).filter(siblingId => siblingId !== realId)
     let insertAt = siblings.length
     if (target && position !== 'inside') {
@@ -262,30 +286,47 @@ export const createTodoOptimisticActions = ({
     }
     siblings.splice(insertAt, 0, realId)
 
-    for (const parentId of oldParentIds) {
-      const parent = todosRef.value.find(todo => todo.id === parentId)
-      if (!parent) continue
-      await updateTodo(parentId, {
-        child_ids: (parent.child_ids || []).filter(childId => childId !== realId)
-      })
-    }
-
     if (newParentId != null) {
-      // 已删除子任务的 ID 仍留在子列表里以便恢复, 重排时追加到末尾不丢失
       const parent = todosRef.value.find(todo => todo.id === newParentId)
+      // 已删除子任务的 ID 仍留在子列表里以便恢复, 重排时追加到末尾不丢失
       const knownIds = new Set(todosRef.value.map(todo => todo.id))
       const orphanIds = (parent?.child_ids || []).filter(childId => !knownIds.has(childId))
       await updateTodo(newParentId, { child_ids: [...siblings, ...orphanIds] })
     }
 
-    // 手动顺序已经写在 child_ids 里; sort_order 仅为兼容旧客户端同步，不再参与显示
-    for (const [index, siblingId] of siblings.entries()) {
-      const sibling = todosRef.value.find(todo => todo.id === siblingId)
-      if (!sibling || sibling.sort_order === index * ORDER_STEP) continue
-      await updateTodo(siblingId, { sort_order: index * ORDER_STEP })
+    return { success: true, data: { parentId: newParentId, index: insertAt } }
+  }
+
+  // 解除父子链接：最后一个父级被摘掉时把任务挂回根任务，避免出现没有挂载点的孤儿。
+  // 返回被改动前的父级/根任务子列表，供撤销还原
+  const unlinkTodo = async (parentId, childId) => {
+    const parent = todosRef.value.find(todo => todo.id === parentId)
+    if (!parent) return { success: false, error: '父任务不存在' }
+    if (parent.is_root) return { success: false, error: '根任务的子任务不能直接断开' }
+
+    const previousChildIds = [...(parent.child_ids || [])]
+    const nextChildIds = previousChildIds.filter(id => id !== childId)
+    if (nextChildIds.length === previousChildIds.length) {
+      return { success: true, data: { unchanged: true } }
     }
 
-    return { success: true, data: { parentId: newParentId, index: insertAt } }
+    const result = await updateTodo(parentId, { child_ids: nextChildIds })
+    if (!result.success) return result
+
+    const rootTaskId = todosRef.value.find(todo => todo.is_root)?.id ?? null
+    const hasOtherParent = todosRef.value.some(todo => todo.id !== parentId
+      && (todo.child_ids || []).includes(childId))
+    if (hasOtherParent || rootTaskId == null) {
+      return { success: true, data: { previousChildIds, rootChildIds: null } }
+    }
+
+    const root = todosRef.value.find(todo => todo.id === rootTaskId)
+    const rootChildIds = [...(root?.child_ids || [])]
+    if (root && !rootChildIds.includes(childId)) {
+      await updateTodo(rootTaskId, { child_ids: [...rootChildIds, childId] })
+    }
+
+    return { success: true, data: { previousChildIds, rootChildIds } }
   }
 
   const deleteTodo = async (id) => {
@@ -525,6 +566,7 @@ export const createTodoOptimisticActions = ({
     updateTodo,
     toggleDone,
     moveTodo,
+    unlinkTodo,
     deleteTodo,
     deleteCompletedTodos,
     restoreTodo,

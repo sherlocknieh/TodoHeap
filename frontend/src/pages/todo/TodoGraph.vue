@@ -85,7 +85,8 @@ const createTask = async ({ parentId = null, afterId = null } = {}) => {
 
 	const newId = result.data.id
 	if (afterId != null) {
-		await todoStore.moveTodo(newId, { targetId: afterId, position: 'after' })
+		// 新建任务与落点在同一父级，带上父级上下文只做同级重排
+		await todoStore.moveTodo(newId, { targetId: afterId, position: 'after', sourceParentId: parentId, targetParentId: parentId })
 	}
 
 	emit('task-selected', newId)
@@ -159,26 +160,28 @@ const linkTask = async ({ parentId, childId }) => {
 	})
 }
 
-// 删除连线：只从父任务的 child_ids 移除引用，任务本身与其他父关系不受影响
+// 删除连线：只从父任务的 child_ids 移除引用；最后一个父级被摘掉时任务回到顶层
 const unlinkTask = async ({ parentId, childId }) => {
 	const parent = todoStore.findTodoById(parentId)
 	const child = todoStore.findTodoById(childId)
 	if (!parent || !child) return
 
-	const childIds = parent.child_ids || []
-	if (!childIds.includes(childId)) return
-
-	const result = await todoStore.updateTodo(parentId, {
-		child_ids: childIds.filter((id) => id !== childId)
-	})
+	const result = await todoStore.unlinkTodo(parentId, childId)
 	if (!result.success) {
 		if (result.error) emit('notify', { message: result.error })
 		return
 	}
+	if (result.data?.unchanged) return
 
 	emit('notify', {
 		message: `已断开「${parent.title || '任务'}」与「${child.title || '任务'}」的链接`,
-		undo: () => todoStore.updateTodo(parentId, { child_ids: childIds })
+		undo: () => {
+			const actions = [todoStore.updateTodo(parentId, { child_ids: result.data.previousChildIds })]
+			if (result.data.rootChildIds != null) {
+				actions.push(todoStore.updateTodo(todoStore.rootTaskId, { child_ids: result.data.rootChildIds }))
+			}
+			return Promise.all(actions)
+		}
 	})
 }
 </script>

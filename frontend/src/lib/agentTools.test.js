@@ -72,6 +72,17 @@ const makeTodoStore = (initial = []) => {
       todosRef.value[index] = { ...todosRef.value[index], ...updates }
       return { success: true, data: todosRef.value[index] }
     }),
+    unlinkTodo: vi.fn(async (parentId, childId) => {
+      const parent = todosRef.value.find((item) => item.id === parentId)
+      if (!parent) return { success: false, error: '父任务不存在' }
+      const previousChildIds = [...(parent.child_ids || [])]
+      const nextChildIds = previousChildIds.filter((id) => id !== childId)
+      if (nextChildIds.length === previousChildIds.length) {
+        return { success: true, data: { unchanged: true } }
+      }
+      parent.child_ids = nextChildIds
+      return { success: true, data: { previousChildIds, rootChildIds: null } }
+    }),
     deleteTodo: vi.fn(async () => ({ success: true })),
     deleteCompletedTodos: vi.fn(async () => ({ success: true, count: 2 })),
     restoreTodo: vi.fn(async () => ({ success: true })),

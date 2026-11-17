@@ -75,6 +75,7 @@
         v-for="node in sortedTree"
         :key="node.id"
         :node="node"
+        :parent-id="todoStore.rootTaskId"
         :selected-task-id="props.selectedTaskId"
         :selection-mode="selectionMode"
         :selected-ids="selectedIds"
@@ -406,28 +407,28 @@ const setDeadline = async ({ id, deadline }) => {
   })
 }
 
-const moveTodo = async ({ id, targetId, position }) => {
-  const result = await todoStore.moveTodo(id, { targetId, position })
+const moveTodo = async ({ id, targetId, position, sourceParentId, targetParentId }) => {
+  const result = await todoStore.moveTodo(id, { targetId, position, sourceParentId, targetParentId })
   if (!result.success && result.error) {
     emit('notify', { message: result.error })
   }
 }
 
-// 取消链接：把目标任务从父任务的 child_ids 中摘除，任务本身与其他父关系保留
+// 取消链接：只摘掉这条父链接；最后一个父级被摘掉时任务回到顶层
 const unlinkTask = async ({ parentId, childId }) => {
-  const parent = todoStore.findTodoById(parentId)
-  if (!parent || childId == null) return
-
-  const previousIds = [...(parent.child_ids || [])]
-  const nextIds = previousIds.filter(id => String(id) !== String(childId))
-  if (nextIds.length === previousIds.length) return
-
-  const result = await todoStore.updateTodo(parentId, { child_ids: nextIds })
-  if (!result.success) return
+  if (childId == null) return
+  const result = await todoStore.unlinkTodo(parentId, childId)
+  if (!result.success || result.data?.unchanged) return
 
   emit('notify', {
     message: '已取消链接',
-    undo: () => todoStore.updateTodo(parentId, { child_ids: previousIds })
+    undo: () => {
+      const actions = [todoStore.updateTodo(parentId, { child_ids: result.data.previousChildIds })]
+      if (result.data.rootChildIds != null) {
+        actions.push(todoStore.updateTodo(todoStore.rootTaskId, { child_ids: result.data.rootChildIds }))
+      }
+      return Promise.all(actions)
+    }
   })
 }
 
