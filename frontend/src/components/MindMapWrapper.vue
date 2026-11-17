@@ -1076,6 +1076,17 @@ const onCanvasClick = () => {
   selectedEdgeKey.value = null
 }
 
+// 滚轮模式在一次连续滚动序列内锁定：起始落在节点/连线上就缩放，落在空白处就平移，
+// 中途指针扫过节点也不切换，避免滚动过程中画面突然变焦
+let wheelMode = null
+let wheelIdleTimer = null
+
+const resetWheelMode = () => {
+  wheelMode = null
+  clearTimeout(wheelIdleTimer)
+  wheelIdleTimer = null
+}
+
 // 滚轮：指针落在节点或连线上时缩放，落在空白处时上下平移画布
 const onWheel = (event) => {
   const el = container.value
@@ -1084,10 +1095,18 @@ const onWheel = (event) => {
 
   // 行模式滚轮（部分鼠标/触控板）的 delta 单位是行，换算成像素
   const unit = event.deltaMode === 1 ? 16 : 1
-  const onItem = event.target instanceof Element
-    && event.target.closest('[data-mm-node], [data-mm-edge]')
 
-  if (!onItem) {
+  if (wheelMode === null) {
+    const onItem = event.target instanceof Element
+      && event.target.closest('[data-mm-node], [data-mm-edge]')
+    wheelMode = onItem ? 'zoom' : 'pan'
+  }
+
+  // 停止滚动一小段时间后解锁，下一次滚动重新按落点判定
+  clearTimeout(wheelIdleTimer)
+  wheelIdleTimer = setTimeout(resetWheelMode, 220)
+
+  if (wheelMode === 'pan') {
     view.x -= event.deltaX * unit
     view.y -= event.deltaY * unit
     return
@@ -1223,6 +1242,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   if (saveViewTimer) clearTimeout(saveViewTimer)
+  clearTimeout(wheelIdleTimer)
   window.removeEventListener('pointermove', onDragMove)
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
