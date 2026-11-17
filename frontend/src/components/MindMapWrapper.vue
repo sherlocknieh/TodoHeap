@@ -44,6 +44,7 @@
           :opacity="node.completed_at ? 0.55 : 1" :data-mm-node="node.id"
           class="cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
+          @pointerenter="holdLeafControl(node)" @pointerleave="releaseLeafControl()"
           @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? selectedNodeStroke : nodeStroke"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
@@ -102,11 +103,14 @@
           </text>
 
           <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号）；
-               叶子节点选中后显示加号，不会因指针移开而消失，也不会一直占位。
+               叶子节点悬停或选中时显示加号，离开后短暂保留，指针移向按钮时不会消失。
                单击折叠/新建子任务，拖到别的节点上则把那个任务挂成当前节点的子任务 -->
-          <g v-if="node.childCount > 0 || (node.selected && !node.isRoot)"
+          <g v-if="node.childCount > 0 || (node.selected && !node.isRoot) || isLeafHovered(node)"
             :transform="`translate(${node.controlX} ${node.controlY})`"
+            @pointerenter="holdLeafControl(node)" @pointerleave="releaseLeafControl()"
             @pointerdown.stop="onTogglePointerDown($event, node)" @click.stop="onToggleClick(node)">
+            <!-- 透明热区：命中范围略大于可见圆，指针稍偏也能点到，又不至于抢走节点边缘的点击 -->
+            <circle :r="toggleRadius + 3" class="cursor-pointer fill-transparent" />
             <circle :r="toggleRadius" class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
               ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
               : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
@@ -278,6 +282,28 @@ const toTaskId = (id) => (id != null && Number.isFinite(Number(id)) ? Number(id)
 
 // 根节点选中状态只在图内维护：根任务不进入任务详情面板
 const rootSelected = ref(false)
+
+// 叶子节点的加号在悬停时出现：指针短暂离开时延迟隐藏，
+// 给「从节点移向它外侧的加号」留出余量，不必精准一次命中
+const hoveredLeafId = ref(null)
+let leafHideTimer = null
+
+const holdLeafControl = (node) => {
+  clearTimeout(leafHideTimer)
+  leafHideTimer = null
+  if (!node.isRoot && node.childCount === 0) hoveredLeafId.value = String(node.id)
+}
+
+const releaseLeafControl = () => {
+  clearTimeout(leafHideTimer)
+  leafHideTimer = setTimeout(() => {
+    leafHideTimer = null
+    hoveredLeafId.value = null
+  }, 260)
+}
+
+const isLeafHovered = (node) => !node.isRoot && node.childCount === 0
+  && hoveredLeafId.value === String(node.id)
 
 // 操作提示浮层：点按钮开关，点浮层或画布之外收起
 const helpOpen = ref(false)
@@ -1858,6 +1884,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   document.removeEventListener('pointerdown', onHelpOutside)
   window.removeEventListener('sync:id-replaced', handleEditIdReplaced)
+  clearTimeout(leafHideTimer)
   stopViewAnimation()
   cancelPendingCenter()
   if (saveViewTimer) clearTimeout(saveViewTimer)
