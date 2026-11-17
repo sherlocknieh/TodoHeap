@@ -1238,8 +1238,17 @@ const focusMainRange = (node) => {
   })
   const related = layout.value.nodes.filter((item) => ids.has(item.id))
   const vertical = isVertical.value
-  const min = Math.min(...related.map((item) => (vertical ? item.y : item.x)))
-  const max = Math.max(...related.map((item) => (vertical ? item.y + item.height : item.x + nodeWidth)))
+  let min = Math.min(...related.map((item) => (vertical ? item.y : item.x)))
+  let max = Math.max(...related.map((item) => (vertical ? item.y + item.height : item.x + nodeWidth)))
+
+  // 叶子节点还没有子级：把下一层的位置也算进来，
+  // 聚焦后右侧（或反方向一侧）始终留着放新子任务的空间
+  const hasChildren = layout.value.edges.some((edge) => edge.from === node.id)
+  if (!hasChildren) {
+    const layer = mainGap + (vertical ? node.height : nodeWidth)
+    if (isForward.value) max += layer
+    else min -= layer
+  }
   return { min, max }
 }
 
