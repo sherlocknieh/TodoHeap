@@ -101,9 +101,10 @@
             {{ node.subtitle }}
           </text>
 
-          <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号），叶子节点常驻加号。
+          <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号）；
+               叶子节点选中后显示加号，不会因指针移开而消失，也不会一直占位。
                单击折叠/新建子任务，拖到别的节点上则把那个任务挂成当前节点的子任务 -->
-          <g v-if="node.childCount > 0 || !node.isRoot"
+          <g v-if="node.childCount > 0 || (node.selected && !node.isRoot)"
             :transform="`translate(${node.controlX} ${node.controlY})`"
             @pointerdown.stop="onTogglePointerDown($event, node)" @click.stop="onToggleClick(node)">
             <circle :r="toggleRadius" class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
