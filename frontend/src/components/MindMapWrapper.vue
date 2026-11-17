@@ -61,44 +61,70 @@
                     ? 'fill-accent-50 dark:fill-neutral-800'
                     : 'fill-white dark:fill-neutral-900'
             ]" />
-          <text :x="paddingX" :y="0" class="text-[13px] font-medium" :class="node.isRoot
+          <!-- 勾选框：点击切换完成状态，与列表视图的两态复选一致 -->
+          <g v-if="node.hasCheckbox" :transform="`translate(${paddingX} ${paddingTop + fontSize - 1})`"
+            @pointerdown.stop @click.stop="toggleDone(node)">
+            <rect :width="checkboxSize" :height="checkboxSize" :y="-checkboxSize + 3" rx="3.5"
+              stroke-width="1.2" class="cursor-pointer transition-colors" :class="node.completed_at
+                ? 'fill-accent-600 stroke-accent-600 dark:fill-accent-500 dark:stroke-accent-500'
+                : 'fill-white stroke-neutral-300 hover:stroke-accent-500 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:stroke-accent-400'" />
+            <path v-if="node.completed_at" :d="`M3.2 ${-checkboxSize + 6.6} L5.8 ${-checkboxSize + 9.4} L10.8 ${-checkboxSize + 4.2}`"
+              fill="none" class="pointer-events-none stroke-white" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+            <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
+          </g>
+          <text :x="node.textX" :y="0" class="text-[13px] font-medium" :class="node.isRoot
             ? 'fill-white'
-            : 'fill-neutral-800 dark:fill-neutral-100'">
-            <tspan v-for="(line, index) in node.lines" :key="index" :x="paddingX"
+            : node.completed_at
+              ? 'fill-neutral-400 line-through dark:fill-neutral-500'
+              : 'fill-neutral-800 dark:fill-neutral-100'">
+            <tspan v-for="(line, index) in node.lines" :key="index" :x="node.textX"
               :dy="index === 0 ? paddingTop + fontSize : lineHeight">{{ line }}</tspan>
           </text>
           <!-- 根节点副标题：说明这张图代表什么，与参考图的「作品集导航」同位 -->
-          <text v-if="node.subtitle" :x="paddingX"
+          <text v-if="node.subtitle" :x="node.textX"
             :y="paddingTop + node.lines.length * lineHeight + 12" class="text-[11px]"
             :class="node.isRoot ? 'fill-white/70' : 'fill-neutral-500 dark:fill-neutral-400'">
             {{ node.subtitle }}
           </text>
 
-          <!-- 子任务数量徽标与折叠开关：固定在节点右侧，与参考图一致 -->
-          <g v-if="node.childCount > 0" :transform="`translate(${nodeWidth - paddingX} ${node.height / 2})`"
+          <!-- 展开/收起按钮：计数与加减号合并在同一个胶囊里，固定在节点右侧 -->
+          <g v-if="node.childCount > 0" :transform="`translate(${node.controlX} ${node.height / 2})`"
             @pointerdown.stop @click.stop="toggleCollapse(node)">
-            <rect :x="-(badgeWidth + badgeGap + toggleSize)" :y="-8" :width="badgeWidth" height="16" rx="8"
-              class="pointer-events-none" :class="node.isRoot
-                ? 'fill-white/20'
-                : 'fill-neutral-100 dark:fill-neutral-800'" />
-            <text :x="-(badgeWidth + badgeGap + toggleSize) + badgeWidth / 2" y="0" text-anchor="middle"
-              dominant-baseline="central" class="pointer-events-none text-[10px] tabular-nums" :class="node.isRoot
-                ? 'fill-white'
-                : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
-            <circle :cx="-toggleSize / 2" r="8" class="cursor-pointer transition-colors" stroke-width="1"
-              :class="node.isRoot
+            <rect :x="-(toggleWidth)" :y="-8" :width="toggleWidth" height="16" :rx="8"
+              class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
                 ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
                 : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
-            <path :d="`M${-toggleSize / 2 - 3.5} 0 H${-toggleSize / 2 + 3.5}`" fill="none" stroke-width="1.3"
-              stroke-linecap="round" class="pointer-events-none" :class="node.isRoot
+            <text :x="-(toggleWidth) + 7" y="0" text-anchor="start" dominant-baseline="central"
+              class="pointer-events-none text-[10px] tabular-nums" :class="node.isRoot
+                ? 'fill-white'
+                : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
+            <path :d="`M${-8} 0 H${-2}`" fill="none" stroke-width="1.3" stroke-linecap="round"
+              class="pointer-events-none" :class="node.isRoot
                 ? 'stroke-white'
                 : 'stroke-neutral-500 dark:stroke-neutral-300'" />
-            <!-- 折叠时显示加号、展开时显示减号，与参考图一致 -->
-            <path v-if="node.collapsed" :d="`M${-toggleSize / 2} -3.5 V3.5`" fill="none" stroke-width="1.3"
+            <!-- 折叠时显示加号、展开时显示减号 -->
+            <path v-if="node.collapsed" :d="`M${-5} -3 V3`" fill="none" stroke-width="1.3"
               stroke-linecap="round" class="pointer-events-none" :class="node.isRoot
                 ? 'stroke-white'
                 : 'stroke-neutral-500 dark:stroke-neutral-300'" />
             <title>{{ node.collapsed ? `展开 ${node.childCount} 个子任务` : '折叠子任务' }}</title>
+          </g>
+
+          <!-- 已完成节点右侧的删除按钮：完成即收尾，就地提供删除入口 -->
+          <g v-if="node.completed" :transform="`translate(${nodeWidth - paddingX - deleteSize / 2} ${node.height / 2})`"
+            @pointerdown.stop @click.stop="deleteNode(node)">
+            <circle r="8" class="cursor-pointer transition-colors" stroke-width="1"
+              :class="confirmDeleteId === node.id
+                ? 'fill-accent-600 stroke-accent-600 dark:fill-accent-500 dark:stroke-accent-500'
+                : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
+            <path v-if="confirmDeleteId === node.id" d="M-2.4 0 L-0.7 1.8 L2.6 -2" fill="none"
+              class="pointer-events-none stroke-white" stroke-width="1.4" stroke-linecap="round"
+              stroke-linejoin="round" />
+            <path v-else d="M-2.6 -2.6 L2.6 2.6 M2.6 -2.6 L-2.6 2.6" fill="none" stroke-width="1.3"
+              stroke-linecap="round" class="pointer-events-none"
+              :class="'stroke-neutral-500 dark:stroke-neutral-300'" />
+            <title>{{ confirmDeleteId === node.id ? '再次点击删除任务' : '删除任务' }}</title>
           </g>
         </g>
 
@@ -174,11 +200,17 @@ const paddingX = 10
 const maxLines = 3
 const crossGap = 24
 const mainGap = 84
-// 折叠控件：数量徽标 + 加减开关，固定在节点右侧，文字要为其让出宽度
-const toggleSize = 16
-const badgeWidth = 22
-const badgeGap = 4
-const controlReserve = toggleSize + badgeGap + badgeWidth + 6
+// 展开/收起胶囊：计数与加减号合并，宽度随位数增长
+const toggleWidth = 34
+const controlReserve = toggleWidth + 6
+// 勾选框：真实任务左侧的完成开关，根节点没有
+const checkboxSize = 14
+const checkboxGap = 8
+const checkboxReserve = checkboxSize + checkboxGap
+// 已完成节点右侧的删除按钮，与折叠控件同排，折叠控件相应左移
+const deleteSize = 16
+const deleteGap = 4
+const deleteReserve = deleteSize + deleteGap
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -224,8 +256,11 @@ const nodeMainSize = (node) => (isVertical.value ? node.height : nodeWidth)
 const nodeCrossSize = (node) => (isVertical.value ? nodeWidth : node.height)
 
 // 有折叠控件时右侧要让出徽标与开关，可用字数随之减少
-const textUnitsFor = (hasChildren) => {
-  const available = nodeWidth - paddingX * 2 - (hasChildren ? controlReserve : 0)
+const textUnitsFor = (hasChildren, hasCheckbox, completed) => {
+  const available = nodeWidth - paddingX * 2
+    - (hasChildren ? controlReserve : 0)
+    - (hasCheckbox ? checkboxReserve : 0)
+    - (completed ? deleteReserve : 0)
   return Math.max(4, Math.floor(available / fontSize))
 }
 
@@ -256,12 +291,20 @@ const wrapLines = (text, unitsPerLine) => {
 
 // 节点文案与高度统一在这里计算，布局只负责摆放
 const measureNode = (raw) => {
-  const lines = wrapLines(raw.title, textUnitsFor(raw.childCount > 0))
+  const hasCheckbox = !raw.isRoot
+  const completed = Boolean(raw.completed_at)
+  const lines = wrapLines(raw.title, textUnitsFor(raw.childCount > 0, hasCheckbox, completed))
   const subtitle = raw.subtitle || ''
   return {
     ...raw,
     lines,
     subtitle,
+    hasCheckbox,
+    completed,
+    // 勾选框占位后文字整体右移，根节点保持原位
+    textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
+    // 折叠控件在已完成节点上要给删除按钮让位
+    controlX: nodeWidth - paddingX - (completed ? deleteReserve : 0),
     height: paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0),
     selected: String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
   }
@@ -758,6 +801,25 @@ const toggleCollapse = (node) => {
   skipNextAutoFit = true
 }
 
+// 勾选框：切换完成状态，根节点不是真实任务，不参与
+const toggleDone = (node) => {
+  if (node.isRoot) return
+  emit('toggle-done', Number(node.id))
+}
+
+// 已完成节点上的删除按钮：两段式确认，避免误删
+const confirmDeleteId = ref(null)
+
+const deleteNode = (node) => {
+  if (node.isRoot) return
+  if (confirmDeleteId.value !== node.id) {
+    confirmDeleteId.value = node.id
+    return
+  }
+  confirmDeleteId.value = null
+  emit('delete-task', Number(node.id))
+}
+
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
 const selectNode = (node) => {
   // 拖拽建链接后紧跟的 click 不应改变选中
@@ -885,6 +947,11 @@ const nodeIndex = computed(() => {
 const selectedId = computed(() => {
   if (rootSelected.value) return 'root'
   return props.selectedTaskId == null ? null : String(props.selectedTaskId)
+})
+
+// 选中项变化时收起删除按钮的待确认状态，避免确认态残留到别的节点
+watch(selectedId, () => {
+  confirmDeleteId.value = null
 })
 
 // 视口动画：居中与适应视图都走同一套缓动，避免画面瞬移
@@ -1160,6 +1227,7 @@ const onKeydown = (event) => {
 const onCanvasClick = () => {
   selectedEdgeKey.value = null
   rootSelected.value = false
+  confirmDeleteId.value = null
   if (selectedId.value != null) emit('task-selected', null)
 }
 
