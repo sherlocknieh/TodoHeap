@@ -73,18 +73,26 @@
               stroke-linejoin="round" />
             <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
           </g>
-          <!-- 节点文字：只读展示，双击后改用页面层编辑器，避免字号随缩放变得看不清 -->
+          <!-- 节点文字：常驻输入框承载，平时只读，双击后原地编辑 -->
           <foreignObject :x="node.textX" :y="paddingTop + 1" :width="node.textWidth"
-            :height="node.lines.length * lineHeight">
-            <div :style="textStyle"
-              class="pointer-events-none block h-full w-full select-none overflow-hidden whitespace-pre font-medium"
+            :height="editingId === Number(node.id) ? editLines * lineHeight : node.lines.length * lineHeight">
+            <textarea :ref="(el) => setEditInput(el, node)"
+              :value="editingId === Number(node.id) ? editingText : node.lines.join('\n')"
+              :readonly="editingId !== Number(node.id)"
+              :tabindex="editingId === Number(node.id) ? 0 : -1"
+              spellcheck="false" :style="editTextStyle(node)"
+              class="block h-full w-full resize-none border-0 bg-transparent p-0 font-medium outline-none"
               :class="[
                 node.isRoot
                   ? 'text-white'
                   : node.completed_at
                     ? 'text-neutral-400 line-through dark:text-neutral-500'
-                    : 'text-neutral-800 dark:text-neutral-100'
-              ]">{{ node.lines.join('\n') }}</div>
+                    : 'text-neutral-800 dark:text-neutral-100',
+                editingId === Number(node.id) ? 'pointer-events-auto overflow-y-auto' : 'pointer-events-none overflow-hidden'
+              ]"
+              @input="onEditInput(node, $event)"
+              @pointerdown.stop @click.stop @dblclick.stop @dragstart.prevent
+              @keydown.stop="onEditKeydown" @blur="commitEdit" />
           </foreignObject>
           <!-- 根节点副标题：说明这张图代表什么，与参考图的「作品集导航」同位 -->
           <text v-if="node.subtitle" :x="node.textX"
@@ -186,20 +194,6 @@
           </div>
         </Transition>
       </div>
-    </div>
-
-    <!-- 编辑浮层：脱离 SVG 缩放，字号固定可读；长文本自动换行并在限高内滚动 -->
-    <div v-if="editingNode && editBox"
-      class="absolute z-20 flex flex-col gap-1 rounded-md border border-accent-400 bg-white p-2 shadow-lg dark:border-accent-500/50 dark:bg-neutral-900"
-      :style="{ left: `${editBox.left}px`, top: `${editBox.top}px`, width: `${editBox.width}px` }"
-      @pointerdown.stop @click.stop @dblclick.stop @wheel.stop>
-      <textarea ref="editInput" v-model="editingText" rows="1" spellcheck="false"
-        class="w-full resize-none border-0 bg-transparent p-0 text-sm leading-6 text-neutral-900 outline-none dark:text-neutral-100"
-        :style="{ maxHeight: `${EDIT_MAX_HEIGHT}px` }"
-        @keydown.stop="onEditKeydown" @blur="commitEdit" @input="autoGrowEdit" />
-      <p class="text-[11px] leading-4 text-neutral-400 dark:text-neutral-500">
-        Enter 保存 · Esc 取消
-      </p>
     </div>
   </div>
 </template>
@@ -303,7 +297,7 @@ const textUnitsFor = (hasToggle, hasCheckbox, completed) => {
 }
 
 // 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出
-const wrapLines = (text, unitsPerLine) => {
+const wrapLines = (text, unitsPerLine, limit = maxLines) => {
   const chars = [...String(text || '未命名任务')]
   const lines = []
   let line = ''
@@ -321,9 +315,9 @@ const wrapLines = (text, unitsPerLine) => {
   }
   if (line) lines.push(line)
 
-  if (lines.length <= maxLines) return lines
-  const visible = lines.slice(0, maxLines)
-  visible[maxLines - 1] = `${visible[maxLines - 1].replace(/.$/, '')}…`
+  if (lines.length <= limit) return lines
+  const visible = lines.slice(0, limit)
+  visible[limit - 1] = `${visible[limit - 1].replace(/.$/, '')}…`
   return visible
 }
 
@@ -332,11 +326,13 @@ const measureNode = (raw) => {
   const hasCheckbox = !raw.isRoot
   const completed = Boolean(raw.completed_at)
   const hasToggle = raw.childCount > 0
-  const lines = wrapLines(raw.title, textUnitsFor(hasToggle, hasCheckbox, completed))
+  const unitsPerLine = textUnitsFor(hasToggle, hasCheckbox, completed)
+  const lines = wrapLines(raw.title, unitsPerLine)
   const subtitle = raw.subtitle || ''
   return {
     ...raw,
     lines,
+    unitsPerLine,
     subtitle,
     hasCheckbox,
     completed,
@@ -1231,14 +1227,14 @@ const createChild = () => {
 
 const editingId = ref(null)
 const editingText = ref('')
-const editInput = ref(null)
-// 编辑器在画布坐标系里的落点：跟随节点在屏幕上的位置，尺寸与缩放无关
-const editBox = reactive({ left: 0, top: 0, width: 240 })
 // 已消费的新建标记，避免提交后又被父级传入的 id 重新打开
 let consumedEditId = null
-
-const editingNode = computed(() =>
-  layout.value.nodes.find((item) => item.id === String(editingId.value)) ?? null)
+// 节点文字输入框按节点 ID 收集，编辑时聚焦对应那个
+const editInputs = new Map()
+const setEditInput = (el, node) => {
+  if (el) editInputs.set(String(node.id), el)
+  else editInputs.delete(String(node.id))
+}
 
 // 输入框与节点文字同字号同行高，随 SVG 一起缩放
 const textStyle = {
@@ -1246,43 +1242,36 @@ const textStyle = {
   lineHeight: `${lineHeight}px`
 }
 
-const EDIT_MIN_WIDTH = 240
-const EDIT_MAX_WIDTH = 420
-const EDIT_MAX_HEIGHT = 160
+// 编辑态给足行数，长标题换行后仍可完整查看和拖选；超出后输入框内部滚动
+const EDIT_MAX_LINES = 5
+// 编辑态当前占用的行数：按内容估算，随输入增长
+const editLines = ref(maxLines)
+const lineCountOf = (text, unitsPerLine) => Math.min(EDIT_MAX_LINES,
+  Math.max(1, wrapLines(text, unitsPerLine, Infinity).length))
 
-// 输入内容变化时按内容撑高，超过上限后内部滚动，不再截断
-const autoGrowEdit = () => {
-  const el = editInput.value
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = `${Math.min(el.scrollHeight, EDIT_MAX_HEIGHT)}px`
-  // 高度变化会影响上下翻转判断，撑高后重新定位
-  requestAnimationFrame(() => {
-    if (editingId.value != null) placeEditBox()
+const onEditInput = (node, event) => {
+  editingText.value = event.target.value
+  editLines.value = lineCountOf(event.target.value, node.unitsPerLine)
+}
+
+// 编辑态必须显式声明可选文本：画布容器是 select-none，继承下来会让拖选失效
+const editTextStyle = (node) => ({
+  ...textStyle,
+  userSelect: editingId.value === Number(node.id) ? 'text' : 'none'
+})
+
+// 编辑前把过小的缩放提到阅读档位，避免原地编辑时字号看不清；
+// 以节点中心为锚点只缩放不移动，编辑框仍贴在节点上
+const ensureEditScale = (node) => {
+  const target = focusScale()
+  if (view.scale >= target) return
+  const centerX = node.x + nodeWidth / 2
+  const centerY = node.y + node.height / 2
+  animateView({
+    x: view.x + centerX * view.scale - centerX * target,
+    y: view.y + centerY * view.scale - centerY * target,
+    scale: target
   })
-}
-
-// 编辑器贴在节点下方，宽度按节点文字宽度放大到可读尺寸；下方放不下时翻到上方，
-// 左右按节点左缘对齐并夹在画布内，长文本换行后限高滚动
-const placeEditBox = () => {
-  const node = editingNode.value
-  const rect = container.value?.getBoundingClientRect()
-  if (!node || !rect) return
-  const width = Math.max(EDIT_MIN_WIDTH, Math.min(EDIT_MAX_WIDTH, node.textWidth * view.scale + 24))
-  const estimate = editInput.value?.getBoundingClientRect().height ?? 0
-  const nodeTop = view.y + node.y * view.scale
-  const nodeBottom = nodeTop + node.height * view.scale
-  editBox.width = width
-  editBox.left = Math.max(8, Math.min(rect.width - width - 8,
-    view.x + (node.x + node.textX) * view.scale))
-  editBox.top = nodeBottom + estimate + 24 > rect.height
-    ? Math.max(8, nodeTop - estimate - 24)
-    : nodeBottom + 6
-}
-
-const syncEditBox = () => {
-  placeEditBox()
-  nextTick(autoGrowEdit)
 }
 
 // selectText 只在预填占位文字（新建任务）时全选，直接输入即可覆盖；
@@ -1294,9 +1283,10 @@ const startEdit = (node, { selectText = false } = {}) => {
   stopViewAnimation()
   editingId.value = Number(node.id)
   editingText.value = node.title
-  syncEditBox()
+  editLines.value = lineCountOf(node.title, node.unitsPerLine)
+  ensureEditScale(node)
   nextTick(() => {
-    const input = editInput.value
+    const input = editInputs.get(String(node.id))
     if (!input) return
     input.focus()
     const end = input.value.length
@@ -1310,17 +1300,24 @@ const startEditById = (id) => {
   if (node) startEdit(node)
 }
 
-// 编辑器浮在画布上，画布移动或重排时跟着节点走
-watch([() => view.x, () => view.y, () => view.scale, layout], () => {
-  if (editingId.value != null) syncEditBox()
-})
+// 结束编辑时清掉输入框与文档残留的选区：blur 不会自动取消全选，
+// 否则离开节点后文字仍显示成选中态
+const releaseSelection = (id) => {
+  const el = editInputs.get(String(id))
+  try {
+    el?.setSelectionRange(0, 0)
+  } catch {
+    // 少数浏览器在失焦后不允许改选区，忽略即可
+  }
+  window.getSelection()?.removeAllRanges()
+}
 
 const commitEdit = () => {
   const id = editingId.value
   if (id == null) return
   const title = editingText.value.replace(/\s+/g, ' ').trim()
   editingId.value = null
-  window.getSelection()?.removeAllRanges()
+  releaseSelection(id)
   // 交还焦点，键盘操作可以继续
   container.value?.focus({ preventScroll: true })
   if (!title) return
@@ -1330,8 +1327,9 @@ const commitEdit = () => {
 }
 
 const cancelEdit = () => {
+  const id = editingId.value
   editingId.value = null
-  window.getSelection()?.removeAllRanges()
+  releaseSelection(id)
   container.value?.focus({ preventScroll: true })
 }
 
@@ -1502,6 +1500,8 @@ const nodeAtPoint = (point) => layout.value.nodes.find((node) => (
 
 const onNodePointerDown = (event, node) => {
   if (event.button !== 0 || node.isRoot || node.isRef) return
+  // 编辑中不启动拖拽建链接，避免在节点内拖选文字时被拖走
+  if (editingId.value != null) return
   hasInteracted = true
   dragStart = { x: event.clientX, y: event.clientY }
   dragState.active = true
