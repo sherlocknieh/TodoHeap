@@ -34,7 +34,7 @@
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
-        <!-- 拖拽建链接：从指针指向被拖动节点的预览线，箭头落在节点上 -->
+        <!-- 拖拽建链接的预览线：节点拖拽时箭头指向源节点，按钮拖拽时从按钮连向指针 -->
         <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
           class="stroke-accent-500 dark:stroke-accent-400" stroke-width="1.6" stroke-dasharray="6 4"
           stroke-linecap="round" marker-end="url(#mm-arrow-ref)" />
@@ -101,9 +101,10 @@
             {{ node.subtitle }}
           </text>
 
-          <!-- 展开/收起按钮：折叠时圆内显示子任务计数，展开后变为减号；挂在节点出边一侧外 -->
+          <!-- 展开/收起按钮：折叠时圆内显示子任务计数，展开后变为减号；挂在节点出边一侧外。
+               单击折叠/展开，拖到别的节点上则把那个任务挂成当前节点的子任务 -->
           <g v-if="node.childCount > 0" :transform="`translate(${node.controlX} ${node.controlY})`"
-            @pointerdown.stop @click.stop="toggleCollapse(node)">
+            @pointerdown.stop="onTogglePointerDown($event, node)" @click.stop="onToggleClick(node)">
             <circle :r="toggleRadius" class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
               ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
               : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
@@ -1538,7 +1539,9 @@ let panMoved = false
 let lastPanEndAt = 0
 
 // 拖拽建链接：从节点拖到另一个节点上，把源节点链接为目标节点的子任务
-const dragState = reactive({ active: false, sourceId: null, targetId: null, preview: null, moved: false })
+// 拖拽建链接：两种起点——拖节点表示「它将成为落点节点的子任务」，
+// 拖折叠按钮表示「落点节点将成为它的子任务」，方向相反
+const dragState = reactive({ active: false, sourceId: null, targetId: null, preview: null, moved: false, fromToggle: false })
 let dragStart = { x: 0, y: 0 }
 let lastDragEndAt = 0
 
@@ -1562,28 +1565,51 @@ const onNodePointerDown = (event, node) => {
   if (event.button !== 0 || node.isRoot || node.isRef) return
   // 编辑中不启动拖拽建链接，避免在节点内拖选文字时被拖走
   if (editingId.value != null) return
+  startDrag(event, node.id, false)
+}
+
+// 折叠按钮按下：可能是单击折叠，也可能拖出链接，先按拖拽跟踪，移动超过阈值才算拖拽
+const onTogglePointerDown = (event, node) => {
+  if (event.button !== 0 || node.isRoot) return
+  startDrag(event, node.id, true)
+}
+
+// 拖拽结束后的 click 不再触发折叠，避免拖完顺手把节点收起来
+const onToggleClick = (node) => {
+  if (Date.now() - lastDragEndAt < 250) return
+  toggleCollapse(node)
+}
+
+const startDrag = (event, sourceId, fromToggle) => {
   hasInteracted = true
   dragStart = { x: event.clientX, y: event.clientY }
   dragState.active = true
-  dragState.sourceId = node.id
+  dragState.sourceId = sourceId
   dragState.targetId = null
   dragState.preview = null
   dragState.moved = false
+  dragState.fromToggle = fromToggle
   // 不用 pointer capture：它会把 click 改派到画布，节点自身的选中与双击会失效
   window.addEventListener('pointermove', onDragMove)
   window.addEventListener('pointerup', onDragEnd)
   window.addEventListener('pointercancel', onDragEnd)
 }
 
-// 预览线从指针连向源节点的入边锚点，箭头指向被拖动的节点，表示它将成为目标节点的子任务
+// 预览线：节点拖拽从指针连向源的入边锚点，箭头落在源节点上；
+// 按钮拖拽从源的折叠按钮连向指针，箭头指向待挂接的节点
 const updateDrag = (event) => {
   const source = layout.value.nodes.find((node) => node.id === dragState.sourceId)
   if (!source) return
   const point = toGraphPoint(event)
-  const tip = inAnchor(source)
-  // 线端沿法线后退一个箭头长度，箭头尖端正好落在节点边缘
-  const end = { x: tip.x + tip.dx * arrowLength, y: tip.y + tip.dy * arrowLength }
-  dragState.preview = `M${point.x} ${point.y} L${end.x} ${end.y}`
+  if (dragState.fromToggle) {
+    const tip = outAnchor(source)
+    dragState.preview = `M${tip.x} ${tip.y} L${point.x} ${point.y}`
+  } else {
+    const tip = inAnchor(source)
+    // 线端沿法线后退一个箭头长度，箭头尖端正好落在节点边缘
+    const end = { x: tip.x + tip.dx * arrowLength, y: tip.y + tip.dy * arrowLength }
+    dragState.preview = `M${point.x} ${point.y} L${end.x} ${end.y}`
+  }
 
   const hit = nodeAtPoint(point)
   const linkable = hit && hit.id !== dragState.sourceId && !hit.isRef
@@ -1605,17 +1631,23 @@ const onDragEnd = () => {
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
 
-  const { active, sourceId, targetId, moved } = dragState
+  const { active, sourceId, targetId, moved, fromToggle } = dragState
+  const dragged = active && moved
   dragState.active = false
   dragState.sourceId = null
   dragState.targetId = null
   dragState.preview = null
   dragState.moved = false
-  if (!active || !moved || !targetId) return
+  dragState.fromToggle = false
+  if (!dragged) return
 
-  // 拖拽结束后紧跟的 click 不应再改变选中
+  // 拖拽结束后紧跟的 click 不应再改变选中或触发折叠
   lastDragEndAt = Date.now()
-  emit('link-task', { sourceId: Number(sourceId), targetId: Number(targetId) })
+  if (!targetId) return
+  // 拖节点：落点成为父；拖折叠按钮：源节点成为父
+  emit('link-task', fromToggle
+    ? { parentId: Number(sourceId), childId: Number(targetId) }
+    : { parentId: Number(targetId), childId: Number(sourceId) })
 }
 
 const onPointerDown = (event) => {

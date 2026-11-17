@@ -639,15 +639,16 @@ const runToastUndo = async () => {
 		<!-- 操作反馈：带撤销入口的轻提示 -->
 		<Transition name="fade">
 			<div v-if="toast.visible"
-				class="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 panel px-3 py-2 shadow-lg">
-				<span class="text-sm text-neutral-700 dark:text-neutral-300">{{ toast.message }}</span>
+				class="fixed bottom-24 left-1/2 z-50 flex max-w-[min(90vw,30rem)] -translate-x-1/2 items-center gap-3 panel px-3 py-2 shadow-lg">
+				<span class="min-w-0 flex-1 truncate text-sm text-neutral-700 dark:text-neutral-300"
+					:title="toast.message">{{ toast.message }}</span>
 				<button v-if="toast.undo" type="button"
-					class="flex items-center gap-1 text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"
+					class="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"
 					@click="runToastUndo">
 					<AppIcon name="undo" :size="14" />
 					撤销
 				</button>
-				<button type="button" class="p-0.5 rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+				<button type="button" class="shrink-0 rounded p-0.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
 					title="关闭提示" @click="hideToast">
 					<AppIcon name="close" :size="13" />
 				</button>

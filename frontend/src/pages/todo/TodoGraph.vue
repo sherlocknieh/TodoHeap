@@ -114,34 +114,34 @@ const toggleDone = async (id) => {
 	})
 }
 
-// 拖拽建链接：把源任务并入目标任务的孩子列表，形成多父关系，不移动原父级
-const linkTask = async ({ sourceId, targetId }) => {
-	if (sourceId === targetId) return
-	const source = todoStore.findTodoById(sourceId)
-	const target = todoStore.findTodoById(targetId)
-	if (!source || !target) return
+// 拖拽建链接：把子任务并入父任务的 child_ids，形成多父关系，不移动原父级
+const linkTask = async ({ parentId, childId }) => {
+	if (parentId === childId) return
+	const parent = todoStore.findTodoById(parentId)
+	const child = todoStore.findTodoById(childId)
+	if (!parent || !child) return
 
-	// 目标已在源的子树里时再链接会成环
-	if (collectDescendantIds(todoStore.todos, sourceId).includes(targetId)) {
+	// 父任务已在子任务的子树里时再链接会成环
+	if (collectDescendantIds(todoStore.todos, childId).includes(parentId)) {
 		emit('notify', { message: '不能链接到自己的子任务' })
 		return
 	}
 
-	const childIds = target.child_ids || []
-	if (childIds.includes(sourceId)) {
-		emit('notify', { message: `「${source.title || '任务'}」已经是它的子任务` })
+	const childIds = parent.child_ids || []
+	if (childIds.includes(childId)) {
+		emit('notify', { message: `「${child.title || '任务'}」已经是它的子任务` })
 		return
 	}
 
-	const result = await todoStore.updateTodo(targetId, { child_ids: [...childIds, sourceId] })
+	const result = await todoStore.updateTodo(parentId, { child_ids: [...childIds, childId] })
 	if (!result.success) {
 		if (result.error) emit('notify', { message: result.error })
 		return
 	}
 
 	emit('notify', {
-		message: `已链接「${source.title || '任务'}」到「${target.title || '任务'}」`,
-		undo: () => todoStore.updateTodo(targetId, { child_ids: childIds })
+		message: `已链接「${child.title || '任务'}」到「${parent.title || '任务'}」`,
+		undo: () => todoStore.updateTodo(parentId, { child_ids: childIds })
 	})
 }
 
