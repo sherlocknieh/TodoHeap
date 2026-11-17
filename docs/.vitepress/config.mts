@@ -11,7 +11,10 @@ const baseNav = [
 
 function makeNav(lang: 'en' | 'zh') {
   const prefix = lang === 'zh' ? '/zh' : ''
-  return baseNav.map(item => ({ text: item.text[lang], link: `${prefix}${item.link}` }))
+  const nav = baseNav.map(item => ({ text: item.text[lang], link: `${prefix}${item.link}` }))
+  // 特性记录目前只有中文版，不进英文导航
+  if (lang === 'zh') nav.push({ text: '特性记录', link: '/zh/features/' })
+  return nav
 }
 const vitePressOptions = {
   // https://vitepress.dev/reference/site-config
@@ -105,8 +108,10 @@ const vitePressOptions = {
 // 生成多语言×多文件夹侧边栏
 const languages = ['zh', 'en'];
 const folders = ['user', 'dev'];
+// 特性记录只有中文版，英文站点不扫描该目录
+const foldersOf = (lang: string) => (lang === 'zh' ? [...folders, 'features'] : folders);
 const sidebarConfigs = languages.flatMap(lang =>
-  folders.map(mod => ({
+  foldersOf(lang).map(mod => ({
     scanStartPath: `${lang}/${mod}`,  // 当前侧栏扫描的目录
     resolvePath: `/${lang}/${mod}/`,  // 当前侧边栏链接前缀
     useTitleFromFileHeading: true,    // 从文档内部获取标题
