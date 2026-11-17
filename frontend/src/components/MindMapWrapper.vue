@@ -46,7 +46,7 @@
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @pointerenter="hoveredId = node.id" @pointerleave="hoveredId = null"
           @click.stop="selectNode(node)">
-          <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
+          <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? selectedNodeStroke : nodeStroke"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
             class="transition-colors" :class="[
               dragState.targetId === node.id
@@ -232,9 +232,14 @@ const maxLines = 3
 const crossGap = 24
 const mainGap = 84
 // 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号），叶子节点悬停时变为加号；
-// 贴在出边一侧的节点边框外，压着连线起点，间隙很小以免悬停时闪断
+// 与出边一侧的节点边框外切：圆心外移半径，再让开两个半描边，使外边框贴合、互不压线
 const toggleRadius = 8
-const toggleGap = 4
+const toggleStroke = 1
+// 节点边框描边：选中时加粗到 2，出边按钮随之多让半像素
+const nodeStroke = 1
+const selectedNodeStroke = 2
+const toggleOffset = (selected) =>
+  toggleRadius + (toggleStroke + (selected ? selectedNodeStroke : nodeStroke)) / 2
 // 勾选框：真实任务左侧的完成开关，根节点没有
 const checkboxSize = 14
 const checkboxGap = 8
@@ -304,17 +309,18 @@ const isForward = computed(() => direction.value === 'down' || direction.value =
 const nodeMainSize = (node) => (isVertical.value ? node.height : nodeWidth)
 const nodeCrossSize = (node) => (isVertical.value ? nodeWidth : node.height)
 
-// 折叠按钮位置：沿出边方向贴在节点边缘外，正对连线起点，参考图形软件的挂点样式
-const controlPointFor = (height) => {
+// 折叠按钮位置：沿出边方向外切于节点边框，正对连线起点，参考图形软件的挂点样式
+const controlPointFor = (height, selected) => {
+  const gap = toggleOffset(selected)
   switch (direction.value) {
     case 'up':
-      return { x: nodeWidth / 2, y: -toggleGap }
+      return { x: nodeWidth / 2, y: -gap }
     case 'left':
-      return { x: -toggleGap, y: height / 2 }
+      return { x: -gap, y: height / 2 }
     case 'down':
-      return { x: nodeWidth / 2, y: height + toggleGap }
+      return { x: nodeWidth / 2, y: height + gap }
     default:
-      return { x: nodeWidth + toggleGap, y: height / 2 }
+      return { x: nodeWidth + gap, y: height / 2 }
   }
 }
 
@@ -361,7 +367,7 @@ const measureNode = (raw) => {
   const lines = wrapLines(raw.title, unitsPerLine)
   const subtitle = raw.subtitle || ''
   const height = paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0)
-  const control = controlPointFor(height)
+  const control = controlPointFor(height, selected)
   return {
     ...raw,
     lines,
