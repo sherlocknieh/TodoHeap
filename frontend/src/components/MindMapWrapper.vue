@@ -1266,8 +1266,10 @@ const onKeydown = (event) => {
   }
 }
 
-// 点击空白画布取消选中：连线选中与节点选中一并清掉
+// 点击空白画布取消选中：连线选中与节点选中一并清掉。
+// 拖动平移松手后浏览器仍会补发 click，这里按位移与时间窗识别并忽略，避免拖动画布丢选中
 const onCanvasClick = () => {
+  if (Date.now() - lastPanEndAt < 250) return
   selectedEdgeKey.value = null
   rootSelected.value = false
   confirmDeleteId.value = null
@@ -1333,6 +1335,8 @@ const onWheel = (event) => {
 }
 
 let panStart = { x: 0, y: 0, originX: 0, originY: 0 }
+let panMoved = false
+let lastPanEndAt = 0
 
 // 拖拽建链接：从节点拖到另一个节点上，把源节点链接为目标节点的子任务
 const dragState = reactive({ active: false, sourceId: null, targetId: null, preview: null, moved: false })
@@ -1421,18 +1425,28 @@ const onPointerDown = (event) => {
   // 拖拽平移优先，打断正在进行的居中动画
   stopViewAnimation()
   panning.value = true
+  panMoved = false
   panStart = { x: event.clientX, y: event.clientY, originX: view.x, originY: view.y }
   container.value?.setPointerCapture(event.pointerId)
 }
 
 const onPointerMove = (event) => {
   if (!panning.value) return
+  if (!panMoved) {
+    const distance = Math.hypot(event.clientX - panStart.x, event.clientY - panStart.y)
+    if (distance < 4) return
+    panMoved = true
+  }
   view.x = panStart.originX + (event.clientX - panStart.x)
   view.y = panStart.originY + (event.clientY - panStart.y)
 }
 
 const endPan = () => {
+  if (!panning.value) return
   panning.value = false
+  // 真正发生过平移才记录时间，纯点击仍按点击处理
+  if (panMoved) lastPanEndAt = Date.now()
+  panMoved = false
 }
 
 let resizeObserver = null
