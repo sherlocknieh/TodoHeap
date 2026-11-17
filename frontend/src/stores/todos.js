@@ -122,12 +122,24 @@ export const useTodoStore = defineStore('todos', () => {
     })
 
     const index = todos.value.findIndex(t => t.id === tempId)
+    // 服务器返回的行不带本地父引用, 替换前先记下来, 供替换后补回父级 child_ids
+    const localParentId = index !== -1 ? todos.value[index].parent_id : null
+
     if (index !== -1) {
       const localChildIds = todos.value[index].child_ids || []
       // 服务器刚创建的任务还没有子节点, 合并本地已挂上的子任务
       todos.value[index] = {
         ...data,
         child_ids: [...new Set([...(data.child_ids || []), ...localChildIds])]
+      }
+    }
+
+    // 立刻把真实 ID 挂回父级, 不必等 realtime 推送; 否则新任务会短暂离开父级子树
+    if (localParentId != null) {
+      const parentId = getSyncQueue().getRealId(localParentId)
+      const parent = todos.value.find(t => t.id === parentId)
+      if (parent && !(parent.child_ids || []).includes(realId)) {
+        parent.child_ids = [...(parent.child_ids || []), realId]
       }
     }
   }

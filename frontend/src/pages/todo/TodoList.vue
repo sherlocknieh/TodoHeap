@@ -183,6 +183,7 @@ import { useAuthStore } from '@/stores/auth'
 import { collectDescendantIds } from '@/utils/taskGraph'
 import { DEADLINE_PRESETS, resolveDeadlinePreset } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
+import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
 import { pruneTaskCollapseTree } from '@/utils/taskCollapse'
 import TodoListItem from '@/components/TodoListItem.vue'
@@ -218,11 +219,7 @@ const sortMode = ref(LIST_SORT_OPTIONS.some(option => option.value === storedSor
 watch(sortMode, (value) => localStorage.setItem(SORT_STORAGE_KEY, value))
 
 // 根任务是挂载点，不渲染成列表行：列表展示它的子级
-const sortedTree = computed(() => {
-  const forest = sortTodoTree(todoStore.treeNodes, sortMode.value)
-  const root = forest.find(node => node.is_root)
-  return root ? root.children : forest
-})
+const sortedTree = computed(() => listTreeOf(sortTodoTree(todoStore.treeNodes, sortMode.value)))
 
 // 任务删除或移入回收站后，清掉共享折叠状态里已经不存在的任务 ID
 watch(() => todoStore.treeNodes, (nodes) => {

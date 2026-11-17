@@ -445,7 +445,9 @@ const buildPath = (id, byId, parentOf) => {
   let current = toNumber(id)
   while (current != null && byId.has(current) && !visited.has(current)) {
     visited.add(current)
-    titles.unshift(byId.get(current).title)
+    const node = byId.get(current)
+    // 根任务只是挂载点，不进任务路径
+    if (!isRootTodo(node)) titles.unshift(node.title)
     current = parentOf.get(current)
   }
   return titles.join(' / ')
@@ -453,6 +455,8 @@ const buildPath = (id, byId, parentOf) => {
 
 const serializeTodo = (todo, { byId, parentOf, parentsOf, includeDetails = false } = {}) => {
   const id = toNumber(todo.id)
+  // 根任务对模型不可见：顶层任务的父级按「无父级」输出
+  const parentIds = (parentsOf?.get(id) || []).filter((parentId) => !isRootTodo(byId?.get(parentId)))
   return {
     id,
     title: todo.title,
@@ -462,8 +466,8 @@ const serializeTodo = (todo, { byId, parentOf, parentsOf, includeDetails = false
     deadline: todo.deadline || null,
     difficulty: todo.difficulty ?? null,
     sort_order: todo.sort_order ?? null,
-    parent_id: parentOf.get(id) ?? null,
-    parent_ids: parentsOf?.get(id) || [],
+    parent_id: parentIds[0] ?? null,
+    parent_ids: parentIds,
     child_ids: (todo.child_ids || []).map(toNumber),
     ...(includeDetails ? { details: todo.details || '' } : {})
   }
@@ -659,8 +663,8 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const { parentOf } = indexTodos(todoStore.todos)
       const oldParentId = parentOf.get(toNumber(todo.id)) ?? null
       // 移到根层级等于挂到根任务下；根任务还没有时保持无父级
-      const newParentId = normalizeInteger(args.new_parent_id, '新父任务 id')
-        ?? (findRootTodo(todoStore.todos)?.id ?? null)
+      const rootTaskId = findRootTodo(todoStore.todos)?.id ?? null
+      const newParentId = normalizeInteger(args.new_parent_id, '新父任务 id') ?? rootTaskId
 
       if (newParentId === toNumber(todo.id)) throw new Error('任务不能成为自己的父任务')
       if (oldParentId === newParentId) return { ok: true, unchanged: true }
@@ -691,7 +695,12 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
         if (!result.success) throw new Error(result.error || '挂载到新父任务失败')
       }
 
-      return { ok: true, task: { id: todo.id, title: todo.title }, parent_id: newParentId }
+      // 对模型保持「顶层任务无父级」的语义，不暴露根任务 id
+      return {
+        ok: true,
+        task: { id: todo.id, title: todo.title },
+        parent_id: newParentId === rootTaskId ? null : newParentId
+      }
     },
 
     async complete_todo(args) {

@@ -188,6 +188,11 @@ describe('createAgentToolRunner', () => {
     const listed = await runner.run('list_todos', { completed: 'all' })
     expect(listed.tasks.some((task) => task.id === 99)).toBe(false)
     expect(listed.matching).toBe(4)
+    // 根任务不出现在路径与父级字段里，顶层任务对模型仍是「无父级」
+    const topLevel = listed.tasks.find((task) => task.id === 1)
+    expect(topLevel.path).toBe('根任务')
+    expect(topLevel.parent_id).toBeNull()
+    expect(topLevel.parent_ids).toEqual([])
 
     const read = await runner.run('get_todo', { id: 99 })
     expect(read.ok).toBe(false)
@@ -204,6 +209,7 @@ describe('createAgentToolRunner', () => {
     const result = await runner.run('move_todo', { id: 3, new_parent_id: null })
 
     expect(result.ok).toBe(true)
+    expect(result.parent_id).toBeNull()
     expect(todoStore.todos.find((item) => item.id === 99).child_ids).toContain(3)
     expect(todoStore.todos.find((item) => item.id === 2).child_ids).not.toContain(3)
   })
