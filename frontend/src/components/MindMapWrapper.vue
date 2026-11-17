@@ -44,6 +44,7 @@
           :opacity="node.completed_at ? 0.55 : 1" :data-mm-node="node.id"
           class="cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
+          @pointerenter="hoveredId = node.id" @pointerleave="hoveredId = null"
           @click.stop="selectNode(node)">
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? 2 : 1"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
@@ -101,22 +102,30 @@
             {{ node.subtitle }}
           </text>
 
-          <!-- 展开/收起按钮：折叠时圆内显示子任务计数，展开后变为减号；挂在节点出边一侧外。
-               单击折叠/展开，拖到别的节点上则把那个任务挂成当前节点的子任务 -->
-          <g v-if="node.childCount > 0" :transform="`translate(${node.controlX} ${node.controlY})`"
+          <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号），叶子节点悬停时出现加号。
+               单击折叠/新建子任务，拖到别的节点上则把那个任务挂成当前节点的子任务 -->
+          <g v-if="node.childCount > 0 || isLeafHovered(node)"
+            :transform="`translate(${node.controlX} ${node.controlY})`"
             @pointerdown.stop="onTogglePointerDown($event, node)" @click.stop="onToggleClick(node)">
             <circle :r="toggleRadius" class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
               ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
               : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
-            <text v-if="node.collapsed" y="0" text-anchor="middle" dominant-baseline="central"
-              class="pointer-events-none text-[10px] tabular-nums" :class="node.isRoot
-                ? 'fill-white'
-                : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
-            <path v-else d="M-3 0 H3" fill="none" stroke-width="1.3" stroke-linecap="round"
-              class="pointer-events-none" :class="node.isRoot
-                ? 'stroke-white'
-                : 'stroke-neutral-500 dark:stroke-neutral-300'" />
-            <title>{{ node.collapsed ? `展开 ${node.childCount} 个子任务` : '折叠子任务' }}</title>
+            <template v-if="node.childCount > 0">
+              <text v-if="node.collapsed" y="0" text-anchor="middle" dominant-baseline="central"
+                class="pointer-events-none text-[10px] tabular-nums" :class="node.isRoot
+                  ? 'fill-white'
+                  : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
+              <path v-else d="M-3 0 H3" fill="none" stroke-width="1.3" stroke-linecap="round"
+                class="pointer-events-none" :class="node.isRoot
+                  ? 'stroke-white'
+                  : 'stroke-neutral-500 dark:stroke-neutral-300'" />
+              <title>{{ node.collapsed ? `展开 ${node.childCount} 个子任务` : '折叠子任务' }}</title>
+            </template>
+            <template v-else>
+              <path d="M-3 0 H3 M0 -3 V3" fill="none" stroke-width="1.3" stroke-linecap="round"
+                class="pointer-events-none stroke-neutral-500 dark:stroke-neutral-300" />
+              <title>新建子任务，或拖到其它节点建立链接</title>
+            </template>
           </g>
 
           <!-- 选中节点右侧的删除按钮：就地提供删除入口，根节点没有 -->
@@ -222,10 +231,10 @@ const paddingX = 10
 const maxLines = 3
 const crossGap = 24
 const mainGap = 84
-// 展开/收起按钮：单个圆形按钮，折叠时显示计数、展开时显示减号；
-// 挂在出边一侧的节点边框外，像参考图那样压在连线起点上
+// 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号），叶子节点悬停时变为加号；
+// 贴在出边一侧的节点边框外，压着连线起点，间隙很小以免悬停时闪断
 const toggleRadius = 8
-const toggleGap = toggleRadius + 2
+const toggleGap = 4
 // 勾选框：真实任务左侧的完成开关，根节点没有
 const checkboxSize = 14
 const checkboxGap = 8
@@ -242,6 +251,11 @@ const panning = ref(false)
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
 const rootSelected = ref(false)
+
+// 悬停的节点：叶子节点悬停时露出加号按钮，可用它新建子任务或拖出链接
+const hoveredId = ref(null)
+const isLeafHovered = (node) => !node.isRoot && node.childCount === 0
+  && hoveredId.value === String(node.id)
 
 // 操作提示浮层：点按钮开关，点浮层或画布之外收起
 const helpOpen = ref(false)
@@ -1568,16 +1582,21 @@ const onNodePointerDown = (event, node) => {
   startDrag(event, node.id, false)
 }
 
-// 折叠按钮按下：可能是单击折叠，也可能拖出链接，先按拖拽跟踪，移动超过阈值才算拖拽
+// 出边按钮按下：可能是单击折叠/新建，也可能拖出链接，先按拖拽跟踪，移动超过阈值才算拖拽
 const onTogglePointerDown = (event, node) => {
   if (event.button !== 0 || node.isRoot) return
   startDrag(event, node.id, true)
 }
 
-// 拖拽结束后的 click 不再触发折叠，避免拖完顺手把节点收起来
+// 拖拽结束后的 click 不再触发折叠或新建，避免拖完顺手多建一个任务
+// 有子任务时是折叠开关，叶子节点上用来新建子任务
 const onToggleClick = (node) => {
   if (Date.now() - lastDragEndAt < 250) return
-  toggleCollapse(node)
+  if (node.childCount > 0) {
+    toggleCollapse(node)
+    return
+  }
+  emit('create-task', { parentId: Number(node.id), afterId: null })
 }
 
 const startDrag = (event, sourceId, fromToggle) => {
