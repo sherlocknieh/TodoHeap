@@ -157,9 +157,10 @@ const unlinkOtherParents = async ({ childId, parentId, targetChildIds, childTitl
 	})
 }
 
-// 拖拽落点：子任务只有一个父级时优先移动（摘掉原父链接），
-// 多个父级时优先新增链接、保留原有父级，并在提示里提供「改为移动」
-const dropTask = async ({ parentId, childId }) => {
+// 拖拽落点：拖节点本体时，子任务只有一个父级就移动、多个父级就新增链接；
+// 从折叠/加号按钮拉出的拖拽只建立链接，不搬动任务。
+// 多父链接后的提示提供「改为移动」，点了才摘掉其余父链接
+const dropTask = async ({ parentId, childId, linkOnly = false }) => {
 	if (parentId === childId) return
 	const parent = todoStore.findTodoById(parentId)
 	const child = todoStore.findTodoById(childId)
@@ -181,7 +182,7 @@ const dropTask = async ({ parentId, childId }) => {
 	const parentTitle = parent.title || '任务'
 	const targetChildIds = [...(parent.child_ids || [])]
 
-	if (parentIds.length > 1) {
+	if (linkOnly || parentIds.length > 1) {
 		const result = await todoStore.updateTodo(parentId, { child_ids: [...targetChildIds, childId] })
 		if (!result.success) {
 			if (result.error) emit('notify', { message: result.error })
@@ -190,7 +191,7 @@ const dropTask = async ({ parentId, childId }) => {
 
 		emit('notify', {
 			message: `已将「${childTitle}」链接到「${parentTitle}」`,
-			action: {
+			action: linkOnly ? null : {
 				label: '改为移动',
 				run: () => unlinkOtherParents({ childId, parentId, targetChildIds, childTitle, parentTitle })
 			},

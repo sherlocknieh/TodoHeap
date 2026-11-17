@@ -1786,8 +1786,8 @@ let panFromRoot = false
 let lastPanEndAt = 0
 
 // 拖拽落点：两种起点——拖节点表示「它将成为落点节点的子任务」，
-// 拖折叠加号按钮表示「落点节点将成为它的子任务」，方向相反；
-// 落点后是移动还是新增链接由调用方按子任务的父级数量决定
+// 拖折叠/加号按钮表示「落点节点将成为它的子任务」，方向相反；
+// 节点拖拽是移动还是新增链接由调用方按父级数量决定，按钮拖拽只建链接
 const dragState = reactive({ active: false, sourceId: null, targetId: null, preview: null, moved: false, fromToggle: false })
 let dragStart = { x: 0, y: 0 }
 let lastDragEndAt = 0
@@ -1901,9 +1901,9 @@ const onDragEnd = () => {
   // 拖拽结束后紧跟的 click 不应再改变选中或触发折叠
   lastDragEndAt = Date.now()
   if (!targetId) return
-  // 拖节点：落点成为父；拖折叠按钮：源节点成为父
+  // 拖节点：落点成为父；拖折叠/加号按钮：源节点成为父，且只建立链接
   emit('drop-task', fromToggle
-    ? { parentId: Number(sourceId), childId: Number(targetId) }
+    ? { parentId: Number(sourceId), childId: Number(targetId), linkOnly: true }
     : { parentId: Number(targetId), childId: Number(sourceId) })
 }
 
