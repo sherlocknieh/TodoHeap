@@ -184,6 +184,7 @@ import { collectDescendantIds } from '@/utils/taskGraph'
 import { DEADLINE_PRESETS, resolveDeadlinePreset } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
 import { persistedRef } from '@/utils/uiState'
+import { pruneTaskCollapseTree } from '@/utils/taskCollapse'
 import TodoListItem from '@/components/TodoListItem.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -217,6 +218,11 @@ const sortMode = ref(LIST_SORT_OPTIONS.some(option => option.value === storedSor
 watch(sortMode, (value) => localStorage.setItem(SORT_STORAGE_KEY, value))
 
 const sortedTree = computed(() => sortTodoTree(todoStore.treeNodes, sortMode.value))
+
+// 任务删除或移入回收站后，清掉共享折叠状态里已经不存在的任务 ID
+watch(() => todoStore.treeNodes, (nodes) => {
+  pruneTaskCollapseTree(nodes)
+}, { immediate: true })
 
 const countNodes = (list) => list.reduce((acc, n) => acc + (n._isRef || n.completed_at ? 0 : 1) + countNodes(n.children || []), 0)
 const visibleCount = computed(() => countNodes(todoStore.treeNodes))

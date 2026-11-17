@@ -104,6 +104,24 @@ describe('createTodoOptimisticActions', () => {
     }))
   })
 
+  it('deleteTodo 多父共享子任务应保留在另一个父级下', async () => {
+    todosRef.value = [
+      { id: 1, title: '父一', child_ids: [3], deleted_at: null },
+      { id: 2, title: '父二', child_ids: [3], deleted_at: null },
+      { id: 3, title: '共享子', child_ids: [4], deleted_at: null },
+      { id: 4, title: '共享孙', child_ids: [], deleted_at: null }
+    ]
+    trashTodosRef.value = []
+    trashLoadingRef.value = false
+
+    const result = await actions.deleteTodo(1)
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value.map(item => item.id).sort()).toEqual([2, 3, 4])
+    expect(trashTodosRef.value.map(item => item.id)).toEqual([1])
+    expect(syncQueue.saveSnapshot).not.toHaveBeenCalledWith('1-descendants', expect.anything())
+  })
+
   it('deleteTodo 在环中不会无限递归', async () => {
     todosRef.value = [
       { id: 1, title: 'A', child_ids: [2], deleted_at: null },
@@ -139,6 +157,48 @@ describe('createTodoOptimisticActions', () => {
       type: OperationType.BATCH_DELETE,
       targetId: 'batch-delete-completed',
       payload: expect.objectContaining({ ids: [1, 4] })
+    }))
+  })
+
+  it('deleteCompletedTodos 保留仍有未完成父级的共享子任务', async () => {
+    todosRef.value = [
+      { id: 1, title: '已完成父', completed_at: '2026-01-01T00:00:00.000Z', child_ids: [3], deleted_at: null },
+      { id: 2, title: '进行中父', completed_at: null, child_ids: [3], deleted_at: null },
+      { id: 3, title: '共享子', completed_at: null, child_ids: [], deleted_at: null },
+      { id: 4, title: '已完成孤立', completed_at: '2026-01-02T00:00:00.000Z', child_ids: [], deleted_at: null }
+    ]
+    trashTodosRef.value = []
+    trashLoadingRef.value = false
+
+    const result = await actions.deleteCompletedTodos()
+
+    expect(result).toMatchObject({ success: true, count: 2 })
+    expect(todosRef.value.map(item => item.id).sort()).toEqual([2, 3])
+    expect(trashTodosRef.value.map(item => item.id).sort()).toEqual([1, 4])
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.BATCH_DELETE,
+      payload: expect.objectContaining({ ids: [1, 4] })
+    }))
+  })
+
+  it('deleteCompletedTodos 共享的已完成子任务会作为显式根一起清理', async () => {
+    todosRef.value = [
+      { id: 1, title: '已完成父', completed_at: '2026-01-01T00:00:00.000Z', child_ids: [3], deleted_at: null },
+      { id: 2, title: '进行中父', completed_at: null, child_ids: [3], deleted_at: null },
+      { id: 3, title: '共享已完成', completed_at: '2026-01-01T00:00:00.000Z', child_ids: [], deleted_at: null },
+      { id: 4, title: '已完成孤立', completed_at: '2026-01-02T00:00:00.000Z', child_ids: [], deleted_at: null }
+    ]
+    trashTodosRef.value = []
+    trashLoadingRef.value = false
+
+    const result = await actions.deleteCompletedTodos()
+
+    expect(result).toMatchObject({ success: true, count: 3 })
+    expect(todosRef.value.map(item => item.id)).toEqual([2])
+    expect(trashTodosRef.value.map(item => item.id).sort()).toEqual([1, 3, 4])
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.BATCH_DELETE,
+      payload: expect.objectContaining({ ids: [1, 4, 3] })
     }))
   })
 
@@ -223,6 +283,26 @@ describe('createTodoOptimisticActions', () => {
         parent_id: 1,
         user_id: 'user-1'
       })
+    }))
+  })
+
+  it('permanentDeleteTodo 多父共享子任务应保留在回收站', async () => {
+    todosRef.value = [
+      { id: 2, title: '活动父', child_ids: [3], deleted_at: null }
+    ]
+    trashTodosRef.value = [
+      { id: 1, title: '已删父', child_ids: [3], deleted_at: '2026-01-01T00:00:00.000Z' },
+      { id: 3, title: '共享子', child_ids: [], deleted_at: '2026-01-01T00:00:00.000Z' }
+    ]
+
+    const result = await actions.permanentDeleteTodo(1)
+
+    expect(result.success).toBe(true)
+    expect(trashTodosRef.value.map(item => item.id)).toEqual([3])
+    expect(todosRef.value.map(item => item.id)).toEqual([2])
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.PERMANENT_DELETE,
+      payload: { ids: [1] }
     }))
   })
 

@@ -31,6 +31,41 @@ export const findParentIds = (items, childId) => items
   .filter((item) => childIdsOf(item).includes(childId))
   .map((item) => item.id)
 
+// 级联删除集合: 从 roots 出发, 只把没有其它父链接的后代加入集合。
+// parentItems 用于判断“其它链接”, 默认与 items 相同; 永久删除时可传入已删除与未删除的全部任务。
+export const collectCascadeIds = (items, rootIds, { parentItems = items } = {}) => {
+  const byId = new Map(items.map((item) => [item.id, item]))
+  const parentIdsOf = new Map()
+
+  parentItems.forEach((item) => {
+    childIdsOf(item).forEach((childId) => {
+      if (!parentIdsOf.has(childId)) parentIdsOf.set(childId, new Set())
+      parentIdsOf.get(childId).add(item.id)
+    })
+  })
+
+  const deleting = new Set(rootIds.filter((id) => byId.has(id)))
+  let changed = true
+
+  while (changed) {
+    changed = false
+    ;[...deleting].forEach((id) => {
+      const node = byId.get(id)
+      if (!node) return
+      childIdsOf(node).forEach((childId) => {
+        if (deleting.has(childId) || !byId.has(childId)) return
+        const parents = parentIdsOf.get(childId) || new Set()
+        // 任一父级不在删除集合内, 说明还有别的链接, 子任务保留
+        if ([...parents].some((parentId) => !deleting.has(parentId))) return
+        deleting.add(childId)
+        changed = true
+      })
+    })
+  }
+
+  return items.filter((item) => deleting.has(item.id)).map((item) => item.id)
+}
+
 const createBackReference = (parent, target) => ({
   id: `ref:${parent.id}:${target.id}`,
   title: target.title,

@@ -47,7 +47,7 @@
     <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-hairline dark:divide-hairline-dark"
       @scroll.passive="saveTrashScroll">
       <template v-for="item in flatTrashList" :key="item.id">
-        <li v-if="shouldShowItem(item)" :data-task-item="item.id" :data-task-id="item.id" :class="[
+        <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id" :class="[
           'group flex items-center gap-2.5 rounded-md py-2.5 pr-3 cursor-pointer transition-colors',
           selectedTaskId === item.id
             ? 'bg-accent-100/70 dark:bg-accent-500/20'
@@ -57,7 +57,7 @@
           <button v-if="item.children && item.children.length"
             class="p-0.5 rounded text-neutral-400 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
             @click.stop="toggleExpand(item.id)">
-            <AppIcon :name="expandedMap[item.id] ? 'chevronDown' : 'chevronRight'" :size="13" />
+            <AppIcon :name="isTaskCollapsed(item.id) ? 'chevronRight' : 'chevronDown'" :size="13" />
           </button>
           <span v-else class="w-[17px] shrink-0"></span>
 
@@ -251,7 +251,8 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { useTodoStore } from '@/stores/todos'
-import { persistedRef, useScrollMemory } from '@/utils/uiState'
+import { useScrollMemory } from '@/utils/uiState'
+import { isTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
 
 const props = defineProps({
   selectedTaskId: {
@@ -317,34 +318,33 @@ function flattenTree(nodes, level = 0, arr = []) {
 }
 
 const flatTrashList = computed(() => flattenTree(trashTreeNodes.value))
-const flatTrashMap = computed(() => new Map(flatTrashList.value.map(item => [item.id, item])))
 
-// 判断任务是否应该显示：沿父链逐级检查折叠状态。
-// 只为垃圾箱内的父级负责，父任务未删除时当前任务作为根节点显示。
-function shouldShowItem(item) {
-  let current = item.parent_id
-  while (current) {
-    if (!isParentInTrash(current)) return true
-    if (expandedMap.value[current] === false) return false
-    current = flatTrashMap.value.get(current)?.parent_id || null
-  }
-  return true
-}
+// 引用行不重复展示：同一任务在回收站只出现一次；折叠状态与其它视图共享
+const visibleTrashIds = computed(() => {
+  const childrenOf = new Map()
+  const roots = []
 
-// 展开/折叠状态本地保留，刷新后仍停在原来的层级
-const expandedMap = persistedRef('trash-expanded', {})
-
-// 列表变化时按当前任务重建状态：沿用已有折叠选择，新任务默认展开
-watch(flatTrashList, (list) => {
-  if (!list.length) return
-  const next = {}
-  list.forEach(item => {
-    if (item.children && item.children.length) {
-      next[item.id] = expandedMap.value[item.id] !== false
+  flatTrashList.value.forEach((item) => {
+    if (item._isRef) return
+    if (!isParentInTrash(item.parent_id)) {
+      roots.push(item.id)
+      return
     }
+    if (!childrenOf.has(item.parent_id)) childrenOf.set(item.parent_id, [])
+    childrenOf.get(item.parent_id).push(item.id)
   })
-  expandedMap.value = next
-}, { immediate: true })
+
+  const visible = new Set()
+  const queue = [...roots]
+  for (let index = 0; index < queue.length; index += 1) {
+    const id = queue[index]
+    if (visible.has(id)) continue
+    visible.add(id)
+    if (isTaskCollapsed(id)) continue
+    ;(childrenOf.get(id) || []).forEach((childId) => queue.push(childId))
+  }
+  return visible
+})
 
 // 列表滚动位置，刷新或来回切换后回到原处
 const trashListRef = ref(null)
@@ -354,7 +354,7 @@ watch(trashLoading, (loading) => {
 })
 
 const toggleExpand = (id) => {
-  expandedMap.value[id] = !expandedMap.value[id]
+  toggleTaskCollapsed(id, false)
 }
 
 // 格式化日期

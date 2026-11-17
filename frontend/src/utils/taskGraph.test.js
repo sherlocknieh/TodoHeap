@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTaskForest, collectDescendantIds } from './taskGraph'
+import { buildTaskForest, collectCascadeIds, collectDescendantIds } from './taskGraph'
 
 const sortFn = (a, b) => a.id - b.id
 const mapItem = (item) => ({ id: item.id, title: item.title })
@@ -62,6 +62,61 @@ describe('buildTaskForest', () => {
     expect(forest).toHaveLength(1)
     expect(forest[0]._cycleRoot).toBe(true)
     expect(forest[0].children[0]._isRef).toBe(true)
+  })
+})
+
+describe('collectCascadeIds', () => {
+  it('单父链完整级联', () => {
+    const ids = collectCascadeIds([
+      { id: 1, child_ids: [2] },
+      { id: 2, child_ids: [3] },
+      { id: 3, child_ids: [] }
+    ], [1])
+
+    expect(ids.sort()).toEqual([1, 2, 3])
+  })
+
+  it('共享子任务保留，且它下面的子树不级联', () => {
+    const ids = collectCascadeIds([
+      { id: 1, child_ids: [3] },
+      { id: 2, child_ids: [3] },
+      { id: 3, child_ids: [4] },
+      { id: 4, child_ids: [] }
+    ], [1])
+
+    expect(ids).toEqual([1])
+  })
+
+  it('两个父级同时删除时共享子任务一起删除', () => {
+    const ids = collectCascadeIds([
+      { id: 1, child_ids: [3] },
+      { id: 2, child_ids: [3] },
+      { id: 3, child_ids: [4] },
+      { id: 4, child_ids: [] }
+    ], [1, 2])
+
+    expect(ids.sort()).toEqual([1, 2, 3, 4])
+  })
+
+  it('环内节点不会重复扩张', () => {
+    const ids = collectCascadeIds([
+      { id: 1, child_ids: [2] },
+      { id: 2, child_ids: [1] }
+    ], [1])
+
+    expect(ids.sort()).toEqual([1, 2])
+  })
+
+  it('永久删除时可把活动父级算作其它链接', () => {
+    const active = [{ id: 2, child_ids: [3] }]
+    const trash = [
+      { id: 1, child_ids: [3] },
+      { id: 3, child_ids: [] }
+    ]
+
+    const ids = collectCascadeIds(trash, [1], { parentItems: [...active, ...trash] })
+
+    expect(ids).toEqual([1])
   })
 })
 

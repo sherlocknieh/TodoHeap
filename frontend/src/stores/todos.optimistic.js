@@ -1,5 +1,5 @@
 // Todo 乐观更新与级联操作
-import { collectDescendantIds, findParentIds } from '@/utils/taskGraph'
+import { collectCascadeIds, collectDescendantIds, findParentIds } from '@/utils/taskGraph'
 
 export const createTodoOptimisticActions = ({
   todosRef,
@@ -85,8 +85,15 @@ export const createTodoOptimisticActions = ({
     }
   }
 
-  const findDescendantIds = (parentId) => collectDescendantIds(todosRef.value, parentId)
+  // 软删除只带走没有其它父链接的后代; 永久删除时把活动任务也算作“其它链接”
+  const findCascadeDeleteDescendants = (parentId) => collectCascadeIds(todosRef.value, [parentId])
+    .filter(id => id !== parentId)
   const findTrashDescendantIds = (parentId) => collectDescendantIds(trashTodosRef.value, parentId)
+  const findPermanentDeleteDescendants = (parentId) => collectCascadeIds(
+    trashTodosRef.value,
+    [parentId],
+    { parentItems: [...todosRef.value, ...trashTodosRef.value] }
+  ).filter(id => id !== parentId)
 
   const addTodo = async (title, options = {}) => {
     const auth = requireAuthUser()
@@ -296,7 +303,7 @@ export const createTodoOptimisticActions = ({
     const syncQueue = getSyncQueue()
     const realId = syncQueue.getRealId(id)
 
-    const context = buildCascadeContext(todosRef.value, realId, findDescendantIds)
+    const context = buildCascadeContext(todosRef.value, realId, findCascadeDeleteDescendants)
     if (!context) {
       return { success: false, error: '任务不存在' }
     }
@@ -338,25 +345,28 @@ export const createTodoOptimisticActions = ({
     return { success: true, data: { id: realId } }
   }
 
-  // 一键清理已完成: 只把每棵已完成子树的根入队, 后代由服务端级联软删除
+  // 一键清理已完成: 只把实际需要删除的根入队, 后代由服务端按同一多父规则级联软删除
   const deleteCompletedTodos = async () => {
     const completedIds = todosRef.value
       .filter(todo => todo.completed_at)
       .map(todo => todo.id)
     if (completedIds.length === 0) return { success: true, count: 0 }
 
-    // 父任务已完成时, 其后代必然由父级级联覆盖, 无需单独删除
+    // 已完成后代默认由祖先级联覆盖；共享的已完成后代会作为显式根补回
     const coveredIds = new Set()
     completedIds.forEach((id) => {
       collectDescendantIds(todosRef.value, id).forEach(childId => coveredIds.add(childId))
     })
-    const rootIds = completedIds.filter(id => !coveredIds.has(id))
+    // 共享子任务还有别的父级时保留，只有没有其它链接的后代才跟着进垃圾箱
+    let rootIds = completedIds.filter(id => !coveredIds.has(id))
+    let idsToRemove = new Set(collectCascadeIds(todosRef.value, rootIds))
 
-    const idsToRemove = new Set()
-    rootIds.forEach((id) => {
-      idsToRemove.add(id)
-      findDescendantIds(id).forEach(childId => idsToRemove.add(childId))
-    })
+    // 共享的已完成任务不会被祖先级联带走，补成显式根一起清理
+    const missingRootIds = completedIds.filter(id => !idsToRemove.has(id))
+    if (missingRootIds.length > 0) {
+      rootIds = [...rootIds, ...missingRootIds]
+      idsToRemove = new Set(collectCascadeIds(todosRef.value, rootIds))
+    }
 
     const syncQueue = getSyncQueue()
     const removedSnapshots = collectTodosByIds(todosRef.value, [...idsToRemove])
@@ -423,7 +433,7 @@ export const createTodoOptimisticActions = ({
   const permanentDeleteTodo = async (id) => {
     const syncQueue = getSyncQueue()
 
-    const context = buildCascadeContext(trashTodosRef.value, id, findTrashDescendantIds)
+    const context = buildCascadeContext(trashTodosRef.value, id, findPermanentDeleteDescendants)
     if (!context) {
       return { success: false, error: '任务不存在' }
     }

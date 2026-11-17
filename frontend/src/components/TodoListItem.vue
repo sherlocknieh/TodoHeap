@@ -14,8 +14,8 @@
         <!-- 展开/折叠 -->
         <button v-if="item.children && item.children.length"
           class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
-          @click.stop="toggleExpand(item.id)">
-          <AppIcon :name="expandedMap[item.id] ? 'chevronDown' : 'chevronRight'" :size="13" />
+          @click.stop="toggleExpand(item)">
+          <AppIcon :name="isItemExpanded(item) ? 'chevronDown' : 'chevronRight'" :size="13" />
         </button>
         <span v-else class="w-[18px] shrink-0"></span>
 
@@ -138,6 +138,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue } from '@/utils/deadline'
 import { draggingTodoId as draggingId, dropIndicator, resetDragState } from '@/utils/todoDrag'
+import { isTaskCollapsed, setTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
 
 const props = defineProps({
   node: Object,
@@ -164,7 +165,7 @@ const emitDeleteTodo = (id) => emit('delete-todo', id)
 // 回边行没有真实父节点，用渲染它的节点作为父级解除引用
 const emitUnlink = (item) => emit('unlink-task', { parentId: item.parent_id, childId: item._refTargetId })
 const emitAddSubtask = (parentId) => {
-  expandedMap.value[parentId] = true
+  setTaskCollapsed(parentId, false)
   emit('add-subtask', parentId, startEdit)
 }
 const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
@@ -194,28 +195,20 @@ const isItemVisible = (item) => {
   // 祖先链任一节点折叠时隐藏，避免祖先折叠但后代仍显示
   let currentParentId = item.parent_id
   while (currentParentId) {
-    if (expandedMap.value[currentParentId] === false) {
-      return false
-    }
     const parent = flatMap.value.get(currentParentId)
-    currentParentId = parent?.parent_id || null
+    if (!parent) break
+    if (isTaskCollapsed(currentParentId, parent._level > 1)) return false
+    currentParentId = parent.parent_id || null
   }
 
   return true
 }
 
-// 折叠/展开状态
-const expandedMap = ref({})
-onMounted(() => {
-  // 默认展开前两层，打开清单即可看到主要任务而不被折叠挡住
-  flatList.value.forEach(item => {
-    if (item._level <= 1 && item.children && item.children.length && !(item.id in expandedMap.value)) {
-      expandedMap.value[item.id] = true
-    }
-  })
-})
-const toggleExpand = (id) => {
-  expandedMap.value[id] = !expandedMap.value[id]
+// 折叠状态与图、回收站共享；未记录的任务默认展开前两层，更深的任务默认收起
+const isItemExpanded = (item) => !isTaskCollapsed(item.id, (item._level || 0) > 1)
+
+const toggleExpand = (item) => {
+  toggleTaskCollapsed(item.id, (item._level || 0) > 1)
 }
 
 const editingId = ref(null)
@@ -243,21 +236,12 @@ watch(flatList, (newList) => {
     if (item._isRef) return
     if (item.completed_at) statusMap.value[item.id] = 'checked'
     else statusMap.value[item.id] = 'unchecked'
-
-    if (item.children && item.children.length && !(item.id in expandedMap.value)) {
-      expandedMap.value[item.id] = false
-    }
   })
 
   // 清理已不存在节点，避免状态对象无限增长
   Object.keys(statusMap.value).forEach((id) => {
     if (!idSet.has(Number(id))) {
       delete statusMap.value[id]
-    }
-  })
-  Object.keys(expandedMap.value).forEach((id) => {
-    if (!idSet.has(Number(id))) {
-      delete expandedMap.value[id]
     }
   })
 })

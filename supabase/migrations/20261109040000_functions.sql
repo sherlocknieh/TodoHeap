@@ -43,29 +43,70 @@ $$;
 -- 任务树
 -- ---------------------------------------------------------------------------
 
--- 软删除传播: 父任务删除或还原时同步全部子孙任务
--- 沿 child_ids 递归, path 保证环不会无限展开
+-- 软删除传播: 删除父任务时只带走没有其它可恢复父链接的后代;
+-- 还原仍同步整棵后代, 保证从垃圾箱恢复父级时子树一起回来。
 CREATE OR REPLACE FUNCTION public.todos_propagate_deleted_at()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
+DECLARE
+    affected_ids BIGINT[];
+    previous_count INTEGER;
 BEGIN
     IF TG_OP = 'UPDATE' AND OLD.deleted_at IS DISTINCT FROM NEW.deleted_at THEN
-        WITH RECURSIVE descendants AS (
-            SELECT c.id, c.child_ids, ARRAY[NEW.id, c.id] AS path
-            FROM todos c
-            WHERE c.id = ANY(NEW.child_ids)
-            UNION ALL
-            SELECT g.id, g.child_ids, d.path || g.id
-            FROM todos g
-            JOIN descendants d ON g.id = ANY(d.child_ids)
-            WHERE NOT g.id = ANY(d.path)
-        )
-        UPDATE todos
-        SET deleted_at = NEW.deleted_at, updated_at = NOW()
-        WHERE id IN (SELECT id FROM descendants)
-          AND deleted_at IS DISTINCT FROM NEW.deleted_at;
+        IF NEW.deleted_at IS NOT NULL THEN
+            -- 迭代扩张删除集合: 子任务只有在所有父级都在集合内时才一起删除
+            affected_ids := ARRAY[NEW.id];
+            LOOP
+                previous_count := cardinality(affected_ids);
+
+                WITH candidates AS (
+                    SELECT DISTINCT c.id
+                    FROM todos c
+                    WHERE c.deleted_at IS NULL
+                      AND c.id <> ALL(affected_ids)
+                      AND EXISTS (
+                          SELECT 1
+                          FROM todos p
+                          WHERE p.id = ANY(affected_ids)
+                            AND c.id = ANY(p.child_ids)
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM todos q
+                          WHERE c.id = ANY(q.child_ids)
+                            AND q.id <> ALL(affected_ids)
+                            AND q.deleted_at IS NULL
+                      )
+                )
+                SELECT affected_ids || COALESCE(array_agg(id), '{}'::BIGINT[])
+                INTO affected_ids
+                FROM candidates;
+
+                EXIT WHEN cardinality(affected_ids) = previous_count;
+            END LOOP;
+
+            UPDATE todos
+            SET deleted_at = NEW.deleted_at, updated_at = NOW()
+            WHERE id = ANY(affected_ids)
+              AND deleted_at IS DISTINCT FROM NEW.deleted_at;
+        ELSE
+            WITH RECURSIVE descendants AS (
+                SELECT c.id, c.child_ids, ARRAY[NEW.id, c.id] AS path
+                FROM todos c
+                WHERE c.id = ANY(NEW.child_ids)
+                UNION ALL
+                SELECT g.id, g.child_ids, d.path || g.id
+                FROM todos g
+                JOIN descendants d ON g.id = ANY(d.child_ids)
+                WHERE NOT g.id = ANY(d.path)
+            )
+            UPDATE todos
+            SET deleted_at = NEW.deleted_at, updated_at = NOW()
+            WHERE id IN (SELECT id FROM descendants)
+              AND deleted_at IS DISTINCT FROM NEW.deleted_at;
+        END IF;
     END IF;
 
     RETURN NEW;

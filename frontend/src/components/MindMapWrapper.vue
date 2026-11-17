@@ -119,7 +119,7 @@
                 class="pointer-events-none" :class="node.isRoot
                   ? 'stroke-white'
                   : 'stroke-neutral-500 dark:stroke-neutral-300'" />
-              <title>{{ node.collapsed ? `展开 ${node.childCount} 个子任务` : '折叠子任务' }}</title>
+              <title>{{ node.collapsed ? `展开此节点的 ${node.childCount} 条子链接` : `折叠此节点的 ${node.childCount} 条子链接` }}</title>
             </template>
             <template v-else>
               <path d="M-3 0 H3 M0 -3 V3" fill="none" stroke-width="1.3" stroke-linecap="round"
@@ -218,6 +218,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
+import {
+  collapsedTaskSet,
+  isTaskCollapsed,
+  pruneTaskCollapseTree,
+  setTaskCollapsed,
+  setTasksCollapsed
+} from '@/utils/taskCollapse'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -294,12 +301,8 @@ const direction = persistedRef('mindmap-direction', 'right', {
 const currentDirection = computed(() =>
   directionOptions.find((option) => option.value === direction.value) ?? directionOptions[1])
 
-// 折叠状态按任务 ID 记录：折叠后只隐藏子节点，任务本身与其它父级链接不受影响
-const collapsedIds = persistedRef('mindmap-collapsed', [], {
-  validate: (value) => Array.isArray(value)
-})
-
-const collapsedSet = computed(() => new Set(collapsedIds.value.map(String)))
+// 折叠状态按任务 ID 与列表、回收站共享：折叠后只隐藏子节点，任务本身与其它父级链接不受影响
+const collapsedSet = collapsedTaskSet
 
 // 可折叠的任务：含根节点在内，凡是有子任务的节点
 const collapsibleIds = computed(() => {
@@ -313,6 +316,11 @@ const collapsibleIds = computed(() => {
   return ids
 })
 
+// 当前图里的真实任务 ID 变化时清理已删除任务的折叠记录；空图跳过，避免数据未到时清空
+watch(() => props.nodes, (nodes) => {
+  pruneTaskCollapseTree(nodes, { keep: ['root'] })
+}, { immediate: true })
+
 const allExpanded = computed(() =>
   collapsibleIds.value.every((id) => !collapsedSet.value.has(id)))
 
@@ -320,7 +328,7 @@ const allExpanded = computed(() =>
 // 收起时连根节点一起折叠，画布上只剩根节点。根节点由布局钉在原点，切换后不会跳动
 const toggleAllCollapse = () => {
   if (allExpanded.value) {
-    collapsedIds.value = [...collapsibleIds.value]
+    setTasksCollapsed(collapsibleIds.value, true)
     // 选中任务被收起隐藏后，选中回到根节点，详情面板随之收起
     if (selectedId.value !== 'root') {
       rootSelected.value = true
@@ -330,7 +338,7 @@ const toggleAllCollapse = () => {
     }
     return
   }
-  collapsedIds.value = []
+  setTasksCollapsed(collapsibleIds.value, false)
 }
 
 // 单个按钮按固定顺序轮换四个方向
@@ -942,8 +950,8 @@ const fitView = () => {
 // 折叠开关：只切换该节点的展开状态，子任务数据不受影响
 const toggleCollapse = (node) => {
   const id = String(node.id)
+  const collapsing = !isTaskCollapsed(id)
   const next = new Set(collapsedSet.value)
-  const collapsing = !next.has(id)
   if (collapsing) next.add(id)
   else next.delete(id)
 
@@ -960,7 +968,7 @@ const toggleCollapse = (node) => {
   }
 
   // 布局以根节点为原点，重排不会带动视口，展开/折叠只改变其它节点的位置
-  collapsedIds.value = [...next]
+  setTaskCollapsed(id, collapsing)
 }
 
 // 勾选框：切换完成状态，根节点不是真实任务，不参与
@@ -1094,13 +1102,19 @@ watch(layout, () => {
 // 多父链接等价，引用节点也要计入父级的子列表，否则从第二个父级无法导航到该任务
 const nodeIndex = computed(() => {
   const parentOf = new Map()
+  const parentsOf = new Map()
   // null 键存放根层级任务，供同级导航使用
   const childrenOf = new Map([[null, []]])
 
   const walk = (node, parentId) => {
     const id = node.isRef ? String(node.targetId) : String(node.id)
     if (!childrenOf.has(id)) childrenOf.set(id, [])
-    if (parentId !== null) childrenOf.get(parentId)?.push(id)
+    if (parentId !== null) {
+      childrenOf.get(parentId)?.push(id)
+      const parents = parentsOf.get(id) || []
+      if (!parents.includes(parentId)) parents.push(parentId)
+      parentsOf.set(id, parents)
+    }
     if (node.isRef) return
 
     if (!parentOf.has(id)) parentOf.set(id, parentId)
@@ -1108,8 +1122,17 @@ const nodeIndex = computed(() => {
   }
 
   ;(props.nodes || []).forEach((root) => walk(root, null))
-  return { parentOf, childrenOf }
+  return { parentOf, parentsOf, childrenOf }
 })
+
+// 多父任务在图上只画一份节点；交互优先选当前可见且展开的父级，避免跳回被折叠的分支
+const visibleParentOf = (id) => {
+  const parents = nodeIndex.value.parentsOf.get(String(id)) || []
+  const visible = new Set(layout.value.nodes.map((node) => node.id))
+  return parents.find((parentId) => visible.has(parentId) && !collapsedSet.value.has(parentId))
+    ?? parents.find((parentId) => visible.has(parentId))
+    ?? null
+}
 
 const selectedId = computed(() => {
   if (rootSelected.value) return 'root'
@@ -1206,15 +1229,14 @@ watch(selectedId, (id) => {
   // 选中项已被任一父链显示时不再展开，避免选中多父任务时把用户刚折叠的父级重新打开
   if (!layout.value.nodes.some((node) => node.id === id)) {
     const { parentOf } = nodeIndex.value
-    const collapsed = new Set(collapsedIds.value.map(String))
-    let changed = false
+    const toExpand = []
     let current = parentOf.get(id)
     // 收起全部会把根节点也折叠，展开到选中项可见为止
     while (current != null) {
-      if (collapsed.delete(String(current))) changed = true
+      if (isTaskCollapsed(current)) toExpand.push(String(current))
       current = parentOf.get(String(current))
     }
-    if (changed) collapsedIds.value = [...collapsed]
+    if (toExpand.length > 0) setTasksCollapsed(toExpand, false)
   }
   if (localSelection) {
     localSelection = false
@@ -1264,12 +1286,13 @@ const navigate = (key) => {
   }
 
   if (key === backward) {
-    const parent = parentOf.get(id)
+    const parent = visibleParentOf(id)
     if (parent && parent !== 'root') focusTask(parent)
     return
   }
 
-  const siblings = childrenOf.get(parentOf.get(id)) || []
+  const siblingParent = visibleParentOf(id) ?? parentOf.get(id)
+  const siblings = childrenOf.get(siblingParent) || []
   const index = siblings.indexOf(id)
   if (index === -1) return
   const step = key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 1
@@ -1281,7 +1304,9 @@ const navigate = (key) => {
 const createSibling = () => {
   const id = selectedId.value
   const isRoot = id === 'root'
-  const parent = id && !isRoot ? nodeIndex.value.parentOf.get(id) : 'root'
+  const parent = id && !isRoot
+    ? (visibleParentOf(id) ?? nodeIndex.value.parentOf.get(id))
+    : 'root'
   emit('create-task', {
     parentId: parent && parent !== 'root' ? Number(parent) : null,
     afterId: id && !isRoot ? Number(id) : null
