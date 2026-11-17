@@ -217,6 +217,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
+import { resolveEditRequest } from '@/utils/mindmapEdit'
 import {
   collapsedTaskSet,
   isTaskCollapsed,
@@ -1504,24 +1505,43 @@ const onEditKeydown = (event) => {
   }
 }
 
+// 新建任务的临时 ID → 真实 ID：sync:id-replaced 给出替换关系，
+// 用来区分「同一次新建换号」与「又新建了一条」
+const editIdAliases = new Map()
+const handleEditIdReplaced = (event) => {
+  const { tempId, realId } = event.detail || {}
+  if (tempId == null || realId == null) return
+  if (editIdAliases.size > 50) editIdAliases.clear()
+  editIdAliases.set(String(tempId), String(realId))
+}
+
 // 新建后父级指定要重命名的任务，等它出现在布局里再打开输入框
 watch([() => props.editTaskId, layout], ([id], [prevId]) => {
-  // 新建任务拿到真实 ID 后 editTaskId 会从临时 ID 换成真实 ID，仍是同一次编辑：
-  // 只把编辑目标与消费标记挪到新 ID，避免清空已输入内容并重新全选
-  if (prevId != null && id != null && prevId !== id) {
-    if (consumedEditId === prevId) consumedEditId = id
-    if (editingId.value === Number(prevId)) {
-      // 把旧输入框当前的选区带到重建后的新元素上，全选与已输入内容都不丢
-      const el = editEl
-      editSelection = el && document.activeElement === el
-        ? [el.selectionStart, el.selectionEnd]
-        : null
-      editingId.value = Number(id)
-      remapEdit = true
-      nextTick(() => { remapEdit = false })
-    }
+  const previousKey = prevId == null ? null : String(prevId)
+  const aliasTarget = previousKey == null ? null : editIdAliases.get(previousKey)
+  if (aliasTarget != null) editIdAliases.delete(previousKey)
+
+  const { remap, consumedId, shouldStart } = resolveEditRequest({
+    id,
+    prevId,
+    consumedId: consumedEditId,
+    editingPrev: editingId.value === Number(prevId),
+    replaced: aliasTarget != null && aliasTarget === String(id)
+  })
+
+  if (remap) {
+    consumedEditId = consumedId
+    // 把旧输入框当前的选区带到重建后的新元素上，全选与已输入内容都不丢
+    const el = editEl
+    editSelection = el && document.activeElement === el
+      ? [el.selectionStart, el.selectionEnd]
+      : null
+    editingId.value = Number(id)
+    remapEdit = true
+    nextTick(() => { remapEdit = false })
   }
-  if (id == null || id === consumedEditId) return
+  if (!shouldStart) return
+  // 新节点还没进布局时先不消费，等布局补齐后同一次请求再试
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node) return
   consumedEditId = id
@@ -1830,11 +1850,13 @@ onMounted(() => {
   })
   if (container.value) resizeObserver.observe(container.value)
   if (!restoredView) nextTick(fitView)
+  window.addEventListener('sync:id-replaced', handleEditIdReplaced)
 })
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   document.removeEventListener('pointerdown', onHelpOutside)
+  window.removeEventListener('sync:id-replaced', handleEditIdReplaced)
   stopViewAnimation()
   cancelPendingCenter()
   if (saveViewTimer) clearTimeout(saveViewTimer)
