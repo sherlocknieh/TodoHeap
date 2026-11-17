@@ -481,13 +481,15 @@ const buildGraphData = (forest) => {
     })
   }
 
-  return {
-    nodes: [...allNodes.values()].filter((node) => visible.has(node.id)),
-    edges: edges.filter((edge) => visible.has(edge.from) && visible.has(edge.to))
-  }
+  // 折叠父节点不再展开子节点：布局只吃可见节点，子节点才能贴着父节点排布
+  const nodeList = [...allNodes.values()].filter((node) => visible.has(node.id))
+  const edgeList = edges.filter((edge) => visible.has(edge.from) && visible.has(edge.to))
+
+  return { nodes: nodeList, edges: edgeList }
 }
 
 // 有向图：按强连通分量分层，环内节点顺序排列，回边绕行展示
+// 只用可见节点参与布局：折叠后兄弟节点收拢到折叠父节点周围，展开后子节点重新贴回父节点
 const graphLayout = computed(() => {
   const { nodes: rawNodes, edges: rawEdges } = buildGraphData(props.nodes)
   if (rawNodes.length === 0) return { nodes: [], edges: [], contentWidth: 0, contentHeight: 0 }
@@ -748,6 +750,7 @@ const graphLayout = computed(() => {
     return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, backward, laneCross)
   }).filter(Boolean)
 
+  // 只渲染可见节点与两端都可见的边
   return {
     nodes,
     edges: routedEdges,
@@ -758,6 +761,7 @@ const graphLayout = computed(() => {
 
 const layout = computed(() => graphLayout.value)
 
+// 结构签名：节点集合变化（含折叠导致的可见性变化）都算结构变化
 const layoutSignature = computed(() =>
   `${direction.value}:${layout.value.nodes.map((node) => node.id).join('|')}`)
 
@@ -825,9 +829,28 @@ const toggleCollapse = (node) => {
     }
   }
 
+  // 折叠/展开会重排可见节点：先记下被点节点此刻的屏幕位置，重排后再把它钉回原处
+  const anchor = { id, offsetX: view.x, offsetY: view.y, scale: view.scale, graphX: null, graphY: null }
+  const anchorNode = layout.value.nodes.find((item) => item.id === id)
+  if (anchorNode) {
+    anchor.graphX = anchorNode.x
+    anchor.graphY = anchorNode.y
+  }
+
   collapsedIds.value = [...next]
-  // 折叠只改变可见范围，保持当前视口，避免画面跳动
+  pinNodeAfterLayout(anchor)
+}
+
+// 布局重排后只平移视口，让锚点节点留在切换前的位置，避免整张图跟着跳
+const pinNodeAfterLayout = (anchor) => {
   skipNextAutoFit = true
+  if (anchor.graphX == null) return
+  nextTick(() => {
+    const moved = layout.value.nodes.find((item) => item.id === anchor.id)
+    if (!moved) return
+    view.x = anchor.offsetX + (anchor.graphX - moved.x) * anchor.scale
+    view.y = anchor.offsetY + (anchor.graphY - moved.y) * anchor.scale
+  })
 }
 
 // 勾选框：切换完成状态，根节点不是真实任务，不参与
