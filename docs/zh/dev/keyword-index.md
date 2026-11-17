@@ -57,7 +57,7 @@ outline: deep
 | 节点垃圾桶 / 图上删除按钮 / 悬停变红 | `components/MindMapWrapper.vue`「选中节点右侧的删除按钮」+ class `hover:text-danger-600` | 常态灰，悬停只把图标染红；只有选中节点才显示，根节点没有 |
 | 删除二次确认 / 再点一次 / 实心红底 | `components/MindMapWrapper.vue` `confirmDeleteId`、`deleteNode` | 第一次点进入待确认态（红底白图标），再点才删 |
 | 连线删除 / 线中点叉号 / 断开父子关系 | `components/MindMapWrapper.vue` `confirmUnlink`、`onUnlinkClick`、`selectEdge` | 只从父任务 `child_ids` 移除引用；最后一个父级被摘掉时回顶层 |
-| 加号 / 出边按钮 / 新建子任务 / 折叠计数 | `components/MindMapWrapper.vue`「出边按钮」、`onToggleClick`、`holdLeafControl` | 有子任务时是折叠开关，叶子节点悬停或选中时是加号；拖到别的节点则建立链接 |
+| 加号 / 出边按钮 / 新建子任务 / 折叠计数 / 靠近就显示加号 / 拉线时加号消失 | `components/MindMapWrapper.vue`「出边按钮」、`onToggleClick`、`holdLeafControl`、`updateLeafControlHover`、`draggingLeafId` | 有子任务时是折叠开关；叶子节点指针靠近按钮位置即显示加号，从加号拉线期间保持可见，拖到别的节点建立链接 |
 | 双击重命名 / F2 改名 / 原地编辑 | `components/MindMapWrapper.vue` `startEdit`、`commitEdit`、`onEditKeydown` | 节点文字常驻输入框，平时只读 |
 | 键盘新建 / Enter 同级 / Tab 子级 | `components/MindMapWrapper.vue` `onKeydown` | 快捷键说明收在右下角帮助浮层 |
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |

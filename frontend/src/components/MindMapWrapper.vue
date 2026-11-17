@@ -4,7 +4,7 @@
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
     :class="panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab'"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
-    @pointerup="endPan" @pointerleave="endPan" @click.stop="onCanvasClick"
+    @pointerup="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
     @keydown="onKeydown">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
@@ -286,10 +286,14 @@ const toTaskId = (id) => (id != null && Number.isFinite(Number(id)) ? Number(id)
 // 根节点选中状态只在图内维护：根任务不进入任务详情面板
 const rootSelected = ref(false)
 
-// 叶子节点的加号在悬停时出现：指针短暂离开时延迟隐藏，
-// 给「从节点移向它外侧的加号」留出余量，不必精准一次命中
+// 叶子节点的加号在指针靠近按钮位置时出现，不必先进入节点；离开后短暂保留，
+// 给「从节点移向它外侧的加号」留出余量，不必精准一次命中。
+// 从加号拉线期间由 draggingLeafId 保持显示，指针移远也不消失。
 const hoveredLeafId = ref(null)
+const draggingLeafId = ref(null)
 let leafHideTimer = null
+// 邻近判定半径（屏幕像素）：按缩放折算到图内，保持不同缩放下手感一致
+const LEAF_CONTROL_REVEAL = 32
 
 const holdLeafControl = (node) => {
   clearTimeout(leafHideTimer)
@@ -305,8 +309,14 @@ const releaseLeafControl = () => {
   }, 260)
 }
 
+const clearLeafControlHover = () => {
+  clearTimeout(leafHideTimer)
+  leafHideTimer = null
+  hoveredLeafId.value = null
+}
+
 const isLeafHovered = (node) => !node.isRoot && node.childCount === 0
-  && hoveredLeafId.value === String(node.id)
+  && (hoveredLeafId.value === String(node.id) || draggingLeafId.value === String(node.id))
 
 // 操作提示浮层：点按钮开关，点浮层或画布之外收起
 const helpOpen = ref(false)
@@ -1825,6 +1835,36 @@ const linkTargetAtPoint = (point) => {
   return nearest
 }
 
+// 指针靠近叶子节点的加号位置就显示：按到控制点的屏幕距离判定，不必先进入节点。
+// 指针仍在节点矩形内时沿用原来的悬停显示，避免停在节点中间反而把加号收掉。
+// 平移或拖拽期间不参与判定，避免画布移动时按钮闪烁。
+const updateLeafControlHover = (event) => {
+  if (panning.value || dragState.active) return
+  const point = toGraphPoint(event)
+  const radius = LEAF_CONTROL_REVEAL / view.scale
+  const radiusSq = radius * radius
+  let inside = null
+  let nearest = null
+  let nearestDistance = Infinity
+  for (const node of layout.value.nodes) {
+    if (node.isRoot || node.childCount > 0) continue
+    if (point.x >= node.x && point.x <= node.x + nodeWidth
+      && point.y >= node.y && point.y <= node.y + node.height) {
+      inside = node
+      continue
+    }
+    const dx = point.x - (node.x + node.controlX)
+    const dy = point.y - (node.y + node.controlY)
+    const distance = dx * dx + dy * dy
+    if (distance > radiusSq || distance >= nearestDistance) continue
+    nearest = node
+    nearestDistance = distance
+  }
+  const target = inside || nearest
+  if (target) holdLeafControl(target)
+  else releaseLeafControl()
+}
+
 const onNodePointerDown = (event, node) => {
   if (event.button !== 0 || node.isRef) return
   // 根节点不参与建链接：按住它等同按住空白处，直接拖动整张图
@@ -1856,6 +1896,7 @@ const onToggleClick = (node) => {
 
 const startDrag = (event, sourceId, fromToggle) => {
   hasInteracted = true
+  draggingLeafId.value = fromToggle ? String(sourceId) : null
   dragStart = { x: event.clientX, y: event.clientY }
   dragState.active = true
   dragState.sourceId = sourceId
@@ -1907,7 +1948,7 @@ const onDragMove = (event) => {
   updateDrag(event)
 }
 
-const onDragEnd = () => {
+const onDragEnd = (event) => {
   window.removeEventListener('pointermove', onDragMove)
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
@@ -1920,6 +1961,9 @@ const onDragEnd = () => {
   dragState.preview = null
   dragState.moved = false
   dragState.fromToggle = false
+  draggingLeafId.value = null
+  // 松手后按指针位置重新判定加号，避免拉线结束时按钮状态停在源节点上
+  if (event?.type === 'pointerup') updateLeafControlHover(event)
   if (!dragged) return
 
   // 拖拽结束后紧跟的 click 不应再改变选中或触发折叠
@@ -1948,6 +1992,7 @@ const onPointerDown = (event, fromRoot = false) => {
 }
 
 const onPointerMove = (event) => {
+  updateLeafControlHover(event)
   if (!panning.value) return
   if (!panMoved) {
     const distance = Math.hypot(event.clientX - panStart.x, event.clientY - panStart.y)
@@ -1972,6 +2017,12 @@ const endPan = () => {
   }
   panMoved = false
   panFromRoot = false
+}
+
+// 指针离开画布：结束平移并清掉加号；拖拽中由 window 监听延续，不移除拉线源
+const onCanvasLeave = () => {
+  endPan()
+  if (!dragState.active) clearLeafControlHover()
 }
 
 let resizeObserver = null
