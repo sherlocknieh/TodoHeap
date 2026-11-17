@@ -220,12 +220,19 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'create_schedule',
-      description: '创建一条日程事件。',
+      description: '创建一条日程事件。地点、参与人、链接、提醒等结构化信息请分别填写，不要塞进备注。',
       parameters: objectSchema({
         title: text('日程标题'),
         start_at: text('开始时间，带时区的 ISO 8601'),
         end_at: text('结束时间，带时区的 ISO 8601'),
-        notes: nullableText('备注'),
+        notes: nullableText('备注、议程或注意事项'),
+        location: nullableText('地点'),
+        url: nullableText('会议链接或相关页面'),
+        attendees: { type: 'array', items: { type: 'string' }, description: '参与人姓名或邮箱' },
+        all_day: { type: 'boolean', description: '是否全天事件' },
+        status: { type: 'string', enum: ['confirmed', 'tentative', 'cancelled'], description: '确认状态，默认 confirmed' },
+        color: nullableText('展示颜色，十六进制 #RRGGBB'),
+        reminder_minutes: { type: 'array', items: { type: 'integer' }, description: '开始前提醒的分钟数' },
         todo_id: nullableInteger('关联的任务 id')
       }, ['title', 'start_at', 'end_at'])
     }
@@ -234,11 +241,18 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'update_schedule',
-      description: '修改日程的标题、备注或时间。',
+      description: '修改日程的标题、时间、地点、参与人、备注或状态。',
       parameters: objectSchema({
         id: integer('日程 id'),
         title: text('新标题'),
         notes: nullableText('新备注；null 清空'),
+        location: nullableText('新地点；null 清空'),
+        url: nullableText('新链接；null 清空'),
+        attendees: { type: 'array', items: { type: 'string' }, description: '新的参与人列表' },
+        all_day: { type: 'boolean', description: '是否全天事件' },
+        status: { type: 'string', enum: ['confirmed', 'tentative', 'cancelled'], description: '确认状态' },
+        color: nullableText('展示颜色，十六进制 #RRGGBB；null 清空'),
+        reminder_minutes: { type: 'array', items: { type: 'integer' }, description: '开始前提醒的分钟数' },
         start_at: text('新开始时间'),
         end_at: text('新结束时间')
       }, ['id'])
@@ -466,6 +480,13 @@ const serializeSchedule = (schedule) => ({
   id: toNumber(schedule.id),
   title: schedule.title,
   notes: schedule.notes || '',
+  location: schedule.location || '',
+  url: schedule.url || '',
+  attendees: schedule.attendees || [],
+  all_day: Boolean(schedule.all_day),
+  status: schedule.status || 'confirmed',
+  color: schedule.color || null,
+  reminder_minutes: schedule.reminder_minutes || [],
   start_at: schedule.start_at,
   end_at: schedule.end_at,
   todo_id: schedule.todo_id ?? null
@@ -857,6 +878,13 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const result = await scheduleStore.createSchedules([{
         title,
         notes: args.notes ?? null,
+        location: args.location ?? null,
+        url: args.url ?? null,
+        attendees: Array.isArray(args.attendees) ? args.attendees : [],
+        all_day: Boolean(args.all_day),
+        status: args.status ?? 'confirmed',
+        color: args.color ?? null,
+        reminder_minutes: Array.isArray(args.reminder_minutes) ? args.reminder_minutes : [],
         start_at: startAt,
         end_at: endAt,
         todo_id: normalizeInteger(args.todo_id, '关联任务 id')
@@ -875,6 +903,20 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
         updates.title = title
       }
       if ('notes' in args) updates.notes = args.notes ?? null
+      if ('location' in args) updates.location = args.location ?? null
+      if ('url' in args) updates.url = args.url ?? null
+      if ('attendees' in args) updates.attendees = Array.isArray(args.attendees) ? args.attendees : []
+      if ('all_day' in args) updates.all_day = Boolean(args.all_day)
+      if ('status' in args) {
+        if (!['confirmed', 'tentative', 'cancelled'].includes(args.status)) throw new Error('未知的日程状态')
+        updates.status = args.status
+      }
+      if ('color' in args) updates.color = args.color ?? null
+      if ('reminder_minutes' in args) {
+        updates.reminder_minutes = Array.isArray(args.reminder_minutes)
+          ? args.reminder_minutes.filter((item) => Number.isInteger(item) && item >= 0)
+          : []
+      }
       if ('start_at' in args) updates.start_at = normalizeDate(args.start_at, '开始时间')
       if ('end_at' in args) updates.end_at = normalizeDate(args.end_at, '结束时间')
       if (Object.keys(updates).length === 0) throw new Error('没有要更新的字段')

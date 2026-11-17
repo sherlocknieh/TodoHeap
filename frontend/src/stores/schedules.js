@@ -3,6 +3,49 @@ import { ref } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from './auth'
 
+// 日程字段集中在 store 里，拉取/写入/订阅共用同一份列表
+const SCHEDULE_COLUMNS = [
+  'id', 'title', 'notes', 'location', 'url', 'attendees', 'all_day',
+  'status', 'color', 'reminder_minutes', 'external_id',
+  'start_at', 'end_at', 'todo_id', 'updated_at'
+].join(', ')
+
+const normalizeText = (value) => {
+  const text = String(value ?? '').trim()
+  return text || null
+}
+
+const normalizeAttendees = (value) => {
+  const list = Array.isArray(value) ? value : String(value ?? '').split(/[,，;；]/)
+  return [...new Set(list.map((item) => String(item ?? '').trim()).filter(Boolean))]
+}
+
+const normalizeReminders = (value) => {
+  const list = Array.isArray(value) ? value : String(value ?? '').split(/[,，\s]+/)
+  return [...new Set(list
+    .map((item) => Number.parseInt(item, 10))
+    .filter((item) => Number.isInteger(item) && item >= 0))]
+    .sort((a, b) => a - b)
+}
+
+// 外部导入的事件按字段归一化，界面与 Agent 创建的日程走同一套默认值
+const toRow = (event, userId) => ({
+  user_id: userId,
+  title: String(event.title ?? '').trim(),
+  notes: normalizeText(event.notes),
+  location: normalizeText(event.location),
+  url: normalizeText(event.url),
+  attendees: normalizeAttendees(event.attendees),
+  all_day: Boolean(event.all_day),
+  status: ['confirmed', 'tentative', 'cancelled'].includes(event.status) ? event.status : 'confirmed',
+  color: /^#[0-9a-fA-F]{6}$/.test(event.color ?? '') ? event.color : null,
+  reminder_minutes: normalizeReminders(event.reminder_minutes),
+  external_id: normalizeText(event.external_id),
+  start_at: event.start_at,
+  end_at: event.end_at,
+  todo_id: event.todo_id ?? null
+})
+
 export const useScheduleStore = defineStore('schedules', () => {
   const schedules = ref([])
   const loading = ref(false)
@@ -34,7 +77,7 @@ export const useScheduleStore = defineStore('schedules', () => {
       try {
         const { data, error: fetchError } = await supabase
           .from('schedules')
-          .select('id, title, notes, start_at, end_at, todo_id, updated_at')
+          .select(SCHEDULE_COLUMNS)
           .eq('user_id', auth.userId)
           .order('start_at', { ascending: true })
 
@@ -57,7 +100,7 @@ export const useScheduleStore = defineStore('schedules', () => {
     }
   }
 
-  // 批量写入导入事件；单次请求保证要么全部入库，要么全部失败
+  // 批量写入导入事件；外部来源键相同的事件直接跳过，避免同一份 ICS 重复导入
   const createSchedules = async (events) => {
     if (!events.length) return { success: true, data: [] }
 
@@ -65,18 +108,11 @@ export const useScheduleStore = defineStore('schedules', () => {
     if (!auth.ok) return { success: false, error: auth.error }
 
     try {
-      const rows = events.map((event) => ({
-        user_id: auth.userId,
-        title: event.title,
-        notes: event.notes ?? null,
-        start_at: event.start_at,
-        end_at: event.end_at,
-        todo_id: event.todo_id ?? null
-      }))
+      const rows = events.map((event) => toRow(event, auth.userId))
       const { data, error: insertError } = await supabase
         .from('schedules')
-        .insert(rows)
-        .select('id, title, notes, start_at, end_at, todo_id, updated_at')
+        .upsert(rows, { onConflict: 'user_id,external_id', ignoreDuplicates: true })
+        .select(SCHEDULE_COLUMNS)
 
       if (insertError) throw insertError
       schedules.value = [...schedules.value, ...(data || [])]
@@ -104,7 +140,7 @@ export const useScheduleStore = defineStore('schedules', () => {
         .update(updates)
         .eq('id', id)
         .eq('user_id', auth.userId)
-        .select('id, title, notes, start_at, end_at, todo_id, updated_at')
+        .select(SCHEDULE_COLUMNS)
         .single()
 
       if (updateError) throw updateError

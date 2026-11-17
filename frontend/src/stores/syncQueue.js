@@ -384,7 +384,6 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
         p_title: payload.title,
         p_details: payload.details ?? null,
         p_deadline: payload.deadline ?? null,
-        p_sort_order: payload.sort_order ?? null,
         p_duration: payload.duration ?? null,
         p_completed_at: payload.completed_at ?? null,
         p_parent_id: realParentId

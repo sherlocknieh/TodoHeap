@@ -316,16 +316,14 @@ describe('createTodoOptimisticActions', () => {
 
   it('moveTodo 拖入任务内部应成为其子任务', async () => {
     todosRef.value = [
-      { id: 1, title: '目标', child_ids: [], sort_order: 0, deleted_at: null },
-      { id: 2, title: '移动项', child_ids: [], sort_order: 10, deleted_at: null }
+      { id: 1, title: '目标', child_ids: [], deleted_at: null },
+      { id: 2, title: '移动项', child_ids: [], deleted_at: null }
     ]
 
     const result = await actions.moveTodo(2, { targetId: 1, position: 'inside' })
 
     expect(result.success).toBe(true)
     expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([2])
-    // 手动序号以 child_ids 为准，sort_order 保持旧值
-    expect(todosRef.value.find(todo => todo.id === 2).sort_order).toBe(10)
     expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
       type: OperationType.UPDATE,
       targetId: 1,
@@ -333,12 +331,12 @@ describe('createTodoOptimisticActions', () => {
     }))
   })
 
-  it('moveTodo 同级后移只调整 child_ids，不再写 sort_order', async () => {
+  it('moveTodo 同级后移只调整 child_ids', async () => {
     todosRef.value = [
-      { id: 1, title: 'A', child_ids: [3, 4], sort_order: 0, deleted_at: null },
-      { id: 2, title: 'B', child_ids: [], sort_order: 10, deleted_at: null },
-      { id: 3, title: 'A1', child_ids: [], sort_order: 0, deleted_at: null },
-      { id: 4, title: 'A2', child_ids: [], sort_order: 10, deleted_at: null }
+      { id: 1, title: 'A', child_ids: [3, 4], deleted_at: null },
+      { id: 2, title: 'B', child_ids: [], deleted_at: null },
+      { id: 3, title: 'A1', child_ids: [], deleted_at: null },
+      { id: 4, title: 'A2', child_ids: [], deleted_at: null }
     ]
 
     const result = await actions.moveTodo(4, { targetId: 3, position: 'before' })
@@ -346,18 +344,15 @@ describe('createTodoOptimisticActions', () => {
     expect(result.success).toBe(true)
     // 父节点按新顺序保存子列表
     expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([4, 3])
-    // sort_order 只保留旧值，手动顺序不再靠它
-    expect(todosRef.value.find(todo => todo.id === 4).sort_order).toBe(10)
-    expect(todosRef.value.find(todo => todo.id === 3).sort_order).toBe(0)
     const payloads = syncQueue.enqueue.mock.calls.map(([item]) => item.payload)
     expect(payloads.some((payload) => 'sort_order' in payload)).toBe(false)
   })
 
   it('moveTodo 跨层级移动应从旧父剔除并挂到新父', async () => {
     todosRef.value = [
-      { id: 1, title: '旧父', child_ids: [3], sort_order: 0, deleted_at: null },
-      { id: 2, title: '新父', child_ids: [], sort_order: 10, deleted_at: null },
-      { id: 3, title: '移动项', child_ids: [], sort_order: 0, deleted_at: null }
+      { id: 1, title: '旧父', child_ids: [3], deleted_at: null },
+      { id: 2, title: '新父', child_ids: [], deleted_at: null },
+      { id: 3, title: '移动项', child_ids: [], deleted_at: null }
     ]
 
     await actions.moveTodo(3, { targetId: 2, position: 'inside' })
@@ -368,8 +363,8 @@ describe('createTodoOptimisticActions', () => {
 
   it('moveTodo 不允许移动到自身或自己的后代下', async () => {
     todosRef.value = [
-      { id: 1, title: '父', child_ids: [2], sort_order: 0, deleted_at: null },
-      { id: 2, title: '子', child_ids: [], sort_order: 0, deleted_at: null }
+      { id: 1, title: '父', child_ids: [2], deleted_at: null },
+      { id: 2, title: '子', child_ids: [], deleted_at: null }
     ]
 
     expect((await actions.moveTodo(1, { targetId: 1, position: 'inside' })).success).toBe(false)
@@ -377,7 +372,7 @@ describe('createTodoOptimisticActions', () => {
   })
 
   it('addTodo 未指定父级时挂到根任务下', async () => {
-    todosRef.value = [{ id: 42, title: '全部任务', is_root: true, child_ids: [], sort_order: 0 }]
+    todosRef.value = [{ id: 42, title: '全部任务', is_root: true, child_ids: [] }]
 
     const result = await actions.addTodo('顶层任务')
 
@@ -395,9 +390,9 @@ describe('createTodoOptimisticActions', () => {
 
   it('moveTodo 拖到根层级时挂到根任务并保留孤儿 ID', async () => {
     todosRef.value = [
-      { id: 42, title: '全部任务', is_root: true, child_ids: [1, 999], sort_order: 0, deleted_at: null },
-      { id: 1, title: '旧父', child_ids: [3], sort_order: 0, deleted_at: null },
-      { id: 3, title: '移动项', child_ids: [], sort_order: 0, deleted_at: null }
+      { id: 42, title: '全部任务', is_root: true, child_ids: [1, 999], deleted_at: null },
+      { id: 1, title: '旧父', child_ids: [3], deleted_at: null },
+      { id: 3, title: '移动项', child_ids: [], deleted_at: null }
     ]
 
     const result = await actions.moveTodo(3, { targetId: null })
@@ -408,27 +403,28 @@ describe('createTodoOptimisticActions', () => {
     expect(todosRef.value.find(todo => todo.id === 42).child_ids).toEqual([1, 3, 999])
   })
 
-  it('moveTodo 重排按 child_ids 现有顺序计算，不再看 sort_order', async () => {    todosRef.value = [
-      { id: 1, title: '父', child_ids: [3, 4, 5], sort_order: 0, deleted_at: null },
-      { id: 3, title: 'C', child_ids: [], sort_order: 20, deleted_at: null },
-      { id: 4, title: 'A', child_ids: [], sort_order: 0, deleted_at: null },
-      { id: 5, title: 'B', child_ids: [], sort_order: 10, deleted_at: null }
+  it('moveTodo 重排按 child_ids 现有顺序计算', async () => {
+    todosRef.value = [
+      { id: 1, title: '父', child_ids: [3, 4, 5], deleted_at: null },
+      { id: 3, title: 'C', child_ids: [], deleted_at: null },
+      { id: 4, title: 'A', child_ids: [], deleted_at: null },
+      { id: 5, title: 'B', child_ids: [], deleted_at: null }
     ]
 
     const result = await actions.moveTodo(3, { targetId: 5, position: 'after' })
 
     expect(result.success).toBe(true)
-    // 未参与移动的兄弟保持原有相对顺序 [4, 5]，不按 sort_order 重排
+    // 未参与移动的兄弟保持原有相对顺序 [4, 5]
     expect(todosRef.value.find(todo => todo.id === 1).child_ids).toEqual([4, 5, 3])
   })
 
   it('moveTodo 在多父任务的一个父级下重排，其它父级顺序不变', async () => {
     todosRef.value = [
-      { id: 1, title: 'A', child_ids: [5, 6], sort_order: 0, deleted_at: null },
-      { id: 2, title: 'B', child_ids: [5, 7], sort_order: 10, deleted_at: null },
-      { id: 5, title: '共享', child_ids: [], sort_order: 0, deleted_at: null },
-      { id: 6, title: 'A 独有', child_ids: [], sort_order: 10, deleted_at: null },
-      { id: 7, title: 'B 独有', child_ids: [], sort_order: 10, deleted_at: null }
+      { id: 1, title: 'A', child_ids: [5, 6], deleted_at: null },
+      { id: 2, title: 'B', child_ids: [5, 7], deleted_at: null },
+      { id: 5, title: '共享', child_ids: [], deleted_at: null },
+      { id: 6, title: 'A 独有', child_ids: [], deleted_at: null },
+      { id: 7, title: 'B 独有', child_ids: [], deleted_at: null }
     ]
 
     const result = await actions.moveTodo(5, {
@@ -443,10 +439,10 @@ describe('createTodoOptimisticActions', () => {
 
   it('moveTodo 拖进新父级时只摘来源父链接，其它父级保留', async () => {
     todosRef.value = [
-      { id: 1, title: 'A', child_ids: [5], sort_order: 0, deleted_at: null },
-      { id: 2, title: 'B', child_ids: [5], sort_order: 10, deleted_at: null },
-      { id: 3, title: 'C', child_ids: [], sort_order: 20, deleted_at: null },
-      { id: 5, title: '共享', child_ids: [], sort_order: 0, deleted_at: null }
+      { id: 1, title: 'A', child_ids: [5], deleted_at: null },
+      { id: 2, title: 'B', child_ids: [5], deleted_at: null },
+      { id: 3, title: 'C', child_ids: [], deleted_at: null },
+      { id: 5, title: '共享', child_ids: [], deleted_at: null }
     ]
 
     const result = await actions.moveTodo(5, { targetId: 3, position: 'inside', sourceParentId: 1 })
@@ -459,11 +455,11 @@ describe('createTodoOptimisticActions', () => {
   })
 
   it('moveTodo 拖到根层级只摘来源父链接', async () => {    todosRef.value = [
-      { id: 42, title: '全部任务', is_root: true, child_ids: [8], sort_order: 0, deleted_at: null },
-      { id: 1, title: 'A', child_ids: [5], sort_order: 0, deleted_at: null },
-      { id: 2, title: 'B', child_ids: [5], sort_order: 10, deleted_at: null },
-      { id: 5, title: '共享', child_ids: [], sort_order: 0, deleted_at: null },
-      { id: 8, title: '顶层', child_ids: [], sort_order: 10, deleted_at: null }
+      { id: 42, title: '全部任务', is_root: true, child_ids: [8], deleted_at: null },
+      { id: 1, title: 'A', child_ids: [5], deleted_at: null },
+      { id: 2, title: 'B', child_ids: [5], deleted_at: null },
+      { id: 5, title: '共享', child_ids: [], deleted_at: null },
+      { id: 8, title: '顶层', child_ids: [], deleted_at: null }
     ]
 
     const result = await actions.moveTodo(5, { targetId: null, sourceParentId: 2 })
@@ -476,10 +472,10 @@ describe('createTodoOptimisticActions', () => {
 
   it('unlinkTodo 摘掉最后一个父链接时把任务挂回根任务', async () => {
     todosRef.value = [
-      { id: 42, title: '全部任务', is_root: true, child_ids: [8], sort_order: 0 },
-      { id: 1, title: '父', child_ids: [5], sort_order: 0 },
-      { id: 5, title: '子', child_ids: [], sort_order: 0 },
-      { id: 8, title: '顶层', child_ids: [], sort_order: 10 }
+      { id: 42, title: '全部任务', is_root: true, child_ids: [8] },
+      { id: 1, title: '父', child_ids: [5] },
+      { id: 5, title: '子', child_ids: [] },
+      { id: 8, title: '顶层', child_ids: [] }
     ]
 
     const result = await actions.unlinkTodo(1, 5)
@@ -494,10 +490,10 @@ describe('createTodoOptimisticActions', () => {
 
   it('unlinkTodo 保留其它父链接，不动根任务', async () => {
     todosRef.value = [
-      { id: 42, title: '全部任务', is_root: true, child_ids: [], sort_order: 0 },
-      { id: 1, title: 'A', child_ids: [5], sort_order: 0 },
-      { id: 2, title: 'B', child_ids: [5], sort_order: 10 },
-      { id: 5, title: '共享', child_ids: [], sort_order: 0 }
+      { id: 42, title: '全部任务', is_root: true, child_ids: [] },
+      { id: 1, title: 'A', child_ids: [5] },
+      { id: 2, title: 'B', child_ids: [5] },
+      { id: 5, title: '共享', child_ids: [] }
     ]
 
     const result = await actions.unlinkTodo(1, 5)
@@ -509,7 +505,7 @@ describe('createTodoOptimisticActions', () => {
   })
 
   it('unlinkTodo 不允许从根任务直接断开', async () => {
-    todosRef.value = [{ id: 42, title: '全部任务', is_root: true, child_ids: [5], sort_order: 0 }]
+    todosRef.value = [{ id: 42, title: '全部任务', is_root: true, child_ids: [5] }]
 
     const result = await actions.unlinkTodo(42, 5)
 

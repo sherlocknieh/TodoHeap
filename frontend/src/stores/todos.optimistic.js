@@ -109,7 +109,6 @@ export const createTodoOptimisticActions = ({
       parent_id: parentId,
       deadline: options.deadline || null,
       details: options.details || null,
-      sort_order: Number.isFinite(options.sort_order) ? options.sort_order : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       deleted_at: null,
@@ -141,7 +140,6 @@ export const createTodoOptimisticActions = ({
         parent_id: parentId,
         deadline: newTodo.deadline,
         details: newTodo.details,
-        sort_order: newTodo.sort_order,
         duration: newTodo.duration
       }
     })
@@ -189,7 +187,6 @@ export const createTodoOptimisticActions = ({
           parent_id: current.parent_id ?? null,
           deadline: current.deadline,
           details: current.details,
-          sort_order: current.sort_order,
           duration: current.duration
         }
       })

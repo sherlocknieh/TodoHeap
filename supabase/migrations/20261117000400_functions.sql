@@ -1,5 +1,5 @@
 -- TodoHeap 数据库基线: 函数
--- 通用维护函数、账号删除与任务树的写入/软删除维护
+-- 通用维护函数、账号删除、根任务维护与任务树的写入/软删除维护
 
 -- ---------------------------------------------------------------------------
 -- 通用
@@ -36,6 +36,112 @@ BEGIN
     DELETE FROM auth.users WHERE id = current_user_id;
 
     RETURN FOUND;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 根任务
+-- ---------------------------------------------------------------------------
+
+-- 把没有父链接的任务按创建顺序补挂到根任务, 幂等且只追加缺失的 ID。
+-- 用于旧数据恢复后的兜底; 手动顺序仍以根任务 child_ids 的现有排列为准
+CREATE OR REPLACE FUNCTION public.attach_root_children()
+RETURNS public.todos
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    current_user_id uuid := auth.uid();
+    root public.todos;
+    missing BIGINT[];
+BEGIN
+    IF current_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT * INTO root FROM public.todos WHERE user_id = current_user_id AND is_root;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '根任务不存在';
+    END IF;
+
+    SELECT COALESCE(array_agg(candidate.id ORDER BY candidate.created_at, candidate.id), '{}'::BIGINT[])
+    INTO missing
+    FROM public.todos candidate
+    WHERE candidate.user_id = current_user_id
+      AND NOT candidate.is_root
+      AND NOT (candidate.id = ANY(root.child_ids))
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.todos parent
+          WHERE parent.user_id = current_user_id
+            AND parent.id <> candidate.id
+            AND candidate.id = ANY(parent.child_ids)
+      );
+
+    IF cardinality(missing) > 0 THEN
+        UPDATE public.todos
+        SET child_ids = root.child_ids || missing
+        WHERE id = root.id;
+
+        SELECT * INTO root FROM public.todos WHERE id = root.id;
+    END IF;
+
+    RETURN root;
+END;
+$$;
+
+-- 取当前用户的根任务, 没有就建一条; 新建后立刻补挂已有顶层任务。
+-- SECURITY DEFINER: 根任务不受插入策略限制, 已有根任务的顺序也不会被覆盖
+CREATE OR REPLACE FUNCTION public.ensure_root_todo()
+RETURNS public.todos
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    current_user_id uuid := auth.uid();
+    root public.todos;
+BEGIN
+    IF current_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT * INTO root FROM public.todos WHERE user_id = current_user_id AND is_root;
+    IF FOUND THEN
+        RETURN root;
+    END IF;
+
+    INSERT INTO public.todos (user_id, title, is_root)
+    VALUES (current_user_id, '全部任务', TRUE)
+    ON CONFLICT (user_id) WHERE is_root DO NOTHING
+    RETURNING * INTO root;
+
+    IF NOT FOUND THEN
+        -- 并发下另一请求已经建好根任务, 直接复用
+        SELECT * INTO root FROM public.todos WHERE user_id = current_user_id AND is_root;
+        RETURN root;
+    END IF;
+
+    RETURN public.attach_root_children();
+END;
+$$;
+
+-- 根任务只允许调整 child_ids; 其它字段(标题/完成态/删除态/所属用户)一律拒绝。
+-- 删除保护放在 RLS, 避免阻断删号时的外键级联
+CREATE OR REPLACE FUNCTION public.todos_guard_root()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+    IF (NEW.is_root OR OLD.is_root)
+        AND (to_jsonb(NEW) - 'child_ids' - 'updated_at')
+            IS DISTINCT FROM (to_jsonb(OLD) - 'child_ids' - 'updated_at') THEN
+        RAISE EXCEPTION '根任务只允许调整子任务顺序';
+    END IF;
+
+    RETURN NEW;
 END;
 $$;
 
@@ -130,13 +236,12 @@ BEGIN
 END;
 $$;
 
--- 原子地创建任务, 并在指定父任务下挂入子列表
+-- 原子地创建任务: 显式父级照旧, 未指定父级时挂到根任务
 CREATE OR REPLACE FUNCTION public.create_todo(
     p_title TEXT,
     p_details TEXT DEFAULT NULL,
     p_deadline TIMESTAMPTZ DEFAULT NULL,
-    p_sort_order INTEGER DEFAULT NULL,
-    p_difficulty NUMERIC DEFAULT NULL,
+    p_duration NUMERIC DEFAULT NULL,
     p_completed_at TIMESTAMPTZ DEFAULT NULL,
     p_parent_id BIGINT DEFAULT NULL,
     p_external_id TEXT DEFAULT NULL
@@ -147,15 +252,20 @@ SET search_path = public
 AS $$
 DECLARE
     created public.todos;
+    parent_id BIGINT := p_parent_id;
 BEGIN
-    INSERT INTO public.todos (user_id, title, details, deadline, sort_order, difficulty, completed_at, external_id)
-    VALUES (auth.uid(), p_title, p_details, p_deadline, p_sort_order, p_difficulty, p_completed_at, p_external_id)
+    IF parent_id IS NULL THEN
+        SELECT (public.ensure_root_todo()).id INTO parent_id;
+    END IF;
+
+    INSERT INTO public.todos (user_id, title, details, deadline, duration, completed_at, external_id)
+    VALUES (auth.uid(), p_title, p_details, p_deadline, p_duration, p_completed_at, p_external_id)
     RETURNING * INTO created;
 
-    IF p_parent_id IS NOT NULL THEN
+    IF parent_id IS NOT NULL THEN
         UPDATE public.todos
         SET child_ids = array_append(child_ids, created.id)
-        WHERE id = p_parent_id
+        WHERE id = parent_id
           AND user_id = auth.uid()
           AND NOT (created.id = ANY(child_ids));
     END IF;
@@ -164,24 +274,40 @@ BEGIN
 END;
 $$;
 
--- 批量把子任务挂到父任务下, 自动去重
+-- 批量把子任务挂到父任务下: 保留已有顺序, 新 ID 按传入顺序追加并去重
 CREATE OR REPLACE FUNCTION public.append_todo_children(
     p_parent_id BIGINT,
     p_child_ids BIGINT[]
 )
 RETURNS void
-LANGUAGE sql
+LANGUAGE plpgsql
 SET search_path = public
 AS $$
+DECLARE
+    incoming BIGINT[];
+BEGIN
+    IF p_child_ids IS NULL OR cardinality(p_child_ids) = 0 THEN
+        RETURN;
+    END IF;
+
+    WITH ordered AS (
+        SELECT child_id, MIN(position) AS position
+        FROM unnest(p_child_ids) WITH ORDINALITY AS item(child_id, position)
+        GROUP BY child_id
+    )
+    SELECT COALESCE(array_agg(child_id ORDER BY position), '{}'::BIGINT[])
+    INTO incoming
+    FROM ordered;
+
     UPDATE todos
-    SET child_ids = (
-        SELECT array_agg(DISTINCT c ORDER BY c)
-        FROM unnest(child_ids || p_child_ids) AS c
+    SET child_ids = child_ids || ARRAY(
+        SELECT child_id
+        FROM unnest(incoming) AS child_id
+        WHERE NOT child_id = ANY(child_ids)
     )
     WHERE id = p_parent_id
-      AND user_id = auth.uid()
-      AND p_child_ids IS NOT NULL
-      AND cardinality(p_child_ids) > 0;
+      AND user_id = auth.uid();
+END;
 $$;
 
 -- 批量把子任务从各自父任务下摘除

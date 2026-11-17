@@ -286,14 +286,13 @@ export const useTodoStore = defineStore('todos', () => {
         details: item.details || '',
         completed_at: item.completed_at || null,
         deadline: item.deadline || null,
-        sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
         duration: item.duration ?? null,
         created_at: item.created_at || null,
         is_root: Boolean(item.is_root),
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
       })
-      // 手动顺序 = 父级 child_ids 的数组顺序，不再按 sort_order 重排
+      // 手动顺序 = 父级 child_ids 的数组顺序
     })
   })
 
@@ -316,7 +315,6 @@ export const useTodoStore = defineStore('todos', () => {
         details: item.details || '',
         completed_at: item.completed_at || null,
         deadline: item.deadline || null,
-        sort_order: Number.isFinite(item.sort_order) ? item.sort_order : null,
         duration: item.duration ?? null,
         deleted_at: item.deleted_at,
         // 标记层级深度

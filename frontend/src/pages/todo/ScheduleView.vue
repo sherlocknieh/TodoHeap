@@ -55,25 +55,33 @@ const timeLabel = (value) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
-// 卡片左侧的时间列；整日事件（起止零点且跨一天）只显示一次「全天」
+// 卡片左侧的时间列；全天事件只显示一次「全天」
 const eventTimes = (event) => {
-  const start = new Date(event.start_at)
-  const end = new Date(event.end_at)
-  if (start.getHours() === 0 && start.getMinutes() === 0
-    && end.getTime() - start.getTime() === 86400000) return { start: '全天', end: '' }
+  if (event.all_day) return { start: '全天', end: '' }
   return { start: timeLabel(event.start_at), end: timeLabel(event.end_at) }
 }
 
+const statusLabel = (event) => {
+  if (event.status === 'tentative') return '待定'
+  if (event.status === 'cancelled') return '已取消'
+  return ''
+}
+
+// 全天事件是 UTC 零点上的日期值，直接取日期部分，避免时区换算
+const eventDateKey = (event) => (event.all_day
+  ? String(event.start_at).slice(0, 10)
+  : toDateKey(event.start_at))
+
 // 跨天事件归入开始日，与月历圆点口径保持一致
 const dayEvents = computed(() => scheduleStore.schedules
-  .filter((event) => toDateKey(event.start_at) === selectedKey.value)
+  .filter((event) => eventDateKey(event) === selectedKey.value)
   .sort((a, b) => new Date(a.start_at) - new Date(b.start_at)))
 
 // 每天的事件数，用作月历上的圆点
 const eventCountByDay = computed(() => {
   const counts = new Map()
   for (const event of scheduleStore.schedules) {
-    const key = toDateKey(event.start_at)
+    const key = eventDateKey(event)
     counts.set(key, (counts.get(key) || 0) + 1)
   }
   return counts
@@ -299,14 +307,28 @@ onMounted(() => {
             ? 'border-accent-400 bg-accent-50/60 dark:border-accent-600 dark:bg-accent-500/[0.08]'
             : 'border-hairline bg-neutral-50/60 hover:border-accent-400 hover:bg-accent-50/40 dark:border-hairline-dark dark:bg-neutral-900/40 dark:hover:border-accent-600 dark:hover:bg-accent-500/[0.06]'"
           @click="selectEvent(event)">
+          <span v-if="event.color" class="w-1 self-stretch rounded-full" :style="{ backgroundColor: event.color }"></span>
           <div class="flex w-14 shrink-0 flex-col font-mono text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
             <span>{{ eventTimes(event).start }}</span>
             <span class="text-neutral-400 dark:text-neutral-600">{{ eventTimes(event).end }}</span>
           </div>
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm text-neutral-900 dark:text-neutral-100">{{ event.title || '未命名日程' }}</p>
+            <p class="truncate text-sm" :class="event.status === 'cancelled'
+              ? 'text-neutral-400 line-through dark:text-neutral-600'
+              : 'text-neutral-900 dark:text-neutral-100'">
+              {{ event.title || '未命名日程' }}
+            </p>
+            <p v-if="event.location" class="mt-0.5 flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
+              <AppIcon name="mapPin" :size="11" />
+              <span class="truncate">{{ event.location }}</span>
+            </p>
+            <p v-if="event.attendees?.length" class="mt-0.5 flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
+              <AppIcon name="users" :size="11" />
+              <span class="truncate">{{ event.attendees.join('、') }}</span>
+            </p>
             <p v-if="event.notes" class="mt-0.5 line-clamp-2 text-xs text-neutral-500 dark:text-neutral-400">{{ event.notes }}</p>
           </div>
+          <span v-if="statusLabel(event)" class="chip shrink-0">{{ statusLabel(event) }}</span>
         </li>
       </ul>
 

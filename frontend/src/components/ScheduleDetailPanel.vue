@@ -28,29 +28,141 @@ const event = computed(() => {
   return scheduleStore.schedules.find(item => String(item.id) === String(props.eventId)) || null
 })
 
-const form = ref({ title: '', notes: '', start_at: '', end_at: '' })
+const STATUS_OPTIONS = [
+  { value: 'confirmed', label: '已确认' },
+  { value: 'tentative', label: '待定' },
+  { value: 'cancelled', label: '已取消' }
+]
+
+const COLOR_OPTIONS = [
+  { value: '', label: '默认' },
+  { value: '#2563eb', label: '蓝色' },
+  { value: '#059669', label: '绿色' },
+  { value: '#ea580c', label: '橙色' },
+  { value: '#7c3aed', label: '紫色' },
+  { value: '#dc2626', label: '红色' },
+  { value: '#64748b', label: '灰色' }
+]
+
+const pad = (value) => String(value).padStart(2, '0')
+
+// 全天事件是 UTC 零点上的日期值；定时事件按本地日期换算
+const toDateValue = (value, utc = false) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = utc ? date.getUTCFullYear() : date.getFullYear()
+  const month = utc ? date.getUTCMonth() : date.getMonth()
+  const day = utc ? date.getUTCDate() : date.getDate()
+  return `${year}-${pad(month + 1)}-${pad(day)}`
+}
+
+const toUtcMidnight = (dateValue) => {
+  const [year, month, day] = String(dateValue || '').split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+const toLocalMidnight = (dateValue) => {
+  const [year, month, day] = String(dateValue || '').split('-').map(Number)
+  return new Date(year, month - 1, day, 0, 0, 0, 0)
+}
+
+const splitList = (value) => String(value ?? '')
+  .split(/[,，;；]/)
+  .map((item) => item.trim())
+  .filter(Boolean)
+
+const parseReminders = (value) => [...new Set(String(value ?? '')
+  .split(/[,，\s]+/)
+  .map((item) => Number.parseInt(item, 10))
+  .filter((item) => Number.isInteger(item) && item >= 0))]
+  .sort((a, b) => a - b)
+
+const form = ref({
+  title: '',
+  notes: '',
+  location: '',
+  url: '',
+  attendees: '',
+  status: 'confirmed',
+  color: '',
+  reminders: '',
+  all_day: false,
+  start_at: '',
+  end_at: '',
+  start_date: '',
+  end_date: ''
+})
 const errorMessage = ref('')
 const isSaving = ref(false)
+
+const emptyForm = () => ({
+  title: '',
+  notes: '',
+  location: '',
+  url: '',
+  attendees: '',
+  status: 'confirmed',
+  color: '',
+  reminders: '',
+  all_day: false,
+  start_at: '',
+  end_at: '',
+  start_date: '',
+  end_date: ''
+})
 
 // 切换选中日程时重置草稿，未保存的编辑不会带到另一条日程
 const resetForm = (item) => {
   errorMessage.value = ''
   isSaving.value = false
-  form.value = item
-    ? {
-      title: item.title || '',
-      notes: item.notes || '',
-      start_at: toDateTimeLocalValue(item.start_at),
-      end_at: toDateTimeLocalValue(item.end_at)
-    }
-    : { title: '', notes: '', start_at: '', end_at: '' }
+  if (!item) {
+    form.value = emptyForm()
+    return
+  }
+
+  const endBefore = new Date(new Date(item.end_at).getTime() - 1)
+  form.value = {
+    title: item.title || '',
+    notes: item.notes || '',
+    location: item.location || '',
+    url: item.url || '',
+    attendees: (item.attendees || []).join(', '),
+    status: item.status || 'confirmed',
+    color: item.color || '',
+    reminders: (item.reminder_minutes || []).join(', '),
+    all_day: Boolean(item.all_day),
+    start_at: toDateTimeLocalValue(item.start_at),
+    end_at: toDateTimeLocalValue(item.end_at),
+    start_date: toDateValue(item.start_at, item.all_day),
+    end_date: toDateValue(endBefore, item.all_day)
+  }
 }
 
 // 选中日程或数据到达时重置草稿；保存后的回写不打断正在编辑的内容
 watch(() => [props.eventId, event.value?.id], () => resetForm(event.value), { immediate: true })
 
+// 勾选全天后把当前时间折算成日期，取消时再折回零点区间
+const toggleAllDay = (checked) => {
+  if (checked) {
+    form.value.start_date = toDateValue(form.value.start_at)
+    form.value.end_date = toDateValue(new Date(new Date(form.value.end_at).getTime() - 1))
+    return
+  }
+  const start = toLocalMidnight(form.value.start_date)
+  const endDate = toLocalMidnight(form.value.end_date)
+  // 日期被清空时保留原来的时间输入，避免生成 Invalid Date
+  if (Number.isNaN(start.getTime()) || Number.isNaN(endDate.getTime())) return
+  const end = new Date(endDate.getTime() + 86400000)
+  form.value.start_at = toDateTimeLocalValue(start.toISOString())
+  form.value.end_at = toDateTimeLocalValue(end.toISOString())
+}
+
 const startLabel = computed(() => {
   if (!event.value) return ''
+  if (event.value.all_day) {
+    const [year, month, day] = String(event.value.start_at).slice(0, 10).split('-').map(Number)
+    return `${year}年${month}月${day}日`
+  }
   const date = new Date(event.value.start_at)
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 })
@@ -59,25 +171,48 @@ const save = async () => {
   if (!event.value || isSaving.value) return
 
   const title = form.value.title.trim()
-  const start = new Date(form.value.start_at)
-  const end = new Date(form.value.end_at)
   if (!title) {
     errorMessage.value = '填写日程标题'
     return
   }
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    errorMessage.value = '填写开始和结束时间'
-    return
-  }
-  if (end <= start) {
-    errorMessage.value = '结束时间需要晚于开始时间'
-    return
+
+  let start
+  let end
+  if (form.value.all_day) {
+    if (!form.value.start_date || !form.value.end_date) {
+      errorMessage.value = '填写开始和结束日期'
+      return
+    }
+    start = toUtcMidnight(form.value.start_date)
+    end = new Date(toUtcMidnight(form.value.end_date).getTime() + 86400000)
+    if (end <= start) {
+      errorMessage.value = '结束日期不能早于开始日期'
+      return
+    }
+  } else {
+    start = new Date(form.value.start_at)
+    end = new Date(form.value.end_at)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      errorMessage.value = '填写开始和结束时间'
+      return
+    }
+    if (end <= start) {
+      errorMessage.value = '结束时间需要晚于开始时间'
+      return
+    }
   }
 
   isSaving.value = true
   const result = await scheduleStore.updateSchedule(event.value.id, {
     title,
     notes: form.value.notes.trim() || null,
+    location: form.value.location.trim() || null,
+    url: form.value.url.trim() || null,
+    attendees: splitList(form.value.attendees),
+    all_day: form.value.all_day,
+    status: form.value.status,
+    color: form.value.color || null,
+    reminder_minutes: parseReminders(form.value.reminders),
     start_at: start.toISOString(),
     end_at: end.toISOString()
   })
@@ -145,21 +280,69 @@ const remove = async () => {
         <input v-model="form.title" class="field" type="text" placeholder="日程标题" />
       </label>
 
+      <label class="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
+        <input v-model="form.all_day" type="checkbox" class="accent-accent-600" @change="toggleAllDay(form.all_day)" />
+        <span>全天事件</span>
+      </label>
+
       <div class="grid grid-cols-1 gap-2">
-        <label class="block">
+        <label v-if="form.all_day" class="block">
+          <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">开始日期</span>
+          <input v-model="form.start_date" class="field" type="date" />
+        </label>
+        <label v-else class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">开始</span>
           <input v-model="form.start_at" class="field" type="datetime-local" />
         </label>
-        <label class="block">
+        <label v-if="form.all_day" class="block">
+          <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">结束日期（含当天）</span>
+          <input v-model="form.end_date" class="field" type="date" />
+        </label>
+        <label v-else class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">结束</span>
           <input v-model="form.end_at" class="field" type="datetime-local" />
         </label>
       </div>
 
       <label class="block">
+        <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">地点</span>
+        <input v-model="form.location" class="field" type="text" placeholder="教室、会议室或线上地址" />
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">链接</span>
+        <input v-model="form.url" class="field" type="url" placeholder="会议链接或相关页面" />
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">参与人</span>
+        <input v-model="form.attendees" class="field" type="text" placeholder="姓名或邮箱，用逗号分隔" />
+      </label>
+
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block">
+          <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">状态</span>
+          <select v-model="form.status" class="field">
+            <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">颜色</span>
+          <select v-model="form.color" class="field">
+            <option v-for="option in COLOR_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="block">
+        <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">提前提醒（分钟，逗号分隔）</span>
+        <input v-model="form.reminders" class="field" type="text" placeholder="例如 10, 30" />
+      </label>
+
+      <label class="block">
         <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">备注</span>
         <textarea v-model="form.notes" class="field resize-none" rows="5"
-          placeholder="地点、参与人或其他说明"></textarea>
+          placeholder="议程、注意事项或其他说明"></textarea>
       </label>
 
       <p v-if="errorMessage" class="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">

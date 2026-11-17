@@ -4,12 +4,20 @@ type ScheduleRow = {
   id: number;
   title: string;
   notes: string | null;
+  location: string | null;
+  url: string | null;
+  attendees: string[] | null;
+  all_day: boolean | null;
+  status: string | null;
+  color: string | null;
+  reminder_minutes: number[] | null;
   start_at: string;
   end_at: string;
   updated_at: string;
 };
 
 const TOKEN_PATTERN = /^[a-f0-9]{32}$/;
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
@@ -27,12 +35,21 @@ const toUtcStamp = (value: string | Date) => {
   ].join("");
 };
 
+// 全天事件按 UTC 日期输出，与前端导出的 DATE 值保持一致
+const toDateStamp = (value: string | Date) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return [date.getUTCFullYear(), pad(date.getUTCMonth() + 1), pad(date.getUTCDate())].join("");
+};
+
 const escapeText = (value: unknown) =>
   String(value ?? "")
     .replace(/\\/g, "\\\\")
     .replace(/\r?\n/g, "\\n")
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,");
+
+const escapeParam = (value: unknown) =>
+  `"${String(value ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
 // RFC 5545 要求每行不超过 75 字节，按 UTF-8 字节切分后再折行
 const foldLine = (line: string) => {
@@ -71,20 +88,50 @@ const buildCalendar = (schedules: ScheduleRow[]) => {
 
   const stamp = toUtcStamp(new Date());
   for (const schedule of schedules) {
-    lines.push(
-      "BEGIN:VEVENT",
-      `UID:todoheap-${schedule.id}@todoheap`,
-      `DTSTAMP:${stamp}`,
-      `DTSTART:${toUtcStamp(schedule.start_at)}`,
-      `DTEND:${toUtcStamp(schedule.end_at)}`,
-      `SUMMARY:${escapeText(schedule.title || "未命名日程")}`,
-    );
-    if (schedule.notes) {
-      lines.push(`DESCRIPTION:${escapeText(schedule.notes)}`);
+    lines.push("BEGIN:VEVENT", `UID:todoheap-${schedule.id}@todoheap`, `DTSTAMP:${stamp}`);
+
+    if (schedule.all_day) {
+      lines.push(
+        `DTSTART;VALUE=DATE:${toDateStamp(schedule.start_at)}`,
+        `DTEND;VALUE=DATE:${toDateStamp(schedule.end_at)}`,
+      );
+    } else {
+      lines.push(
+        `DTSTART:${toUtcStamp(schedule.start_at)}`,
+        `DTEND:${toUtcStamp(schedule.end_at)}`,
+      );
     }
+
+    lines.push(`SUMMARY:${escapeText(schedule.title || "未命名日程")}`);
+
+    if (schedule.notes) lines.push(`DESCRIPTION:${escapeText(schedule.notes)}`);
+    if (schedule.location) lines.push(`LOCATION:${escapeText(schedule.location)}`);
+    if (schedule.url) lines.push(`URL:${escapeText(schedule.url)}`);
+    if (schedule.status) lines.push(`STATUS:${String(schedule.status).toUpperCase()}`);
+    if (schedule.color && HEX_COLOR.test(schedule.color)) lines.push(`COLOR:${schedule.color}`);
+
+    (schedule.attendees ?? []).forEach((name, index) => {
+      // 只有姓名时用稳定的 URN 作为地址，CN 保留显示名
+      lines.push(
+        `ATTENDEE;CN=${escapeParam(name)};ROLE=REQ-PARTICIPANT:urn:todoheap:attendee:${schedule.id}:${index}`,
+      );
+    });
+
     if (schedule.updated_at) {
       lines.push(`LAST-MODIFIED:${toUtcStamp(schedule.updated_at)}`);
     }
+
+    for (const minutes of schedule.reminder_minutes ?? []) {
+      if (!Number.isInteger(minutes) || minutes < 0) continue;
+      lines.push(
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        `DESCRIPTION:${escapeText(schedule.title || "日程提醒")}`,
+        `TRIGGER:-PT${minutes}M`,
+        "END:VALARM",
+      );
+    }
+
     lines.push("END:VEVENT");
   }
 

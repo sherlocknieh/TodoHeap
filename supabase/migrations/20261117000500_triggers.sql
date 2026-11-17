@@ -1,5 +1,5 @@
 -- TodoHeap 数据库基线: 触发器
--- 依赖 20261109040000_functions.sql 中的函数, 必须在其之后执行
+-- 依赖 20261117000400_functions.sql 中的函数, 必须在其之后执行
 
 -- ---------------------------------------------------------------------------
 -- updated_at
@@ -20,6 +20,11 @@ CREATE TRIGGER trg_schedules_updated_at
 -- ---------------------------------------------------------------------------
 -- 任务树维护
 -- ---------------------------------------------------------------------------
+
+-- 根任务只允许改 child_ids
+CREATE TRIGGER trg_todos_guard_root
+    BEFORE UPDATE ON todos
+    FOR EACH ROW EXECUTE FUNCTION public.todos_guard_root();
 
 -- 软删除/还原时同步子孙任务
 CREATE TRIGGER trg_todos_propagate_deleted_at

@@ -18,11 +18,11 @@ describe('buildTaskForest', () => {
     expect(forest[0].children[0].parent_id).toBe(1)
   })
 
-  it('不传 sortFn 时兄弟顺序完全按 child_ids，排序字段不参与', () => {
+  it('不传 sortFn 时兄弟顺序完全按 child_ids', () => {
     const forest = buildTaskForest([
       { id: 1, title: '父', child_ids: [3, 2] },
-      { id: 2, title: 'A', sort_order: 0, child_ids: [] },
-      { id: 3, title: 'Z', sort_order: 10, child_ids: [] }
+      { id: 2, title: 'A', child_ids: [] },
+      { id: 3, title: 'Z', child_ids: [] }
     ], { mapItem })
 
     expect(forest[0].children.map(node => node.id)).toEqual([3, 2])

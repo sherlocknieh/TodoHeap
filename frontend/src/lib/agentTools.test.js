@@ -27,7 +27,6 @@ const createTodoRow = (overrides = {}) => ({
   details: '',
   deadline: null,
   duration: null,
-  sort_order: null,
   completed_at: null,
   child_ids: [],
   ...overrides
@@ -55,7 +54,6 @@ const makeTodoStore = (initial = []) => {
         details: options.details ?? null,
         deadline: options.deadline ?? null,
         duration: options.duration ?? null,
-        sort_order: options.sort_order ?? null,
         completed_at: null,
         child_ids: []
       })
@@ -165,10 +163,10 @@ describe('createAgentToolRunner', () => {
       })
     }
     todoStore = makeTodoStore([
-      createTodoRow({ id: 1, title: '根任务', child_ids: [2], sort_order: 1 }),
+      createTodoRow({ id: 1, title: '根任务', child_ids: [2] }),
       createTodoRow({ id: 2, title: '子任务', child_ids: [3], deadline: '2026-11-01T10:00:00Z' }),
       createTodoRow({ id: 3, title: '孙任务', completed_at: '2026-11-02T10:00:00Z' }),
-      createTodoRow({ id: 4, title: '另一个根任务', sort_order: 2 })
+      createTodoRow({ id: 4, title: '另一个根任务' })
     ])
     scheduleStore = makeScheduleStore([
       { id: 9, title: '评审会', notes: null, start_at: '2026-11-10T07:00:00Z', end_at: '2026-11-10T08:00:00Z', todo_id: null }

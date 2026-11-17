@@ -72,7 +72,6 @@ const createBackReference = (parent, target) => ({
   details: '',
   completed_at: target.completed_at ?? null,
   deadline: target.deadline ?? null,
-  sort_order: target.sort_order ?? null,
   duration: target.duration ?? null,
   created_at: target.created_at ?? null,
   parent_id: parent.id,

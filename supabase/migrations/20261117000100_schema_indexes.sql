@@ -14,9 +14,11 @@ CREATE INDEX idx_todos_deadline ON todos(user_id, deadline) WHERE deleted_at IS 
 -- 子任务关系查询与包含判断
 CREATE INDEX idx_todos_child_ids ON todos USING GIN (child_ids);
 
+-- 每个用户只允许一条根任务
+CREATE UNIQUE INDEX idx_todos_user_root ON todos(user_id) WHERE is_root;
+
 -- 导入去重: 同一用户下来源标识唯一, 手工任务不参与
-CREATE UNIQUE INDEX idx_todos_user_external ON todos(user_id, external_id)
-WHERE external_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_todos_user_external ON todos(user_id, external_id);
 
 -- 回收站: 按用户筛选已删除任务并按删除时间倒序
 CREATE INDEX idx_todos_user_trash ON todos(user_id, deleted_at DESC)
@@ -28,3 +30,6 @@ WHERE deleted_at IS NOT NULL;
 
 CREATE INDEX idx_schedules_user_range ON schedules(user_id, start_at);
 CREATE INDEX idx_schedules_todo ON schedules(todo_id) WHERE todo_id IS NOT NULL;
+
+-- 重复导入同一份 ICS 时不生成重复日程; NULL 之间互不冲突
+CREATE UNIQUE INDEX idx_schedules_user_external ON schedules(user_id, external_id);

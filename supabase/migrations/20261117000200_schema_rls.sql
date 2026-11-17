@@ -1,5 +1,5 @@
 -- TodoHeap 数据库基线: 行级安全
--- 所有业务表只允许用户读写自己的数据
+-- 所有业务表只允许用户读写自己的数据; 根任务禁止插入与删除, 由函数与触发器维护
 
 -- ---------------------------------------------------------------------------
 -- todos
@@ -7,9 +7,15 @@
 
 ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own todos" ON todos FOR SELECT USING (user_id = (SELECT auth.uid()));
-CREATE POLICY "Users can insert own todos" ON todos FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
 CREATE POLICY "Users can update own todos" ON todos FOR UPDATE USING (user_id = (SELECT auth.uid()));
-CREATE POLICY "Users can delete own todos" ON todos FOR DELETE USING (user_id = (SELECT auth.uid()));
+
+-- 根任务只允许由 SECURITY DEFINER 函数创建
+CREATE POLICY "Users can insert own todos" ON todos FOR INSERT
+    WITH CHECK (user_id = (SELECT auth.uid()) AND NOT is_root);
+
+-- 外键级联(auth.users 删除)不走 RLS, 删号时根任务仍会一起清掉
+CREATE POLICY "Users can delete own todos" ON todos FOR DELETE
+    USING (user_id = (SELECT auth.uid()) AND NOT is_root);
 
 -- ---------------------------------------------------------------------------
 -- user_settings

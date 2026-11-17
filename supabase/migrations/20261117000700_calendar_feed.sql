@@ -30,6 +30,13 @@ BEGIN
         'id', s.id,
         'title', s.title,
         'notes', s.notes,
+        'location', s.location,
+        'url', s.url,
+        'attendees', s.attendees,
+        'all_day', s.all_day,
+        'status', s.status,
+        'color', s.color,
+        'reminder_minutes', s.reminder_minutes,
         'start_at', s.start_at,
         'end_at', s.end_at,
         'updated_at', s.updated_at
