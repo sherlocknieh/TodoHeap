@@ -19,6 +19,12 @@
   --color-accent-900: #065030;
   --color-accent-950: #032c1b;
 
+  /* 危险色：只用于删除等不可逆操作的确认态，避免与强调绿混淆 */
+  --color-danger-50: #fef2f2;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
   /* 页面底色与卡片保持中性，靠明度差拉开层级；绿色只在交互与状态上出现 */
   --color-canvas: #f1f3f3;
   --color-canvas-dark: #1b1b1b;

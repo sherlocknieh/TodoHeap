@@ -115,14 +115,13 @@
             @pointerdown.stop @click.stop="deleteNode(node)">
             <circle r="8" class="cursor-pointer transition-colors" stroke-width="1"
               :class="confirmDeleteId === node.id
-                ? 'fill-accent-600 stroke-accent-600 dark:fill-accent-500 dark:stroke-accent-500'
+                ? 'fill-danger-600 stroke-danger-600 dark:fill-danger-500 dark:stroke-danger-500'
                 : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
-            <path v-if="confirmDeleteId === node.id" d="M-2.4 0 L-0.7 1.8 L2.6 -2" fill="none"
-              class="pointer-events-none stroke-white" stroke-width="1.4" stroke-linecap="round"
-              stroke-linejoin="round" />
-            <path v-else d="M-2.6 -2.6 L2.6 2.6 M2.6 -2.6 L-2.6 2.6" fill="none" stroke-width="1.3"
+            <path d="M-2.6 -2.6 L2.6 2.6 M2.6 -2.6 L-2.6 2.6" fill="none" stroke-width="1.3"
               stroke-linecap="round" class="pointer-events-none"
-              :class="'stroke-neutral-500 dark:stroke-neutral-300'" />
+              :class="confirmDeleteId === node.id
+                ? 'stroke-white'
+                : 'stroke-neutral-500 dark:stroke-neutral-300'" />
             <title>{{ confirmDeleteId === node.id ? '再次点击删除任务' : '删除任务' }}</title>
           </g>
         </g>
@@ -138,16 +137,13 @@
           @pointerdown.stop @click.stop="onUnlinkClick">
           <circle r="12" class="cursor-pointer fill-transparent stroke-transparent" />
           <circle r="6" class="cursor-pointer transition-colors" stroke-width="1.1" :class="confirmUnlink
-            ? 'fill-accent-600 stroke-accent-600 dark:fill-accent-500 dark:stroke-accent-500'
+            ? 'fill-danger-600 stroke-danger-600 dark:fill-danger-500 dark:stroke-danger-500'
             : 'fill-white stroke-accent-600 hover:fill-accent-50 dark:fill-neutral-900 dark:stroke-accent-400 dark:hover:fill-neutral-800'">
             <title>{{ confirmUnlink ? '再次点击删除连接线' : '删除连接线' }}</title>
           </circle>
-          <path v-if="confirmUnlink" d="M-2.4 0 L-0.7 1.8 L2.6 -2" fill="none"
-            class="pointer-events-none stroke-white" stroke-width="1.4" stroke-linecap="round"
-            stroke-linejoin="round" />
-          <path v-else d="M-1.8 -1.8 L1.8 1.8 M1.8 -1.8 L-1.8 1.8" fill="none"
-            class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="1.3"
-            stroke-linecap="round" />
+          <path d="M-1.8 -1.8 L1.8 1.8 M1.8 -1.8 L-1.8 1.8" fill="none"
+            class="pointer-events-none" stroke-width="1.3" stroke-linecap="round"
+            :class="confirmUnlink ? 'stroke-white' : 'stroke-accent-600 dark:stroke-accent-400'" />
         </g>
       </g>
     </svg>
@@ -1566,11 +1562,20 @@ onBeforeUnmount(() => {
 // 模式、方向或任务增删后重新适配视图；恢复的视口先让数据落位，不打断离开时的位置
 // 折叠/展开由 pinNodeAfterLayout 负责保持位置，这里跳过自动适配
 let skipNextAutoFit = restoredView
+let previousNodeIds = new Set(layout.value.nodes.map((node) => node.id))
+let previousDirection = direction.value
 watch(layoutSignature, () => {
+  const ids = layout.value.nodes.map((node) => node.id)
+  // 纯删除（节点只减不增）保持当前视口，避免删掉一个节点就跳回全景
+  const onlyRemoved = direction.value === previousDirection
+    && ids.every((id) => previousNodeIds.has(id))
+  previousNodeIds = new Set(ids)
+  previousDirection = direction.value
   if (skipNextAutoFit) {
     skipNextAutoFit = false
     return
   }
+  if (onlyRemoved) return
   nextTick(fitView)
 })
 </script>
