@@ -964,6 +964,8 @@ watch(view, () => {
 const fitView = () => {
   const el = container.value
   if (!el) return
+  // 适应视图是显式离开三栏视野的手动操作
+  columnFocus.value = false
   const { contentWidth, contentHeight, minX, minY } = layout.value
   if (!contentWidth || !size.width || !size.height) return
 
@@ -1234,17 +1236,25 @@ const focusMainSpan = (node) => {
   return mainSize * 3 + mainGap * 2
 }
 
+// 三栏视野状态：选中节点后进入；手动缩放/平移、适应视图或编辑时退出。
+// 处于该状态时容器尺寸变化（例如开关详情面板）要重新按三栏贴合，否则画面会错位
+const columnFocus = ref(false)
+
+const columnFocusScale = (node) => {
+  const pad = 48
+  const viewportMain = isVertical.value ? size.height : size.width
+  return Math.max(0.15, Math.min(
+    FOCUS_SCALE,
+    (viewportMain - pad * 2) / Math.max(focusMainSpan(node), 1)
+  ))
+}
+
 // 把选中节点摆到视口中央，并按三栏宽度缩放
 const centerOnNode = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
-  const pad = 48
-  const vertical = isVertical.value
-  const viewportMain = vertical ? size.height : size.width
-  const scale = Math.max(0.15, Math.min(
-    FOCUS_SCALE,
-    (viewportMain - pad * 2) / Math.max(focusMainSpan(node), 1)
-  ))
+  columnFocus.value = true
+  const scale = columnFocusScale(node)
   const target = {
     x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
     y: size.height / 2 - (node.y + node.height / 2) * scale,
@@ -1256,6 +1266,17 @@ const centerOnNode = (id) => {
     && Math.abs(target.scale - view.scale) < 0.001
   if (settled) return
   animateView(target)
+}
+
+// 尺寸变化时按三栏重新贴合：拖动分割线或开关右栏都会改画布宽度，跟随缩放才能保住三栏
+const followColumnFocus = () => {
+  if (!columnFocus.value) return
+  const node = layout.value.nodes.find((item) => item.id === selectedId.value)
+  if (!node || !size.width || !size.height) return
+  const scale = columnFocusScale(node)
+  view.x = size.width / 2 - (node.x + nodeWidth / 2) * scale
+  view.y = size.height / 2 - (node.y + node.height / 2) * scale
+  view.scale = scale
 }
 
 // 单击选中后稍等再居中：双击编辑时节点还没移走，可以原地改字
@@ -1424,6 +1445,8 @@ const editTextStyle = (node) => ({
 const ensureEditScale = (node) => {
   const target = focusScale()
   if (view.scale >= target) return
+  // 编辑档位与三栏视野不是同一个缩放，先退出跟随，避免尺寸变化把编辑框拉走
+  columnFocus.value = false
   const centerX = node.x + nodeWidth / 2
   const centerY = node.y + node.height / 2
   animateView({
@@ -1653,6 +1676,8 @@ const onWheel = (event) => {
   const el = container.value
   if (!el) return
   hasInteracted = true
+  // 手动缩放/平移即离开三栏视野，之后尺寸变化不再跟随
+  columnFocus.value = false
   // 手动缩放/平移优先，打断正在进行的居中动画
   stopViewAnimation()
 
@@ -1818,6 +1843,8 @@ const onPointerDown = (event, fromRoot = false) => {
   // 点击空白处即放弃删除按钮的待确认状态
   confirmUnlink.value = false
   hasInteracted = true
+  // 拖拽平移会改变视口，三栏视野不再成立
+  columnFocus.value = false
   // 拖拽平移优先，打断正在进行的居中动画
   stopViewAnimation()
   panning.value = true
@@ -1862,7 +1889,9 @@ onMounted(() => {
     if (!box) return
     size.width = box.width
     size.height = box.height
-    if (!hasInteracted) fitView()
+    // 三栏视野跟随画布宽度重新贴合；其余情况只有未交互过的首屏才自动适配
+    if (columnFocus.value) followColumnFocus()
+    else if (!hasInteracted) fitView()
   })
   if (container.value) resizeObserver.observe(container.value)
   if (!restoredView) nextTick(fitView)
