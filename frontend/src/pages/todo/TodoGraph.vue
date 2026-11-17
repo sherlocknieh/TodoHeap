@@ -3,7 +3,7 @@
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
-			@delete-task="deleteTask" @toggle-done="toggleDone" @link-task="linkTask" @unlink-task="unlinkTask"
+			@delete-task="deleteTask" @toggle-done="toggleDone" @drop-task="dropTask" @unlink-task="unlinkTask"
 			@notify="payload => emit('notify', payload)" />
 	</div>
 </template>
@@ -12,7 +12,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import MindMapWrapper from '@/components/MindMapWrapper.vue'
-import { collectDescendantIds } from '@/utils/taskGraph'
+import { collectDescendantIds, findParentIds } from '@/utils/taskGraph'
 import { ROOT_TODO_TITLE } from '@/utils/rootTask'
 
 const props = defineProps({
@@ -130,34 +130,99 @@ const toggleDone = async (id) => {
 	})
 }
 
-// 拖拽建链接：把子任务并入父任务的 child_ids，形成多父关系，不移动原父级
-const linkTask = async ({ parentId, childId }) => {
+// 链接后改为移动：摘掉落点以外的所有父链接，让任务只留在新父级下
+const unlinkOtherParents = async ({ childId, parentId, targetChildIds, childTitle, parentTitle }) => {
+	const snapshots = findParentIds(todoStore.todos, childId)
+		.filter(id => id !== parentId)
+		.map(id => ({ id, child_ids: [...(todoStore.findTodoById(id)?.child_ids || [])] }))
+		.filter(snapshot => snapshot.child_ids.includes(childId))
+
+	const results = await Promise.all(snapshots.map(snapshot => todoStore.updateTodo(snapshot.id, {
+		child_ids: snapshot.child_ids.filter(id => id !== childId)
+	})))
+	const failed = results.find(result => !result.success)
+	if (failed) {
+		if (failed.error) emit('notify', { message: failed.error })
+		return
+	}
+
+	emit('notify', {
+		message: `已移动「${childTitle}」到「${parentTitle}」`,
+		undo: async () => {
+			await todoStore.updateTodo(parentId, { child_ids: targetChildIds })
+			for (const snapshot of snapshots) {
+				await todoStore.updateTodo(snapshot.id, { child_ids: snapshot.child_ids })
+			}
+		}
+	})
+}
+
+// 拖拽落点：子任务只有一个父级时优先移动（摘掉原父链接），
+// 多个父级时优先新增链接、保留原有父级，并在提示里提供「改为移动」
+const dropTask = async ({ parentId, childId }) => {
 	if (parentId === childId) return
 	const parent = todoStore.findTodoById(parentId)
 	const child = todoStore.findTodoById(childId)
 	if (!parent || !child) return
 
-	// 父任务已在子任务的子树里时再链接会成环
+	// 父任务已在子任务的子树里时再挂过去会成环
 	if (collectDescendantIds(todoStore.todos, childId).includes(parentId)) {
-		emit('notify', { message: '不能链接到自己的子任务' })
+		emit('notify', { message: '不能移动到自己的子任务下' })
 		return
 	}
 
-	const childIds = parent.child_ids || []
-	if (childIds.includes(childId)) {
+	const parentIds = findParentIds(todoStore.todos, childId)
+	if (parentIds.includes(parentId)) {
 		emit('notify', { message: `「${child.title || '任务'}」已经是它的子任务` })
 		return
 	}
 
-	const result = await todoStore.updateTodo(parentId, { child_ids: [...childIds, childId] })
+	const childTitle = child.title || '任务'
+	const parentTitle = parent.title || '任务'
+	const targetChildIds = [...(parent.child_ids || [])]
+
+	if (parentIds.length > 1) {
+		const result = await todoStore.updateTodo(parentId, { child_ids: [...targetChildIds, childId] })
+		if (!result.success) {
+			if (result.error) emit('notify', { message: result.error })
+			return
+		}
+
+		emit('notify', {
+			message: `已将「${childTitle}」链接到「${parentTitle}」`,
+			action: {
+				label: '改为移动',
+				run: () => unlinkOtherParents({ childId, parentId, targetChildIds, childTitle, parentTitle })
+			},
+			undo: () => todoStore.updateTodo(parentId, { child_ids: targetChildIds })
+		})
+		return
+	}
+
+	// 单父任务（含只挂在根任务下的顶层任务）直接移动，落到新父级末尾
+	const sourceParentId = parentIds[0] ?? null
+	const sourceParent = sourceParentId == null ? null : todoStore.findTodoById(sourceParentId)
+	const sourceChildIds = sourceParent ? [...(sourceParent.child_ids || [])] : null
+
+	const result = await todoStore.moveTodo(childId, {
+		targetId: parentId,
+		position: 'inside',
+		sourceParentId
+	})
 	if (!result.success) {
 		if (result.error) emit('notify', { message: result.error })
 		return
 	}
 
 	emit('notify', {
-		message: `已链接「${child.title || '任务'}」到「${parent.title || '任务'}」`,
-		undo: () => todoStore.updateTodo(parentId, { child_ids: childIds })
+		message: `已移动「${childTitle}」到「${parentTitle}」`,
+		undo: async () => {
+			const actions = [todoStore.updateTodo(parentId, { child_ids: targetChildIds })]
+			if (sourceParentId != null && sourceChildIds) {
+				actions.push(todoStore.updateTodo(sourceParentId, { child_ids: sourceChildIds }))
+			}
+			await Promise.all(actions)
+		}
 	})
 }
 

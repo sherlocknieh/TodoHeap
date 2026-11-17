@@ -429,29 +429,35 @@ onUnmounted(() => {
 	if (toastTimer) clearTimeout(toastTimer)
 })
 
-// 轻提示：删除、完成、批量操作后给出结果，并允许撤销
-const toast = ref({ visible: false, message: '', undo: null })
+// 轻提示：删除、完成、批量操作后给出结果，并允许撤销或切换到另一种处理方式
+const toast = ref({ visible: false, message: '', undo: null, action: null })
 let toastTimer = null
 
 const hideToast = () => {
-	toast.value = { visible: false, message: '', undo: null }
+	toast.value = { visible: false, message: '', undo: null, action: null }
 }
 
-const showToast = (message, undo = null) => {
+const showToast = (message, undo = null, action = null) => {
 	if (toastTimer) clearTimeout(toastTimer)
-	toast.value = { visible: true, message, undo }
-	toastTimer = setTimeout(hideToast, undo ? 6000 : 3000)
+	toast.value = { visible: true, message, undo, action }
+	toastTimer = setTimeout(hideToast, undo || action ? 6000 : 3000)
 }
 
 const handleNotify = (payload) => {
 	if (!payload?.message) return
-	showToast(payload.message, payload.undo || null)
+	showToast(payload.message, payload.undo || null, payload.action || null)
 }
 
 const runToastUndo = async () => {
 	const undo = toast.value.undo
 	hideToast()
 	if (undo) await undo()
+}
+
+const runToastAction = async () => {
+	const action = toast.value.action
+	hideToast()
+	if (action?.run) await action.run()
 }
 </script>
 
@@ -654,6 +660,12 @@ const runToastUndo = async () => {
 				class="fixed bottom-24 left-1/2 z-50 flex max-w-[min(90vw,30rem)] -translate-x-1/2 items-center gap-3 panel px-3 py-2 shadow-lg">
 				<span class="min-w-0 flex-1 truncate text-sm text-neutral-700 dark:text-neutral-300"
 					:title="toast.message">{{ toast.message }}</span>
+				<button v-if="toast.action" type="button"
+					class="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"
+					@click="runToastAction">
+					<AppIcon v-if="toast.action.icon" :name="toast.action.icon" :size="14" />
+					{{ toast.action.label }}
+				</button>
 				<button v-if="toast.undo" type="button"
 					class="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-accent-700 hover:underline dark:text-accent-400"
 					@click="runToastUndo">

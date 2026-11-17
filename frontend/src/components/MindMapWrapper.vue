@@ -34,7 +34,7 @@
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
-        <!-- 拖拽建链接的预览线：节点拖拽时箭头指向源节点，按钮拖拽时从按钮连向指针 -->
+        <!-- 拖拽落点的预览线：节点拖拽时箭头指向源节点，按钮拖拽时从按钮连向指针 -->
         <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
           class="stroke-accent-500 dark:stroke-accent-400" stroke-width="1.6" stroke-dasharray="6 4"
           stroke-linecap="round" marker-end="url(#mm-arrow-ref)" />
@@ -239,7 +239,7 @@ const props = defineProps({
   editTaskId: { type: Number, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'link-task', 'unlink-task', 'notify'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'drop-task', 'unlink-task', 'notify'])
 
 const nodeWidth = 216
 const fontSize = 13
@@ -1783,9 +1783,9 @@ let panMoved = false
 let panFromRoot = false
 let lastPanEndAt = 0
 
-// 拖拽建链接：从节点拖到另一个节点上，把源节点链接为目标节点的子任务
-// 拖拽建链接：两种起点——拖节点表示「它将成为落点节点的子任务」，
-// 拖折叠按钮表示「落点节点将成为它的子任务」，方向相反
+// 拖拽落点：两种起点——拖节点表示「它将成为落点节点的子任务」，
+// 拖折叠加号按钮表示「落点节点将成为它的子任务」，方向相反；
+// 落点后是移动还是新增链接由调用方按子任务的父级数量决定
 const dragState = reactive({ active: false, sourceId: null, targetId: null, preview: null, moved: false, fromToggle: false })
 let dragStart = { x: 0, y: 0 }
 let lastDragEndAt = 0
@@ -1900,7 +1900,7 @@ const onDragEnd = () => {
   lastDragEndAt = Date.now()
   if (!targetId) return
   // 拖节点：落点成为父；拖折叠按钮：源节点成为父
-  emit('link-task', fromToggle
+  emit('drop-task', fromToggle
     ? { parentId: Number(sourceId), childId: Number(targetId) }
     : { parentId: Number(targetId), childId: Number(sourceId) })
 }
