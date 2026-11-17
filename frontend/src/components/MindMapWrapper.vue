@@ -1227,56 +1227,29 @@ const focusScale = () => Math.max(0.15, Math.min(
   (size.width - 96) / nodeWidth
 ))
 
-// 聚焦范围只看主方向（层级展开方向）：父级与子级各占一层，
-// 把这三层的左右（上下）边缘放进视口即可。交叉方向上子级可能排很多，
-// 不参与缩放计算，避免子级一多就整张图缩小
-const focusMainRange = (node) => {
-  const ids = new Set([node.id])
-  layout.value.edges.forEach((edge) => {
-    if (edge.to === node.id) ids.add(edge.from)
-    if (edge.from === node.id) ids.add(edge.to)
-  })
-  const related = layout.value.nodes.filter((item) => ids.has(item.id))
-  const vertical = isVertical.value
-  let min = Math.min(...related.map((item) => (vertical ? item.y : item.x)))
-  let max = Math.max(...related.map((item) => (vertical ? item.y + item.height : item.x + nodeWidth)))
-
-  // 叶子节点还没有子级：把下一层的位置也算进来，
-  // 聚焦后右侧（或反方向一侧）始终留着放新子任务的空间
-  const hasChildren = layout.value.edges.some((edge) => edge.from === node.id)
-  if (!hasChildren) {
-    const layer = mainGap + (vertical ? node.height : nodeWidth)
-    if (isForward.value) max += layer
-    else min -= layer
-  }
-  return { min, max }
+// 聚焦固定为三栏视野：父级层、当前层、子级层各占一栏，与真实父子关系无关。
+// 多父、回边或子级落在远处时也不会把画面缩得过小；叶子还没子级时栏位照样留着
+const focusMainSpan = (node) => {
+  const mainSize = isVertical.value ? node.height : nodeWidth
+  return mainSize * 3 + mainGap * 2
 }
 
-// 把选中节点连同父级、子级一起摆到视口中央，并缩放到三者的边缘都完整可见
+// 把选中节点摆到视口中央，并按三栏宽度缩放
 const centerOnNode = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
   const pad = 48
   const vertical = isVertical.value
-  const { min, max } = focusMainRange(node)
   const viewportMain = vertical ? size.height : size.width
   const scale = Math.max(0.15, Math.min(
     FOCUS_SCALE,
-    (viewportMain - pad * 2) / Math.max(max - min, 1)
+    (viewportMain - pad * 2) / Math.max(focusMainSpan(node), 1)
   ))
-  // 主方向居中整段范围（否则父级会被挤到视口外），交叉方向居中节点本身
-  const mainCenter = (min + max) / 2
-  const target = vertical
-    ? {
-        x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
-        y: size.height / 2 - mainCenter * scale,
-        scale
-      }
-    : {
-        x: size.width / 2 - mainCenter * scale,
-        y: size.height / 2 - (node.y + node.height / 2) * scale,
-        scale
-      }
+  const target = {
+    x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
+    y: size.height / 2 - (node.y + node.height / 2) * scale,
+    scale
+  }
   // 位置与缩放都已到位时不再启动动画，重复点击同一节点不会抖动
   const settled = Math.abs(target.x - view.x) < 0.5
     && Math.abs(target.y - view.y) < 0.5
