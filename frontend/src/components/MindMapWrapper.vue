@@ -1216,11 +1216,25 @@ const startEditById = (id) => {
   if (node) startEdit(node)
 }
 
+// 结束编辑时清掉输入框与文档残留的选区：blur 不会自动取消全选，
+// 否则离开节点后文字仍显示成选中态
+const releaseSelection = () => {
+  editInputs.forEach((el) => {
+    try {
+      el.setSelectionRange(0, 0)
+    } catch {
+      // 少数浏览器在失焦后不允许改选区，忽略即可
+    }
+  })
+  window.getSelection()?.removeAllRanges()
+}
+
 const commitEdit = () => {
   const id = editingId.value
   if (id == null) return
   const title = editingText.value.trim()
   editingId.value = null
+  releaseSelection()
   // 交还焦点，键盘操作可以继续
   container.value?.focus({ preventScroll: true })
   if (!title) return
@@ -1231,6 +1245,7 @@ const commitEdit = () => {
 
 const cancelEdit = () => {
   editingId.value = null
+  releaseSelection()
   container.value?.focus({ preventScroll: true })
 }
 
