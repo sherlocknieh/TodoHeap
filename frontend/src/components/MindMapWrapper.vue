@@ -68,7 +68,7 @@
               stroke-width="1.2" class="cursor-pointer transition-colors" :class="node.completed_at
                 ? 'fill-accent-600 stroke-accent-600 dark:fill-accent-500 dark:stroke-accent-500'
                 : 'fill-white stroke-neutral-300 hover:stroke-accent-500 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:stroke-accent-400'" />
-            <path v-if="node.completed_at" :d="`M3.2 ${-checkboxSize + 6.6} L5.8 ${-checkboxSize + 9.4} L10.8 ${-checkboxSize + 4.2}`"
+            <path v-if="node.completed_at" :d="`M3.2 ${-checkboxSize + 9.8} L5.8 ${-checkboxSize + 12.6} L10.8 ${-checkboxSize + 7.4}`"
               fill="none" class="pointer-events-none stroke-white" stroke-width="1.5" stroke-linecap="round"
               stroke-linejoin="round" />
             <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
