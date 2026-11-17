@@ -367,17 +367,19 @@ const measureNode = (raw) => {
   }
 }
 
-// 父节点出边、子节点入边的锚点与朝向
+// 父节点出边从折叠按钮中心出发，子节点入边落在边框上
 const outAnchor = (node) => {
+  const x = node.x + node.controlX
+  const y = node.y + node.controlY
   switch (direction.value) {
     case 'up':
-      return { x: node.x + nodeWidth / 2, y: node.y, dx: 0, dy: -1 }
+      return { x, y, dx: 0, dy: -1 }
     case 'right':
-      return { x: node.x + nodeWidth, y: node.y + node.height / 2, dx: 1, dy: 0 }
+      return { x, y, dx: 1, dy: 0 }
     case 'left':
-      return { x: node.x, y: node.y + node.height / 2, dx: -1, dy: 0 }
+      return { x, y, dx: -1, dy: 0 }
     default:
-      return { x: node.x + nodeWidth / 2, y: node.y + node.height, dx: 0, dy: 1 }
+      return { x, y, dx: 0, dy: 1 }
   }
 }
 
