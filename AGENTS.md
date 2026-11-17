@@ -123,6 +123,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 - **UI**：颜色只用 `neutral-*` 与 `accent-*`，配 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` 基元；图标一律用 `AppIcon`，**不要用 emoji**；圆角以 `rounded-md` 为主，避免大阴影与渐变。
 - **完成状态判定用 `completed_at` 是否为空**，不存在 `status` / `completed` 字段。
+- **会话外改动**：发现工作区有本次会话之外的改动，先弹框问怎么处理，选项必须包含「直接提交」，其余可给「单独提交」「先看 diff 再定」「丢弃」。
 - 中文注释描述"这段代码负责什么"，不写步骤流水账。
 - 部署路径带 `/TodoHeap/` 前缀，资源引用不要写死站点根路径。
 
