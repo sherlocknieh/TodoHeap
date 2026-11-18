@@ -9,8 +9,8 @@
         <span v-if="item._level > 0" aria-hidden="true"
           class="pointer-events-none absolute inset-y-0 w-px bg-hairline/70 dark:bg-hairline-dark/70"
           :style="{ left: (item._level * 22 - 1) + 'px' }"></span>
-        <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围；圆角与左侧视图列表一致 -->
-        <div class="relative flex items-center gap-2.5 rounded-lg border py-1.5 pl-2 pr-1.5 transition-all"
+        <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围；圆圈角与左边框宽度由状态类给出 -->
+        <div class="flex items-center gap-2.5 rounded-lg transition-all"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"
@@ -280,15 +280,16 @@ const isRowSelected = (item) => props.selectedTaskId === selectableIdOf(item)
 const rowStateClass = (item) => {
   const indicator = dropIndicator.value
   if (indicator && indicator.id === item.id && indicator.position === 'inside') {
-    return 'border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
+    return 'border py-1.5 pl-2 pr-1.5 border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
   }
-  // 选中提示沿用左侧视图列表：绿底 + 左缘通栏实线 + 绿色文字，去掉四周外框
+  // 选中沿用左侧视图列表：绿底 + 只留左缘实线 + 绿字。没有上下边框，绿条才能顺圆角收成尖端；
+  // 用 7px 内边距补回普通行 1px 上下边框与 1px 左右边框占掉的空间，选中时不跳动
   if (isRowSelected(item)) {
-    return 'border-transparent border-l-2 border-l-accent-600 bg-accent-100/80 dark:border-l-accent-400 dark:bg-accent-500/20 shadow-none'
+    return 'border-l-2 border-l-accent-600 bg-accent-100/80 py-[7px] pl-[7px] pr-[7px] dark:border-l-accent-400 dark:bg-accent-500/20 shadow-none'
   }
   // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻
   return [
-    'border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)]',
+    'border py-1.5 pl-2 pr-1.5 border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)]',
     'dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40',
     item._isRef ? 'border-dashed' : ''
   ].join(' ')
