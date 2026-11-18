@@ -978,29 +978,6 @@ const graphLayout = computed(() => {
     })
   })
 
-  // 块在交叉方向的实际范围：节点自身加所有可见后代，用来按可见边缘算间距。
-  // 块中心对称的跨度会高估空白，尤其当子树只朝一侧展开时
-  const blockBoundsCache = new Map()
-  const blockBoundsOf = (id, visiting = new Set()) => {
-    const cached = blockBoundsCache.get(id)
-    if (cached) return cached
-    if (visiting.has(id)) {
-      return { top: crossCenter.get(id) - crossSizeOf(id) / 2, bottom: crossCenter.get(id) + crossSizeOf(id) / 2 }
-    }
-    visiting.add(id)
-    let top = crossCenter.get(id) - crossSizeOf(id) / 2
-    let bottom = crossCenter.get(id) + crossSizeOf(id) / 2
-    ;(visibleChildren.get(id) || []).forEach((child) => {
-      const bounds = blockBoundsOf(child, visiting)
-      if (bounds.top < top) top = bounds.top
-      if (bounds.bottom > bottom) bottom = bounds.bottom
-    })
-    visiting.delete(id)
-    const value = { top, bottom }
-    blockBoundsCache.set(id, value)
-    return value
-  }
-
   // 保序回归（PAVA）：把期望位置投影到「同层最小间距」约束上，得到该层的最优解
   const projectLayer = (layer) => {
     const list = order.get(layer)
@@ -1008,8 +985,7 @@ const graphLayout = computed(() => {
 
     const offsets = [0]
     for (let i = 1; i < list.length; i += 1) {
-      // 投影只保证节点自身不重叠，子树块之间的空白由 limitGaps 按实际边缘压缩
-      const gap = (crossSizeOf(list[i - 1].id) + crossSizeOf(list[i].id)) / 2 + crossGap
+      const gap = (blockSizeOf(list[i - 1].id) + blockSizeOf(list[i].id)) / 2 + crossGap
       offsets.push(offsets[i - 1] + gap)
     }
 
@@ -1048,21 +1024,37 @@ const graphLayout = computed(() => {
     return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
   }
 
-  // 每个节点连同其可见后代组成一个块，间距回收时整块平移，子树内部相对位置不变
+  // 每个节点连同其紧邻列后代组成一个块，间距回收时整块平移，子树内部相对位置不变
   const blockNodes = new Map()
   const collectBlock = (id, seen) => {
     if (seen.has(id)) return []
     seen.add(id)
     const ids = [id]
-    ;(visibleChildren.get(id) || []).forEach((child) => {
+    ;(laneChildren.get(id) || []).forEach((child) => {
       ids.push(...collectBlock(child, seen))
     })
     return ids
   }
   nodes.forEach((node) => blockNodes.set(node.id, collectBlock(node.id, new Set())))
 
-  // 同层大间距回收：只处理同一父级下的兄弟分支，移动上方节点自己的整棵子树。
-  // 这样压的是兄弟之间的空白，既不会把子树拆开，也不会越过父级把整块平移回去
+  // 块在交叉方向的实际可见范围，用于按边缘而不是块中心计算空白
+  const blockBoundsCache = new Map()
+  const blockBoundsOf = (id) => {
+    const cached = blockBoundsCache.get(id)
+    if (cached) return cached
+    let top = crossCenter.get(id) - crossSizeOf(id) / 2
+    let bottom = crossCenter.get(id) + crossSizeOf(id) / 2
+    ;(laneChildren.get(id) || []).forEach((child) => {
+      const bounds = blockBoundsOf(child)
+      if (bounds.top < top) top = bounds.top
+      if (bounds.bottom > bottom) bottom = bounds.bottom
+    })
+    const value = { top, bottom }
+    blockBoundsCache.set(id, value)
+    return value
+  }
+
+  // 只压缩同一父级下兄弟分支之间的异常空白，正常展开空间保持不变
   const shareParent = (a, b) => {
     const parents = new Set(parentsOf.get(b) || [])
     return (parentsOf.get(a) || []).some((id) => parents.has(id))
@@ -1078,16 +1070,17 @@ const graphLayout = computed(() => {
 
   const limitGaps = (layer, moved) => {
     const list = order.get(layer)
+    // 兄弟分支之间保留两个间隔，既有展开后的呼吸空间，又不会留下异常大的空白
+    const maxGap = crossGap * 2
     for (let i = list.length - 1; i > 0; i -= 1) {
       const prev = list[i - 1]
       const cur = list[i]
       if (moved.has(prev.id) || moved.has(cur.id)) continue
       if (!shareParent(prev.id, cur.id)) continue
-      // 按两块的可见边缘计算空白：上方子树底部到下方子树顶部的距离
       blockBoundsCache.clear()
       const gap = blockBoundsOf(cur.id).top - blockBoundsOf(prev.id).bottom
-      if (gap <= crossGap) continue
-      const shift = gap - crossGap
+      if (gap <= maxGap) continue
+      const shift = gap - maxGap
       for (let j = 0; j < i; j += 1) shiftBlock(list[j].id, shift, moved)
       blockBoundsCache.clear()
     }
@@ -1114,8 +1107,6 @@ const graphLayout = computed(() => {
     // 自浅向深回收间距：上层块先整体下移，下层成员跟随块移动，不再单独压缩
     const moved = new Set()
     layerKeys.forEach((layer) => limitGaps(layer, moved))
-    // 块平移可能把不同块的成员推到同一位置，重新投影一次消掉重叠
-    layerKeys.forEach((layer) => projectLayer(layer))
   }
 
   let minCross = Infinity
