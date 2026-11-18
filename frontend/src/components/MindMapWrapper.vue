@@ -132,17 +132,16 @@
             </template>
           </g>
 
-          <!-- 选中节点右侧的更多操作按钮：竖三点，悬停时圆环描边转绿（与勾选框一致），
-               点开后在节点旁弹出操作菜单。圆环继承组的 stroke，透明热区承担点击与悬停判定 -->
+          <!-- 选中节点右侧的更多操作按钮：竖三点，悬停只把图标加深，打开菜单时图标转绿表示激活；
+               透明热区承担点击与悬停判定 -->
           <g v-if="node.selected && !node.isRoot" data-mm-more-trigger
             :transform="`translate(${nodeWidth - paddingX - moreSize / 2} ${node.height / 2})`"
-            class="cursor-pointer text-neutral-400 stroke-transparent transition-colors hover:stroke-accent-600 dark:text-neutral-500 dark:hover:stroke-accent-400"
+            class="cursor-pointer transition-colors"
+            :class="menuNodeId === String(node.id)
+              ? 'text-accent-600 dark:text-accent-400'
+              : 'text-neutral-400 hover:text-neutral-800 dark:text-neutral-500 dark:hover:text-neutral-200'"
             @pointerdown.stop @click.stop="toggleNodeMenu(node)">
             <circle r="9" class="fill-transparent" />
-            <circle r="8" stroke-width="1.2" class="transition-colors"
-              :class="menuNodeId === String(node.id)
-                ? 'fill-accent-50 stroke-accent-600 dark:fill-accent-500/15 dark:stroke-accent-400'
-                : 'fill-transparent'" />
             <g transform="translate(-6 -6)" class="pointer-events-none">
               <AppIcon name="moreVertical" :size="12" />
             </g>
