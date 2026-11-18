@@ -1024,21 +1024,52 @@ const graphLayout = computed(() => {
     return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
   }
 
-  // 同层大间距回收：下方节点被别的父链拉远后，把上方节点整体下移，
+  // 每个节点连同其可见后代组成一个块，间距回收时整块平移，子树内部相对位置不变
+  const blockNodes = new Map()
+  const collectBlock = (id, seen) => {
+    if (seen.has(id)) return []
+    seen.add(id)
+    const ids = [id]
+    ;(visibleChildren.get(id) || []).forEach((child) => {
+      ids.push(...collectBlock(child, seen))
+    })
+    return ids
+  }
+  nodes.forEach((node) => blockNodes.set(node.id, collectBlock(node.id, new Set())))
+
+  // 同层大间距回收：下方节点被别的父链拉远后，把上方块整体下移，
   // 让空白被吸收而不是留在原地；从下往上处理，保持相邻块的最小间距。
-  const limitGaps = (layer) => {
+  // 移动单位是并列块根（如学习项目、软件项目），整支子树一起平移，内部布局不变
+  const blockRootOf = (id) => {
+    let parent = (parentsOf.get(id) || [])[0]
+    while (parent) {
+      const grand = (parentsOf.get(parent) || [])[0]
+      if (grand && (childrenOf.get(grand) || []).length > 1) return parent
+      parent = grand
+    }
+    return id
+  }
+
+  const shiftBlock = (id, shift, moved) => {
+    ;(blockNodes.get(id) || [id]).forEach((member) => {
+      if (moved.has(member)) return
+      moved.add(member)
+      crossCenter.set(member, crossCenter.get(member) + shift)
+    })
+  }
+
+  const limitGaps = (layer, moved) => {
     const list = order.get(layer)
     for (let i = list.length - 1; i > 0; i -= 1) {
       const prev = list[i - 1]
       const cur = list[i]
+      if (moved.has(prev.id) || moved.has(cur.id)) continue
       const minGap = (blockSizeOf(prev.id) + blockSizeOf(cur.id)) / 2 + crossGap
       const maxGap = minGap + crossGap * 2
       const gap = crossCenter.get(cur.id) - crossCenter.get(prev.id)
       if (gap <= maxGap) continue
       const shift = gap - maxGap
-      for (let j = 0; j < i; j += 1) {
-        crossCenter.set(list[j].id, crossCenter.get(list[j].id) + shift)
-      }
+      for (let j = 0; j < i; j += 1) shiftBlock(blockRootOf(list[j].id), shift, moved)
     }
   }
 
@@ -1054,13 +1085,15 @@ const graphLayout = computed(() => {
     })
     // 层内顺序固定为初始顺序，只让坐标收敛；每轮重排会让折叠/展开后顺序漂移
     projectLayer(layer)
-    limitGaps(layer)
   }
 
   // 交替收敛：父节点先居中于子节点带，子节点再贴近父节点，最后以子节点贴近父节点收尾
   for (let round = 0; round < 3; round += 1) {
     ;[...layerKeys].reverse().forEach((layer) => relaxLayer(layer, 'up'))
     layerKeys.forEach((layer) => relaxLayer(layer, 'down'))
+    // 自浅向深回收间距：上层块先整体下移，下层成员跟随块移动，不再单独压缩
+    const moved = new Set()
+    layerKeys.forEach((layer) => limitGaps(layer, moved))
   }
 
   let minCross = Infinity
