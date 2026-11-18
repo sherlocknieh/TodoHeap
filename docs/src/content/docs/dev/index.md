@@ -13,7 +13,7 @@ https://github.com/sherlocknieh/TodoHeap
 
 ### 前置要求
 - Node.js 18+
-- pnpm 8+
+- nub 0.11+
 - Git
 
 ### 一键启动
@@ -21,8 +21,8 @@ https://github.com/sherlocknieh/TodoHeap
 ```bash
 git clone https://github.com/sherlocknieh/TodoHeap.git
 cd TodoHeap/frontend
-pnpm install
-pnpm dev
+nub install
+nub run dev
 ```
 
 详见 [环境搭建](./setup.md)
@@ -158,7 +158,7 @@ frontend/src/             ← 前端源码（逐文件职责见 code-map.md）
 ## 常见快速问题
 
 **Q: 如何启动开发服务器？**  
-A: `cd frontend && pnpm dev`，访问 `http://localhost:5200`
+A: `cd frontend && nub run dev`，访问 `http://localhost:5200`
 
 **Q: 如何测试 Edge Function？**  
 A: `supabase functions serve` 然后调用本地端点

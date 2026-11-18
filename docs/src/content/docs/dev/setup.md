@@ -8,16 +8,16 @@ title: 环境搭建指南
 
 ## 前置要求
 
-- **Node.js** 18+ （[下载](https://nodejs.org/)）
-- **pnpm** 8+ （`npm install -g pnpm`）
+- **Node.js** 18.19+ （[下载](https://nodejs.org/)）
+- **nub** 0.11+（`npm install -g @nubjs/nub`，或 `curl -fsSL https://nubjs.com/install.sh | bash`）
 - **Git** （[下载](https://git-scm.com/)）
 - **Supabase CLI**（可选，`npm install -g supabase`）
 
 ## 验证环境
 
 ```bash
-node --version      # 应显示 v18.0.0 或更高
-pnpm --version      # 应显示 8.0.0 或更高
+node --version      # 应显示 v18.19.0 或更高
+nub --version       # 应显示 0.11.0 或更高
 git --version       # 应显示 git version 2.x.x
 ```
 
@@ -35,25 +35,24 @@ cd TodoHeap
 仓库没有根级 workspace，`frontend/` 与 `docs/` 各自安装：
 
 ```bash
-cd frontend && pnpm install
-cd ../docs && pnpm install
+cd frontend && nub install
+cd ../docs && nub install
 ```
 
 也可以只用根目录的脚本转发（根只安装 `concurrently`）：
 
 ```bash
-pnpm install
+nub install
 
-# 安装失败时先清缓存再重试
-pnpm store prune
-pnpm install
+# 安装失败时强制重新解析并链接
+nub install --force
 ```
 
 ## 启动前端开发服务器
 
 ```bash
 cd frontend
-pnpm dev
+nub run dev
 ```
 
 访问 `http://localhost:5200`，应该看到 TodoHeap 应用的登录页面。
@@ -62,7 +61,7 @@ pnpm dev
 
 **端口已被占用？**
 ```bash
-cd frontend && pnpm dev --port 3000  # 使用其他端口
+cd frontend && nub run dev --port 3000  # 使用其他端口
 ```
 
 **无法访问本地服务？**
@@ -201,7 +200,7 @@ supabase start
 
 # 2. 在新终端启动前端（在 frontend/ 目录）
 cd frontend
-pnpm dev
+nub run dev
 
 # 3. 打开浏览器访问
 # http://localhost:5200
@@ -220,16 +219,16 @@ supabase logs --local
 supabase functions serve --no-verify-jwt
 
 # 查看本地前端日志
-cd frontend && pnpm dev
+cd frontend && nub run dev
 
 # 运行前端单元测试
-cd frontend && pnpm test
+cd frontend && nub run test
 
 # 类型检查
-cd frontend && pnpm type-check
+cd frontend && nub run type-check
 
 # 构建
-cd frontend && pnpm build
+cd frontend && nub run build
 ```
 
 ---
@@ -296,17 +295,14 @@ TodoHeap/
 
 ## 故障排除
 
-### 问题：`pnpm install` 失败
+### 问题：`nub install` 失败
 
 ```bash
-# 清除缓存
-pnpm store prune
-
-# 删除 node_modules 和 lock 文件
-rm -rf node_modules pnpm-lock.yaml
+# 删除 node_modules 和锁文件后重装
+rm -rf node_modules nub.lock
 
 # 重新安装
-pnpm install
+nub install
 ```
 
 ### 问题：前端无法连接 Supabase

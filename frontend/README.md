@@ -22,8 +22,8 @@ VITE_SUPABASE_PUB_KEY=sb_publishable_EJtqpRfKkcd8PKX--U1O7g_zQWWNo9z
 
 ### 常用命令
 ```bash
-pnpm dev          # 开发服务器 http://localhost:5200/TodoHeap/app/
-pnpm build        # 构建到 ../dist/app
-pnpm test         # vitest，覆盖 store 层
-pnpm type-check   # vue-tsc（当前与 TS 5.9 不兼容，会报内部错误）
+nub run dev          # 开发服务器 http://localhost:5200/TodoHeap/app/
+nub run build        # 构建到 ../dist/app
+nub run test         # vitest，覆盖 store 层
+nub run type-check   # vue-tsc（当前与 TS 5.9 不兼容，会报内部错误）
 ```

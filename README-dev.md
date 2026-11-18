@@ -81,10 +81,10 @@
   - Framework: `Vue`
   - Language: `TypeScript`
 - 引入第三方库:
-  - tailwindcss: `npm install tailwindcss @tailwindcss/vite`
-  - vue-router: `npm install vue-router@4`
-  - supabase-js: `npm install @supabase/supabase-js`
-  - pinia: `npm install pinia`
+  - tailwindcss: `nub install tailwindcss @tailwindcss/vite`
+  - vue-router: `nub install vue-router@4`
+  - supabase-js: `nub install @supabase/supabase-js`
+  - pinia: `nub install pinia`
 
 
 
@@ -99,11 +99,12 @@
 # Windows 可用 winget 安装：
 winget install OpenJS.NodeJS
 
-# 推荐使用 pnpm 管理依赖（也支持 npm/yarn）
-npm install -g pnpm
+# 安装 nub（首次安装用 npm 或安装脚本，之后统一用 nub）
+npm install -g @nubjs/nub
+# 或：curl -fsSL https://nubjs.com/install.sh | bash
 
-# （可选）配置国内镜像以加速依赖下载：
-npm config set registry https://registry.npmmirror.com
+# （可选）配置国内镜像：在 ~/.npmrc 写入
+# registry=https://registry.npmmirror.com
 ```
 
 
@@ -116,16 +117,16 @@ npm config set registry https://registry.npmmirror.com
 
 ```bash
 cd frontend
-pnpm install
-pnpm dev
+nub install
+nub run dev
 ```
 
 如果使用 `npm`：
 
 ```bash
 cd frontend
-npm install
-npm run dev
+nub install
+nub run dev
 ```
 
 本地开发需要在 `frontend` 中配置环境变量文件 `.env.local`，示例位于 `frontend/README.md`。
@@ -139,8 +140,8 @@ npm run dev
 
 ```bash
 cd docs
-npm install
-npm run dev
+nub install
+nub run dev
 # 打开浏览器访问 http://localhost:4321/TodoHeap/
 ```
 
@@ -150,10 +151,10 @@ npm run dev
 
 ```bash
 # 启动前端（新终端）
-cd frontend && pnpm dev
+cd frontend && nub run dev
 
 # 启动文档（新终端）
-cd docs && pnpm dev
+cd docs && nub run dev
 ```
 
 

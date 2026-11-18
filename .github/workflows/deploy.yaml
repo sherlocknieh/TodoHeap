@@ -36,13 +36,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 'latest'
-      
-      - name: 构建文档页面 (Vitepress)
+
+      - name: 安装 nub
+        uses: nubjs/setup-nub@v0
+
+      - name: 构建文档页面 (Astro Starlight)
         working-directory: docs
         run: |
           # 文档站占用 dist/ 根，前端产物在 dist/app；文档构建会清空 dist，所以必须先跑
-          npm install
-          npm run build
+          nub ci
+          nub run build
 
       - name: 构建前端页面
         working-directory: frontend
@@ -53,8 +56,8 @@ jobs:
         run: |
           # 变量缺失会构建出连不上后端且难以排查的页面, 因此在构建前直接失败
           [ -n "$VITE_SUPABASE_URL" ] && [ -n "$VITE_SUPABASE_PUB_KEY" ] || { echo "::error::缺少仓库变量 VITE_SUPABASE_URL 或 VITE_SUPABASE_PUB_KEY"; exit 1; }
-          npm install
-          npm run build
+          nub ci
+          nub run build
 
       - name: 上传构建产物
         uses: actions/upload-pages-artifact@v3

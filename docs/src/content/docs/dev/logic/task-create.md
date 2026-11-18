@@ -201,7 +201,7 @@ DROP FUNCTION IF EXISTS public.create_todo(TEXT, TEXT, TIMESTAMPTZ, NUMERIC, TIM
 
 ```bash
 cd frontend && npm test        # todos.optimistic / todos.realtime / syncQueue 用例
-cd frontend && npm run build
+cd frontend && nub run build
 ```
 
 用例：

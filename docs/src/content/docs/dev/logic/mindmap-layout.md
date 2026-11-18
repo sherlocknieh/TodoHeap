@@ -103,5 +103,5 @@ blockSizeOf:  block = max(节点自身交叉尺寸, Σ 子节点 block + 间隔)
 
 ## 六、验证
 
-- `cd frontend && npm run build` 必须通过，`npm test` 覆盖 store 层。
+- `cd frontend && nub run build` 必须通过，`nub run test` 覆盖 store 层。
 - 手动检查：展开多级子任务的分支，兄弟让位、父子连线水平；多父链接展开后节点落在父链之间，同父级兄弟边缘空白不超过 `2 × crossGap`，无节点重叠。

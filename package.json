@@ -2,11 +2,18 @@
   "name": "todoheap",
   "private": true,
   "scripts": {
-    "dev": "cd frontend && pnpm dev",
-    "dev:docs": "cd docs && pnpm dev",
-    "dev:all": "concurrently \"pnpm dev\" \"pnpm dev:docs\""
+    "dev": "cd frontend && nub run dev",
+    "dev:docs": "cd docs && nub run dev",
+    "dev:all": "concurrently \"nub run dev\" \"nub run dev:docs\""
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "nub",
+      "version": "^0.11.1",
+      "onFail": "ignore"
+    }
   }
 }

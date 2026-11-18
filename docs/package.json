@@ -9,5 +9,12 @@
   "dependencies": {
     "@astrojs/starlight": "^0.43.1",
     "astro": "^7.4.12"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "nub",
+      "version": "^0.11.1",
+      "onFail": "ignore"
+    }
   }
 }

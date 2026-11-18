@@ -19,9 +19,9 @@ Astro Starlight 站点，构建产物输出到 `../dist`（站点根），前端
 ## 命令
 
 ```bash
-npm install
-npm run dev    # http://localhost:4321/TodoHeap/
-npm run build
+nub install
+nub run dev    # http://localhost:4321/TodoHeap/
+nub run build
 ```
 
 ## 新增文档

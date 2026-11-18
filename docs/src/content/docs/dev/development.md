@@ -87,13 +87,13 @@ todosStore.addTodo(...)          // 写
 
 ```bash
 # 运行单元测试
-pnpm test
+nub run test
 
 # 监视模式
-pnpm test:watch
+nub run test:watch
 
 # 类型检查
-pnpm type-check
+nub run type-check
 ```
 
 ### 后端开发流程（Edge Function）
@@ -241,7 +241,7 @@ const handleClick = () => {
 1. 在 `frontend/src/pages/` 找到对应页面
 2. 修改模板、脚本或样式
 3. 测试响应式设计和深色模式
-4. 运行 `pnpm dev` 本地预览
+4. 运行 `nub run dev` 本地预览
 
 #### 新增状态管理
 
@@ -359,8 +359,8 @@ describe('TodoList', () => {
 运行测试：
 
 ```bash
-pnpm test           # 运行一次
-pnpm test:watch    # 监视模式
+nub run test           # 运行一次
+nub run test:watch    # 监视模式
 ```
 
 ### 本地手动测试
@@ -368,7 +368,7 @@ pnpm test:watch    # 监视模式
 ```bash
 # 1. 启动完整环境
 supabase start
-cd frontend && pnpm dev
+cd frontend && nub run dev
 
 # 2. 打开浏览器
 # http://localhost:5200
@@ -587,7 +587,7 @@ supabase logs --local
 ```bash
 # 1. 构建生产版本
 cd frontend
-pnpm build
+nub run build
 
 # 2. 输出在 dist/ 目录
 # 3. 部署到托管服务（GitHub Pages、Vercel、Netlify）
