@@ -13,6 +13,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import MindMapWrapper from '@/components/MindMapWrapper.vue'
 import { collectDescendantIds, findParentIds } from '@/utils/taskGraph'
+import { isTaskCollapsed, setTaskCollapsed } from '@/utils/taskCollapse'
 import { ROOT_TODO_TITLE } from '@/utils/rootTask'
 
 const props = defineProps({
@@ -146,6 +147,11 @@ const unlinkOtherParents = async ({ childId, parentId }) => {
 	if (failed?.error) emit('notify', { message: failed.error })
 }
 
+// 落点折叠时展开它，否则新挂上的子任务与连线会被折叠计数按钮藏住
+const revealDropParent = (parentId) => {
+	if (isTaskCollapsed(parentId)) setTaskCollapsed(parentId, false)
+}
+
 // 拖拽落点：拖节点本体时，上/下四分之一插到目标兄弟前后，中间成为子任务；
 // 插序使用树展开时记录的父级，多父任务落在首个父链下。从折叠/加号按钮拉出的拖拽只建立链接。
 // 拖节点成子任务时，子任务只有一个父级就移动、多个父级就新增链接。
@@ -197,6 +203,9 @@ const dropTask = async ({
 			return
 		}
 
+		// 建链接后立刻展开父节点，新建的连线才可见
+		revealDropParent(parentId)
+
 		emit('notify', {
 			message: `已将「${childTitle}」链接到「${parentTitle}」`,
 			action: linkOnly ? null : {
@@ -215,7 +224,13 @@ const dropTask = async ({
 		position: 'inside',
 		sourceParentId: parentIds[0] ?? null
 	})
-	if (!result.success && result.error) emit('notify', { message: result.error })
+	if (!result.success) {
+		if (result.error) emit('notify', { message: result.error })
+		return
+	}
+
+	// 移动同样形成新的父子关系，展开落点避免子任务一落进去就消失
+	revealDropParent(parentId)
 }
 
 // 删除连线：只从父任务的 child_ids 移除引用；最后一个父级被摘掉时任务回到顶层

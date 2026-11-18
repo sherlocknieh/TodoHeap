@@ -39,6 +39,7 @@ title: "视图与交互"
 - 前后插序只重排落点所在父级的 `child_ids`，拖动时在落点插入占位槽、兄弟节点真实让位（`dragState.dropPosition`、`insertDropPlaceholder`、`TodoGraph.vue` 的 `dropTask`）。
 - 拖进节点按源任务的父级数量分派：单父直接移动且不弹提示；多父只追加链接，提示条可撤销，并提供「改为移动（断开旧连接）」（`TodoGraph.vue` 的 `findParentIds`）。
 - 按钮拉线只建链接，不移动原父级；命中按指针点到节点矩形的距离判定，允许 24 屏幕像素误差（按缩放折算、上限 48 图内单位），多个候选取最近者（`linkTargetAtRect`）。
+- 拖进节点或按钮拉线写入成功后，落点父节点若处于折叠状态会自动展开（`TodoGraph.vue` 的 `revealDropParent`），避免新连线被折叠计数藏住。
 - 预览线终点超出指针 18 屏幕像素，箭头不被指针图标盖住（`DRAG_ARROW_GAP`）。
 - 目标已在源任务子树内会成环，直接拦截并提示；`isRef` 引用节点不能作为拖拽起点或落点。
 
