@@ -30,9 +30,9 @@
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
-        <!-- 拉线预览：只在从折叠/加号按钮建链接时画，从按钮连向指针；配色与粗细跟正式连线一致 -->
+        <!-- 拉线预览：只在从折叠/加号按钮建链接时画；曲线规则与正式连线一致，拖动期间用强调色 -->
         <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
-          class="stroke-neutral-300 dark:stroke-neutral-600" stroke-width="1.2"
+          class="stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
           stroke-linecap="round" marker-end="url(#mm-arrow)" />
 
         <!-- 节点 -->
@@ -2318,6 +2318,16 @@ const startDrag = (event, sourceId, fromToggle) => {
 // 预览线终点再越过指针一小段（屏幕像素），让箭头露在鼠标图标之外，避免被指针盖住
 const DRAG_ARROW_GAP = 18
 
+// 拉线预览复用正式连线的三次贝塞尔规则：起点沿出边法线离开，终点沿拖动方向收尾，
+// 控制点落在终点后方，曲线末端的切线正对指针，看起来就是一条将要落成的连线
+const previewCurve = (start, end, dirX, dirY) => {
+  const reach = Math.hypot(end.x - start.x, end.y - start.y)
+  const bend = Math.max(20, reach * 0.5)
+  const c1 = { x: start.x + start.dx * bend, y: start.y + start.dy * bend }
+  const c2 = { x: end.x - dirX * bend, y: end.y - dirY * bend }
+  return `M${start.x} ${start.y} C${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`
+}
+
 // 拖拽中的实时反馈：拉线只用于从折叠/加号按钮建链接，从按钮连向指针；
 // 拖节点改为影子副本跟随指针，不再画线
 const updateDrag = (event) => {
@@ -2333,7 +2343,7 @@ const updateDrag = (event) => {
     const length = Math.hypot(dx, dy) || 1
     const ahead = DRAG_ARROW_GAP / view.scale
     const end = { x: point.x + (dx / length) * ahead, y: point.y + (dy / length) * ahead }
-    dragState.preview = `M${tip.x} ${tip.y} L${end.x} ${end.y}`
+    dragState.preview = previewCurve(tip, end, dx / length, dy / length)
     hitRect = { x: point.x, y: point.y, width: 0, height: 0 }
   } else {
     // 拖节点不画线：影子副本跟随指针，影子与目标接触就算命中

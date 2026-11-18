@@ -34,7 +34,7 @@ title: "视图与交互"
 
 ## 拖拽与连线
 
-- 拖节点时指针处显示影子副本，原节点降到 0.3 透明度；只有从折叠/加号按钮拉线才画预览线，配色、粗细与箭头跟正式连线一致（`dragState.shadow`、`nodeOpacity`）。
+- 拖节点时指针处显示影子副本，原节点降到 0.3 透明度；只有从折叠/加号按钮拉线才画预览线。预览线复用正式连线的三次贝塞尔规则（`previewCurve`）：起点沿出边法线离开、终点沿拖动方向收尾，拖动期间用强调色加粗高亮（`dragState.shadow`、`nodeOpacity`）。
 - 落点按指针在目标节点内的纵向位置分派：上/下四分之一是前后插序，中间才是拖进节点；根节点没有兄弟序列，只按拖进处理（`dropPositionAt`）。
 - 前后插序只重排落点所在父级的 `child_ids`，拖动时在落点插入占位槽、兄弟节点真实让位（`dragState.dropPosition`、`insertDropPlaceholder`、`TodoGraph.vue` 的 `dropTask`）。
 - 拖进节点按源任务的父级数量分派：单父直接移动且不弹提示；多父只追加链接，提示条可撤销，并提供「改为移动（断开旧连接）」（`TodoGraph.vue` 的 `findParentIds`）。
