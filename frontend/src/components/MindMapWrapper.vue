@@ -46,7 +46,7 @@
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @pointerenter="holdLeafControl(node)" @pointerleave="releaseLeafControl()"
           @click.stop="selectNode(node)">
-          <!-- 悬停只给一档更弱的高亮（浅绿细边框 + 淡底），把最强的深绿粗边框留给选中 -->
+          <!-- 悬停与选中用同一个绿色，只靠透明度与描边粗细分强弱：悬停是半透明绿细框，选中是实绿粗框加淡底 -->
           <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? selectedNodeStroke : nodeStroke"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
             class="transition-colors" :class="[
@@ -54,14 +54,14 @@
                 ? 'stroke-accent-600 dark:stroke-accent-400'
                 : node.selected
                   ? 'stroke-accent-600 dark:stroke-accent-400'
-                  : 'stroke-neutral-200 group-hover:stroke-accent-400 dark:stroke-neutral-700 dark:group-hover:stroke-accent-500',
+                  : 'stroke-neutral-200 group-hover:stroke-accent-600/45 dark:stroke-neutral-700 dark:group-hover:stroke-accent-400/45',
               node.isRoot
                 ? 'fill-accent-700 dark:fill-accent-500'
                 : dragState.targetId === node.id
                   ? 'fill-accent-100 dark:fill-accent-500/25'
                   : node.selected
                     ? 'fill-accent-50 dark:fill-neutral-800'
-                    : 'fill-white group-hover:fill-accent-50/60 dark:fill-neutral-900 dark:group-hover:fill-neutral-800/60'
+                    : 'fill-white dark:fill-neutral-900'
             ]" />
           <!-- 勾选框：点击切换完成状态，与列表视图的两态复选一致 -->
           <g v-if="node.hasCheckbox" :transform="`translate(${paddingX} ${paddingTop + fontSize - 1})`"
