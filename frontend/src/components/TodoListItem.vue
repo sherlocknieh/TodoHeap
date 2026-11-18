@@ -12,9 +12,6 @@
         <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围 -->
         <div class="relative flex items-center gap-2.5 rounded-xl border py-1.5 pl-2 pr-1.5 transition-all"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
-          <!-- 选中提示：2px 低透明度短条，只做定位线索，不与任务标题抢注意力 -->
-          <span v-if="isRowSelected(item)"
-            class="pointer-events-none absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-accent-500/40 dark:bg-accent-400/40"></span>
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"
             class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
@@ -283,8 +280,9 @@ const rowStateClass = (item) => {
   if (indicator && indicator.id === item.id && indicator.position === 'inside') {
     return 'border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
   }
+  // 选中提示沿用左侧视图列表：左边缘一条通栏 2px 实线，跟随卡片圆角
   if (isRowSelected(item)) {
-    return 'border-accent-200 bg-neutral-100 shadow-[0_2px_8px_rgb(6_80_48/0.1)] dark:border-accent-500/40 dark:bg-neutral-800/70 dark:shadow-none'
+    return 'border-accent-200 border-l-2 border-l-accent-600 bg-neutral-100 shadow-[0_2px_8px_rgb(6_80_48/0.1)] dark:border-accent-500/40 dark:border-l-accent-400 dark:bg-neutral-800/70 dark:shadow-none'
   }
   // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻
   return [
