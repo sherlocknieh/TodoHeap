@@ -20,6 +20,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 开工前加载 `dev-init` skill（全局 `dev` 分组），按「定位 → 核对约定 → 实现 → 验证 → 记录 → 提交」走。本仓库的 UI、数据模型、文档记录与验证细则在该 skill 的 `references/todoheap.md`。
 
+改完代码只用单测、构建、类型检查验证；启动浏览器，或对已共享页面做 reload、点击、输入等操作，必须先问用户。
+
 ## 维护
 
 改动源码文件结构、命令或数据模型时，同步更新[代码地图](docs/src/content/docs/dev/code-map.md)；本文件只在文档分工变化时修改。
