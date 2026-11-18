@@ -450,38 +450,69 @@ const controlPointFor = (height, selected) => {
   }
 }
 
-// 文字可用宽度：右侧只让出更多操作按钮，折叠按钮挂在节点外不占正文
-const textUnitsFor = (hasCheckbox) => {
-  const available = nodeWidth - paddingX * 2
-    - (hasCheckbox ? checkboxReserve : 0)
-    - moreReserve
-  return Math.max(4, Math.floor(available / fontSize))
+// 文字可用宽度（像素）：右侧只让出更多操作按钮，折叠按钮挂在节点外不占正文
+const textWidthFor = (hasCheckbox) => Math.max(fontSize * 4,
+  nodeWidth - paddingX * 2 - (hasCheckbox ? checkboxReserve : 0) - moreReserve)
+
+// 量宽用的 canvas：显示态由这里折行、编辑态由浏览器折行，两边必须用同一套字体与宽度，
+// 断行位置才会一致。字体取容器（未挂载时退回 body）的计算值，与输入框的 font-medium 对应
+let measureCtx = null
+let measureFont = ''
+const measureContext = () => {
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d')
+  if (!measureFont) {
+    const el = container.value ?? document.body
+    measureFont = getComputedStyle(el).fontFamily
+    measureCtx.font = `500 ${fontSize}px ${measureFont}`
+    // 字体串无法解析时回退到通用无衬线，避免按默认 10px 量出偏小的宽度
+    if (!measureCtx.font.includes(`${fontSize}px`)) {
+      measureFont = 'sans-serif'
+      measureCtx.font = `500 ${fontSize}px ${measureFont}`
+    }
+  }
+  return measureCtx
 }
 
-// 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出；
-// 手工换行（Shift+Enter）按硬换行处理，空白行也占一行
-const wrapLines = (text, unitsPerLine, limit = maxLines) => {
-  const chars = [...String(text || '未命名任务')]
+// 单个词/字的宽度缓存：每次输入都要重排所有节点，按字符串缓存能省掉重复测量
+const widthCache = new Map()
+const widthOf = (text) => {
+  const cached = widthCache.get(text)
+  if (cached !== undefined) return cached
+  const width = measureContext().measureText(text).width
+  if (widthCache.size > 4000) widthCache.clear()
+  widthCache.set(text, width)
+  return width
+}
+
+// 按真实像素宽度折行，规则与输入框里的浏览器排版对齐：
+// CJK 与全角逐字可断、西文按词断、手工换行（Shift+Enter）是硬换行，空白行也占一行
+const wrapLines = (text, maxWidth, limit = maxLines) => {
+  const source = String(text || '未命名任务')
+  const tokens = (source.match(/[\u2e80-\u9fff\uff00-\uffef]|[^\s\u2e80-\u9fff\uff00-\uffef]+|[ ]+|\n/g) ?? [])
+    // 比整行还长的词（链接、长串）按字拆开，对应输入框的 break-word 行为
+    .flatMap((token) => (token !== '\n' && token.trim() && widthOf(token) > maxWidth
+      ? [...token]
+      : [token]))
   const lines = []
   let line = ''
-  let units = 0
-
-  for (const char of chars) {
-    if (char === '\n') {
-      lines.push(line)
-      line = ''
-      units = 0
-      continue
-    }
-    const charUnits = /[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 1 : 0.55
-    if (units + charUnits > unitsPerLine && line) {
-      lines.push(line)
-      line = ''
-      units = 0
-    }
-    line += char
-    units += charUnits
+  let width = 0
+  const flush = () => {
+    lines.push(line)
+    line = ''
+    width = 0
   }
+
+  tokens.forEach((token) => {
+    if (token === '\n') {
+      flush()
+      return
+    }
+    const tokenWidth = widthOf(token)
+    // 行尾空白不触发换行，与浏览器行为一致
+    if (line && width + tokenWidth > maxWidth && token.trim()) flush()
+    line += token
+    width += tokenWidth
+  })
   if (line) lines.push(line)
 
   if (lines.length <= limit) return lines
@@ -498,25 +529,23 @@ const measureNode = (raw) => {
   const completed = Boolean(raw.completed_at)
   // 选中态决定是否显示更多操作按钮：根节点不是真实任务，选中也不给操作菜单
   const selected = String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
-  const unitsPerLine = textUnitsFor(hasCheckbox)
+  // 文字可用宽度：右侧固定让出更多操作按钮，选中时不再重排
+  const textWidth = textWidthFor(hasCheckbox)
   const lines = editingId.value === Number(raw.id)
-    ? wrapLines(editingText.value, unitsPerLine, Infinity)
-    : wrapLines(raw.title, unitsPerLine)
+    ? wrapLines(editingText.value, textWidth, Infinity)
+    : wrapLines(raw.title, textWidth)
   const subtitle = raw.subtitle || ''
   const height = paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0)
   const control = controlPointFor(height, selected)
   return {
     ...raw,
     lines,
-    unitsPerLine,
     subtitle,
     hasCheckbox,
     completed,
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
-    // 文字可用宽度：右侧固定让出更多操作按钮，选中时不再重排
-    textWidth: nodeWidth - paddingX - (paddingX + (hasCheckbox ? checkboxReserve : 0))
-      - moreReserve,
+    textWidth,
     // 折叠控件挂在出边一侧的节点外，压在连线起点上，不占正文宽度
     controlX: control.x,
     controlY: control.y,
