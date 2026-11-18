@@ -76,7 +76,7 @@ const features = [
     <footer class="border-t border-hairline dark:border-hairline-dark">
       <div
         class="w-full px-6 md:px-10 lg:px-16 py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-500">
-        <span>© 2026 TodoHeap · 把模糊的任务排进日程</span>
+        <span>© 2026 TodoHeap · 任务堆</span>
         <nav class="flex items-center gap-4">
           <a href="/TodoHeap/docs/zh/user/" class="hover:text-accent-800 dark:hover:text-accent-200">使用指南</a>
           <a href="/TodoHeap/docs/zh/dev/" class="hover:text-accent-800 dark:hover:text-accent-200">开发文档</a>
