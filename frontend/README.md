@@ -12,7 +12,7 @@
   - `stores/`       - Pinia 状态管理，`todos.*` 为可插拔切片
   - `utils/`        - 纯函数工具（优先级计算、详情面板上下文）
   - `style.css`     - Tailwind 入口与设计令牌
-- `vite.config.ts`  - `base: '/TodoHeap/'`，构建输出到仓库根的 `dist/`
+- `vite.config.ts`  - `base: '/TodoHeap/app/'`，构建输出到仓库根的 `dist/app/`
 - `.env.local`      - 本地环境变量配置
 ```
 # .env.local 示例内容:
@@ -22,8 +22,8 @@ VITE_SUPABASE_PUB_KEY=sb_publishable_EJtqpRfKkcd8PKX--U1O7g_zQWWNo9z
 
 ### 常用命令
 ```bash
-pnpm dev          # 开发服务器，端口 5200
-pnpm build        # 构建到 ../dist
+pnpm dev          # 开发服务器 http://localhost:5200/TodoHeap/app/
+pnpm build        # 构建到 ../dist/app
 pnpm test         # vitest，覆盖 store 层
 pnpm type-check   # vue-tsc（当前与 TS 5.9 不兼容，会报内部错误）
 ```

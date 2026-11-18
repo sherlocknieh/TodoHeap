@@ -31,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/TodoHeap/`,
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
       },
     })
     if (error) throw error
@@ -42,7 +42,7 @@ export const useAuthStore = defineStore('auth', () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/TodoHeap/`,
+        redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
       },
     })
     if (error) throw error
@@ -57,7 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function requestPasswordReset(email: string) {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/TodoHeap/`,
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
     })
     if (error) throw error
     return data

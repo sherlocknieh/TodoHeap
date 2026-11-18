@@ -45,17 +45,18 @@ const featuresSidebar = [
   { text: '同步与设置', link: '/features/05.sync-settings' },
 ]
 
-// 单语言站点：中文文档在 docs/ 根，URL 不带语言前缀。
-// en/ 保留在磁盘用于后续翻译，但已排除在构建之外。
+// 站点占据 /TodoHeap/ 根路径：/ 是落地页，其余是文档，应用在 /app/ 子路径。
+// 单语言：中文在 docs/ 根，URL 不带语言前缀；en/ 保留在磁盘但排除构建。
+// 构建顺序：文档输出到 dist/（会清空），前端再输出到 dist/app/。
 export default defineConfig(withMermaid({
-  base: '/TodoHeap/docs/',
+  base: '/TodoHeap/',
   lang: 'zh-CN',
   title: 'TodoHeap 任务堆',
   description: 'TodoHeap 文档：AI 驱动的任务与日程管理',
   srcExclude: ['en/**', 'README.md'],
 
   head: [
-    ['link', { rel: 'icon', href: '/TodoHeap/docs/logo.svg' }],
+    ['link', { rel: 'icon', href: '/TodoHeap/logo.svg' }],
     ['link', { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css' }],
     ['link', { rel: 'stylesheet', href: 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/copy-tex.min.css' }],
     ['script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/copy-tex.min.js' }]
@@ -68,9 +69,9 @@ export default defineConfig(withMermaid({
   },
 
   cleanUrls: true,
-  outDir: '../dist/docs',
+  outDir: '../dist',
   // 死链会让构建失败，避免把断链带上线
-  ignoreDeadLinks: false,
+  ignoreDeadLinks: [/^\/app\//],
 
   vite: {
     server: {
@@ -83,7 +84,7 @@ export default defineConfig(withMermaid({
   },
 
   themeConfig: {
-    logo: '/TodoHeap/docs/logo.svg',
+    logo: '/TodoHeap/logo.svg',
     nav: [
       { text: '用户指南', link: '/user/' },
       { text: '开发文档', link: '/dev/' },

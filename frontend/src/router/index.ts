@@ -6,11 +6,11 @@ import { settingsPanelOpen } from '@/utils/settingsPanel'
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    // 首页
+    // 根路径直接进任务图；落地页由文档站（/TodoHeap/）承担
     {
       path: '/',
       name: 'home',
-      component: () => import('@/pages/Home.vue'),
+      redirect: { name: 'GraphView' },
       meta: { requiresAuth: false, title: 'TodoHeap · 任务堆' }
     },
     // 登录页
@@ -69,7 +69,7 @@ router.beforeEach(async (to, _from) => {
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  // 已登录用户访问登录页时直接进入应用；主页保持可访问，便于回顾功能介绍
+  // 已登录用户访问登录页时直接进入应用
   if (to.name === 'login' && auth.isAuthenticated) {
     return { name: 'app' }
   }

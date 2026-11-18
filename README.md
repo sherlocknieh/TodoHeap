@@ -3,8 +3,8 @@
 
 ## 快速链接
 
-- **应用首页**: https://sherlocknieh.github.io/TodoHeap/
-- **在线文档**: https://sherlocknieh.github.io/TodoHeap/docs/
+- **应用**: https://sherlocknieh.github.io/TodoHeap/app/
+- **站点首页 / 文档**: https://sherlocknieh.github.io/TodoHeap/
 
 
 ## 项目简介

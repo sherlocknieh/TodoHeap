@@ -1,6 +1,6 @@
 # TodoHeap 文档
 
-VitePress 站点，构建产物输出到 `../dist/docs`，与前端一起发布到 GitHub Pages。
+VitePress 站点，构建产物输出到 `../dist`（站点根），前端挂在 `/app/` 子路径，两者一起发布到 GitHub Pages。
 
 ## 结构
 
@@ -18,7 +18,7 @@ VitePress 站点，构建产物输出到 `../dist/docs`，与前端一起发布�
 
 ```bash
 npm install
-npm run dev    # 端口 5201
+npm run dev    # http://localhost:5201/TodoHeap/
 npm run build
 ```
 

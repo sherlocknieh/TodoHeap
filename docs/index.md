@@ -11,6 +11,9 @@ hero:
     alt: Logo
   actions:
     - theme: brand
+      text: 进入应用
+      link: /app/
+    - theme: alt
       text: 用户指南
       link: /user/
     - theme: alt
