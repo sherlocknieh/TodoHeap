@@ -31,7 +31,7 @@ todoStore.addTodo(title, options)
         │
         ├─ 1. 生成临时 ID（负数，如 -1）与 client_key（uuid）
         ├─ 2. 构造本地任务，push 进 todos
-        ├─ 3. 把临时 ID 追加到父级 child_ids（父级默认是根任务）
+        ├─ 3. 把临时 ID 插到父级 child_ids 首位（父级默认是根任务）
         └─ 4. syncQueue.enqueue({ type: 'ADD', targetId: 临时ID, payload })
                 │
                 ▼
@@ -39,7 +39,7 @@ todoStore.addTodo(title, options)
                 │
                 ├─ 父级仍是临时 ID 时跳过，等父级落地
                 ├─ supabase.rpc('create_todo', { ..., p_client_key })
-                │       └─ 服务端：插入 todos 行 + array_append 到父级 child_ids
+                │       └─ 服务端：插入 todos 行 + 头插到父级 child_ids
                 ├─ tempIdMap.set(临时ID, 真实ID)
                 ├─ updateQueueTargetIds：队列里后续操作的临时 ID 一并替换
                 └─ dispatchEvent('sync:id-replaced', { tempId, realId, data })

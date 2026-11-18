@@ -121,11 +121,11 @@ export const createTodoOptimisticActions = ({
 
     todosRef.value.push(newTodo)
 
-    // 子列表由父节点保存, 先把临时ID挂到父节点上
+    // 子列表由父节点保存，新任务插到首位，最近添加的先看到
     if (parentId != null) {
       const parent = todosRef.value.find(t => t.id === parentId)
       if (parent) {
-        parent.child_ids = [...(parent.child_ids || []), tempId]
+        parent.child_ids = [tempId, ...(parent.child_ids || [])]
       }
     }
 

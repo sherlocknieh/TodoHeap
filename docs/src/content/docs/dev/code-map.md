@@ -115,7 +115,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `taskCollapse.js` | 跨视图共享的折叠状态（保存显式切换过的任务 ID） |
 | `todoDrag.js` | 列表拖拽状态：源任务 ID、源父级与落点提示 |
 | `todoSort.js` | 清单排序：只重排同级兄弟，引用行固定排在末尾，子树递归排序 |
-| `deadline.js` | 截止时间快捷预设，行内设置与批量设置共用同一套换算规则 |
+| `deadline.js` | 截止时间快捷预设与标签格式化/配色，任务行与快速添加栏共用同一套规则 |
 | `scheduleRange.js` | 日程时间段与日期键：侧栏统计、日期翻页与月历共用同一套判定 |
 | `mindmapEdit.js` | 图里「新建后立即编辑」的判定：临时 ID 换成真实 ID 与连续新建都会让 `editTaskId` 变化，靠 `replaced` / `editingPrev` 区分 |
 | `contextStats.js` | 上下文四类字符构成汇总，token 按经验比例估算 |

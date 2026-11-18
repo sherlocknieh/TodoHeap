@@ -87,6 +87,15 @@ describe('createTodoOptimisticActions', () => {
     }))
   })
 
+  it('addTodo 把新任务插到父级 child_ids 首位', async () => {
+    todosRef.value = [{ id: 9, title: '父任务', child_ids: [4, 5] }]
+
+    const result = await actions.addTodo('最新任务', { parent_id: 9 })
+
+    expect(result.data.id).toBe(-1)
+    expect(todosRef.value.find(t => t.id === 9).child_ids).toEqual([-1, 4, 5])
+  })
+
   it('updateTodo 对临时任务应只更新队列 payload 并持久化', async () => {
     todosRef.value = [{ id: -1, title: '原任务', completed_at: null, updated_at: 'old' }]
     syncQueue.queue = [{ type: OperationType.ADD, targetId: -1, payload: { title: '原任务', completed_at: null } }]

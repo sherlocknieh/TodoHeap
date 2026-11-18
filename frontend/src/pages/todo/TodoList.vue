@@ -111,29 +111,45 @@
     </section>
 
     <!-- 任务列表 -->
-    <div v-else-if="!loading" class="mt-1.5 space-y-1.5">
-      <TodoListItem
-        v-for="node in sortedTree"
-        :key="node.id"
-        :node="node"
-        :parent-id="todoStore.rootTaskId"
-        :selected-task-id="props.selectedTaskId"
-        :selection-mode="selectionMode"
-        :selected-ids="selectedIds"
-        @toggle-done="toggleDone"
-        @delete-todo="deleteTodo"
-        @add-subtask="addSubtask"
-        @edit-subtask="editSubtask"
-        @task-selected="handleTaskSelected"
-        @toggle-select="toggleSelect"
-        @set-deadline="setDeadline"
-        @move-todo="moveTodo"
-        @unlink-task="unlinkTask"
-      />
-      <p v-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-        没有进行中的任务，已完成的收在下方
-      </p>
-    </div>
+    <template v-else-if="!loading">
+      <!-- 待办标题：与已完成同款分组标题，收起后只留标题 -->
+      <section v-if="visibleCount" class="mt-5 border-t border-hairline dark:border-hairline-dark">
+        <div class="flex items-center gap-1 pt-2 pb-1">
+          <button type="button"
+            class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            @click="showActivePanel = !showActivePanel">
+            <AppIcon :name="showActivePanel ? 'chevronDown' : 'chevronRight'" :size="13" />
+            <span>待办</span>
+            <span
+              class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ visibleCount }}</span>
+          </button>
+        </div>
+      </section>
+
+      <div v-if="showActivePanel" class="mt-1.5 space-y-1.5">
+        <TodoListItem
+          v-for="node in sortedTree"
+          :key="node.id"
+          :node="node"
+          :parent-id="todoStore.rootTaskId"
+          :selected-task-id="props.selectedTaskId"
+          :selection-mode="selectionMode"
+          :selected-ids="selectedIds"
+          @toggle-done="toggleDone"
+          @delete-todo="deleteTodo"
+          @add-subtask="addSubtask"
+          @edit-subtask="editSubtask"
+          @task-selected="handleTaskSelected"
+          @toggle-select="toggleSelect"
+          @set-deadline="setDeadline"
+          @move-todo="moveTodo"
+          @unlink-task="unlinkTask"
+        />
+        <p v-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+          没有进行中的任务，已完成的收在下方
+        </p>
+      </div>
+    </template>
 
     <!-- 已完成：无内容时不占位 -->
     <section v-if="completedCount" class="mt-6 border-t border-hairline dark:border-hairline-dark">
@@ -307,6 +323,8 @@ const completedCount = computed(() => completedTodos.value.length)
 
 // 已完成区域默认展开，与列表同属一页；展开状态本地保留
 const showCompletedPanel = persistedRef('list-show-completed', true)
+// 待办区域的收起状态同样本地保留
+const showActivePanel = persistedRef('list-show-active', true)
 
 const toggleCompletedTodo = async (todo) => {
   if (!todo?.id) return

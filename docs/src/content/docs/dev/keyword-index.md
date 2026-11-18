@@ -35,7 +35,7 @@ title: 关键词索引
 
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
-| 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：外观对齐任务行」 | 外观是一行任务：左侧虚线圈、右侧折叠开关与日历按钮；整行可聚焦，回车即存，新任务挂根任务末尾 |
+| 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：外观对齐任务行」 | 外观是一行任务：左侧虚线圈、右侧折叠开关与日历按钮；整行可聚焦，回车即存，新任务挂根任务首位 |
 | 一键展开 / 一键折叠 / 全部展开全部折叠 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 快速添加栏上的圆圈按钮，折叠的是整张列表 |
 | 添加时设截止时间 / 先选日期再添加 | `pages/todo/TodoList.vue` `newTaskDeadline`、`toggleAddDeadlineMenu` | 选中后变成任务行同款截止标签，随任务一起创建 |
 | 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `paddingLeft: (4 + item._level * 22)` | 层级来自树展开，缩进是纯展示 |
@@ -125,7 +125,7 @@ title: 关键词索引
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
 | 根任务 / 全部任务 / 顶层任务挂哪 | `utils/rootTask.js` `isRootTodo`、`findRootTodo` | 根任务不出现在列表、统计、回收站、Agent 输出里 |
-| 子任务顺序 / 手动排序 / 新任务放哪 | `stores/todos.js` 树构建；父级 `child_ids` | 数组顺序是手动顺序的唯一来源，新任务追加到末尾 |
+| 子任务顺序 / 手动排序 / 新任务放哪 | `stores/todos.js` 树构建；父级 `child_ids` | 数组顺序是手动顺序的唯一来源，新任务插入首位 |
 | 软删除 / 删除后还能找回 | `deleted_at`；`stores/todos.js` `trashTodos` | 删除是软删除，完成状态看 `completed_at` |
 | 乐观更新 / 点了立即生效 | `stores/todos.optimistic.js` | 先改本地并入队，再写 Supabase |
 | 失败回滚 / 操作失败恢复原样 | `stores/todos.rollback.js` | 与乐观更新成对出现 |
