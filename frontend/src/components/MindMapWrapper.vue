@@ -897,15 +897,12 @@ const graphLayout = computed(() => {
   rawEdges.forEach((edge) => {
     if (visibleChildren.has(edge.from)) visibleChildren.get(edge.from).push(edge.to)
   })
-  // DFS 的父子归属同时定义子树块：共享子节点归第一个访问它的父级，块之间因此互不重叠
-  const blockChildren = new Map(nodes.map((node) => [node.id, []]))
   let dfsCursor = 0
-  const walkVisible = (id, parentId = null) => {
+  const walkVisible = (id) => {
     if (dfsIndex.has(id)) return
     dfsIndex.set(id, dfsCursor)
     dfsCursor += 1
-    if (parentId !== null) blockChildren.get(parentId).push(id)
-    ;(visibleChildren.get(id) || []).forEach((child) => walkVisible(child, id))
+    ;(visibleChildren.get(id) || []).forEach(walkVisible)
   }
   ;(props.nodes || []).forEach((root) => {
     const id = String(root.id)
@@ -917,14 +914,27 @@ const graphLayout = computed(() => {
   })
   order.forEach((list) => list.sort((a, b) => (dfsIndex.get(a.id) ?? 0) - (dfsIndex.get(b.id) ?? 0)))
 
-  // 子树块跨度：节点连同可见后代在交叉方向占用的整块空间。
-  // 同层按块而非节点自身高度留位，展开子节点时兄弟被推到子树外侧，子节点不会再被邻支挤住
+  // 子树块跨度：节点与相邻一列的子节点一起在交叉方向占用的空间。
+  // 子节点只归第一个紧邻的父级，多父各占一份会把同列分支顶开；
+  // 跨层链接的目标排在别的列，整棵子树不参与本列的留位
+  const laneChildren = new Map(nodes.map((node) => [node.id, []]))
+  const laneOwner = new Set()
+  rawEdges.forEach((edge) => {
+    const fromLayer = nodeLayer.get(edge.from)
+    const toLayer = nodeLayer.get(edge.to)
+    if (fromLayer === undefined || toLayer === undefined) return
+    if (toLayer !== fromLayer + 1) return
+    if (laneOwner.has(edge.to)) return
+    laneOwner.add(edge.to)
+    laneChildren.get(edge.from).push(edge.to)
+  })
+
   const blockSize = new Map()
   const blockSizeOf = (id) => {
     const cached = blockSize.get(id)
     if (cached !== undefined) return cached
     let span = 0
-    ;(blockChildren.get(id) || []).forEach((child, index) => {
+    ;(laneChildren.get(id) || []).forEach((child, index) => {
       span += blockSizeOf(child) + (index > 0 ? crossGap : 0)
     })
     const value = Math.max(crossSizeOf(id), span)
@@ -988,12 +998,21 @@ const graphLayout = computed(() => {
     return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
   }
 
+  // 只看紧邻列的边做上下居中：多父或跨层链接的目标在别的列，
+  // 把它们算进来会把节点拉向远处的另一条父链，连带整棵子树下沉、留出空白
+  const layerOf = (id) => nodeLayer.get(id) ?? 0
+  const nearOf = (ids, id, step) => {
+    const wanted = layerOf(id) + step
+    const near = ids.filter((other) => layerOf(other) === wanted)
+    return near.length ? near : ids
+  }
+
   // 逐层定位：down 让子节点贴近父节点（多父节点取各父节点位置的平均值），
   // up 让父节点居中于子节点带。每层定位后投影回间距约束，避免重叠。
   const relaxLayer = (layer, mode) => {
     order.get(layer).forEach((node) => {
-      const parents = averageOf(parentsOf.get(node.id))
-      const children = averageOf(childrenOf.get(node.id))
+      const parents = averageOf(nearOf(parentsOf.get(node.id), node.id, -1))
+      const children = averageOf(nearOf(childrenOf.get(node.id), node.id, 1))
       // up 时叶子没有子节点，保持当前位置，由父节点向它靠拢
       const target = mode === 'down' ? (parents ?? children) : children
       if (target !== null) crossCenter.set(node.id, target)
