@@ -64,7 +64,7 @@ outline: deep
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
 | 展开子节点 / 兄弟被推开 / 子节点挤在别的分支里 / 子树重叠 / 节点间距太挤 / 多父分支展开后拉低留白 | `components/MindMapWrapper.vue` `graphLayout` 的 `laneChildren`、`laneOwner`、`blockSizeOf`、`nearOf` | 间距只按紧邻一列的子节点算块跨度，展开时兄弟被推到子树外侧；跨层与多父链接不占本列、也不参与上下居中，多父节点落在紧邻父级这一侧 |
 | 布局方向 / 横向纵向 / 文字横竖排 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留 |
-| 点阵背景 / 网格背景 / 画布底纹 / 背景太空 / 背景太花 | `components/MindMapWrapper.vue` `dotGrid`、`mindmap-dots` 样式 | 右下角视图控件的网格按钮切换点阵底纹，默认开启，状态本地保存 |
+| 点阵背景 / 网格背景 / 画布底纹 / 背景不动 / 点阵跟着画布走 / 背景太花 | `components/MindMapWrapper.vue` `dotGrid`、`dotPatternStyle`、`mindmap-dots` 样式 | 右下角视图控件的网格按钮切换点阵底纹，默认开启，状态本地保存；点阵随平移移动，缩放时点距按 2 的倍数跳档并锚定世界原点 |
 | 深色背景 / 暗色画布 / 背景颜色 / 想用深色底 | `components/MindMapWrapper.vue` `darkCanvas`、`mindmap-canvas--dark` | 右下角视图控件的日/月按钮切换画布底色，点阵点色跟着切换；首次按系统主题取值，之后按手动选择保存 |
 | 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`controlsStyle`；`utils/detailPanelContext.js` 的 `detailPanelInset` | 视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
