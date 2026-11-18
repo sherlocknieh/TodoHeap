@@ -1094,19 +1094,18 @@ const toggleNodeMenu = (node) => {
   menuNodeId.value = menuNodeId.value === id ? null : id
 }
 
-// 菜单贴在按钮旁：默认在节点右侧并垂直对齐按钮，右侧空间不足就翻到左边，再夹进画布
+// 菜单在按钮正下方居中展开：按按钮在屏幕上的圆心定位；下方空间不足就翻到上方，再夹进画布
 const menuPosition = computed(() => {
   const node = menuNode.value
   if (!node) return { left: 0, top: 0 }
-  const anchorRight = view.x + (node.x + nodeWidth) * view.scale
-  const anchorTop = view.y + (node.y + node.height / 2) * view.scale - 10
-  const left = anchorRight + 8 + menuWidth > size.width - 8
-    ? view.x + node.x * view.scale - menuWidth - 8
-    : anchorRight + 8
-  return {
-    left: Math.max(8, Math.min(left, size.width - menuWidth - 8)),
-    top: Math.max(8, Math.min(anchorTop, size.height - menuHeight - 8))
-  }
+  const buttonX = view.x + (node.x + nodeWidth - paddingX - moreSize / 2) * view.scale
+  const buttonY = view.y + (node.y + node.height / 2) * view.scale
+  const left = Math.max(8, Math.min(buttonX - menuWidth / 2, size.width - menuWidth - 8))
+  const below = buttonY + 14
+  const top = below + menuHeight > size.height - 8
+    ? Math.max(8, buttonY - 14 - menuHeight)
+    : below
+  return { left, top }
 })
 
 const runMenuAction = (key) => {
