@@ -1094,6 +1094,8 @@ const graphLayout = computed(() => {
     // 自浅向深回收间距：上层块先整体下移，下层成员跟随块移动，不再单独压缩
     const moved = new Set()
     layerKeys.forEach((layer) => limitGaps(layer, moved))
+    // 块平移可能把不同块的成员推到同一位置，重新投影一次消掉重叠
+    layerKeys.forEach((layer) => projectLayer(layer))
   }
 
   let minCross = Infinity
