@@ -1,129 +1,144 @@
 <template>
-  <ul class="divide-y divide-hairline/60 dark:divide-hairline-dark/60">
+  <ul class="space-y-1.5">
     <template v-for="item in flatList">
-      <li v-if="isItemVisible(item)" :key="item.id" data-task-item :draggable="canDrag(item)" :class="[
-        'group flex items-center gap-2.5 rounded-md py-2.5 pr-2 cursor-pointer transition-colors',
-        dropIndicator && dropIndicator.id === item.id && dropIndicator.position === 'inside'
-          ? 'bg-accent-100/70 dark:bg-accent-500/20'
-          : selectedTaskId === (item._isRef ? item._refTargetId : item.id)
-            ? 'bg-accent-100/70 dark:bg-accent-500/20'
-            : 'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/40'
-      ]" :style="{ paddingLeft: (4 + item._level * 22) + 'px', ...dropStyle(item.id) }"
+      <li v-if="isItemVisible(item)" :key="item.id" data-task-item :draggable="canDrag(item)"
+        class="group relative cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }"
         @click="handleRowClick(item)" @dragstart="onDragStart(item, $event)" @dragover.prevent="onDragOver(item, $event)"
         @dragleave="onDragLeave(item, $event)" @drop.prevent="onDrop(item, $event)" @dragend="onDragEnd">
-        <!-- 展开/折叠 -->
-        <button v-if="item.children && item.children.length"
-          class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
-          @click.stop="toggleExpand(item)">
-          <AppIcon :name="isItemExpanded(item) ? 'chevronDown' : 'chevronRight'" :size="13" />
-        </button>
-        <span v-else class="w-[18px] shrink-0"></span>
-
-        <!-- 多选模式的选择框 / 日常的完成状态 -->
-        <button v-if="selectionMode" type="button"
-          class="shrink-0 grid place-items-center h-4 w-4 rounded-[3px] border transition-colors"
-          :class="isSelected(item)
-            ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
-            : 'border-neutral-400 text-transparent hover:border-neutral-500 dark:border-neutral-500 dark:hover:border-neutral-400'"
-          :aria-pressed="isSelected(item)" :aria-label="isSelected(item) ? '取消选择' : '选择任务'"
-          @click.stop="emitToggleSelect(item)">
-          <AppIcon name="check" :size="10" />
-        </button>
-        <button v-else-if="!item._isRef" type="button"
-          class="shrink-0 grid place-items-center h-4 w-4 rounded-[3px] border transition-colors"
-          :class="statusMap[item.id] === 'checked'
-            ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
-            : 'border-neutral-400 text-transparent hover:border-neutral-500 dark:border-neutral-500 dark:hover:border-neutral-400'"
-          :aria-pressed="statusMap[item.id] === 'checked'" @click.stop="cycleStatus(item)">
-          <AppIcon name="check" :size="10" />
-        </button>
-        <span v-else class="w-4 shrink-0"></span>
-
-        <!-- 标题与元信息：标签跟标题同一行，长标题换行时不挤掉标签 -->
-        <div class="flex min-w-0 flex-1 items-center gap-2">
-          <div class="min-w-0 flex-1">
-            <span v-if="editingId !== item.id" :class="[
-              'flex min-w-0 items-center gap-1 overflow-hidden text-sm leading-6 text-neutral-800 dark:text-neutral-200',
-              { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
-            ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
-              <AppIcon v-if="item._isRef" name="link" :size="11"
-                class="shrink-0 text-neutral-400 dark:text-neutral-500" />
-              <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
-                :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }" />
-            </span>
-            <input v-else :id="'edit-input-' + item.id" v-model="editingText"
-              class="w-full bg-transparent text-sm leading-6 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
-              @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')"
-              @keyup.esc="editingId = null" />
-          </div>
-
-          <div v-if="editingId !== item.id && (item.deadline || item.duration != null)"
-            class="flex shrink-0 items-center gap-1.5">
-            <button v-if="item.deadline" type="button" class="chip hover:border-accent-500 transition-colors"
-              data-deadline-trigger title="修改截止时间" @click.stop="toggleDeadlineMenu(item)">
-              <AppIcon name="clock" :size="10" />{{ formatMetaDate(item.deadline) }}
-            </button>
-            <span v-if="item.duration != null" class="chip font-mono">{{ formatDuration(item.duration) }}h</span>
-          </div>
-        </div>
-
-        <!-- 行内操作 -->
-        <div v-if="item._isRef && !selectionMode" class="flex shrink-0 items-center gap-0.5">
-          <button type="button"
-            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 opacity-0 transition-all hover:bg-accent-50 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-            title="取消链接" aria-label="取消链接" @click.stop="emitUnlink(item)">
-            <AppIcon name="unlink" :size="13" />
+        <!-- 缩进引导线：沿父级展开箭头中心向下贯穿，深层子任务在独立卡片间仍看得出归属 -->
+        <span v-if="item._level > 0" aria-hidden="true"
+          class="pointer-events-none absolute inset-y-0 w-px bg-hairline/70 dark:bg-hairline-dark/70"
+          :style="{ left: (item._level * 22 - 1) + 'px' }"></span>
+        <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围 -->
+        <div class="relative flex items-center gap-2.5 rounded-xl border py-1.5 pl-2 pr-1.5 transition-all"
+          :class="rowStateClass(item)" :style="dropStyle(item.id)">
+          <!-- 选中强调条：绝对定位直条，避免跟随圆角弯曲 -->
+          <span v-if="isRowSelected(item)"
+            class="pointer-events-none absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-600 dark:bg-accent-400"></span>
+          <!-- 展开/折叠 -->
+          <button v-if="item.children && item.children.length"
+            class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+            @click.stop="toggleExpand(item)">
+            <AppIcon :name="isItemExpanded(item) ? 'chevronDown' : 'chevronRight'" :size="13" />
           </button>
-        </div>
-        <div v-if="!item._isRef && !selectionMode"
-          class="flex shrink-0 items-center gap-0.5">
-          <div class="relative">
-            <button v-if="!item.deadline" type="button"
-              class="chip text-neutral-400 hover:border-accent-500 hover:text-accent-700 dark:text-neutral-500 dark:hover:text-accent-300 transition-colors"
-              data-deadline-trigger title="设置截止时间" @click.stop="toggleDeadlineMenu(item)">
-              <AppIcon name="calendar" :size="10" />截止
-            </button>
-            <div v-if="showDeadlineMenuId === item.id" data-deadline-menu
-              class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 py-1">
-              <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
-                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
-                @click.stop="applyDeadlinePreset(item.id, preset.value)">
-                <AppIcon :name="preset.icon" :size="13" />
-                <span>{{ preset.label }}</span>
-              </button>
-              <label class="block px-2.5 py-1.5 text-xs text-neutral-500">
-                自定义时间
-                <input v-model="customDeadline" type="datetime-local" class="field mt-1 text-xs"
-                  @change="applyDeadlinePreset(item.id, 'custom')" />
-              </label>
+          <span v-else class="w-[18px] shrink-0"></span>
+
+          <!-- 多选模式用方形选择框，日常完成状态用圆形勾选圈：形状即语义，避免两种状态混淆 -->
+          <button v-if="selectionMode" type="button"
+            class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-[5px] border transition-colors"
+            :class="isSelected(item)
+              ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
+              : 'border-neutral-300 text-transparent hover:border-accent-500 hover:bg-accent-50 dark:border-neutral-600 dark:hover:border-accent-400 dark:hover:bg-accent-500/10'"
+            :aria-pressed="isSelected(item)" :aria-label="isSelected(item) ? '取消选择' : '选择任务'"
+            @click.stop="emitToggleSelect(item)">
+            <AppIcon name="check" :size="10" />
+          </button>
+          <button v-else-if="!item._isRef" type="button"
+            class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-full border-[1.5px] transition-colors"
+            :class="statusMap[item.id] === 'checked'
+              ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
+              : 'border-neutral-300 text-transparent hover:border-accent-500 hover:bg-accent-50 dark:border-neutral-600 dark:hover:border-accent-400 dark:hover:bg-accent-500/10'"
+            :aria-pressed="statusMap[item.id] === 'checked'"
+            :aria-label="statusMap[item.id] === 'checked' ? '标记为未完成' : '标记为完成'"
+            @click.stop="cycleStatus(item)">
+            <AppIcon name="check" :size="11" />
+          </button>
+          <span v-else class="w-[18px] shrink-0"></span>
+
+          <!-- 标题与元信息：标签跟标题同一行，长标题换行时不挤掉标签 -->
+          <div class="flex min-w-0 flex-1 items-center gap-2">
+            <div class="min-w-0 flex-1">
+              <span v-if="editingId !== item.id" :class="[
+                'flex min-w-0 items-center gap-1 overflow-hidden text-sm leading-5 text-neutral-800 dark:text-neutral-200',
+                item._level === 0 ? 'font-medium' : '',
+                { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
+              ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
+                <AppIcon v-if="item._isRef" name="link" :size="11"
+                  class="shrink-0 text-neutral-400 dark:text-neutral-500" />
+                <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
+                  :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }" />
+              </span>
+              <input v-else :id="'edit-input-' + item.id" v-model="editingText"
+                class="w-full bg-transparent text-sm leading-5 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
+                @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')"
+                @keyup.esc="editingId = null" />
+            </div>
+
+            <div v-if="editingId !== item.id && (item.deadline || item.duration != null)"
+              class="flex shrink-0 items-center gap-1.5">
               <button v-if="item.deadline" type="button"
-                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                @click.stop="applyDeadlinePreset(item.id, 'clear')">
-                <AppIcon name="close" :size="13" />
-                <span>清除截止时间</span>
+                class="chip gap-1 font-medium transition-colors"
+                :class="deadlineChipClass(item.deadline)"
+                data-deadline-trigger :title="`修改截止时间（${formatDeadline(item.deadline)}）`"
+                @click.stop="toggleDeadlineMenu(item)">
+                <AppIcon name="clock" :size="10" />{{ formatMetaDate(item.deadline) }}
               </button>
+              <span v-if="item.duration != null" title="预计耗时"
+                class="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                {{ formatDuration(item.duration) }}h
+              </span>
             </div>
           </div>
-          <div class="relative">
-            <button
-              class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-              title="更多操作" data-more-trigger @click.stop="toggleMoreMenu(item.id, $event)">
-              <AppIcon name="more" :size="14" />
+
+          <!-- 行内操作 -->
+          <div v-if="item._isRef && !selectionMode" class="flex shrink-0 items-center gap-0.5">
+            <button type="button"
+              class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 opacity-0 transition-all hover:bg-accent-50 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+              title="取消链接" aria-label="取消链接" @click.stop="emitUnlink(item)">
+              <AppIcon name="unlink" :size="13" />
             </button>
-            <div v-if="showMoreMenuId === item.id"
-              class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1" ref="moreMenuRef">
-              <button
-                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
-                @click.stop="emitAddSubtask(item.id); closeMoreMenu()">
-                <AppIcon name="plus" :size="13" />
-                <span>添加子任务</span>
+          </div>
+          <div v-if="!item._isRef && !selectionMode"
+            class="flex shrink-0 items-center gap-0.5">
+            <div class="relative">
+              <button v-if="!item.deadline" type="button"
+                class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+                data-deadline-trigger title="设置截止时间" aria-label="设置截止时间"
+                @click.stop="toggleDeadlineMenu(item)">
+                <AppIcon name="calendar" :size="14" />
               </button>
+              <div v-if="showDeadlineMenuId === item.id" data-deadline-menu
+                class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 py-1">
+                <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  @click.stop="applyDeadlinePreset(item.id, preset.value)">
+                  <AppIcon :name="preset.icon" :size="13" />
+                  <span>{{ preset.label }}</span>
+                </button>
+                <label class="block px-2.5 py-1.5 text-xs text-neutral-500">
+                  自定义时间
+                  <input v-model="customDeadline" type="datetime-local" class="field mt-1 text-xs"
+                    @change="applyDeadlinePreset(item.id, 'custom')" />
+                </label>
+                <button v-if="item.deadline" type="button"
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  @click.stop="applyDeadlinePreset(item.id, 'clear')">
+                  <AppIcon name="close" :size="13" />
+                  <span>清除截止时间</span>
+                </button>
+              </div>
+            </div>
+            <div class="relative">
               <button
-                class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                @click.stop="emitDeleteTodo(item.id); closeMoreMenu()">
-                <AppIcon name="trash" :size="13" />
-                <span>删除任务</span>
+                class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+                title="更多操作" data-more-trigger @click.stop="toggleMoreMenu(item.id, $event)">
+                <AppIcon name="more" :size="14" />
               </button>
+              <div v-if="showMoreMenuId === item.id"
+                class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1" ref="moreMenuRef">
+                <button
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  @click.stop="emitAddSubtask(item.id); closeMoreMenu()">
+                  <AppIcon name="plus" :size="13" />
+                  <span>添加子任务</span>
+                </button>
+                <button
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  @click.stop="emitDeleteTodo(item.id); closeMoreMenu()">
+                  <AppIcon name="trash" :size="13" />
+                  <span>删除任务</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -259,6 +274,25 @@ function cycleStatus(item) {
 const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
 const isSelected = (item) => props.selectedIds.includes(selectableIdOf(item))
 const emitToggleSelect = (item) => emit('toggle-select', selectableIdOf(item))
+
+// 行状态底色：选中用中性底加左侧强调条，拖入内部才用浅强调色提示；底色与边框全部由状态决定，避免基础类覆盖
+const isRowSelected = (item) => props.selectedTaskId === selectableIdOf(item)
+
+const rowStateClass = (item) => {
+  const indicator = dropIndicator.value
+  if (indicator && indicator.id === item.id && indicator.position === 'inside') {
+    return 'border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
+  }
+  if (isRowSelected(item)) {
+    return 'border-accent-200 bg-neutral-100 shadow-[0_2px_8px_rgb(6_80_48/0.1)] dark:border-accent-500/40 dark:bg-neutral-800/70 dark:shadow-none'
+  }
+  // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻
+  return [
+    'border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)]',
+    'dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40',
+    item._isRef ? 'border-dashed' : ''
+  ].join(' ')
+}
 
 // 拖拽刚结束时浏览器仍会补发一次 click，短暂忽略避免误选中
 let suppressClickUntil = 0
@@ -496,6 +530,25 @@ function formatDeadline(deadline) {
 function formatMetaDate(value) {
   if (!value) return ''
   return formatDeadline(value)
+}
+
+// 截止标签按到期状态着色：逾期红、今天绿、以后中性，扫清单时最急的先跳出来
+function deadlineChipClass(value) {
+  if (!value) return ''
+  const due = new Date(value)
+  if (Number.isNaN(due.getTime())) return ''
+
+  const now = new Date()
+  const endOfToday = new Date(now)
+  endOfToday.setHours(23, 59, 59, 999)
+
+  if (due < now) {
+    return 'border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:border-rose-500/50'
+  }
+  if (due <= endOfToday) {
+    return 'border-accent-200 bg-accent-50 text-accent-800 hover:border-accent-300 dark:border-accent-500/30 dark:bg-accent-500/10 dark:text-accent-200 dark:hover:border-accent-500/50'
+  }
+  return 'border-hairline text-neutral-500 hover:border-accent-300 hover:text-neutral-700 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:text-neutral-200'
 }
 
 function formatDuration(value) {

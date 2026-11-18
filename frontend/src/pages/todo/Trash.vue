@@ -44,54 +44,57 @@
     </div>
 
     <!-- 任务列表 -->
-    <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto divide-y divide-hairline dark:divide-hairline-dark"
+    <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto space-y-2.5"
       @scroll.passive="saveTrashScroll">
       <template v-for="item in flatTrashList" :key="item.id">
-        <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id" :class="[
-          'group flex items-center gap-2.5 rounded-md py-2.5 pr-3 cursor-pointer transition-colors',
-          selectedTaskId === item.id
-            ? 'bg-accent-100/70 dark:bg-accent-500/20'
-            : 'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/40'
-        ]" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
-          <!-- 展开/折叠 -->
-          <button v-if="item.children && item.children.length"
-            class="p-0.5 rounded text-neutral-400 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
-            @click.stop="toggleExpand(item.id)">
-            <AppIcon :name="isTaskCollapsed(item.id) ? 'chevronRight' : 'chevronDown'" :size="13" />
-          </button>
-          <span v-else class="w-[17px] shrink-0"></span>
-
-          <AppIcon name="trash" :size="13" class="text-neutral-300 dark:text-neutral-700" />
-
-          <!-- 标题 -->
-          <div class="flex-1 min-w-0 flex items-baseline gap-2">
-            <span class="text-sm text-neutral-400 dark:text-neutral-600 line-through truncate">
-              {{ item.title || '未命名任务' }}
-            </span>
-            <span v-if="item.children && item.children.length" class="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-600">
-              {{ item.children.length }} 个子任务
-            </span>
-          </div>
-
-          <!-- 元信息 -->
-          <div class="flex items-center gap-2 shrink-0">
-            <span class="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
-              {{ formatDate(item.deleted_at) }}
-            </span>
-          </div>
-
-          <!-- 行内操作 -->
-          <div class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-            <button
-              class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
-              @click.stop="handleRestoreWithCheck(item.id)" title="恢复任务">
-              <AppIcon name="undo" :size="14" />
+        <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id"
+          class="group cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
+          <!-- 缩进留在外层，行内容单独成块，选中底色只覆盖任务自身范围 -->
+          <div class="flex items-center gap-2.5 rounded-xl border py-2.5 pl-2 pr-3 transition-all" :class="[
+            selectedTaskId === item.id
+              ? 'border-hairline bg-neutral-100 shadow-[inset_3px_0_0_0_var(--color-accent-600),0_2px_8px_rgb(6_80_48/0.12)] dark:border-hairline-dark dark:bg-neutral-800/70 dark:shadow-[inset_3px_0_0_0_var(--color-accent-400)]'
+              : 'border-hairline bg-surface shadow-[0_1px_3px_rgb(6_80_48/0.07)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.1)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40 dark:hover:shadow-none'
+          ]">
+            <!-- 展开/折叠 -->
+            <button v-if="item.children && item.children.length"
+              class="p-0.5 rounded text-neutral-400 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
+              @click.stop="toggleExpand(item.id)">
+              <AppIcon :name="isTaskCollapsed(item.id) ? 'chevronRight' : 'chevronDown'" :size="13" />
             </button>
-            <button
-              class="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
-              @click.stop="handlePermanentDelete(item.id)" title="永久删除">
-              <AppIcon name="close" :size="14" />
-            </button>
+            <span v-else class="w-[17px] shrink-0"></span>
+
+            <AppIcon name="trash" :size="13" class="text-neutral-300 dark:text-neutral-700" />
+
+            <!-- 标题 -->
+            <div class="flex-1 min-w-0 flex items-baseline gap-2">
+              <span class="text-sm text-neutral-400 dark:text-neutral-600 line-through truncate">
+                {{ item.title || '未命名任务' }}
+              </span>
+              <span v-if="item.children && item.children.length" class="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-600">
+                {{ item.children.length }} 个子任务
+              </span>
+            </div>
+
+            <!-- 元信息 -->
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
+                {{ formatDate(item.deleted_at) }}
+              </span>
+            </div>
+
+            <!-- 行内操作 -->
+            <div class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              <button
+                class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
+                @click.stop="handleRestoreWithCheck(item.id)" title="恢复任务">
+                <AppIcon name="undo" :size="14" />
+              </button>
+              <button
+                class="p-1 rounded text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
+                @click.stop="handlePermanentDelete(item.id)" title="永久删除">
+                <AppIcon name="close" :size="14" />
+              </button>
+            </div>
           </div>
         </li>
       </template>

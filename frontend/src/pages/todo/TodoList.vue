@@ -34,7 +34,7 @@
 
     <!-- 快速添加：整行可聚焦，回车即存 -->
     <div
-      class="mt-4 flex items-center gap-2 rounded-lg border border-hairline bg-surface px-3 transition-colors focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/15 dark:border-hairline-dark dark:bg-surface-dark">
+      class="mt-4 flex items-center gap-2 rounded-xl border border-hairline bg-surface px-3 shadow-[0_1px_2px_rgb(6_80_48/0.05)] transition-colors focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/15 dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none">
       <AppIcon name="plus" :size="16" class="text-neutral-400 dark:text-neutral-500" />
       <input v-model.trim="newTaskTitle" @keyup.enter="addTodo" placeholder="添加任务，回车保存"
         class="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500" />
@@ -70,7 +70,7 @@
     </section>
 
     <!-- 任务列表 -->
-    <div v-else-if="!loading" class="mt-4">
+    <div v-else-if="!loading" class="mt-4 space-y-1.5">
       <TodoListItem
         v-for="node in sortedTree"
         :key="node.id"
@@ -96,13 +96,14 @@
 
     <!-- 已完成：无内容时不占位 -->
     <section v-if="completedCount" class="mt-6 border-t border-hairline dark:border-hairline-dark">
-      <div class="flex items-center gap-1 pt-2">
+      <div class="flex items-center gap-1 pt-2 pb-1">
         <button type="button"
-          class="flex items-center gap-1.5 rounded px-1 py-1 text-xs text-neutral-500 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+          class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
           @click="showCompletedPanel = !showCompletedPanel">
           <AppIcon :name="showCompletedPanel ? 'chevronDown' : 'chevronRight'" :size="13" />
           <span>已完成</span>
-          <span class="font-mono text-neutral-400 dark:text-neutral-500">{{ completedCount }}</span>
+          <span
+            class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ completedCount }}</span>
         </button>
         <button type="button"
           class="ml-auto grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
@@ -110,17 +111,17 @@
           <AppIcon name="trash" :size="13" />
         </button>
       </div>
-      <ul v-if="showCompletedPanel" class="mt-1 space-y-0.5 pb-2">
+      <ul v-if="showCompletedPanel" class="mt-1 space-y-1.5 pb-2">
         <li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)" :class="[
-          'flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors',
+          'group flex cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm transition-all',
           props.selectedTaskId === t.id
-            ? 'bg-accent-100/70 dark:bg-accent-500/15'
-            : 'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/40'
+            ? 'border-accent-200 bg-neutral-100 shadow-[inset_3px_0_0_0_var(--color-accent-600),0_2px_8px_rgb(6_80_48/0.1)] dark:border-accent-500/40 dark:bg-neutral-800/70 dark:shadow-[inset_3px_0_0_0_var(--color-accent-400)]'
+            : 'border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
         ]">
           <button type="button"
-            class="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] bg-accent-600 text-white dark:bg-accent-400 dark:text-accent-950"
-            title="标记为未完成" @click.stop="toggleCompletedTodo(t)">
-            <AppIcon name="check" :size="10" />
+            class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-accent-600 bg-accent-600 text-white transition-colors hover:bg-accent-700 hover:border-accent-700 dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950"
+            title="标记为未完成" aria-label="标记为未完成" @click.stop="toggleCompletedTodo(t)">
+            <AppIcon name="check" :size="11" />
           </button>
           <MiddleEllipsis :text="t.title || '未命名任务'"
             class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
