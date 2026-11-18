@@ -5,6 +5,11 @@ description: AI 驱动的任务与日程管理：对话 Agent 读写任务、日
 head:
   - tag: title
     content: TodoHeap 任务堆
+  # 收藏工具（Raindrop 等）优先读 og:title，同样不能是「首页」
+  - tag: meta
+    attrs:
+      property: og:title
+      content: TodoHeap 任务堆
 template: splash
 hero:
   title: TodoHeap
