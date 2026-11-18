@@ -50,7 +50,7 @@
                   :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef && !isRowSelected(item) }" />
               </span>
               <input v-else :id="'edit-input-' + item.id" v-model="editingText"
-                class="w-full bg-transparent text-sm leading-5 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
+                class="w-full bg-transparent text-sm leading-5 text-neutral-900 dark:text-neutral-100 outline-none"
                 @blur="finishEdit(item.id, 'blur')" @keyup.enter="finishEdit(item.id, 'enter')"
                 @keyup.esc="editingId = null" />
             </div>
@@ -74,11 +74,11 @@
           <!-- 行内操作 -->
           <!-- 折叠开关放在右侧，圆圈内 +/− 表示当前状态 -->
           <button v-if="item.children && item.children.length" type="button"
-            class="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+            class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
             :title="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
             :aria-label="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
             :aria-expanded="isItemExpanded(item)" @click.stop="toggleExpand(item)">
-            <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="10" />
+            <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="8" />
           </button>
           <div v-if="item._isRef && !selectionMode" class="flex shrink-0 items-center gap-0.5">
             <button type="button"
