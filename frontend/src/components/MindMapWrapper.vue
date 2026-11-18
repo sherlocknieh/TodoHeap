@@ -2,7 +2,7 @@
   <!-- 自研思维导图：SVG 渲染，支持滚轮缩放、拖拽平移与键盘增删改 -->
   <div ref="container" tabindex="0"
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
-    :class="panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab'"
+    :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', dotGrid && 'mindmap-dots']"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
     @keydown="onKeydown">
@@ -224,6 +224,15 @@
         title="适应视图" @click.stop="fitView">
         <AppIcon name="target" :size="14" />
       </button>
+      <button type="button" :aria-pressed="dotGrid" :aria-label="dotGrid ? '隐藏点阵背景' : '显示点阵背景'"
+        :title="dotGrid ? '隐藏点阵背景' : '显示点阵背景'"
+        class="flex rounded border p-1.5 transition-colors"
+        :class="dotGrid
+          ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
+          : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
+        @click.stop="dotGrid = !dotGrid">
+        <AppIcon name="grid" :size="14" />
+      </button>
       <div ref="helpRef" class="relative">
         <button type="button" :aria-expanded="helpOpen" :aria-label="helpOpen ? '收起操作提示' : '操作提示'"
           :title="helpOpen ? '收起操作提示' : '操作提示'"
@@ -399,6 +408,11 @@ const directionOptions = [
 // 布局方向属于阅读偏好，刷新后沿用上次选择
 const direction = persistedRef('mindmap-direction', 'right', {
   validate: (value) => directionOptions.some((option) => option.value === value)
+})
+
+// 点阵底纹同属阅读偏好：开关状态本地保存，默认开启
+const dotGrid = persistedRef('mindmap-dot-grid', true, {
+  validate: (value) => typeof value === 'boolean'
 })
 
 const currentDirection = computed(() =>
@@ -2330,14 +2344,25 @@ watch(direction, () => nextTick(fitView))
 </script>
 
 <style scoped>
-/* 点阵底纹：与参考图一致的空旷感，暗色下更明显 */
+/* 画布底色：比页面稍亮/稍暗，给导图一块独立的纸面 */
 .mindmap-canvas {
   background-color: #fafafa;
+}
+
+/* 点阵底纹：开关打开后铺一层网格点，给拖拽平移一个空间参照；
+   点距固定，缩放时密度不变，避免缩小时糊成一片 */
+.mindmap-canvas.mindmap-dots {
+  background-image: radial-gradient(circle, rgba(20, 20, 40, 0.10) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 @media (prefers-color-scheme: dark) {
   .mindmap-canvas {
     background-color: #141414;
+  }
+
+  .mindmap-canvas.mindmap-dots {
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
   }
 }
 </style>
