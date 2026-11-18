@@ -322,8 +322,10 @@ const menuHeight = 140
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
-// 可见宽度：画布保持整宽，右侧浮层面板盖住的部分不算可用视野
+// 避让宽度：画布保持整宽，右侧浮层面板盖住的部分不算可用视野，供适应视图与菜单边界使用
 const visibleWidth = computed(() => Math.max(160, size.width - detailPanelInset.value))
+// 聚焦宽度：三栏聚焦把选中节点放在中间栏，中间栏位于整宽中心，不受右侧浮层影响
+const focusWidth = computed(() => Math.max(160, size.width))
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
 
@@ -1498,7 +1500,7 @@ const animateView = (target, duration = 320) => {
 const FOCUS_SCALE = 1.1
 const focusScale = () => Math.max(0.15, Math.min(
   FOCUS_SCALE,
-  (visibleWidth.value - 96) / nodeWidth
+  (focusWidth.value - 96) / nodeWidth
 ))
 
 // 聚焦固定为三栏视野：父级层、当前层、子级层各占一栏，与真实父子关系无关。
@@ -1506,18 +1508,19 @@ const focusScale = () => Math.max(0.15, Math.min(
 const focusMainSpan = () => nodeWidth * 3 + mainGap * 2
 
 // 三栏视野状态：选中节点后进入；手动缩放/平移、适应视图或编辑时退出。
-// 处于该状态时容器尺寸变化（例如开关详情面板）要重新按三栏贴合，否则画面会错位
+// 处于该状态时容器本身变宽变窄（窗口缩放、侧栏开合）要重新按三栏贴合，否则画面会错位；
+// 右侧浮层开关不改画布宽度，因此不触发重排
 const columnFocus = ref(false)
 
 const columnFocusScale = () => {
   const pad = 48
   return Math.max(0.15, Math.min(
     FOCUS_SCALE,
-    (visibleWidth.value - pad * 2) / Math.max(focusMainSpan(), 1)
+    (focusWidth.value - pad * 2) / Math.max(focusMainSpan(), 1)
   ))
 }
 
-// 聚焦目标：横向把节点摆在视口水平中央，纵向沿用节点当前的屏幕位置，
+// 聚焦目标：横向把节点摆在画布水平中央，纵向沿用节点当前的屏幕位置，
 // 只有掉出视口时才夹回可见范围
 const focusTargetFor = (node) => {
   const scale = columnFocusScale()
@@ -1525,7 +1528,7 @@ const focusTargetFor = (node) => {
   const anchorY = view.y + centerY * view.scale
   const margin = (node.height * scale) / 2 + 24
   return {
-    x: visibleWidth.value / 2 - (node.x + nodeWidth / 2) * scale,
+    x: focusWidth.value / 2 - (node.x + nodeWidth / 2) * scale,
     y: Math.max(margin, Math.min(anchorY, size.height - margin)) - centerY * scale,
     scale
   }
@@ -1545,7 +1548,7 @@ const centerOnNode = (id) => {
   animateView(target)
 }
 
-// 尺寸变化时按三栏重新贴合：拖动分割线或开关右栏都会改画布宽度，跟随缩放才能保住三栏
+// 画布尺寸变化时按三栏重新贴合：窗口缩放、侧栏开合会改画布宽度，跟随缩放才能保住三栏
 const followColumnFocus = () => {
   if (!columnFocus.value) return
   const node = layout.value.nodes.find((item) => item.id === selectedId.value)
@@ -1555,9 +1558,6 @@ const followColumnFocus = () => {
   view.y = target.y
   view.scale = target.scale
 }
-
-// 右栏浮层宽度变化时，选中节点重新贴到可见区中央，避免三点按钮和菜单被面板压住
-watch(detailPanelInset, () => { followColumnFocus() })
 
 // 单击选中后稍等再居中：双击编辑时节点还没移走，可以原地改字
 let pendingCenter = null
