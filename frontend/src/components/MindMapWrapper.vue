@@ -132,24 +132,21 @@
             </template>
           </g>
 
-          <!-- 选中节点右侧的删除按钮：常态灰图标，悬停时圆环描边转绿（与勾选框一致），图标保持中性；
-               待确认态换成实心红底白图标。圆环继承组的 stroke，透明热区承担点击与悬停判定 -->
-          <g v-if="node.selected && !node.isRoot"
-            :transform="`translate(${nodeWidth - paddingX - deleteSize / 2} ${node.height / 2})`"
-            class="cursor-pointer transition-colors"
-            :class="confirmDeleteId === node.id
-              ? 'text-white stroke-danger-600 dark:stroke-danger-500'
-              : 'text-neutral-400 stroke-transparent hover:stroke-accent-600 dark:text-neutral-500 dark:hover:stroke-accent-400'"
-            @pointerdown.stop @click.stop="deleteNode(node)">
+          <!-- 选中节点右侧的更多操作按钮：竖三点，悬停时圆环描边转绿（与勾选框一致），
+               点开后在节点旁弹出操作菜单。圆环继承组的 stroke，透明热区承担点击与悬停判定 -->
+          <g v-if="node.selected && !node.isRoot" data-mm-more-trigger
+            :transform="`translate(${nodeWidth - paddingX - moreSize / 2} ${node.height / 2})`"
+            class="cursor-pointer text-neutral-400 stroke-transparent transition-colors hover:stroke-accent-600 dark:text-neutral-500 dark:hover:stroke-accent-400"
+            @pointerdown.stop @click.stop="toggleNodeMenu(node)">
             <circle r="9" class="fill-transparent" />
             <circle r="8" stroke-width="1.2" class="transition-colors"
-              :class="confirmDeleteId === node.id
-                ? 'fill-danger-600 dark:fill-danger-500'
+              :class="menuNodeId === String(node.id)
+                ? 'fill-accent-50 stroke-accent-600 dark:fill-accent-500/15 dark:stroke-accent-400'
                 : 'fill-transparent'" />
             <g transform="translate(-6 -6)" class="pointer-events-none">
-              <AppIcon name="trash" :size="12" />
+              <AppIcon name="moreVertical" :size="12" />
             </g>
-            <title>{{ confirmDeleteId === node.id ? '再次点击删除任务' : '删除任务' }}</title>
+            <title>更多操作</title>
           </g>
         </g>
 
@@ -186,6 +183,24 @@
         </g>
       </g>
     </svg>
+
+    <!-- 节点更多操作菜单：HTML 浮层按节点在当前视口里的屏幕位置定位，缩放平移时跟随；
+         菜单内点击不再冒泡到画布，避免刚打开就被当成点空白取消 -->
+    <div v-if="menuNode" data-mm-more-menu
+      class="absolute z-20 panel cursor-default py-1 shadow-lg"
+      :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px`, width: `${menuWidth}px` }"
+      @pointerdown.stop @click.stop @contextmenu.prevent>
+      <button v-for="item in MENU_ITEMS" :key="item.key" type="button"
+        class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors"
+        :class="item.danger
+          ? 'text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40'
+          : 'text-neutral-700 hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10'"
+        @click="runMenuAction(item.key)">
+        <AppIcon :name="item.icon" :size="13" />
+        <span class="flex-1">{{ item.label }}</span>
+        <span class="text-[10px] text-neutral-400 dark:text-neutral-500">{{ item.hint }}</span>
+      </button>
+    </div>
 
     <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布 -->
     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop
@@ -278,10 +293,13 @@ const toggleOffset = (selected) =>
 const checkboxSize = 14
 const checkboxGap = 8
 const checkboxReserve = checkboxSize + checkboxGap
-// 选中节点右侧的删除按钮，与折叠控件同排；预留宽度含两枚按钮之间的间隔
-const deleteSize = 16
-const deleteGap = 4
-const deleteReserve = deleteSize + deleteGap * 2
+// 选中节点右侧的更多操作按钮，与折叠控件同排；预留宽度含两枚按钮之间的间隔
+const moreSize = 16
+const moreGap = 4
+const moreReserve = moreSize + moreGap * 2
+// 更多操作菜单的宽度与估算高度：贴住画布右/下边缘时据此翻到左侧或向上夹紧
+const menuWidth = 168
+const menuHeight = 140
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -427,11 +445,11 @@ const controlPointFor = (height, selected) => {
   }
 }
 
-// 文字可用宽度：右侧只让出删除按钮，折叠按钮挂在节点外不占正文
+// 文字可用宽度：右侧只让出更多操作按钮，折叠按钮挂在节点外不占正文
 const textUnitsFor = (hasCheckbox) => {
   const available = nodeWidth - paddingX * 2
     - (hasCheckbox ? checkboxReserve : 0)
-    - deleteReserve
+    - moreReserve
   return Math.max(4, Math.floor(available / fontSize))
 }
 
@@ -464,7 +482,7 @@ const wrapLines = (text, unitsPerLine, limit = maxLines) => {
 const measureNode = (raw) => {
   const hasCheckbox = !raw.isRoot
   const completed = Boolean(raw.completed_at)
-  // 选中态决定是否显示删除按钮：根节点不是真实任务，选中也不给删除入口
+  // 选中态决定是否显示更多操作按钮：根节点不是真实任务，选中也不给操作菜单
   const selected = String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
   const unitsPerLine = textUnitsFor(hasCheckbox)
   const lines = wrapLines(raw.title, unitsPerLine)
@@ -480,9 +498,9 @@ const measureNode = (raw) => {
     completed,
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
-    // 文字可用宽度：右侧固定让出删除按钮，选中时不再重排
+    // 文字可用宽度：右侧固定让出更多操作按钮，选中时不再重排
     textWidth: nodeWidth - paddingX - (paddingX + (hasCheckbox ? checkboxReserve : 0))
-      - deleteReserve,
+      - moreReserve,
     // 折叠控件挂在出边一侧的节点外，压在连线起点上，不占正文宽度
     controlX: control.x,
     controlY: control.y,
@@ -1048,28 +1066,74 @@ const toggleDone = (node) => {
   emit('toggle-done', Number(node.id))
 }
 
-// 已完成节点上的删除按钮：两段式确认，避免误删
-const confirmDeleteId = ref(null)
-
-// 图内删除的统一出口：按钮与快捷键共用
+// 图内删除的统一出口：菜单项与快捷键共用
 const emitDelete = (id) => {
   emit('delete-task', Number(id))
 }
 
-const deleteNode = (node) => {
-  if (node.isRoot) return
-  if (confirmDeleteId.value !== node.id) {
-    confirmDeleteId.value = node.id
-    return
-  }
-  confirmDeleteId.value = null
-  emitDelete(node.id)
+// 选中节点右侧的更多操作菜单：只给真实任务，位置跟着当前节点走
+const menuNodeId = ref(null)
+const menuNode = computed(() => menuNodeId.value == null
+  ? null
+  : layout.value.nodes.find((node) => String(node.id) === menuNodeId.value) ?? null)
+
+// 菜单项全部复用已有能力，右侧标注对应快捷键，方便用户之后直接用键盘
+const MENU_ITEMS = [
+  { key: 'rename', label: '重命名', hint: 'F2', icon: 'edit' },
+  { key: 'child', label: '新建子任务', hint: 'Tab', icon: 'plus' },
+  { key: 'copy', label: '复制为 Markdown', hint: 'Ctrl+C', icon: 'copy' },
+  { key: 'delete', label: '删除任务', hint: 'Del', icon: 'trash', danger: true }
+]
+
+const closeNodeMenu = () => {
+  menuNodeId.value = null
 }
+
+const toggleNodeMenu = (node) => {
+  const id = String(node.id)
+  menuNodeId.value = menuNodeId.value === id ? null : id
+}
+
+// 菜单贴在按钮旁：默认在节点右侧并垂直对齐按钮，右侧空间不足就翻到左边，再夹进画布
+const menuPosition = computed(() => {
+  const node = menuNode.value
+  if (!node) return { left: 0, top: 0 }
+  const anchorRight = view.x + (node.x + nodeWidth) * view.scale
+  const anchorTop = view.y + (node.y + node.height / 2) * view.scale - 10
+  const left = anchorRight + 8 + menuWidth > size.width - 8
+    ? view.x + node.x * view.scale - menuWidth - 8
+    : anchorRight + 8
+  return {
+    left: Math.max(8, Math.min(left, size.width - menuWidth - 8)),
+    top: Math.max(8, Math.min(anchorTop, size.height - menuHeight - 8))
+  }
+})
+
+const runMenuAction = (key) => {
+  const id = menuNodeId.value
+  closeNodeMenu()
+  if (id == null) return
+  if (key === 'rename') startEditById(id)
+  else if (key === 'child') createChild()
+  else if (key === 'copy') copySubtreeAsMarkdown(id)
+  else if (key === 'delete') emitDelete(id)
+}
+
+// 点菜单外任意位置收起；菜单与触发器自身的按下都不冒泡到文档，所以这里只处理外部点击
+const onMenuOutside = () => {
+  closeNodeMenu()
+}
+
+watch(menuNodeId, (id) => {
+  if (id == null) document.removeEventListener('pointerdown', onMenuOutside)
+  else document.addEventListener('pointerdown', onMenuOutside)
+})
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
 const selectNode = (node) => {
   // 拖拽建链接后紧跟的 click 不应改变选中
   if (Date.now() - lastDragEndAt < 250) return
+  closeNodeMenu()
   selectedEdgeKey.value = null
   container.value?.focus({ preventScroll: true })
 
@@ -1131,6 +1195,7 @@ const highlightedEdges = computed(() => {
 
 const selectEdge = (edge) => {
   if (!edge.deletable) return
+  closeNodeMenu()
   container.value?.focus({ preventScroll: true })
   selectedEdgeKey.value = selectedEdgeKey.value === edge.key ? null : edge.key
   if (selectedEdgeKey.value) emit('task-selected', null)
@@ -1161,12 +1226,13 @@ watch(selectedEdgeKey, () => {
   confirmUnlink.value = false
 })
 
-// 布局变化后旧连线可能已不存在，清掉悬空的选中
+// 布局变化后旧连线、旧节点可能已不存在，清掉悬空的选中与菜单
 watch(layout, () => {
-  if (selectedEdgeKey.value == null) return
-  if (!layout.value.edges.some((edge) => edge.key === selectedEdgeKey.value)) {
+  if (selectedEdgeKey.value != null
+    && !layout.value.edges.some((edge) => edge.key === selectedEdgeKey.value)) {
     selectedEdgeKey.value = null
   }
+  if (menuNodeId.value != null && menuNode.value == null) closeNodeMenu()
 })
 
 // 森林索引：键盘导航与新建需要知道每个任务的父级与同级顺序
@@ -1210,9 +1276,9 @@ const selectedId = computed(() => {
   return props.selectedTaskId == null ? null : String(props.selectedTaskId)
 })
 
-// 选中项变化时收起删除按钮的待确认状态，避免确认态残留到别的节点
+// 选中项变化时收起更多操作菜单，避免菜单残留在别的节点旁
 watch(selectedId, () => {
-  confirmDeleteId.value = null
+  closeNodeMenu()
 })
 
 // 视口动画：居中与适应视图都走同一套缓动，避免画面瞬移
@@ -1739,7 +1805,7 @@ const onCanvasClick = () => {
   if (Date.now() - lastPanEndAt < 250) return
   selectedEdgeKey.value = null
   rootSelected.value = false
-  confirmDeleteId.value = null
+  closeNodeMenu()
   if (selectedId.value != null) emit('task-selected', null)
 }
 
@@ -1768,6 +1834,7 @@ const isOnSelection = (target) => {
 const onWheel = (event) => {
   const el = container.value
   if (!el) return
+  closeNodeMenu()
   hasInteracted = true
   // 手动缩放/平移即离开三栏视野，之后尺寸变化不再跟随
   columnFocus.value = false
@@ -1931,6 +1998,7 @@ const onToggleClick = (node) => {
 }
 
 const startDrag = (event, sourceId, fromToggle) => {
+  closeNodeMenu()
   hasInteracted = true
   draggingLeafId.value = fromToggle ? String(sourceId) : null
   dragStart = { x: event.clientX, y: event.clientY }
@@ -2026,7 +2094,8 @@ const onDragEnd = (event) => {
 
 const onPointerDown = (event, fromRoot = false) => {
   if (event.button !== 0) return
-  // 点击空白处即放弃删除按钮的待确认状态
+  // 平移画布时收起更多操作菜单，避免菜单悬在原地
+  closeNodeMenu()
   confirmUnlink.value = false
   hasInteracted = true
   // 拖拽平移会改变视口，三栏视野不再成立
@@ -2094,6 +2163,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   document.removeEventListener('pointerdown', onHelpOutside)
+  document.removeEventListener('pointerdown', onMenuOutside)
   window.removeEventListener('sync:id-replaced', handleEditIdReplaced)
   clearTimeout(leafHideTimer)
   stopViewAnimation()

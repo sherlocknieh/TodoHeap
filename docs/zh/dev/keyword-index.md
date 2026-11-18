@@ -54,8 +54,8 @@ outline: deep
 
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
-| 节点垃圾桶 / 图上删除按钮 / 悬停绿圈 / 悬停变绿 | `components/MindMapWrapper.vue`「选中节点右侧的删除按钮」+ class `hover:stroke-accent-600` | 常态灰图标，悬停只让圆环描边转绿（与勾选框同理），图标保持中性；只有选中节点才显示，根节点没有 |
-| 删除二次确认 / 再点一次 / 实心红底 | `components/MindMapWrapper.vue` `confirmDeleteId`、`deleteNode` | 第一次点进入待确认态（红底白图标），再点才删 |
+| 节点三点 / 图上更多操作 / 节点操作菜单 / 子菜单 | `components/MindMapWrapper.vue`「选中节点右侧的更多操作按钮」+ `MENU_ITEMS`、`toggleNodeMenu`、`menuPosition` | 竖三点只在选中节点上出现（根节点没有），悬停是绿色描边圆环；菜单贴按钮弹出，右侧空间不足翻到左侧，项为「重命名 / 新建子任务 / 复制为 Markdown / 删除任务」 |
+| 图内删除任务 / 菜单里删除 | `components/MindMapWrapper.vue` `MENU_ITEMS` 的 `delete` 项、`emitDelete` | 菜单项直接删除（软删除进回收站），键盘 Delete 走同一出口 |
 | 连线删除 / 线中点叉号 / 断开父子关系 | `components/MindMapWrapper.vue` `confirmUnlink`、`onUnlinkClick`、`selectEdge` | 只从父任务 `child_ids` 移除引用；最后一个父级被摘掉时回顶层 |
 | 加号 / 出边按钮 / 新建子任务 / 折叠计数 / 靠近就显示加号 / 拉线时加号消失 | `components/MindMapWrapper.vue`「出边按钮」、`onToggleClick`、`holdLeafControl`、`updateLeafControlHover`、`draggingLeafId` | 有子任务时是折叠开关；叶子节点指针靠近按钮位置即显示加号，从加号拉线期间保持可见，拖到别的节点建立链接 |
 | 双击重命名 / F2 改名 / 原地编辑 | `components/MindMapWrapper.vue` `startEdit`、`commitEdit`、`onEditKeydown` | 节点文字常驻输入框，平时只读 |
