@@ -11,7 +11,12 @@ import AppIcon from '@/components/AppIcon.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import AgentContextPanel from '@/components/AgentContextPanel.vue'
 import ScheduleDetailPanel from '@/components/ScheduleDetailPanel.vue'
-import { TODO_DETAIL_PANEL_CONTEXT } from '@/utils/detailPanelContext'
+import {
+	TODO_DETAIL_PANEL_CONTEXT,
+	DETAIL_PANEL_WIDTH_KEY,
+	DETAIL_PANEL_DEFAULT_WIDTH,
+	DETAIL_PANEL_MIN_WIDTH
+} from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
@@ -60,6 +65,10 @@ const selectedTaskId = persistedRef('selected-task', null, {
 const showDetailPanel = persistedRef('detail-open', false)
 // 任务图浮层里承载导图视图控件的占位节点：按钮由画布 teleport 过来，位置交给 flex 行决定
 const GRAPH_CONTROLS_HOST_ID = 'graph-view-controls'
+// 与面板组件读写同一个宽度：任务图按可见区聚焦，避免选中节点被浮层压住
+const detailPanelWidth = persistedRef(DETAIL_PANEL_WIDTH_KEY, DETAIL_PANEL_DEFAULT_WIDTH, {
+	validate: (value) => Number.isFinite(value) && value >= DETAIL_PANEL_MIN_WIDTH
+})
 // 日程视图的右栏编辑选中的日程，与其他视图的任务选中互不干扰
 const selectedEventId = persistedRef('selected-event', null, {
 	validate: (value) => value === null || Number.isFinite(value)
@@ -187,7 +196,9 @@ const syncState = computed(() => {
 const viewProps = computed(() => {
 	if (activeView.value === 'schedule') return { selectedEventId: selectedEventId.value }
 	if (activeView.value === 'heap') return { todos: todoStore.tasks }
-	if (activeView.value === 'graph') return { controlsTarget: GRAPH_CONTROLS_HOST_ID }
+	if (activeView.value === 'graph') {
+		return { controlsTarget: GRAPH_CONTROLS_HOST_ID, panelInset: graphPanelInset.value }
+	}
 	return {}
 })
 
@@ -389,6 +400,12 @@ const isSidebarFloating = computed(() => activeView.value === 'graph' || windowW
 
 // 任务图固定浮层，其他视图窄屏浮层：两者都算浮在内容之上
 const isDetailPanelFloating = computed(() => activeView.value === 'graph' || isNarrowScreen.value)
+
+// 浮在任务图上的右栏宽度：导图据此把选中节点与菜单留在可见区，窄屏受 85vw 上限约束
+const graphPanelInset = computed(() => {
+	if (activeView.value !== 'graph' || !showDetailPanel.value) return 0
+	return Math.min(detailPanelWidth.value, Math.round(windowWidth.value * 0.85))
+})
 
 // 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {

@@ -273,7 +273,9 @@ const props = defineProps({
   // 新建任务后由父级指定要立即重命名的节点
   editTaskId: { type: Number, default: null },
   // 视图控件 teleport 的目标选择器；为空时留在画布内
-  controlsTarget: { type: String, default: null }
+  controlsTarget: { type: String, default: null },
+  // 浮在画布右侧的详情面板宽度：聚焦、适应视图与菜单定位都避让它
+  panelInset: { type: Number, default: 0 }
 })
 
 const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'drop-task', 'unlink-task', 'notify', 'background-click'])
@@ -309,6 +311,8 @@ const menuHeight = 140
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
+// 可见宽度：画布保持整宽，右侧浮层面板盖住的部分不算可用视野
+const visibleWidth = computed(() => Math.max(160, size.width - props.panelInset))
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
 
@@ -1066,14 +1070,14 @@ const fitView = () => {
 
   const pad = 48
   const scale = Math.max(0.15, Math.min(
-    (size.width - pad * 2) / contentWidth,
+    (visibleWidth.value - pad * 2) / contentWidth,
     (size.height - pad * 2) / contentHeight,
     1.25
   ))
   animateView({
     scale,
-    // 内容左上角不在原点：按 minX / minY 把包围盒摆到视口中央
-    x: (size.width - contentWidth * scale) / 2 - minX * scale,
+    // 内容左上角不在原点：按 minX / minY 把包围盒摆到可见区中央
+    x: (visibleWidth.value - contentWidth * scale) / 2 - minX * scale,
     y: (size.height - contentHeight * scale) / 2 - minY * scale
   })
 }
@@ -1150,7 +1154,7 @@ const menuPosition = computed(() => {
   if (!node) return { left: 0, top: 0 }
   const buttonX = view.x + (node.x + nodeWidth - paddingX - moreSize / 2) * view.scale
   const buttonY = view.y + (node.y + node.height / 2) * view.scale
-  const left = Math.max(8, Math.min(buttonX - menuWidth / 2, size.width - menuWidth - 8))
+  const left = Math.max(8, Math.min(buttonX - menuWidth / 2, visibleWidth.value - menuWidth - 8))
   const below = buttonY + 14
   const top = below + menuHeight > size.height - 8
     ? Math.max(8, buttonY - 14 - menuHeight)
@@ -1368,7 +1372,7 @@ const animateView = (target, duration = 320) => {
 const FOCUS_SCALE = 1.1
 const focusScale = () => Math.max(0.15, Math.min(
   FOCUS_SCALE,
-  (size.width - 96) / nodeWidth
+  (visibleWidth.value - 96) / nodeWidth
 ))
 
 // 聚焦固定为三栏视野：父级层、当前层、子级层各占一栏，与真实父子关系无关。
@@ -1384,7 +1388,7 @@ const columnFocus = ref(false)
 
 const columnFocusScale = (node) => {
   const pad = 48
-  const viewportMain = isVertical.value ? size.height : size.width
+  const viewportMain = isVertical.value ? size.height : visibleWidth.value
   return Math.max(0.15, Math.min(
     FOCUS_SCALE,
     (viewportMain - pad * 2) / Math.max(focusMainSpan(node), 1)
@@ -1399,7 +1403,7 @@ const focusTargetFor = (node) => {
   const anchorY = view.y + centerY * view.scale
   const margin = (node.height * scale) / 2 + 24
   return {
-    x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
+    x: visibleWidth.value / 2 - (node.x + nodeWidth / 2) * scale,
     y: isVertical.value
       ? size.height / 2 - centerY * scale
       : Math.max(margin, Math.min(anchorY, size.height - margin)) - centerY * scale,
@@ -1431,6 +1435,9 @@ const followColumnFocus = () => {
   view.y = target.y
   view.scale = target.scale
 }
+
+// 右栏浮层宽度变化时，选中节点重新贴到可见区中央，避免三点按钮和菜单被面板压住
+watch(() => props.panelInset, () => { followColumnFocus() })
 
 // 单击选中后稍等再居中：双击编辑时节点还没移走，可以原地改字
 let pendingCenter = null

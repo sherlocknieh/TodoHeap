@@ -2,7 +2,7 @@
 	<!-- 任务图：思维导图占满活动栏以外的区域，支持键盘增删改 -->
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
-			:controls-target="props.controlsTarget"
+			:controls-target="props.controlsTarget" :panel-inset="props.panelInset"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
 			@delete-task="deleteTask" @toggle-done="toggleDone" @drop-task="dropTask" @unlink-task="unlinkTask"
 			@notify="payload => emit('notify', payload)" @background-click="emit('background-click')" />
@@ -19,7 +19,9 @@ import { ROOT_TODO_TITLE } from '@/utils/rootTask'
 const props = defineProps({
 	selectedTaskId: { type: Number, default: null },
 	// 视图控件要 teleport 到的页面浮层节点，右栏占宽由 flex 自动让出
-	controlsTarget: { type: String, default: null }
+	controlsTarget: { type: String, default: null },
+	// 浮在画布上的右栏宽度：聚焦与菜单定位据此把内容留在可见区
+	panelInset: { type: Number, default: 0 }
 })
 
 const emit = defineEmits(['task-selected', 'notify', 'background-click'])
