@@ -1,11 +1,17 @@
-// 远程迁移推送：连接串由 node --env-file-if-exists 从 .env.local 读入，
-// 避免每次手动 source，也避免密码写进命令行历史。额外参数会透传给 db push（如 --dry-run）。
+// 远程迁移推送脚本
+// 依赖 .env.local 中 SUPABASE_DB_URL 变量
+// 被 package.json 中的 "db:push" 命令调用
+
 import { spawnSync } from 'node:child_process'
 
 const url = process.env.SUPABASE_DB_URL
 
 if (!url) {
   console.error('缺少 SUPABASE_DB_URL，请在仓库根目录创建 .env.local（写法见 README-dev.md）')
+  // 创建 .env.local 模板
+  const fs = await import('node:fs/promises')
+  await fs.writeFile('.env.local',
+    '# 数据库迁移时用的远程连接地址和密码\n# 被依赖于 .scripts/db-push.mjs\nSUPABASE_DB_URL="postgresql://<user>:<password>@<host>:<port>/<database>"\n') 
   process.exit(1)
 }
 
