@@ -127,24 +127,6 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 
 密钥只放 Supabase secrets 与 GitHub Actions vars/secrets；前端仅持 `VITE_SUPABASE_PUB_KEY`。
 
-## 约定
+## 开工流程
 
-- **UI**：颜色只用 `neutral-*` 与 `accent-*`，配 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` 基元；图标一律用 `AppIcon`，**不要用 emoji**；圆角以 `rounded-md` 为主，避免大阴影与渐变。
-- **完成状态判定用 `completed_at` 是否为空**，不存在 `status` / `completed` 字段。
-- **手动顺序的唯一来源是父级 `child_ids` 的数组顺序**；新任务追加到末尾，不再有 `sort_order` 字段或兼容写入。
-- **顶层任务必须挂在根任务（`is_root`）下**：新增任务统一走 `addTodo`（默认挂根），Agent 工具与导入的顶层任务同样挂根。根任务不出现在列表、统计、回收站、Agent 输出里。
-- **会话外改动**：发现工作区有本次会话之外的改动，先弹框问怎么处理
-- **关键词索引**：用户用现象描述界面细节（如「节点垃圾桶悬停变红」）时，先查 `docs/zh/dev/keyword-index.md`，命中就直接打开对应位置；定位到代码后把「用户说法 → 文件 + 锚点」补进最贴近的分组。同一对象出现新说法时，合并进同一条的「用户可能说」列，用 ` / ` 分隔，不新增重复行。
-- **需求记录**：新需求或新功能实现后，在 `docs/zh/features/` 最贴近的篇目追加一行（日期 / 需求 / 实现要点与文件）；没有合适篇目再新建，并在 `index.md` 的篇目表登记。英文文档暂不维护。
-- **只记现状**：特性文档只描述当前实现，不写历史。行为被后续需求改变时直接改写原条目；功能删减（如把自定义配色恢复默认）直接删掉对应描述，不另加「已删除/已还原」的记录行。
-- **缺陷记录**：修 bug 不写进 features，而是更新 `docs/zh/dev/logic/` 下对应的机制文档：讲清受影响的机制、根因与修正后的现状逻辑；没有对应篇目就新建一篇，并在该目录 `index.md` 登记。
-- 中文注释描述"这段代码负责什么"，不写步骤流水账。
-- 部署路径带 `/TodoHeap/` 前缀，资源引用不要写死站点根路径。
-
-## 改动的验证
-
-- **不要自行打开浏览器调试**：改完代码后若想启动 dev server 并用浏览器查看效果，先问我；简单的视觉变化我自己看就行, 问我的选项中包含"直接提交"选项。
-- 前端：`cd frontend && npm run build`；涉及 store 再 `npm test`
-- 数据库：项目处于实验阶段，**结构可以随时调整**；迁移按领域拆成有序文件（表结构 / 索引 / RLS / 视图 / 函数 / 触发器 / Realtime），需要时直接改写并重置数据库，无需兼容历史数据
-- 迁移校验：本机没有 Postgres 时用 **PGlite**（`npm i @electric-sql/pglite`）按时间戳顺序执行 `supabase/migrations/*.sql`；执行前先建桩：`auth` schema、`auth.users(id uuid)` 表、`auth.uid()` 函数，以及 `anon` / `authenticated` 角色
-- 文档：`cd docs && npm run build`（配置已关闭 `ignoreDeadLinks`，死链会直接中断构建）
+开工前加载 `dev-init` skill（全局 `quick-tools`），按「定位 → 核对约定 → 实现 → 验证 → 记录 → 提交」走。本仓库的 UI、数据模型、文档记录与验证细则在该 skill 的 `references/todoheap.md`；本文件只保留结构与命令索引。
