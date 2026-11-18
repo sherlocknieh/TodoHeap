@@ -12,8 +12,11 @@
 
 ### 数据库管理
   - 创建迁移脚本: `npx supabase migration new <title>`
-  - 推送更改到远程: `npx supabase db push`
-  - 重置远程数据库: `npx supabase db reset --remote`
+  - 推送更改到远程: `npx supabase db push --yes --db-url "postgresql://postgres.<ref>:<密码>@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"`（密码需 URL 编码）
+    - 不要用裸 `db push`：不带参数时目标是本地 Docker 栈，没起 `supabase start` 就报 `ECONNREFUSED 127.0.0.1:54322`
+    - `--remote` 会直连 `db.<ref>.supabase.co`，该域名只有 IPv6 记录；本机没有 IPv6 出口时会报 `Connection terminated unexpectedly`
+    - pooler 同时提供 IPv4，所以用 `--db-url` 指定 pooler 是当前唯一稳定的推送方式
+  - 重置远程数据库: `npx supabase db reset --remote`（同样需走 pooler 的 `--db-url`）
 
 ### 边缘函数管理
   - 创建边缘函数: `npx supabase functions new hello-world`
@@ -179,7 +182,8 @@ npx supabase link
 npx supabase migration new your_migration_name
 
 # 将本地迁移推送到项目（谨慎操作）
-npx supabase db push
+# 直连域名 db.<ref>.supabase.co 只有 IPv6，本机无 IPv6 时改走 pooler
+npx supabase db push --yes --db-url "postgresql://postgres.<ref>:<密码>@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
 ```
 
 边缘函数（Edge Functions）开发示例：
