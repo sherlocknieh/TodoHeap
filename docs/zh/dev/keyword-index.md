@@ -65,6 +65,7 @@ outline: deep
 | 布局方向 / 横向纵向 / 文字横竖排 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留 |
 | 适应视图 / 缩放到刚好 / 操作提示 | `components/MindMapWrapper.vue` `fitView`、`helpOpen` | 视图控件在右下角，提示收进按钮浮层 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
+| 节点悬停 / 鼠标移到节点上 / 悬停高亮弱一档 | `components/MindMapWrapper.vue` 节点 `g` 的 `group` + rect 的 `group-hover:stroke-accent-400` | 悬停只给浅绿细边框与淡绿底，深绿粗边框加实底留给选中 |
 | 拖拽落点 / 预览线 / 拖到节点上 / 影子节点 / 拖拽残影 / 拖动时没有连线 | `components/MindMapWrapper.vue` `dragState.shadow`、`dragState.preview`、`onNodePointerDown` | 拖节点时在指针处显示节点副本（原件淡出），不画线；只有从折叠/加号按钮建链接才画预览线 |
 | 拖拽移动 / 拖节点换父级 / 单父节点拖动 / 移动后没提示 | `pages/todo/TodoGraph.vue` `dropTask`；`components/MindMapWrapper.vue` `onDragEnd` | 单父任务拖到节点上直接移动且不弹提示；多父任务拖节点只建链接，提示里可选「改为移动（断开旧连接）」；从折叠/加号按钮拉线只建链接 |
 | 拖拽建链接 / 按钮拉线 / 拉到附近就命中 / 箭头被鼠标挡住 / 影子碰到就命中 / 不用把鼠标放到节点上 | `components/MindMapWrapper.vue` `linkTargetAtRect`、`LINK_HIT_PADDING`、`DRAG_ARROW_GAP` | 拖节点按影子矩形与节点是否接触判定，指针不必在节点上；从折叠/加号按钮拉线按指针点外扩屏幕像素判定，多节点取中心最近；预览线箭头再越过指针 18px，避免被光标遮住（仅按钮拉线） |
