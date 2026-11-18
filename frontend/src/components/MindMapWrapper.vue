@@ -13,10 +13,6 @@
           markerUnits="userSpaceOnUse" orient="auto-start-reverse">
           <path d="M1 2.6 L9 5 L1 7.4z" fill="context-stroke" />
         </marker>
-        <marker id="mm-arrow-ref" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8"
-          markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-          <path d="M1 2.6 L9 5 L1 7.4z" fill="context-stroke" />
-        </marker>
       </defs>
 
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
@@ -34,10 +30,10 @@
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
-        <!-- 拉线预览：只在从折叠/加号按钮建链接时画，从按钮连向指针 -->
+        <!-- 拉线预览：只在从折叠/加号按钮建链接时画，从按钮连向指针；配色与粗细跟正式连线一致 -->
         <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
-          class="stroke-accent-500 dark:stroke-accent-400" stroke-width="1.6" stroke-dasharray="6 4"
-          stroke-linecap="round" marker-end="url(#mm-arrow-ref)" />
+          class="stroke-neutral-300 dark:stroke-neutral-600" stroke-width="1.2"
+          stroke-linecap="round" marker-end="url(#mm-arrow)" />
 
         <!-- 节点 -->
         <g v-for="node in renderNodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
