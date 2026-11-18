@@ -44,7 +44,8 @@
           :opacity="nodeOpacity(node)" :data-mm-node="node.id"
           class="group cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
-          @pointerenter="holdLeafControl(node)" @pointerleave="releaseLeafControl()"
+          @pointerenter="onNodePointerEnter(node)" @pointerleave="onNodePointerLeave()"
+          @contextmenu.stop="openNodeMenuAt(node, $event)"
           @click.stop="selectNode(node)">
           <!-- 悬停与选中用同一个绿色、同样粗细，只靠透明度分强弱：悬停是半透明绿框，选中是实绿框加淡底 -->
           <rect :width="nodeWidth" :height="node.height" rx="8"
@@ -134,9 +135,10 @@
             </template>
           </g>
 
-          <!-- 选中节点右侧的更多操作按钮：竖三点，悬停只把图标加深，打开菜单时图标转绿表示激活；
-               透明热区承担点击与悬停判定 -->
-          <g v-if="node.selected && !node.isRoot" data-mm-more-trigger
+          <!-- 节点更多操作按钮：竖三点，指针停在节点上即显示，选中或菜单打开时保持显示；
+               透明热区承担点击与悬停判定，菜单打开时图标转绿表示激活 -->
+          <g v-if="!node.isRoot && (node.selected || isNodeHovered(node) || menuNodeId === String(node.id))"
+            data-mm-more-trigger
             :transform="`translate(${nodeWidth - paddingX - moreSize / 2} ${node.height / 2})`"
             class="cursor-pointer transition-colors"
             :class="menuNodeId === String(node.id)
@@ -185,7 +187,7 @@
       </g>
     </svg>
 
-    <!-- 节点更多操作菜单：HTML 浮层按节点在当前视口里的屏幕位置定位，缩放平移时跟随；
+    <!-- 节点更多操作菜单：点三点按钮时贴在按钮下方，右键时从指针处展开，都按屏幕位置定位并随缩放平移跟随；
          菜单内点击不再冒泡到画布，避免刚打开就被当成点空白取消 -->
     <div v-if="menuNode" data-mm-more-menu
       class="absolute z-20 panel cursor-default py-1 shadow-lg"
@@ -335,6 +337,22 @@ const draggingLeafId = ref(null)
 let leafHideTimer = null
 // 邻近判定半径（屏幕像素）：按缩放折算到图内，保持不同缩放下手感一致
 const LEAF_CONTROL_REVEAL = 32
+
+// 指针真正停在节点上（含节点内的加号/三点按钮）时显示更多操作按钮；
+// 与叶子加号的邻近判定分开，后者在指针靠近按钮位置时就提前亮出
+const hoveredNodeId = ref(null)
+
+const onNodePointerEnter = (node) => {
+  holdLeafControl(node)
+  if (!node.isRoot) hoveredNodeId.value = String(node.id)
+}
+
+const onNodePointerLeave = () => {
+  releaseLeafControl()
+  hoveredNodeId.value = null
+}
+
+const isNodeHovered = (node) => !dragState.active && hoveredNodeId.value === String(node.id)
 
 const holdLeafControl = (node) => {
   clearTimeout(leafHideTimer)
@@ -1125,11 +1143,14 @@ const emitDelete = (id) => {
   emit('delete-task', Number(id))
 }
 
-// 选中节点右侧的更多操作菜单：只给真实任务，位置跟着当前节点走
+// 选中节点的更多操作菜单：只给真实任务，位置跟着当前节点走
 const menuNodeId = ref(null)
 const menuNode = computed(() => menuNodeId.value == null
   ? null
   : layout.value.nodes.find((node) => String(node.id) === menuNodeId.value) ?? null)
+
+// 右键唤出时的锚点，存图内坐标，缩放平移时菜单跟着指针位置一起走；为空表示从三点按钮展开
+const menuAnchor = ref(null)
 
 // 菜单项全部复用已有能力，右侧标注对应快捷键，方便用户之后直接用键盘
 const MENU_ITEMS = [
@@ -1141,23 +1162,47 @@ const MENU_ITEMS = [
 
 const closeNodeMenu = () => {
   menuNodeId.value = null
+  menuAnchor.value = null
 }
 
+// 三点按钮开合菜单；锚点清空，菜单回到按钮下方
 const toggleNodeMenu = (node) => {
   const id = String(node.id)
+  menuAnchor.value = null
   menuNodeId.value = menuNodeId.value === id ? null : id
 }
 
-// 菜单在按钮正下方居中展开：按按钮在屏幕上的圆心定位；下方空间不足就翻到上方，再夹进画布
+// 右键节点直接唤出菜单：不改变当前选中，避免顺带切换详情面板与视野；
+// 锚点取指针在图内的坐标，菜单像系统右键菜单一样从这里展开
+const openNodeMenuAt = (node, event) => {
+  // 原地编辑保留浏览器右键菜单，选词与粘贴要用；根节点没有可操作的菜单，同样放行
+  if (editingId.value != null || node.isRoot || !container.value) return
+  event.preventDefault()
+  const rect = container.value.getBoundingClientRect()
+  menuAnchor.value = {
+    x: (event.clientX - rect.left - view.x) / view.scale,
+    y: (event.clientY - rect.top - view.y) / view.scale
+  }
+  menuNodeId.value = String(node.id)
+}
+
+// 菜单定位：右键从指针处展开，点按钮则贴在按钮正下方居中；
+// 放不下时翻到上方，再夹进画布可见区域
 const menuPosition = computed(() => {
   const node = menuNode.value
   if (!node) return { left: 0, top: 0 }
-  const buttonX = view.x + (node.x + nodeWidth - paddingX - moreSize / 2) * view.scale
-  const buttonY = view.y + (node.y + node.height / 2) * view.scale
-  const left = Math.max(8, Math.min(buttonX - menuWidth / 2, visibleWidth.value - menuWidth - 8))
-  const below = buttonY + 14
+  const anchor = menuAnchor.value
+  const anchorX = anchor
+    ? view.x + anchor.x * view.scale
+    : view.x + (node.x + nodeWidth - paddingX - moreSize / 2) * view.scale
+  const anchorY = anchor
+    ? view.y + anchor.y * view.scale
+    : view.y + (node.y + node.height / 2) * view.scale
+  const left = Math.max(8, Math.min(anchorX - (anchor ? 0 : menuWidth / 2), visibleWidth.value - menuWidth - 8))
+  const gap = anchor ? 4 : 14
+  const below = anchorY + gap
   const top = below + menuHeight > size.height - 8
-    ? Math.max(8, buttonY - 14 - menuHeight)
+    ? Math.max(8, anchorY - gap - menuHeight)
     : below
   return { left, top }
 })
@@ -1167,7 +1212,7 @@ const runMenuAction = (key) => {
   closeNodeMenu()
   if (id == null) return
   if (key === 'rename') startEditById(id)
-  else if (key === 'child') createChild()
+  else if (key === 'child') createChild(id)
   else if (key === 'copy') copySubtreeAsMarkdown(id)
   else if (key === 'delete') emitDelete(id)
 }
@@ -1549,10 +1594,10 @@ const createSibling = () => {
   })
 }
 
-const createChild = () => {
-  const id = selectedId.value
-  if (!id) return
-  emit('create-task', { parentId: toTaskId(id), afterId: null })
+// 新建子任务：默认挂在当前选中节点下，菜单从右键唤出时按菜单所属节点建
+const createChild = (targetId = selectedId.value) => {
+  if (!targetId) return
+  emit('create-task', { parentId: toTaskId(targetId), afterId: null })
 }
 
 // 已消费的新建标记，避免提交后又被父级传入的 id 重新打开
