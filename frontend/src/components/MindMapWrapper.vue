@@ -2315,9 +2315,6 @@ const startDrag = (event, sourceId, fromToggle) => {
   window.addEventListener('pointercancel', onDragEnd)
 }
 
-// 预览线终点再越过指针一小段（屏幕像素），让箭头露在鼠标图标之外，避免被指针盖住
-const DRAG_ARROW_GAP = 18
-
 // 拉线预览复用正式连线的三次贝塞尔规则：起点沿出边法线离开，终点沿拖动方向收尾，
 // 控制点落在终点后方，曲线末端的切线正对指针，看起来就是一条将要落成的连线
 const previewCurve = (start, end, dirX, dirY) => {
@@ -2341,9 +2338,8 @@ const updateDrag = (event) => {
     const dx = point.x - tip.x
     const dy = point.y - tip.y
     const length = Math.hypot(dx, dy) || 1
-    const ahead = DRAG_ARROW_GAP / view.scale
-    const end = { x: point.x + (dx / length) * ahead, y: point.y + (dy / length) * ahead }
-    dragState.preview = previewCurve(tip, end, dx / length, dy / length)
+    // 终点就是指针位置，也是新节点将出现的位置，不再向前出头
+    dragState.preview = previewCurve(tip, point, dx / length, dy / length)
     hitRect = { x: point.x, y: point.y, width: 0, height: 0 }
   } else {
     // 拖节点不画线：影子副本跟随指针，影子与目标接触就算命中
