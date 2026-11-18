@@ -3,7 +3,6 @@
   <div ref="container" tabindex="0"
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
     :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', darkCanvas && 'mindmap-canvas--dark', dotGrid && 'mindmap-dots']"
-    :style="dotPatternStyle"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
     @keydown="onKeydown">
@@ -426,20 +425,6 @@ const systemPrefersDark = typeof window !== 'undefined'
   && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
 const darkCanvas = persistedRef('mindmap-dark-canvas', systemPrefersDark, {
   validate: (value) => typeof value === 'boolean'
-})
-
-// 点阵跟手：位置随平移一起移动；缩放时点距按 2 的倍数跳档，
-// 屏幕点距在 24px 上下浮动（约 17–34px），跳档点落在 √2 倍缩放附近，避开默认的 1 倍视图
-const DOT_TILE = 24
-const dotPatternStyle = computed(() => {
-  if (!dotGrid.value) return {}
-  const factor = 2 ** Math.round(Math.log2(1 / view.scale))
-  const step = DOT_TILE * factor * view.scale
-  return {
-    '--dot-step': `${step}px`,
-    '--dot-x': `${view.x}px`,
-    '--dot-y': `${view.y}px`
-  }
 })
 
 const currentDirection = computed(() =>
@@ -2380,13 +2365,12 @@ watch(direction, () => nextTick(fitView))
   background-color: var(--color-canvas-dark);
 }
 
-/* 点阵底纹：开关打开后铺一层网格点；尺寸与偏移由视图状态给出，随平移缩放一起变化 */
+/* 点阵底纹：开关打开后铺一层固定网格点，作为画布上的静态纹理，不随平移与缩放变化 */
 .mindmap-canvas.mindmap-dots {
   background-image: radial-gradient(circle, rgba(20, 20, 40, 0.10) 1px, transparent 1px);
-  background-size: var(--dot-step, 24px) var(--dot-step, 24px);
-  /* 点画在每块瓦片中心，偏移回半个点距，让点阵锚在世界原点：缩放跳档时只增减点，不会整体错位 */
-  background-position: calc(var(--dot-x, 0px) - var(--dot-step, 24px) / 2)
-    calc(var(--dot-y, 0px) - var(--dot-step, 24px) / 2);
+  background-size: 24px 24px;
+  /* 点画在每块瓦片中心，回退半个点距 */
+  background-position: -12px -12px;
 }
 
 /* 深色画布上点色反相，否则点阵沉进底色看不出来 */
