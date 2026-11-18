@@ -10,7 +10,7 @@
           class="pointer-events-none absolute inset-y-0 w-px bg-hairline/70 dark:bg-hairline-dark/70"
           :style="{ left: (item._level * 22 - 1) + 'px' }"></span>
         <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围；圆圈角与左边框宽度由状态类给出 -->
-        <div class="flex items-center gap-2.5 rounded-lg"
+        <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"
@@ -283,9 +283,11 @@ const rowStateClass = (item) => {
     return 'border py-1.5 pl-2 pr-1.5 border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
   }
   // 选中沿用左侧视图列表：绿底 + 只留左缘实线 + 绿字。没有上下边框，绿条才能顺圆角收成尖端；
-  // 用 7px 内边距补回普通行 1px 上下边框与 1px 左右边框占掉的空间，选中时不跳动
+  // 用 7px 内边距补回普通行 1px 上下边框与 1px 左右边框占掉的空间，选中时不跳动；
+  // 阴影与未选中保持同一组值，行只过渡悬停的边框与阴影，其余属性随选中一起在一帧内切换，
+  // 因此不存在半透明的中间帧
   if (isRowSelected(item)) {
-    return 'border-l-2 border-l-accent-600 bg-accent-100/80 py-[7px] pl-[7px] pr-[7px] dark:border-l-accent-400 dark:bg-accent-500/20 shadow-none'
+    return 'border-l-2 border-l-accent-600 bg-accent-100/80 py-[7px] pl-[7px] pr-[7px] shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-l-accent-400 dark:bg-accent-500/20 dark:shadow-none'
   }
   // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻
   return [
