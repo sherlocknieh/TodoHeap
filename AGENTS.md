@@ -21,7 +21,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 按「定位 → 核对约定 → 实现 → 验证 → 记录 → 提交」走，两条路径按所用工具选：
 
 - **OpenCode**：开工前加载 `dev-init` skill（全局 `dev` 分组），代码与 UI、数据模型、记录、验证的细则在其 `references/todoheap.md`。
-- **Copilot**：分组目录里的 skill 由 `~/.config/opencode/sync-skills.sh` 链接到 `~/.agents/skills` 后即可发现，开工前同样加载 `dev-init`；定位用的仓库文档见[代码地图](docs/src/content/docs/dev/code-map.md)、[架构与技术栈](docs/src/content/docs/dev/architecture.md)、[关键词索引](docs/src/content/docs/dev/keyword-index.md)，验证要求见本文件下文。
+- **Copilot**：分组目录里的 skill 由 `~/.config/opencode/sync-skills.sh` 按脚本内白名单链接到 `~/.agents/skills` 后即可发现，开工前同样加载 `dev-init`；定位用的仓库文档见[代码地图](docs/src/content/docs/dev/code-map.md)、[架构与技术栈](docs/src/content/docs/dev/architecture.md)、[关键词索引](docs/src/content/docs/dev/keyword-index.md)，验证要求见本文件下文。
 
 改完代码只用单测、构建、类型检查验证；
 不要自行启动浏览器进行调试，必须先问用户。
