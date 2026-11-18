@@ -1,6 +1,6 @@
 # TodoHeap 前端开发指南
 
-各模块职责与调用链见 [代码地图](../docs/dev/04.code-map.md)，这里只列目录与本地配置。
+各模块职责与调用链见 [代码地图](../docs/src/content/docs/dev/code-map.md)，这里只列目录与本地配置。
 
 ### 前端项目结构
 - `public/`         - 静态资源

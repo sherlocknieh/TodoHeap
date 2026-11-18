@@ -1,0 +1,578 @@
+---
+title: 架构与技术栈
+---
+
+# 架构与技术栈
+
+深入理解 TodoHeap 的系统架构与技术选择。
+
+---
+
+## 系统架构
+
+### 三层架构
+
+```
+┌─────────────────────────────────────┐
+│         前端层 (Presentation)        │
+│    Vue 3 + Vite + TailwindCSS       │
+│  ├─ UI 组件                         │
+│  ├─ 状态管理 (Pinia)               │
+│  ├─ 路由 (Vue Router)              │
+│  └─ 本地存储 (IndexedDB)           │
+└─────────────────────────────────────┘
+          ↕ HTTP / WebSocket
+┌─────────────────────────────────────┐
+│       后端计算层 (Compute)          │
+│  Supabase Edge Functions (Deno)    │
+│  ├─ AI 调用与处理                   │
+│  ├─ 业务逻辑                        │
+│  ├─ 数据验证与转换                  │
+│  └─ 权限检查 (JWT)                  │
+└─────────────────────────────────────┘
+          ↕ PostgreSQL Wire
+┌─────────────────────────────────────┐
+│       数据存储层 (Data)             │
+│  Supabase PostgreSQL                │
+│  ├─ todos 表                        │
+│  ├─ schedules 表                    │
+│  ├─ user_settings 表                │
+│  ├─ 权限政策 (RLS)                  │
+│  └─ 实时同步 (Realtime)            │
+└─────────────────────────────────────┘
+```
+
+### 数据流
+
+```
+用户操作 (UI)
+    ↓ 本地验证
+    ↓ Pinia 状态更新
+    ↓ 乐观更新 UI
+    ↓ 异步请求后端
+    ↓ Edge Function 处理
+    ↓ 数据库更新
+    ↓ Realtime 推送更新
+    ↓ 前端 Store 同步
+    ↓ UI 重新渲染
+```
+
+---
+
+## 前端架构
+
+### 技术栈
+
+| 组件 | 技术 | 用途 |
+|-----|------|------|
+| **框架** | Vue 3 | 响应式 UI 框架 |
+| **构建** | Vite 7.2+ | 极速开发服务、优化打包 |
+| **路由** | Vue Router 4 | SPA 路由管理 |
+| **状态管理** | Pinia 3.0+ | 全局状态 (Composition 风格) |
+| **样式** | TailwindCSS 4.1+ | 原子 CSS 框架 |
+| **UI 组件库** | shadcn-vue | 精美组件库 |
+| **编辑器** | Milkdown 7.17+ | Markdown 编辑 |
+| **可视化** | 自研 SVG 渲染 | 思维导图（支持 DAG 与环） |
+| **日期选择** | vue-datepicker-next | 日期时间选择 |
+| **HTTP 客户端** | Supabase JS SDK | API 调用 |
+| **本地存储** | IndexedDB | 离线数据存储 |
+
+### 项目结构
+
+这里只列目录层级与一句话说明；逐个文件的职责清单见[代码地图](./code-map.md)。
+
+```
+frontend/src/
+├── components/
+│   ├── AgentChat.vue            # 对话 Agent：消息流与确认
+│   ├── AgentContextPanel.vue    # AI 右栏：会话、模型、上下文构成与工具
+│   ├── ScheduleDetailPanel.vue  # 日程右栏：选中日程的详情编辑
+│   ├── ProviderSettings.vue     # 第三方模型接入表单
+│   ├── TodoListItem.vue         # 任务条目
+│   ├── TodoDetailEditor.vue     # 详情编辑器
+│   ├── MindMapWrapper.vue       # 自研思维导图（SVG 布局与交互）
+│   ├── LeftSidebar.vue          # 左侧边栏：视图、AI 会话
+│   └── SyncStatusIndicator.vue  # 同步状态指示
+│
+├── pages/
+│   ├── Home.vue                 # 首页
+│   ├── Login.vue                # 登录页
+│   ├── Todo.vue                 # 主任务页
+│   ├── ResetPassword.vue        # 重置密码
+│   ├── 404.vue                  # 404 页
+│   └── todo/
+│       ├── TodoList.vue         # 任务表
+│       ├── TodoGraph.vue        # 任务图
+│       ├── TodoHeap.vue         # 堆视图
+│       ├── ScheduleView.vue     # 日程视图
+│       ├── AIView.vue           # 对话 Agent
+│       ├── Trash.vue            # 垃圾箱
+│       └── Settings.vue         # 设置页
+│
+├── stores/
+│   ├── auth.ts                  # 认证状态
+│   ├── todos.js                 # 任务主状态
+│   ├── todos.optimistic.js      # 乐观更新逻辑
+│   ├── todos.realtime.js        # Realtime 同步
+│   ├── todos.rollback.js        # 回滚处理
+│   ├── schedules.js             # 日程事件拉取与写入
+│   ├── agent.js                 # 对话 Agent：多会话与工具循环
+│   ├── llm.js                   # 模型配置与聊天入口
+│   ├── syncQueue.js             # 同步队列管理
+│   └── *.test.js                # 单元测试
+│
+├── lib/
+│   ├── supabase.ts              # Supabase 初始化
+│   ├── userSettings.js          # 用户设置 API
+│   ├── llmProvider.js           # OpenAI 兼容流式对话与工具解析
+│   ├── agentTools.js            # Agent 工具定义与执行器
+│   ├── ticktickImport.js        # 滴答清单导入解析与写入
+│   ├── didaMcp.js               # 滴答清单 MCP 授权与任务拉取
+│   ├── mcpServers.js            # 通用 MCP 服务配置、握手与工具调用
+│   ├── ics.js                   # ICS 解析、生成与下载
+│   └── calendarTransfer.js      # 日历导入导出与订阅令牌
+│
+├── utils/
+│   ├── detailPanelContext.js    # 详情面板上下文
+│   ├── handleAuthCallback.ts    # 认证回调处理
+│   ├── priorityCalculator.js    # 优先级计算器
+│   ├── rootTask.js              # 根任务判定与列表顶层展开
+│   ├── taskGraph.js             # 任务图遍历与森林展开
+│   ├── taskCollapse.js          # 跨视图共享的折叠状态
+│   ├── todoDrag.js              # 拖拽状态与源父级
+│   └── settingsPanel.js         # 设置浮窗状态
+│
+├── router/
+│   └── index.ts                 # 路由配置
+│
+├── App.vue                       # 根组件
+├── main.ts                       # 应用入口
+├── style.css                     # 全局样式
+└── shims-vue.d.ts               # Vue 类型声明
+```
+
+### 状态管理 (Pinia)
+
+核心状态模块：
+
+| 模块 | 职责 |
+|-----|------|
+| **auth** | 用户认证状态、登录登出 |
+| **todos** | 任务列表、垃圾箱、详情 |
+| **todos.optimistic** | 乐观更新、本地修改 |
+| **todos.realtime** | Realtime 监听、实时同步 |
+| **todos.rollback** | 失败回滚、状态恢复 |
+| **agent** | 对话 Agent：多会话、系统提示、工具循环与确认 |
+| **llm** | 第三方模型配置（浏览器本地）与聊天入口 |
+| **syncQueue** | 同步队列、离线操作缓存 |
+
+### 关键特性
+
+#### 乐观更新
+
+操作立即反映在 UI 中，同时后台上传：
+
+```javascript
+// 用户删除任务
+deleteTodo(id)
+  ├─ UI 立即移出任务
+  ├─ 加入同步队列
+  ├─ 异步发送删除请求
+  └─ 成功 ✓ / 失败 → 回滚
+```
+
+#### 离线支持
+
+网络中断时操作暂存本地，网络恢复后自动同步：
+
+```javascript
+网络中断 → 切换到离线模式
+  ├─ 所有改动保存在 IndexedDB
+  ├─ 同步队列持久化
+  └─ UI 提示离线状态
+
+网络恢复 → 自动同步
+  ├─ 读取队列中的操作
+  ├─ 按序上传
+  └─ 冲突检测与合并
+```
+
+#### 实时同步 (Realtime)
+
+多个客户端间实时同步数据：
+
+```javascript
+用户 A 修改任务 → Supabase Realtime
+  ↓
+用户 B 客户端立即收到更新
+  ↓
+自动更新本地状态与 UI
+```
+
+#### 对话 Agent
+
+AI 视图直接调用用户配置的 OpenAI 兼容模型，模型以工具调用触发本地 action：
+
+```javascript
+用户消息 → 模型返回 tool_calls
+  ↓
+agent.js 执行工具（复用 todos / schedules 的 action）
+  ↓
+tool 结果回填 → 模型继续推理或给出总结
+```
+
+- 模型配置保存在浏览器 localStorage；内置模式经网关转发，平台密钥只在服务端
+- 删除、清空回收站等破坏性工具先等待界面确认
+- 写操作沿用乐观更新与同步队列，与手动操作一致
+
+---
+
+## 后端架构
+
+### Edge Functions
+
+**为什么用 Edge Functions？**
+- 无需管理服务器
+- 自动扩展
+- 接近用户地理位置（低延迟）
+- 与数据库紧密集成
+- 支持 Deno（现代化、安全、快速）
+
+### Edge Function 能力
+
+#### 1. calendar_feed - 日历订阅
+
+```
+请求：
+  └─ GET ?token=<32 位随机令牌>（verify_jwt = false）
+
+处理流程：
+  ├─ 用公开密钥调用 get_calendar_feed RPC
+  ├─ RPC（SECURITY DEFINER）按令牌查 user_settings 并读取该用户 schedules
+  └─ 生成只读 ICS 文本
+
+响应：
+  ├─ Content-Type: text/calendar
+  └─ 供系统日历定期拉取，令牌撤销后返回 404
+```
+
+#### 2. llm_gateway - 内置模型网关
+
+```
+请求：
+  ├─ GET：返回实际可用模型（白名单优先，否则查询上游 /models）
+  ├─ POST：Authorization: Bearer <用户 JWT>
+  └─ 与 OpenAI chat/completions 相同的请求体
+
+处理流程：
+  ├─ 用用户 JWT 解析身份（verify_jwt = true）
+  ├─ 校验模型白名单 LLM_ALLOWED_MODELS
+  ├─ authorizeRequest 钩子：校验订阅、额度（当前留空）
+  ├─ 用平台密钥 LLM_API_KEY 调用 LLM_BASE_URL
+  └─ 原样流式透传响应
+
+响应：
+  ├─ 与上游相同的 SSE 流
+  └─ 未登录 401 / 模型不允许 403 / 订阅额度未通过 402、429
+```
+
+接入计费时，只需在 `authorizeRequest` 查询 `subscriptions` 与 `usage_counters`，并在响应结束后累加 token 用量，前端 Agent 与工具层不用改。
+
+#### 3. dida_auth - 滴答清单 OAuth 代理
+
+```
+请求：
+  ├─ Authorization: ****** JWT>
+  └─ POST { action: "register" | "token", ... }
+
+处理流程：
+  ├─ 用用户 JWT 解析身份（verify_jwt = true）
+  ├─ register：动态注册公开客户端，返回 client_id
+  └─ token：PKCE 授权码换访问令牌
+
+响应：
+  ├─ JSON
+  └─ 未登录 401 / 授权失败 400
+```
+
+浏览器无法直连滴答的授权端点，且换令牌需要平台密钥或表单参数，因此这两步由专用函数代理。MCP 调用本身不经过这里，统一走 `mcp_gateway`；网关不落库任何令牌，访问令牌只在请求内存中传递。
+
+#### 4. mcp_gateway - 通用 MCP 网关
+
+```
+请求：
+  ├─ Authorization: ****** JWT>
+  └─ POST { endpoint, token?, sessionId?, rpc }
+
+处理流程：
+  ├─ 用用户 JWT 解析身份（verify_jwt = true）
+  ├─ 校验 endpoint 为 http(s) 且有主机名
+  ├─ 透传 JSON-RPC，并回带上游 MCP-Protocol-Version / Mcp-Session-Id
+  └─ 响应体上限 1MB，超时 20s
+
+响应：
+  ├─ JSON（上游 SSE 响应折叠成最后一条完整消息）
+  └─ 未登录 401 / 上游鉴权失败 401（unauthorized） / 其余失败 502
+```
+
+用户在 AI 侧栏配置的 MCP 服务（地址 + 令牌）只存本机浏览器并按账号分开；网关不保存这些配置，令牌只在一次请求内使用。
+
+### 技术栈
+
+| 组件 | 技术 | 用途 |
+|-----|------|------|
+| **运行时** | Deno 2.0+ | 安全、现代的 JavaScript 运行时 |
+| **语言** | TypeScript | 类型安全的开发体验 |
+| **框架** | 无（标准库） | 极轻量化 |
+| **AI** | OpenAI API | 调用大模型 |
+| **认证** | JWT | 验证用户身份 |
+| **日志** | 标准输出 | Supabase 自动收集 |
+
+### Edge Function 项目结构
+
+```
+supabase/functions/
+├── _shared/
+│   └── cors.ts          # 跨域配置
+│
+├── calendar_feed/
+│   ├── index.ts         # ICS 订阅源（令牌鉴权）
+│   └── deno.json
+│
+├── llm_gateway/
+│   ├── index.ts         # 内置模型网关（JWT + 平台密钥转发）
+│   └── deno.json
+│
+├── dida_auth/
+│   ├── index.ts         # 滴答清单 OAuth 代理（注册客户端、换令牌）
+│   └── deno.json
+│
+└── mcp_gateway/
+    ├── index.ts         # 通用 MCP 网关（任意 MCP 服务的 JSON-RPC 转发）
+    └── deno.json
+```
+
+---
+
+## 数据存储架构
+
+### 数据库设计
+
+#### todos 表
+
+```sql
+CREATE TABLE todos (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  child_ids BIGINT[] NOT NULL DEFAULT '{}', -- 子任务 ID 列表，手动顺序的唯一来源
+  title TEXT NOT NULL,
+  details TEXT,
+  deadline TIMESTAMPTZ,
+  duration DECIMAL(5,2),            -- 预计耗时(小时)
+  completed_at TIMESTAMPTZ,         -- 非空表示已完成
+  external_id TEXT,                 -- 外部来源标识，如 ticktick:<task id>
+  is_root BOOLEAN NOT NULL DEFAULT FALSE, -- 每个用户一条系统根任务「全部任务」
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+```
+
+每个用户有一条 `is_root` 根任务（标题「全部任务」），顶层任务挂在它的 `child_ids` 下：`create_todo` 未指定父级时自动挂根，`ensure_root_todo()` 幂等补建，`attach_root_children()` 用于旧数据恢复后把无父任务挂回去。根任务由 RLS 禁止插入/删除（外键级联不受影响），触发器只放行 `child_ids` 修改。
+
+`create_todo` 接受客户端生成的 `p_client_key`，与 `(user_id, client_key)` 唯一索引配合实现创建幂等：重试或并发提交都返回同一条记录，前端据此把 Realtime 推送认领为本地乐观创建的那条任务。详见[任务创建逻辑](./logic/task-create.md)。
+
+手动顺序完全由父级 `child_ids` 的数组顺序决定，不再保留 `sort_order`；`append_todo_children` 也只按传入顺序追加缺失 ID。
+
+#### user_settings 表
+
+```sql
+CREATE TABLE user_settings (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### schedules 表
+
+独立日历事件，可选关联任务：
+
+```sql
+CREATE TABLE schedules (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  todo_id BIGINT REFERENCES todos(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  notes TEXT,                       -- 描述，对应 ICS DESCRIPTION
+  location TEXT,                    -- 地点，对应 ICS LOCATION
+  url TEXT,                         -- 会议链接，对应 ICS URL
+  attendees TEXT[] NOT NULL DEFAULT '{}', -- 参与人，对应 ICS ATTENDEE
+  all_day BOOLEAN NOT NULL DEFAULT FALSE, -- 全天事件，对应 DATE 型 DTSTART
+  status TEXT NOT NULL DEFAULT 'confirmed', -- confirmed/tentative/cancelled
+  color TEXT,                       -- #RRGGBB，对应 ICS COLOR
+  reminder_minutes INTEGER[] NOT NULL DEFAULT '{}', -- 对应 VALARM
+  external_id TEXT,                 -- ICS UID + 实例开始时间，用于重复导入去重
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+日程字段按 ICS 语义拆分，地点、参与人、链接、提醒不再挤进备注。全天事件的 `start_at`/`end_at` 用 UTC 零点表示日期，`end_at` 为次日零点（不含），这样前端、导出与订阅源对日期的判定一致。
+
+### 行级安全 (RLS)
+
+所有表启用 RLS，确保用户只能访问自己的数据：
+
+```sql
+-- todos 表 RLS 策略
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can see own todos"
+  ON todos
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create own todos"
+  ON todos
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND NOT is_root);
+```
+
+根任务的删除同样被策略排除（`AND NOT is_root`），但删除账号时的外键级联不经过 RLS，仍会一并清理。
+
+### Realtime 配置
+
+启用 Realtime 以支持多设备实时同步：
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE todos;
+ALTER PUBLICATION supabase_realtime ADD TABLE schedules;
+```
+
+前端监听：
+
+```javascript
+// 监听任务表变更
+const channel = supabase
+  .channel('todos')
+  .on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'todos' },
+    (payload) => {
+      // 处理变更
+      updateLocalState(payload);
+    }
+  )
+  .subscribe();
+```
+
+---
+
+## 数据流示意
+
+### 创建任务流程
+
+```
+用户输入 → 前端验证 → Pinia 更新（顶层任务先挂到根任务的 child_ids） → UI 渲染
+                      ↓ 异步
+                  create_todo RPC（未指定父级时自动挂根）
+                      ↓
+                  数据库保存
+                      ↓
+                  Realtime 推送
+                      ↓
+                  其他客户端更新
+```
+
+---
+
+## 需求概览（已合并）
+
+下面为原 `02.需求文档.md` 的核心要点，已并入本页面以便集中维护。产品要解决的问题、目标人群与完整闭环见[项目愿景与方案](./goals.md)。
+
+### 开发指导原则
+
+实现顺序：功能优先 → 安全其次 → 性能最后
+
+1. **功能优先**：先实现可以工作的最直接方案
+2. **安全其次**：完成功能后补充错误处理与安全控制
+3. **性能最后**：根据用户反馈再优化性能
+
+### 功能需求要点
+
+- 支持多级子任务（父子层级）
+- 基础 CRUD：创建、编辑、删除任务
+- 支持截止日期、详情与耗时字段
+- 单一 AI 入口：对话 Agent
+  - 自然语言新建任务与拆解子任务
+  - 全局优化内置指令（日期与耗时调整）
+  - 通过工具直接读写任务、日程与回收站
+- 任务按截止日期铺进日程视图；自动排程求解与 ICS 导出为规划中能力
+
+### 附加与体验功能
+
+- 任务堆视图（优先级驱动）
+- 任务进度管理与报告
+- 思维导图式的任务管理视图（有向图布局，支持多父与环）
+- 滴答清单 MCP 导入（附带旧版 CSV/JSON 备份导入）
+
+### 典型使用案例
+
+- 日常任务管理：用户输入目标，系统分解为执行步骤
+- 学习计划场景：按耗时与天数拆分学习任务
+- 全局优化场景：对用户全部任务进行日期/耗时重排
+
+（原需求文档已合并，故 `02.需求文档.md` 将被移除）
+
+---
+
+## 关键设计决策
+
+| 决策 | 选择 | 原因 |
+|-----|------|------|
+| **前端框架** | Vue 3 | 易学、高效、中文社区大 |
+| **构建工具** | Vite | 极速开发体验、原生 ESM 支持 |
+| **状态管理** | Pinia | 比 Vuex 简洁、Composition API 友好 |
+| **样式方案** | TailwindCSS | 快速开发、一致设计、文件体积小 |
+| **后端计算** | Edge Functions | 无服务器、自动扩展、低成本 |
+| **运行时** | Deno | 类型安全、快速、安全隔离 |
+| **数据库** | PostgreSQL | 功能完整、可靠性高、RLS 支持 |
+| **认证** | Supabase Auth | 开箱即用、多策略支持 |
+| **实时同步** | WebSocket | 低延迟、双向通信 |
+
+---
+
+## 性能考虑
+
+### 前端优化
+
+- ✅ 代码分割：按路由和功能分割
+- ✅ 懒加载：组件、库按需加载
+- ✅ 缓存：IndexedDB 离线缓存
+- ✅ 虚拟滚动：大列表性能优化
+
+### 后端优化
+
+- ✅ 连接池：数据库连接复用
+- ✅ 查询优化：合理使用索引
+- ✅ 缓存层：边缘节点地理分布
+
+### 数据库优化
+
+- ✅ 索引：user_id、deadline 等关键字段
+- ✅ 分区：考虑按用户或日期分区
+- ✅ 查询分析：定期检查慢查询
+
+---
+
+## 下一步
+
+理解了架构后：
+
+1. 阅读本页的 **需求概览（已合并）** 部分以了解功能需求
+2. 阅读 [开发流程与任务](./development.md) 学习参与方式
+3. 深入特定功能的技术文档

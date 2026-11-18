@@ -1,13 +1,5 @@
 {
-  "compilerOptions": {
-    "allowJs": true,
-    "checkJs": false,
-    "skipLibCheck": true
-  },
-  "include": [
-    ".vitepress/**/*",
-    "**/*.ts",
-    "**/*.mts",
-    "**/*.js"
-  ]
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist"]
 }

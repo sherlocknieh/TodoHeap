@@ -1,0 +1,44 @@
+---
+title: 首页
+description: AI 驱动的任务与日程管理：对话 Agent 拆解任务，任务树理清层级，最终落进日程。
+template: splash
+hero:
+  title: TodoHeap
+  tagline: 从记住任务到排进日程：对话 Agent 拆解与优化、任务树可视化，并落进日历。
+  image:
+    file: ../../assets/logo.svg
+    alt: TodoHeap
+  actions:
+    - text: 进入应用
+      link: /TodoHeap/app/
+      variant: primary
+    - text: 用户指南
+      link: /TodoHeap/user/
+      variant: secondary
+    - text: 开发文档
+      link: /TodoHeap/dev/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="对话 Agent">
+    用一句话描述想做的事，Agent 完成拆解、新建与全局优化；可自带密钥接入模型，或使用内置模型。
+  </Card>
+  <Card title="任务树与思维导图">
+    列表与思维导图双形态展示任务图，无限层级，直观理清任务关系。
+  </Card>
+  <Card title="堆视图">
+    以堆的形式展示最该先做的任务，堆顶即下一步，破解选择困难症。
+  </Card>
+  <Card title="优先级打分">
+    依据截止时间、完成进度与子任务复杂度实时打分，堆视图按分排序。
+  </Card>
+  <Card title="实时同步">
+    本地先写、云端同步，离线编辑在联网后自动重放，多设备共用同一份清单。
+  </Card>
+  <Card title="从任务到日程">
+    按截止日期把未完成任务铺进日程视图，支持 ICS 导入导出与只读订阅链接；自动排程在规划中。
+  </Card>
+</CardGrid>

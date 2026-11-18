@@ -1,0 +1,358 @@
+---
+title: 环境搭建指南
+---
+
+# 环境搭建指南
+
+按步骤配置本地开发环境。
+
+## 前置要求
+
+- **Node.js** 18+ （[下载](https://nodejs.org/)）
+- **pnpm** 8+ （`npm install -g pnpm`）
+- **Git** （[下载](https://git-scm.com/)）
+- **Supabase CLI**（可选，`npm install -g supabase`）
+
+## 验证环境
+
+```bash
+node --version      # 应显示 v18.0.0 或更高
+pnpm --version      # 应显示 8.0.0 或更高
+git --version       # 应显示 git version 2.x.x
+```
+
+---
+
+## 克隆项目
+
+```bash
+git clone https://github.com/sherlocknieh/TodoHeap.git
+cd TodoHeap
+```
+
+## 安装依赖
+
+仓库没有根级 workspace，`frontend/` 与 `docs/` 各自安装：
+
+```bash
+cd frontend && pnpm install
+cd ../docs && pnpm install
+```
+
+也可以只用根目录的脚本转发（根只安装 `concurrently`）：
+
+```bash
+pnpm install
+
+# 安装失败时先清缓存再重试
+pnpm store prune
+pnpm install
+```
+
+## 启动前端开发服务器
+
+```bash
+cd frontend
+pnpm dev
+```
+
+访问 `http://localhost:5200`，应该看到 TodoHeap 应用的登录页面。
+
+### 常见问题
+
+**端口已被占用？**
+```bash
+cd frontend && pnpm dev --port 3000  # 使用其他端口
+```
+
+**无法访问本地服务？**
+- 检查防火墙是否阻止
+- 尝试访问 `http://127.0.0.1:5200` 替代 localhost
+
+---
+
+## 配置 Supabase（本地数据库开发）
+
+### 前置条件
+
+- 已安装 Supabase CLI
+- 已安装 Docker（Supabase 本地服务需要）
+
+### 初始化 Supabase
+
+```bash
+# 在项目根目录
+supabase init
+
+# 启动本地 Supabase 服务（PostgreSQL + API）
+supabase start
+
+# 输出示例：
+# Started supabase local development setup.
+# API URL: http://localhost:54321
+# DB URL: postgresql://postgres:postgres@localhost:54321/postgres
+# Anon Key: eyJ...
+```
+
+### 应用迁移
+
+第一次启动时，Supabase 会自动应用所有迁移脚本。
+
+验证数据库：
+```bash
+# 进入 psql 交互式 shell
+supabase db push
+
+# 或使用 psql 直接连接
+psql postgresql://postgres:postgres@localhost:54321/postgres
+```
+
+### 查看 Supabase Studio（管理界面）
+
+启动后访问 `http://localhost:54323`，可视化管理数据库。
+
+### 停止 Supabase
+
+```bash
+supabase stop
+```
+
+### 重置数据库
+
+```bash
+# 删除所有数据，重新应用迁移
+supabase db reset
+
+# 或完全重置本地环境
+supabase stop --remove-volumes
+supabase start
+```
+
+---
+
+## 环境变量配置
+
+### 前端环境变量
+
+在 `frontend/` 创建 `.env.local`（仅本地开发使用）：
+
+```bash
+# Supabase 本地配置（开发环境）
+VITE_SUPABASE_URL=http://localhost:54321
+VITE_SUPABASE_PUB_KEY=your_publishable_key_here
+
+# 或使用生产 Supabase 项目（需注册）
+# VITE_SUPABASE_URL=https://your-project.supabase.co
+# VITE_SUPABASE_PUB_KEY=your_publishable_key
+```
+
+获取本地密钥：
+
+```bash
+# Supabase 启动时会输出，或查看：
+supabase status
+```
+
+### 在线部署环境变量
+
+GitHub Pages 的构建从仓库变量读取前端配置，不读 `.env.local`。
+缺少 `VITE_SUPABASE_PUB_KEY` 会构建出 key 为空、打开即报 `supabaseKey is required` 的页面，
+因此工作流在构建前会先校验这两个变量。
+
+在仓库 `Settings → Secrets and variables → Actions → Variables` 中配置：
+
+| 变量 | 值 |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Supabase 项目地址，如 `https://<project>.supabase.co` |
+| `VITE_SUPABASE_PUB_KEY` | 项目的 publishable key |
+
+### 后端环境变量
+
+Edge Functions 的环境变量在 `supabase/config.toml` 中配置：
+
+```toml
+[env.local]
+# AI 大模型 API 配置
+AI_API_KEY = "your_api_key_here"
+AI_API_URL = "https://api.example.com"
+```
+
+内置模型网关（对话 Agent 的 `builtin` 模式）另需三个变量：
+
+| 变量 | 说明 |
+| --- | --- |
+| `LLM_BASE_URL` | 平台使用的 OpenAI 兼容地址，如 `https://api.deepseek.com/v1` |
+| `LLM_API_KEY` | 平台密钥，只存在服务端 |
+| `LLM_ALLOWED_MODELS` | 逗号分隔的模型白名单；留空表示不限制 |
+
+生产环境用 `supabase secrets set LLM_API_KEY=... LLM_BASE_URL=... LLM_ALLOWED_MODELS=...` 配置，不要写进仓库。
+
+未配置 `LLM_*` 时，网关会复用现有 AI 函数使用的 `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL`，适合先用已有密钥联调。
+
+---
+
+## 本地开发工作流
+
+### 完整启动顺序
+
+```bash
+# 1. 启动 Supabase（后端）
+supabase start
+
+# 2. 在新终端启动前端（在 frontend/ 目录）
+cd frontend
+pnpm dev
+
+# 3. 打开浏览器访问
+# http://localhost:5200
+```
+
+### 常用命令
+
+```bash
+# 查看 Supabase 状态
+supabase status
+
+# 查看 Supabase 日志
+supabase logs --local
+
+# Edge Functions 开发模式（监听源码变化自动重新加载）
+supabase functions serve --no-verify-jwt
+
+# 查看本地前端日志
+cd frontend && pnpm dev
+
+# 运行前端单元测试
+cd frontend && pnpm test
+
+# 类型检查
+cd frontend && pnpm type-check
+
+# 构建
+cd frontend && pnpm build
+```
+
+---
+
+## 项目结构快速定位
+
+```
+TodoHeap/
+├── frontend/                    # Vue 3 前端应用
+│   ├── src/
+│   │   ├── components/         # UI 组件
+│   │   ├── pages/              # 页面
+│   │   ├── stores/             # Pinia 状态管理
+│   │   ├── lib/supabase.ts     # Supabase 初始化
+│   │   └── style.css           # 全局样式
+│   ├── vite.config.ts          # Vite 配置
+│   ├── tailwind.config.js      # Tailwind 配置
+│   └── package.json
+│
+├── supabase/
+│   ├── functions/              # Edge Functions (Deno)
+│   │   └── llm_gateway/        # 内置模型网关
+│   │
+│   ├── migrations/             # 数据库迁移脚本（按时间戳顺序执行）
+│   │   ├── 20261117000000_schema_tables.sql    # 表结构
+│   │   ├── 20261117000100_schema_indexes.sql   # 索引
+│   │   ├── 20261117000200_schema_rls.sql       # 行级安全
+│   │   ├── 20261117000300_todo_views.sql       # 叶子任务与回收站视图
+│   │   ├── 20261117000400_functions.sql        # 通用函数、根任务与任务树 RPC
+│   │   ├── 20261117000500_triggers.sql         # 触发器
+│   │   ├── 20261117000600_realtime.sql         # Realtime 发布配置
+│   │   └── 20261117000700_calendar_feed.sql    # 日历订阅函数
+│   │
+│   ├── config.toml             # Supabase 配置
+│   └── seed.sql                # 数据库初始化数据（可选）
+│
+└── docs/                        # 文档
+    └── zh/dev/                 # 开发文档
+```
+
+---
+
+## 编辑器配置
+
+### VS Code 推荐扩展
+
+```json
+// 在 .vscode/extensions.json 中
+{
+  "recommendations": [
+    "Vue.volar",              // Vue 3 语言支持
+    "esbenp.prettier-vscode", // 代码格式化
+    "dbaeumer.vscode-eslint", // ESLint
+    "bradlc.vscode-tailwindcss", // Tailwind CSS
+    "denoland.vscode-deno",   // Deno 支持（Edge Functions）
+    "github.copilot"          // GitHub Copilot
+  ]
+}
+```
+
+安装：打开 VS Code 扩展商店，搜索上述扩展安装。
+
+---
+
+## 故障排除
+
+### 问题：`pnpm install` 失败
+
+```bash
+# 清除缓存
+pnpm store prune
+
+# 删除 node_modules 和 lock 文件
+rm -rf node_modules pnpm-lock.yaml
+
+# 重新安装
+pnpm install
+```
+
+### 问题：前端无法连接 Supabase
+
+检查 `.env.local` 中的 URL 和 Key 是否正确：
+```bash
+supabase status  # 查看本地 API URL 和 publishable key
+```
+
+### 问题：Edge Functions 调用失败
+
+```bash
+# 查看 Edge Functions 日志
+supabase logs --local
+
+# 确保 functions 已部署
+supabase functions serve --no-verify-jwt
+```
+
+### 问题：functions deploy 报 entrypoint path does not exist
+
+仓库路径含中文（如 `桌面`）时，CLI 默认的 Docker 打包会找不到入口文件。改用服务端打包即可：
+
+```bash
+npx supabase functions deploy llm_gateway --use-api
+```
+
+### 问题：数据库连接错误
+
+```bash
+# 重置数据库
+supabase db reset
+
+# 检查迁移脚本
+supabase migration list
+
+# 手动应用迁移
+supabase db push
+```
+
+---
+
+## 下一步
+
+环境搭建完成后：
+
+1. 阅读 [架构与技术栈](./architecture.md) 了解系统设计
+2. 查看 [开发流程与任务](./development.md) 学习如何参与开发
+3. 选择对应的功能文档深入学习

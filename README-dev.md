@@ -135,13 +135,13 @@ npm run dev
 - 以 `docs` 为工作目录
 - 开发指南: [docs/README.md](docs/README.md)
 
-快速预览文档（使用 VitePress）：
+快速预览文档（使用 Astro Starlight）：
 
 ```bash
 cd docs
-pnpm install
-pnpm dev
-# 打开浏览器访问 http://localhost:5173
+npm install
+npm run dev
+# 打开浏览器访问 http://localhost:4321/TodoHeap/
 ```
 
 ### 前端和文档联合开发
