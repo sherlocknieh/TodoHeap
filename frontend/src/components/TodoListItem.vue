@@ -10,7 +10,7 @@
           class="pointer-events-none absolute inset-y-0 w-px bg-hairline/70 dark:bg-hairline-dark/70"
           :style="{ left: (item._level * 22 - 1) + 'px' }"></span>
         <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围；圆圈角与左边框宽度由状态类给出 -->
-        <div class="flex items-center gap-2.5 rounded-lg transition-all"
+        <div class="flex items-center gap-2.5 rounded-lg transition-[background-color,border-color,color,box-shadow]"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"

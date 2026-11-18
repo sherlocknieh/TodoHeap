@@ -50,7 +50,7 @@
         <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id"
           class="group cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
           <!-- 缩进留在外层，行内容单独成块，选中底色只覆盖任务自身范围 -->
-          <div class="flex items-center gap-2.5 rounded-lg transition-all" :class="[
+          <div class="flex items-center gap-2.5 rounded-lg transition-[background-color,border-color,color,box-shadow]" :class="[
             selectedTaskId === item.id
               ? 'border-l-2 border-l-accent-600 bg-accent-100/80 py-[11px] pl-[7px] pr-[13px] shadow-none dark:border-l-accent-400 dark:bg-accent-500/20'
               : 'border border-hairline bg-surface py-2.5 pl-2 pr-3 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
