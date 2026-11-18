@@ -75,24 +75,25 @@
               stroke-linejoin="round" />
             <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
           </g>
-          <!-- 节点文字：常驻输入框承载，平时只读，双击后原地编辑 -->
+          <!-- 节点文字：常驻输入框承载，平时只读，双击后原地编辑。
+               高度与节点框同步取内容行数，编辑时随输入增长，不靠内部滚动 -->
           <foreignObject :x="node.textX" :y="paddingTop + 1" :width="node.textWidth"
-            :height="editingId === Number(node.id) ? editLines * lineHeight : node.lines.length * lineHeight">
+            :height="node.lines.length * lineHeight">
             <textarea :ref="(el) => setEditInput(el, node)"
               :value="editingId === Number(node.id) ? editingText : node.lines.join('\n')"
               :readonly="editingId !== Number(node.id)"
               :tabindex="editingId === Number(node.id) ? 0 : -1"
               spellcheck="false" :style="editTextStyle(node)"
-              class="block h-full w-full resize-none border-0 bg-transparent p-0 font-medium outline-none"
+              class="block h-full w-full resize-none overflow-hidden border-0 bg-transparent p-0 font-medium outline-none"
               :class="[
                 node.isRoot
                   ? 'text-white'
                   : node.completed_at
                     ? 'text-neutral-400 line-through dark:text-neutral-500'
                     : 'text-neutral-800 dark:text-neutral-100',
-                editingId === Number(node.id) ? 'pointer-events-auto overflow-y-auto' : 'pointer-events-none overflow-hidden'
+                editingId === Number(node.id) ? 'pointer-events-auto' : 'pointer-events-none'
               ]"
-              @input="onEditInput(node, $event)"
+              @input="onEditInput($event)"
               @pointerdown.stop @click.stop @dblclick.stop @dragstart.prevent
               @keydown.stop="onEditKeydown" @blur="commitEdit" />
           </foreignObject>
@@ -318,6 +319,10 @@ const toTaskId = (id) => (id != null && Number.isFinite(Number(id)) ? Number(id)
 // 根节点选中状态只在图内维护：根任务不进入任务详情面板
 const rootSelected = ref(false)
 
+// 正在原地编辑的节点与其输入内容：布局测量要用它撑高节点，因此声明在布局之前
+const editingId = ref(null)
+const editingText = ref('')
+
 // 叶子节点的加号在指针靠近按钮位置时出现，不必先进入节点；离开后短暂保留，
 // 给「从节点移向它外侧的加号」留出余量，不必精准一次命中。
 // 从加号拉线期间由 draggingLeafId 保持显示，指针移远也不消失。
@@ -478,14 +483,18 @@ const wrapLines = (text, unitsPerLine, limit = maxLines) => {
   return visible
 }
 
-// 节点文案与高度统一在这里计算，布局只负责摆放
+// 节点文案与高度统一在这里计算，布局只负责摆放。
+// 编辑中的节点按输入内容实时撑高、不做行数截断：节点框与输入框同步长高，布局跟着重排，
+// 长标题不会挤成内部滚动条；编辑结束后再回到常规的截断显示
 const measureNode = (raw) => {
   const hasCheckbox = !raw.isRoot
   const completed = Boolean(raw.completed_at)
   // 选中态决定是否显示更多操作按钮：根节点不是真实任务，选中也不给操作菜单
   const selected = String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
   const unitsPerLine = textUnitsFor(hasCheckbox)
-  const lines = wrapLines(raw.title, unitsPerLine)
+  const lines = editingId.value === Number(raw.id)
+    ? wrapLines(editingText.value, unitsPerLine, Infinity)
+    : wrapLines(raw.title, unitsPerLine)
   const subtitle = raw.subtitle || ''
   const height = paddingTop + lines.length * lineHeight + 12 + (subtitle ? 14 : 0)
   const control = controlPointFor(height, selected)
@@ -1498,8 +1507,6 @@ const createChild = () => {
   emit('create-task', { parentId: toTaskId(id), afterId: null })
 }
 
-const editingId = ref(null)
-const editingText = ref('')
 // 已消费的新建标记，避免提交后又被父级传入的 id 重新打开
 let consumedEditId = null
 // 节点文字输入框按节点 ID 收集，编辑时聚焦对应那个
@@ -1525,16 +1532,9 @@ const textStyle = {
   lineHeight: `${lineHeight}px`
 }
 
-// 编辑态给足行数，长标题换行后仍可完整查看和拖选；超出后输入框内部滚动
-const EDIT_MAX_LINES = 5
-// 编辑态当前占用的行数：按内容估算，随输入增长
-const editLines = ref(maxLines)
-const lineCountOf = (text, unitsPerLine) => Math.min(EDIT_MAX_LINES,
-  Math.max(1, wrapLines(text, unitsPerLine, Infinity).length))
-
-const onEditInput = (node, event) => {
+// 编辑态的行数由 measureNode 依据输入内容算出，节点与输入框一起长高，不再有行数上限
+const onEditInput = (event) => {
   editingText.value = event.target.value
-  editLines.value = lineCountOf(event.target.value, node.unitsPerLine)
 }
 
 // 编辑态必须显式声明可选文本：画布容器是 select-none，继承下来会让拖选失效
@@ -1584,7 +1584,6 @@ const startEdit = (node, { selectText = false } = {}) => {
   const id = Number(node.id)
   editingId.value = id
   editingText.value = node.title
-  editLines.value = lineCountOf(node.title, node.unitsPerLine)
   editSelection = selectText ? [0, node.title.length] : null
   ensureEditScale(node)
   nextTick(() => focusEditInput(id))
