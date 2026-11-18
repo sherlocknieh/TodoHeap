@@ -113,7 +113,7 @@
       </div>
       <ul v-if="showCompletedPanel" class="mt-1 space-y-1.5 pb-2">
         <li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)" :class="[
-          'group flex cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm transition-all',
+          'group flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-sm transition-all',
           props.selectedTaskId === t.id
             ? 'border-transparent border-l-2 border-l-accent-600 bg-accent-100/80 shadow-none dark:border-l-accent-400 dark:bg-accent-500/20'
             : 'border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'

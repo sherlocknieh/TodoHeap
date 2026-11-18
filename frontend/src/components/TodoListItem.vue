@@ -9,8 +9,8 @@
         <span v-if="item._level > 0" aria-hidden="true"
           class="pointer-events-none absolute inset-y-0 w-px bg-hairline/70 dark:bg-hairline-dark/70"
           :style="{ left: (item._level * 22 - 1) + 'px' }"></span>
-        <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围 -->
-        <div class="relative flex items-center gap-2.5 rounded-xl border py-1.5 pl-2 pr-1.5 transition-all"
+        <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围；圆角与左侧视图列表一致 -->
+        <div class="relative flex items-center gap-2.5 rounded-lg border py-1.5 pl-2 pr-1.5 transition-all"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"
