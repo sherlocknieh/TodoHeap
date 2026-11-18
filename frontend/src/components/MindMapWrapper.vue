@@ -1341,17 +1341,28 @@ const columnFocusScale = (node) => {
   ))
 }
 
-// 把选中节点摆到视口中央，并按三栏宽度缩放
+// 聚焦目标：横向布局把节点摆在视口水平中央，竖向沿用节点当前的屏幕位置，
+// 只有掉出视口时才夹回可见范围；纵向布局的三栏沿高度排列，仍需垂直居中
+const focusTargetFor = (node) => {
+  const scale = columnFocusScale(node)
+  const centerY = node.y + node.height / 2
+  const anchorY = view.y + centerY * view.scale
+  const margin = (node.height * scale) / 2 + 24
+  return {
+    x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
+    y: isVertical.value
+      ? size.height / 2 - centerY * scale
+      : Math.max(margin, Math.min(anchorY, size.height - margin)) - centerY * scale,
+    scale
+  }
+}
+
+// 把选中节点摆到聚焦目标位置
 const centerOnNode = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
   columnFocus.value = true
-  const scale = columnFocusScale(node)
-  const target = {
-    x: size.width / 2 - (node.x + nodeWidth / 2) * scale,
-    y: size.height / 2 - (node.y + node.height / 2) * scale,
-    scale
-  }
+  const target = focusTargetFor(node)
   // 位置与缩放都已到位时不再启动动画，重复点击同一节点不会抖动
   const settled = Math.abs(target.x - view.x) < 0.5
     && Math.abs(target.y - view.y) < 0.5
@@ -1365,10 +1376,10 @@ const followColumnFocus = () => {
   if (!columnFocus.value) return
   const node = layout.value.nodes.find((item) => item.id === selectedId.value)
   if (!node || !size.width || !size.height) return
-  const scale = columnFocusScale(node)
-  view.x = size.width / 2 - (node.x + nodeWidth / 2) * scale
-  view.y = size.height / 2 - (node.y + node.height / 2) * scale
-  view.scale = scale
+  const target = focusTargetFor(node)
+  view.x = target.x
+  view.y = target.y
+  view.scale = target.scale
 }
 
 // 单击选中后稍等再居中：双击编辑时节点还没移走，可以原地改字
