@@ -63,7 +63,7 @@ outline: deep
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
 | 布局方向 / 横向纵向 / 文字横竖排 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留 |
-| 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`Teleport`；`pages/Todo.vue` `GRAPH_CONTROLS_HOST_ID` 与任务图浮层 | 视图控件在右下角，提示收进按钮浮层；右栏浮起时控件挂在浮层空白区，由 flex 自然让位 |
+| 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`controlsStyle`；`pages/Todo.vue` `graphPanelInset` | 视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
 | 节点悬停 / 鼠标移到节点上 / 悬停高亮弱一档 | `components/MindMapWrapper.vue` 节点 `g` 的 `group` + rect 的 `group-hover:stroke-accent-600/45` | 悬停与选中同一个绿色、同样 2px 粗细，只靠透明度分强弱：悬停是半透明绿框、不改底色，选中是实绿框加淡底 |
 | 拖拽落点 / 预览线 / 拖到节点上 / 影子节点 / 拖拽残影 / 拖动时没有连线 | `components/MindMapWrapper.vue` `dragState.shadow`、`dragState.preview`、`onNodePointerDown` | 拖节点时在指针处显示节点副本（原件淡出），不画线；只有从折叠/加号按钮建链接才画预览线 |

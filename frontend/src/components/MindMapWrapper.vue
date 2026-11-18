@@ -204,53 +204,51 @@
     </div>
 
     <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布；
-         任务图把控件 teleport 到页面浮层的空白区，右栏占宽后由 flex 自然让位 -->
-    <Teleport :to="controlsTarget" :disabled="!controlsTarget" defer>
-      <div class="pointer-events-auto absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop
-        @click.stop @keydown.stop @keydown.escape.stop="helpOpen = false">
-        <button
-          class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-          :title="allExpanded ? '收起全部' : '展开全部'" @click.stop="toggleAllCollapse">
-          <AppIcon :name="allExpanded ? 'shrink' : 'expand'" :size="14" />
+         右栏浮起时按面板宽度左移，避免盖住按钮 -->
+    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" @pointerdown.stop
+      @keydown.stop @keydown.escape.stop="helpOpen = false">
+      <button
+        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        :title="allExpanded ? '收起全部' : '展开全部'" @click.stop="toggleAllCollapse">
+        <AppIcon :name="allExpanded ? 'shrink' : 'expand'" :size="14" />
+      </button>
+      <button
+        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
+        <AppIcon :name="currentDirection.icon" :size="14" />
+      </button>
+      <button
+        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        title="适应视图" @click.stop="fitView">
+        <AppIcon name="target" :size="14" />
+      </button>
+      <div ref="helpRef" class="relative">
+        <button type="button" :aria-expanded="helpOpen" :aria-label="helpOpen ? '收起操作提示' : '操作提示'"
+          :title="helpOpen ? '收起操作提示' : '操作提示'"
+          class="flex rounded border p-1.5 transition-colors"
+          :class="helpOpen
+            ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
+            : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
+          @click.stop="helpOpen = !helpOpen">
+          <AppIcon name="info" :size="14" />
         </button>
-        <button
-          class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-          :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
-          <AppIcon :name="currentDirection.icon" :size="14" />
-        </button>
-        <button
-          class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-          title="适应视图" @click.stop="fitView">
-          <AppIcon name="target" :size="14" />
-        </button>
-        <div ref="helpRef" class="relative">
-          <button type="button" :aria-expanded="helpOpen" :aria-label="helpOpen ? '收起操作提示' : '操作提示'"
-            :title="helpOpen ? '收起操作提示' : '操作提示'"
-            class="flex rounded border p-1.5 transition-colors"
-            :class="helpOpen
-              ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
-              : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
-            @click.stop="helpOpen = !helpOpen">
-            <AppIcon name="info" :size="14" />
-          </button>
-          <Transition enter-active-class="transition ease-out duration-100"
-            enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
-            leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-95">
-            <div v-if="helpOpen"
-              class="absolute bottom-full right-0 mb-2 w-72 origin-bottom-right panel p-2.5 text-[11px] leading-5 text-neutral-600 shadow-lg dark:text-neutral-400"
-              @keydown.escape.stop="helpOpen = false">
-              <p class="mb-1.5 eyebrow">操作提示</p>
-              <p><span class="font-medium text-neutral-800 dark:text-neutral-200">滚轮</span>：选中节点/连线后缩放，空白处平移</p>
-              <p><span class="font-medium text-neutral-800 dark:text-neutral-200">拖拽</span>：空白处或根节点平移，节点拖到另一节点建立链接</p>
-              <p><span class="font-medium text-neutral-800 dark:text-neutral-200">点选</span>：点选连线可删除</p>
-              <p><span class="font-medium text-neutral-800 dark:text-neutral-200">快捷键</span>：Enter 同级 · Tab 子级 · F2 重命名</p>
-              <p><span class="font-medium text-neutral-800 dark:text-neutral-200">Ctrl+C</span>：复制选中节点及其子节点为 Markdown 列表</p>
-            </div>
-          </Transition>
-        </div>
+        <Transition enter-active-class="transition ease-out duration-100"
+          enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95">
+          <div v-if="helpOpen"
+            class="absolute bottom-full right-0 mb-2 w-72 origin-bottom-right panel p-2.5 text-[11px] leading-5 text-neutral-600 shadow-lg dark:text-neutral-400"
+            @keydown.escape.stop="helpOpen = false">
+            <p class="mb-1.5 eyebrow">操作提示</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">滚轮</span>：选中节点/连线后缩放，空白处平移</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">拖拽</span>：空白处或根节点平移，节点拖到另一节点建立链接</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">点选</span>：点选连线可删除</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">快捷键</span>：Enter 同级 · Tab 子级 · F2 重命名</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">Ctrl+C</span>：复制选中节点及其子节点为 Markdown 列表</p>
+          </div>
+        </Transition>
       </div>
-    </Teleport>
+    </div>
   </div>
 </template>
 
@@ -272,9 +270,7 @@ const props = defineProps({
   selectedTaskId: { type: Number, default: null },
   // 新建任务后由父级指定要立即重命名的节点
   editTaskId: { type: Number, default: null },
-  // 视图控件 teleport 的目标选择器；为空时留在画布内
-  controlsTarget: { type: String, default: null },
-  // 浮在画布右侧的详情面板宽度：聚焦、适应视图与菜单定位都避让它
+  // 浮在画布右侧的详情面板宽度：视图控件、聚焦、适应视图与菜单定位都避让它
   panelInset: { type: Number, default: 0 }
 })
 
@@ -390,6 +386,11 @@ const direction = persistedRef('mindmap-direction', 'right', {
 
 const currentDirection = computed(() =>
   directionOptions.find((option) => option.value === direction.value) ?? directionOptions[1])
+
+// 视图控件跟随浮层右栏左移：面板多宽就右偏多少，面板收起时回到常规右下角
+const controlsStyle = computed(() => ({
+  right: `calc(0.75rem + ${props.panelInset}px)`
+}))
 
 // 折叠状态按任务 ID 与列表、回收站共享：折叠后只隐藏子节点，任务本身与其它父级链接不受影响
 const collapsedSet = collapsedTaskSet

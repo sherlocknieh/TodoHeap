@@ -63,9 +63,7 @@ const selectedTaskId = persistedRef('selected-task', null, {
 	validate: (value) => value === null || Number.isFinite(value)
 })
 const showDetailPanel = persistedRef('detail-open', false)
-// 任务图浮层里承载导图视图控件的占位节点：按钮由画布 teleport 过来，位置交给 flex 行决定
-const GRAPH_CONTROLS_HOST_ID = 'graph-view-controls'
-// 与面板组件读写同一个宽度：任务图按可见区聚焦，避免选中节点被浮层压住
+// 与面板组件读写同一个宽度：任务图按可见区聚焦、视图控件按它左移
 const detailPanelWidth = persistedRef(DETAIL_PANEL_WIDTH_KEY, DETAIL_PANEL_DEFAULT_WIDTH, {
 	validate: (value) => Number.isFinite(value) && value >= DETAIL_PANEL_MIN_WIDTH
 })
@@ -197,7 +195,7 @@ const viewProps = computed(() => {
 	if (activeView.value === 'schedule') return { selectedEventId: selectedEventId.value }
 	if (activeView.value === 'heap') return { todos: todoStore.tasks }
 	if (activeView.value === 'graph') {
-		return { controlsTarget: GRAPH_CONTROLS_HOST_ID, panelInset: graphPanelInset.value }
+		return { panelInset: graphPanelInset.value }
 	}
 	return {}
 })
@@ -620,12 +618,10 @@ const runToastAction = async () => {
 				</div>
 			</div>
 
-			<!-- 任务图：画布保持整宽；右栏与视图控件同处一个浮层，空白区由 flex 自然让出 -->
+			<!-- 任务图：画布保持整宽；右栏浮在右侧，空白区由 flex 自然让出 -->
 			<div v-if="activeView === 'graph'" class="pointer-events-none absolute inset-0 z-30 flex">
-				<div class="relative min-w-0 flex-1">
-					<!-- 导图视图控件由画布 teleport 到这里，右下角随面板左缘停靠 -->
-					<div :id="GRAPH_CONTROLS_HOST_ID"></div>
-				</div>
+				<!-- 空白区只负责占位，画布仍在下面铺满整宽 -->
+				<div class="min-w-0 flex-1"></div>
 				<div v-if="showDetailPanel" class="pointer-events-auto flex max-w-[85vw] shadow-lg">
 					<TodoDetailEditor :todo-id="selectedTaskId" :show="true" @close="closeDetailPanel"
 						@task-selected="handleTaskSelected" />
