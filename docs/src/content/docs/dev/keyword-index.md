@@ -65,15 +65,15 @@ title: 关键词索引
 | 键盘新建 / Enter 同级 / Tab 子级 | `components/MindMapWrapper.vue` `onKeydown` | 快捷键说明收在右下角帮助浮层 |
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
-| 展开子节点 / 兄弟被推开 / 子树重叠 / 多父展开后空白 / 节点重叠 | `components/MindMapWrapper.vue` `graphLayout` 的 `laneChildren`、`blockSizeOf`、`blockBoundsOf`、`shareParent`、`limitGaps` | 同层按子树块跨度推开兄弟；多父节点取全部前向父级平均定位；同父级兄弟的实际边缘空白超过 `2 × crossGap` 时整支子树下移吸收，正常展开空间不变 |
+| 展开子节点 / 兄弟被推开 / 子树重叠 / 多父展开后空白 / 节点重叠 | `components/MindMapWrapper.vue` `computeGraphLayout` 的 `laneChildren`、`blockSizeOf`、`blockBoundsOf`、`shareParent`、`limitGaps` | 同层按子树块跨度推开兄弟；多父节点取全部前向父级平均定位；同父级兄弟的实际边缘空白超过 `2 × crossGap` 时整支子树下移吸收，正常展开空间不变 |
 | 布局方向 / 左右翻转 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留，只有左右两向 |
 | 点阵背景 / 网格背景 / 画布底纹 / 背景不动 / 点阵跟着画布走 / 背景太花 | `components/MindMapWrapper.vue` `dotGrid`、`mindmap-dots` 样式 | 右下角视图控件的网格按钮切换点阵底纹，默认开启，状态本地保存；点阵是固定 24px 的静态纹理，不随平移与缩放变化 |
 | 深色背景 / 暗色画布 / 背景颜色 / 想用深色底 | `components/MindMapWrapper.vue` `darkCanvas`、`mindmap-canvas--dark` | 右下角视图控件的日/月按钮切换画布底色，点阵点色跟着切换；首次按系统主题取值，之后按手动选择保存 |
 | 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`controlsStyle`；`utils/detailPanelContext.js` 的 `detailPanelInset` | 视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
 | 节点悬停 / 鼠标移到节点上 / 悬停高亮弱一档 | `components/MindMapWrapper.vue` 节点 `g` 的 `group` + rect 的 `group-hover:stroke-accent-600/45` | 悬停与选中同一个绿色、同样 2px 粗细，只靠透明度分强弱：悬停是半透明绿框、不改底色，选中是实绿框加淡底 |
-| 拖拽落点 / 预览线 / 拖到节点上 / 影子节点 / 拖拽残影 / 拖动时没有连线 | `components/MindMapWrapper.vue` `dragState.shadow`、`dragState.preview`、`dragState.dropPosition`、`onNodePointerDown` | 拖节点时在指针处显示节点副本（原件淡出），不画线；拖到目标上/下四分之一处改为前后插序，并在节点上/下缘画绿色插入线；只有从折叠/加号按钮建链接才画预览线 |
-| 拖拽排序 / 拖拽调整顺序 / 拖到前面 / 拖到后面 / 插到兄弟之间 / 拖拽移动 / 拖节点换父级 / 单父节点拖动 / 移动后没提示 | `pages/todo/TodoGraph.vue` `dropTask`；`components/MindMapWrapper.vue` `dropPositionAt`、`onDragEnd` | 拖节点落在目标中间成为子任务：单父任务直接移动且不弹提示，多父任务只建链接、提示里可选「改为移动（断开旧连接）」；落在上四分之一插到目标前、下四分之一插到目标后，只重排目标所在父级的 `child_ids`；根节点只接受拖进；从折叠/加号按钮拉线只建链接 |
+| 拖拽落点 / 预览线 / 拖到节点上 / 影子节点 / 拖拽残影 / 拖动时没有连线 / 插入占位槽 / 拖动时腾出空位 | `components/MindMapWrapper.vue` `dragState.shadow`、`dragState.preview`、`dragState.dropPosition`、`insertDropPlaceholder`、`onNodePointerDown` | 拖节点时在指针处显示节点副本（原件淡出），不画线；拖到目标上/下四分之一处改为前后插序，并在兄弟序列里临时插入占位槽，兄弟节点真实让位；只有从折叠/加号按钮建链接才画预览线 |
+| 拖拽排序 / 拖拽调整顺序 / 拖到前面 / 拖到后面 / 插到兄弟之间 / 拖拽移动 / 拖节点换父级 / 单父节点拖动 / 移动后没提示 | `pages/todo/TodoGraph.vue` `dropTask`；`components/MindMapWrapper.vue` `dropPositionAt`、`insertDropPlaceholder`、`onDragEnd` | 拖节点落在目标中间成为子任务：单父任务直接移动且不弹提示，多父任务只建链接、提示里可选「改为移动（断开旧连接）」；落在上四分之一插到目标前、下四分之一插到目标后，只重排目标所在父级的 `child_ids`；根节点只接受拖进；从折叠/加号按钮拉线只建链接 |
 | 拖拽建链接 / 按钮拉线 / 拉到附近就命中 / 箭头被鼠标挡住 / 影子碰到就命中 / 不用把鼠标放到节点上 | `components/MindMapWrapper.vue` `linkTargetAtRect`、`LINK_HIT_PADDING`、`DRAG_ARROW_GAP` | 拖节点按影子矩形与节点是否接触判定，指针不必在节点上；从折叠/加号按钮拉线按指针点外扩屏幕像素判定，多节点取中心最近；预览线箭头再越过指针 18px，避免被光标遮住（仅按钮拉线） |
 
 ## 侧栏与 AI

@@ -40,7 +40,7 @@
           stroke-linecap="round" marker-end="url(#mm-arrow-ref)" />
 
         <!-- 节点 -->
-        <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
+        <g v-for="node in renderNodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
           :opacity="nodeOpacity(node)" :data-mm-node="node.id"
           class="group cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
@@ -149,13 +149,16 @@
           </g>
         </g>
 
-        <!-- 排序落点：拖到目标节点上下四分之一时，在它的上/下缘画插入线，表示放到该兄弟前后 -->
-        <line v-if="dropTargetNode && dragState.dropPosition !== 'inside'"
-          :x1="dropTargetNode.x - 10" :x2="dropTargetNode.x + nodeWidth + 10"
-          :y1="dropTargetNode.y + (dragState.dropPosition === 'before' ? -7 : dropTargetNode.height + 7)"
-          :y2="dropTargetNode.y + (dragState.dropPosition === 'before' ? -7 : dropTargetNode.height + 7)"
-          class="pointer-events-none stroke-accent-600 dark:stroke-accent-400"
-          stroke-width="2.4" stroke-linecap="round" />
+        <!-- 排序占位槽：拖到目标节点上下四分之一时，在兄弟序列里插入一条空位，兄弟节点真实让开 -->
+        <g v-if="dropPlaceholderNode"
+          :transform="`translate(${dropPlaceholderNode.x} ${dropPlaceholderNode.y})`"
+          class="pointer-events-none">
+          <rect :width="nodeWidth" :height="dropPlaceholderNode.height" rx="6"
+            stroke-width="1.4" stroke-dasharray="6 4"
+            class="fill-accent-100/80 stroke-accent-500 dark:fill-accent-500/20 dark:stroke-accent-400" />
+          <rect :width="8" :height="dropPlaceholderNode.height" rx="4"
+            class="fill-accent-500/60 dark:fill-accent-400/60" />
+        </g>
 
         <!-- 选中连线：压在节点之上高亮，配合中点删除按钮 -->
         <path v-if="selectedEdge" :d="selectedEdge.d" fill="none" stroke-linecap="round"
@@ -178,7 +181,7 @@
         </g>
 
         <!-- 拖拽影子：按住节点拖动时跟随指针的副本，抓取点与原件保持同一相对位置；
-             原件同时淡出；拖进目标时目标仍按 targetId 高亮，前后插序则只显示插入线 -->
+             原件同时淡出；拖进目标时目标仍按 targetId 高亮，前后插序则显示占位槽 -->
         <g v-if="dragState.shadow" :transform="`translate(${dragState.shadow.x} ${dragState.shadow.y})`"
           class="pointer-events-none">
           <rect :width="nodeWidth" :height="dragState.shadow.node.height" rx="8" fill-opacity="0.92"
@@ -579,6 +582,23 @@ const wrapLines = (text, maxWidth, limit = maxLines) => {
 // 编辑中的节点按输入内容实时撑高、不做行数截断：节点框与输入框同步长高，布局跟着重排，
 // 长标题不会挤成内部滚动条；编辑结束后再回到常规的截断显示
 const measureNode = (raw) => {
+  // 占位槽不显示文字与控件，只按固定高度参与布局，给被拖节点腾出等宽空位
+  if (raw.isPlaceholder) {
+    return {
+      ...raw,
+      lines: [],
+      subtitle: '',
+      hasCheckbox: false,
+      completed: false,
+      textX: paddingX,
+      textWidth: 0,
+      controlX: nodeWidth,
+      controlY: dropPlaceholderHeight / 2,
+      height: dropPlaceholderHeight,
+      selected: false
+    }
+  }
+
   const hasCheckbox = !raw.isRoot
   const completed = Boolean(raw.completed_at)
   // 选中态决定是否显示更多操作按钮：根节点不是真实任务，选中也不给操作菜单
@@ -769,10 +789,53 @@ const buildGraphData = (forest, collapsed) => {
   return { nodes: nodeList, edges: edgeList }
 }
 
+// 拖拽排序的占位槽：在目标兄弟序列里临时插入一个假节点，让布局真正腾出空位。
+// 只用于显示；拖拽命中检测仍用不含占位槽的布局，避免目标节点被顶走后反复抖动
+const DROP_PLACEHOLDER_ID = '__drop-placeholder__'
+const dropPlaceholderHeight = 20
+
+const insertDropPlaceholder = (forest) => {
+  if (!dragState.active || !dragState.moved || dragState.fromToggle) return forest
+  if (!dragState.targetId || dragState.dropPosition === 'inside') return forest
+
+  const placeholder = {
+    id: DROP_PLACEHOLDER_ID,
+    title: '',
+    isPlaceholder: true,
+    children: []
+  }
+  let inserted = false
+
+  const walk = (nodes) => {
+    if (inserted) return nodes
+    const index = nodes.findIndex((node) => !node.isRef && String(node.id) === dragState.targetId)
+    if (index !== -1) {
+      inserted = true
+      const next = nodes.slice()
+      next.splice(dragState.dropPosition === 'before' ? index : index + 1, 0, placeholder)
+      return next
+    }
+
+    let changed = false
+    const next = nodes.map((node) => {
+      if (inserted || node.isRef || !(node.children || []).length) return node
+      const children = walk(node.children)
+      if (children === node.children) return node
+      changed = true
+      return { ...node, children }
+    })
+    return changed ? next : nodes
+  }
+
+  return walk(forest || [])
+}
+
+const dropPreviewForest = computed(() => insertDropPlaceholder(props.nodes))
+
 // 有向图：按强连通分量分层，环内节点顺序排列，回边绕行展示
 // 只用可见节点参与布局：折叠后兄弟节点收拢到折叠父节点周围，展开后子节点重新贴回父节点
-const graphLayout = computed(() => {
-  const { nodes: rawNodes, edges: rawEdges } = buildGraphData(props.nodes, collapsedSet.value)
+const computeGraphLayout = (forest) => {
+  const { nodes: rawNodes, edges: rawEdges } = buildGraphData(forest, collapsedSet.value)
   if (rawNodes.length === 0) {
     return { nodes: [], edges: [], contentWidth: 0, contentHeight: 0, minX: 0, minY: 0 }
   }
@@ -1123,17 +1186,20 @@ const graphLayout = computed(() => {
   const contentCross = crossMax - crossMin
   const mainMin = -mainOrigin
 
-  const routedEdges = rawEdges.map((edge, index) => {
-    const from = byId.get(edge.from)
-    const to = byId.get(edge.to)
-    if (!from || !to) return null
-    const backward = (nodeLayer.get(to.id) ?? 0) <= (nodeLayer.get(from.id) ?? 0)
-    // 回边绕到内容外侧，通道按边序号错开避免重叠
-    const laneCross = backward
-      ? crossMax + 24 + (index % 4) * 14
-      : null
-    return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, backward, laneCross)
-  }).filter(Boolean)
+  // 占位槽只参与布局，不画连线
+  const routedEdges = rawEdges
+    .filter((edge) => edge.from !== DROP_PLACEHOLDER_ID && edge.to !== DROP_PLACEHOLDER_ID)
+    .map((edge, index) => {
+      const from = byId.get(edge.from)
+      const to = byId.get(edge.to)
+      if (!from || !to) return null
+      const backward = (nodeLayer.get(to.id) ?? 0) <= (nodeLayer.get(from.id) ?? 0)
+      // 回边绕到内容外侧，通道按边序号错开避免重叠
+      const laneCross = backward
+        ? crossMax + 24 + (index % 4) * 14
+        : null
+      return createEdge(from, to, `${edge.from}->${edge.to}-${index}`, backward, laneCross)
+    }).filter(Boolean)
 
   // 只渲染可见节点与两端都可见的边
   return {
@@ -1145,9 +1211,14 @@ const graphLayout = computed(() => {
     minX: mainMin,
     minY: crossMin
   }
-})
+}
 
-const layout = computed(() => graphLayout.value)
+// 拖拽命中与键盘/选中判断都用不含占位槽的布局；渲染用带占位槽的布局
+const hitLayout = computed(() => computeGraphLayout(props.nodes))
+const layout = computed(() => computeGraphLayout(dropPreviewForest.value))
+const renderNodes = computed(() => layout.value.nodes.filter((node) => !node.isPlaceholder))
+const dropPlaceholderNode = computed(() =>
+  layout.value.nodes.find((node) => node.isPlaceholder) ?? null)
 
 let hasInteracted = false
 
@@ -2088,11 +2159,8 @@ const dragState = reactive({
 let dragStart = { x: 0, y: 0 }
 let lastDragEndAt = 0
 
-// 只有 inside 才算「拖进节点」，前后插序时目标节点不高亮，改画插入线
+// 只有 inside 才算「拖进节点」，前后插序时目标节点不高亮，改由占位槽提示落点
 const isDropInside = (node) => dragState.targetId === node.id && dragState.dropPosition === 'inside'
-const dropTargetNode = computed(() => (dragState.targetId
-  ? layout.value.nodes.find((node) => node.id === dragState.targetId) ?? null
-  : null))
 
 // 与列表拖拽一致：上四分之一插入到目标之前，下四分之一插入到之后，其余区域成为子任务。
 // 根节点没有兄弟序列，拖到它身上一律按拖进根层级处理
@@ -2132,8 +2200,8 @@ const linkTargetAtRect = (rect) => {
   const padding = dragState.fromToggle ? linkHitPadding() : 0
   let nearest = null
   let nearestDistance = Infinity
-  for (const node of layout.value.nodes) {
-    if (node.id === dragState.sourceId || node.isRef) continue
+  for (const node of hitLayout.value.nodes) {
+    if (node.id === dragState.sourceId || node.isRef || node.isPlaceholder) continue
     // 两矩形之间的空隙：相交或接触时为 0，否则取横向/纵向最近的一段
     const gapX = Math.max(node.x - (rect.x + rect.width), rect.x - (node.x + nodeWidth), 0)
     const gapY = Math.max(node.y - (rect.y + rect.height), rect.y - (node.y + node.height), 0)
@@ -2160,7 +2228,7 @@ const updateLeafControlHover = (event) => {
   let inside = null
   let nearest = null
   let nearestDistance = Infinity
-  for (const node of layout.value.nodes) {
+  for (const node of hitLayout.value.nodes) {
     if (node.isRoot || node.childCount > 0) continue
     if (point.x >= node.x && point.x <= node.x + nodeWidth
       && point.y >= node.y && point.y <= node.y + node.height) {

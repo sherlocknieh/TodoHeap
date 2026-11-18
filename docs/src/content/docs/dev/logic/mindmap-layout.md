@@ -3,13 +3,13 @@ title: "任务图布局逻辑"
 ---
 # 任务图布局逻辑
 
-任务图的节点位置由 `frontend/src/components/MindMapWrapper.vue` 的 `graphLayout` 一次性算出：先把任务树整理成可见的有向图，再沿主方向分层、沿交叉方向逐层排布。本文记录这套规则的现状、约束与验证方式。
+任务图的节点位置由 `frontend/src/components/MindMapWrapper.vue` 的 `computeGraphLayout` 一次性算出：先把任务树整理成可见的有向图，再沿主方向分层、沿交叉方向逐层排布。本文记录这套规则的现状、约束与验证方式。
 
 ---
 
 ## 一、数据入口
 
-`graphLayout` 只吃 `props.nodes`（`TodoGraph.vue` 由 store 的 `treeNodes` 映射而来）与跨视图共享的折叠状态 `collapsedSet`。
+`computeGraphLayout` 只吃传入的森林与跨视图共享的折叠状态 `collapsedSet`。正常渲染传入 `props.nodes`（`TodoGraph.vue` 由 store 的 `treeNodes` 映射而来）；拖拽排序时显示层改用 `dropPreviewForest` 临时插入占位槽，命中检测仍走不含占位槽的 `hitLayout`。
 
 | 步骤 | 位置 | 作用 |
 | --- | --- | --- |

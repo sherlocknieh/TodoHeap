@@ -10,7 +10,7 @@ title: "视图与交互"
 ### 布局
 
 - 只有两种横向布局：从左到右、从右到左。工具栏方向按钮在两者间轮换，选择存本地（`directionOptions`、`cycleDirection`、`persistedRef('mindmap-direction')`）。
-- `graphLayout` 先按折叠状态求出可见图，再用 Tarjan 缩点与最长路径分层；根节点钉在坐标原点，展开或折叠其它节点时根节点在画布上不动。
+- `computeGraphLayout` 先按折叠状态求出可见图，再用 Tarjan 缩点与最长路径分层；根节点钉在坐标原点，展开或折叠其它节点时根节点在画布上不动。
 - 同层节点按子树块跨度排开：只累计紧邻下一列的子节点，且每个子节点只归第一个紧邻父级；多父节点取全部前向父级的中心均值。`limitGaps` 只压缩同一父级兄弟之间超过两个 `crossGap` 的空白（`blockSizeOf`、`blockBoundsOf`、`shareParent`）。
 - 节点高度由 `measureNode` 按 canvas 实测像素折行算出，显示态与编辑态共用同一套断行（`wrapLines`），编辑中不截断行数。
 
@@ -36,7 +36,7 @@ title: "视图与交互"
 
 - 拖节点时指针处显示影子副本，原节点降到 0.3 透明度；只有从折叠/加号按钮拉线才画虚线与箭头（`dragState.shadow`、`nodeOpacity`）。
 - 落点按指针在目标节点内的纵向位置分派：上/下四分之一是前后插序，中间才是拖进节点；根节点没有兄弟序列，只按拖进处理（`dropPositionAt`）。
-- 前后插序只重排落点所在父级的 `child_ids`，拖动时在目标节点上/下缘画绿色插入线（`dragState.dropPosition`、`TodoGraph.vue` 的 `dropTask`）。
+- 前后插序只重排落点所在父级的 `child_ids`，拖动时在落点插入占位槽、兄弟节点真实让位（`dragState.dropPosition`、`insertDropPlaceholder`、`TodoGraph.vue` 的 `dropTask`）。
 - 拖进节点按源任务的父级数量分派：单父直接移动且不弹提示；多父只追加链接，提示条可撤销，并提供「改为移动（断开旧连接）」（`TodoGraph.vue` 的 `findParentIds`）。
 - 按钮拉线只建链接，不移动原父级；命中按指针点到节点矩形的距离判定，允许 24 屏幕像素误差（按缩放折算、上限 48 图内单位），多个候选取最近者（`linkTargetAtRect`）。
 - 预览线终点超出指针 18 屏幕像素，箭头不被指针图标盖住（`DRAG_ARROW_GAP`）。
