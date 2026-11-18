@@ -65,7 +65,7 @@ outline: deep
 | 键盘新建 / Enter 同级 / Tab 子级 | `components/MindMapWrapper.vue` `onKeydown` | 快捷键说明收在右下角帮助浮层 |
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
-| 展开子节点 / 兄弟被推开 / 子节点挤在别的分支里 / 子树重叠 / 节点间距太挤 / 多父分支展开后拉低留白 | `components/MindMapWrapper.vue` `graphLayout` 的 `laneChildren`、`laneOwner`、`blockSizeOf`、`nearOf` | 间距只按紧邻一列的子节点算块跨度，展开时兄弟被推到子树外侧；跨层与多父链接不占本列、也不参与上下居中，多父节点落在紧邻父级这一侧 |
+| 展开子节点 / 兄弟被推开 / 子节点挤在别的分支里 / 子树重叠 / 节点间距太挤 / 多父分支展开后拉低留白 | `components/MindMapWrapper.vue` `graphLayout` 的 `laneChildren`、`laneOwner`、`blockSizeOf` | 间距只按紧邻一列的子节点算块跨度，跨层与多父链接不占本列，展开时兄弟被推到子树外侧；多父节点仍按全部前向父级的平均位置定位 |
 | 布局方向 / 横向纵向 / 文字横竖排 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留 |
 | 点阵背景 / 网格背景 / 画布底纹 / 背景不动 / 点阵跟着画布走 / 背景太花 | `components/MindMapWrapper.vue` `dotGrid`、`mindmap-dots` 样式 | 右下角视图控件的网格按钮切换点阵底纹，默认开启，状态本地保存；点阵是固定 24px 的静态纹理，不随平移与缩放变化 |
 | 深色背景 / 暗色画布 / 背景颜色 / 想用深色底 | `components/MindMapWrapper.vue` `darkCanvas`、`mindmap-canvas--dark` | 右下角视图控件的日/月按钮切换画布底色，点阵点色跟着切换；首次按系统主题取值，之后按手动选择保存 |

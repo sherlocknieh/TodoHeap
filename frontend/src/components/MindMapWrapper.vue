@@ -1024,21 +1024,12 @@ const graphLayout = computed(() => {
     return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
   }
 
-  // 只看紧邻列的边做上下居中：多父或跨层链接的目标在别的列，
-  // 把它们算进来会把节点拉向远处的另一条父链，连带整棵子树下沉、留出空白
-  const layerOf = (id) => nodeLayer.get(id) ?? 0
-  const nearOf = (ids, id, step) => {
-    const wanted = layerOf(id) + step
-    const near = ids.filter((other) => layerOf(other) === wanted)
-    return near.length ? near : ids
-  }
-
   // 逐层定位：down 让子节点贴近父节点（多父节点取各父节点位置的平均值），
   // up 让父节点居中于子节点带。每层定位后投影回间距约束，避免重叠。
   const relaxLayer = (layer, mode) => {
     order.get(layer).forEach((node) => {
-      const parents = averageOf(nearOf(parentsOf.get(node.id), node.id, -1))
-      const children = averageOf(nearOf(childrenOf.get(node.id), node.id, 1))
+      const parents = averageOf(parentsOf.get(node.id))
+      const children = averageOf(childrenOf.get(node.id))
       // up 时叶子没有子节点，保持当前位置，由父节点向它靠拢
       const target = mode === 'down' ? (parents ?? children) : children
       if (target !== null) crossCenter.set(node.id, target)
