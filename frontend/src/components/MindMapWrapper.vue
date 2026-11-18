@@ -276,7 +276,7 @@ const props = defineProps({
   controlsTarget: { type: String, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'drop-task', 'unlink-task', 'notify'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'drop-task', 'unlink-task', 'notify', 'background-click'])
 
 const nodeWidth = 216
 const fontSize = 13
@@ -1865,6 +1865,8 @@ const onCanvasClick = () => {
   rootSelected.value = false
   closeNodeMenu()
   if (selectedId.value != null) emit('task-selected', null)
+  // 画布点击会 stop 冒泡，外部点击收起浮层侧栏需要这个事件来补
+  emit('background-click')
 }
 
 // 滚轮模式在一次连续滚动序列内锁定：起始落在选中项上就缩放，否则平移，

@@ -20,7 +20,7 @@ outline: deep
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
 | 活动栏 / 左侧图标条 / 最左边一竖条 | `pages/Todo.vue`「左侧活动栏」注释；`activeSection`、`activeView` | 清单、日程、AI、回收站的入口；收起后由底栏按钮开回 |
-| 侧栏 / 左栏 / 导航栏 / 抽屉 | `components/LeftSidebar.vue`；`pages/Todo.vue`「宽屏侧栏是常驻栏」「窄屏侧栏是覆盖内容的抽屉」 | 宽屏常驻并可拖宽，窄屏是浮层抽屉，两套状态互不覆盖 |
+| 侧栏 / 左栏 / 导航栏 / 抽屉 | `components/LeftSidebar.vue`；`pages/Todo.vue`「宽屏侧栏是常驻栏」「窄屏侧栏是覆盖内容的抽屉」 | 宽屏常驻并可拖宽，窄屏与任务图是浮层抽屉，两套状态互不覆盖；浮层时点外部（含画布空白）收起 |
 | 侧栏拉宽 / 拖宽度 / 拖到收起 | `components/LeftSidebar.vue`「右缘拖拽条」、`useResizablePanel`；`utils/resizablePanel.js` | 拖过最小宽度（200px）继续拖一段即收起 |
 | 技能区高度 / 上下拖动分隔条 | `components/LeftSidebar.vue`「技能区高度可拖拽调整」 | 分隔条在技能分组上缘 |
 | 侧栏分组折叠 / 收起标题 | `components/LeftSidebar.vue` `collapsedSections` | 折叠选择本地保留 |
@@ -31,7 +31,7 @@ outline: deep
 | 同步状态 / 断线 / 待同步 | `pages/Todo.vue` `syncStatus`；`stores/syncQueue.js` | 优先级：断线 > 待同步 > 连接中 > 已同步 |
 | 设置浮窗 / 设置弹窗 / 齿轮 | `pages/todo/Settings.vue`；`pages/Todo.vue`「设置浮窗」 | 地址栏 `tab` 参数控制，刷新可回到同一面板 |
 | 轻提示 / toast / 撤销提示 | `pages/Todo.vue` `const toast = ref`、「轻提示：删除、完成、批量操作后」 | 删除等操作后可从提示里撤销；链接提示额外提供「改为移动」按钮 |
-| 点空白关闭详情 / 点别处收起右栏 | `pages/Todo.vue`「点击中栏区域时关闭详情面板」 | 浮起的右栏点面板外（顶栏、侧栏等）收起；任务图点画布由导图自己处理选中与关闭 |
+| 点空白关闭详情 / 点别处收起右栏 / 点画布收起侧栏 | `pages/Todo.vue`「点击中栏区域时关闭详情面板」、`handleCanvasBackgroundClick` | 浮起的侧栏与右栏点外部收起；画布自行阻止冒泡，空白点击由 `background-click` 事件补上，选中节点也会收起浮层导航 |
 
 ## 任务列表
 

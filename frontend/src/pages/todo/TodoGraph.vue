@@ -5,7 +5,7 @@
 			:controls-target="props.controlsTarget"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
 			@delete-task="deleteTask" @toggle-done="toggleDone" @drop-task="dropTask" @unlink-task="unlinkTask"
-			@notify="payload => emit('notify', payload)" />
+			@notify="payload => emit('notify', payload)" @background-click="emit('background-click')" />
 	</div>
 </template>
 
@@ -22,7 +22,7 @@ const props = defineProps({
 	controlsTarget: { type: String, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'notify'])
+const emit = defineEmits(['task-selected', 'notify', 'background-click'])
 
 const todoStore = useTodoStore()
 

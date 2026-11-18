@@ -339,11 +339,19 @@ const handleTaskSelected = (taskId) => {
 	} else if (selectedTaskId.value === taskId) {
 	} else {
 		selectedTaskId.value = taskId
+		// 任务图选中节点也算离开浮层导航，收起侧栏避免挡住画布
+		if (showLeftSidebar.value && isSidebarFloating.value) showLeftSidebar.value = false
 		if (window.innerWidth > 1024) {
 			showDetailPanel.value = true
 		}
 	}
 	console.log('选中任务ID:', taskId)
+}
+
+// 画布空白点击等同于点击浮层外部：收起浮在画布上的导航与详情右栏
+const handleCanvasBackgroundClick = () => {
+	if (showLeftSidebar.value && isSidebarFloating.value) showLeftSidebar.value = false
+	if (showDetailPanel.value && isDetailPanelFloating.value) closeDetailPanel()
 }
 
 // 日程选中：右栏编辑该日程，窄屏时一并展开面板
@@ -587,7 +595,8 @@ const runToastAction = async () => {
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									@task-selected="handleTaskSelected" @event-selected="handleEventSelected"
-									@notify="handleNotify" @open-sidebar="showLeftSidebar = true" />
+									@notify="handleNotify" @open-sidebar="showLeftSidebar = true"
+									@background-click="handleCanvasBackgroundClick" />
 							</router-view>
 						</div>
 					</template>
