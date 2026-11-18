@@ -897,12 +897,15 @@ const graphLayout = computed(() => {
   rawEdges.forEach((edge) => {
     if (visibleChildren.has(edge.from)) visibleChildren.get(edge.from).push(edge.to)
   })
+  // DFS 的父子归属同时定义子树块：共享子节点归第一个访问它的父级，块之间因此互不重叠
+  const blockChildren = new Map(nodes.map((node) => [node.id, []]))
   let dfsCursor = 0
-  const walkVisible = (id) => {
+  const walkVisible = (id, parentId = null) => {
     if (dfsIndex.has(id)) return
     dfsIndex.set(id, dfsCursor)
     dfsCursor += 1
-    ;(visibleChildren.get(id) || []).forEach(walkVisible)
+    if (parentId !== null) blockChildren.get(parentId).push(id)
+    ;(visibleChildren.get(id) || []).forEach((child) => walkVisible(child, id))
   }
   ;(props.nodes || []).forEach((root) => {
     const id = String(root.id)
@@ -914,13 +917,28 @@ const graphLayout = computed(() => {
   })
   order.forEach((list) => list.sort((a, b) => (dfsIndex.get(a.id) ?? 0) - (dfsIndex.get(b.id) ?? 0)))
 
+  // 子树块跨度：节点连同可见后代在交叉方向占用的整块空间。
+  // 同层按块而非节点自身高度留位，展开子节点时兄弟被推到子树外侧，子节点不会再被邻支挤住
+  const blockSize = new Map()
+  const blockSizeOf = (id) => {
+    const cached = blockSize.get(id)
+    if (cached !== undefined) return cached
+    let span = 0
+    ;(blockChildren.get(id) || []).forEach((child, index) => {
+      span += blockSizeOf(child) + (index > 0 ? crossGap : 0)
+    })
+    const value = Math.max(crossSizeOf(id), span)
+    blockSize.set(id, value)
+    return value
+  }
+
   // 初始坐标：按层内顺序依次排开
   layerKeys.forEach((layer) => {
     let cursor = 0
     order.get(layer).forEach((node) => {
-      const half = crossSizeOf(node.id) / 2
+      const half = blockSizeOf(node.id) / 2
       crossCenter.set(node.id, cursor + half)
-      cursor += crossSizeOf(node.id) + crossGap
+      cursor += blockSizeOf(node.id) + crossGap
     })
   })
 
@@ -931,7 +949,7 @@ const graphLayout = computed(() => {
 
     const offsets = [0]
     for (let i = 1; i < list.length; i += 1) {
-      const gap = (crossSizeOf(list[i - 1].id) + crossSizeOf(list[i].id)) / 2 + crossGap
+      const gap = (blockSizeOf(list[i - 1].id) + blockSizeOf(list[i].id)) / 2 + crossGap
       offsets.push(offsets[i - 1] + gap)
     }
 

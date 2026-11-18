@@ -62,6 +62,7 @@ outline: deep
 | 键盘新建 / Enter 同级 / Tab 子级 | `components/MindMapWrapper.vue` `onKeydown` | 快捷键说明收在右下角帮助浮层 |
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
+| 展开子节点 / 兄弟被推开 / 子节点挤在别的分支里 / 子树重叠 / 节点间距太挤 | `components/MindMapWrapper.vue` `graphLayout` 的 `blockChildren`、`blockSizeOf` | 同层间距按子树块跨度计算，展开时兄弟被推到子树外侧，父节点仍居中于子节点带 |
 | 布局方向 / 横向纵向 / 文字横竖排 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留 |
 | 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`controlsStyle`；`utils/detailPanelContext.js` 的 `detailPanelInset` | 视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
