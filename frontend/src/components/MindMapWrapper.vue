@@ -256,10 +256,11 @@
             class="absolute bottom-full right-0 mb-2 w-72 origin-bottom-right panel p-2.5 text-[11px] leading-5 text-neutral-600 shadow-lg dark:text-neutral-400"
             @keydown.escape.stop="helpOpen = false">
             <p class="mb-1.5 eyebrow">操作提示</p>
-            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">滚轮</span>：选中节点/连线后缩放，空白处平移</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">滚轮</span>：Ctrl/Cmd 任意位置缩放；选中项上滚动缩放，空白处平移</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">拖拽</span>：空白处或根节点平移，节点拖到另一节点建立链接</p>
-            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">点选</span>：点选连线可删除</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">点选</span>：双击重命名，右键更多操作，点连线可删除</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">快捷键</span>：Enter 同级 · Tab 子级 · F2 重命名</p>
+            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">键盘</span>：空格完成 · Del 删除 · 方向键导航</p>
             <p><span class="font-medium text-neutral-800 dark:text-neutral-200">Ctrl+C</span>：复制选中节点及其子节点为 Markdown 列表</p>
           </div>
         </Transition>
