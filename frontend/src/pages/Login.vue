@@ -4,6 +4,9 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppIcon from '@/components/AppIcon.vue'
 
+// 应用挂在 /TodoHeap/app/，站点首页在去掉 app/ 后的根路径
+const siteHomeUrl = import.meta.env.BASE_URL.replace(/app\/?$/, '')
+
 const router = useRouter()
 const auth = useAuthStore()
 
@@ -144,11 +147,11 @@ const handleOAuth = async (provider) => {
   <!-- 登录/注册：表单收进独立卡片，与页面底色拉开层级 -->
   <div class="min-h-screen flex items-center justify-center p-6 bg-canvas dark:bg-canvas-dark">
     <div class="w-full max-w-sm">
-      <router-link to="/"
+      <a :href="siteHomeUrl"
         class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-accent-800 dark:hover:text-accent-300 transition-colors">
         <AppIcon name="chevronLeft" :size="13" />
         <span>返回主页</span>
-      </router-link>
+      </a>
 
       <div
         class="mt-8 rounded-2xl border border-hairline bg-surface p-6 shadow-[0_18px_40px_-28px_rgb(6_80_48/0.45)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-black/40">

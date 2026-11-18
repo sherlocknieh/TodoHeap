@@ -21,6 +21,9 @@ import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import logoSrc from '@/assets/logo.svg'
 
+// 应用挂在 /TodoHeap/app/，站点首页在去掉 app/ 后的根路径
+const siteHomeUrl = import.meta.env.BASE_URL.replace(/app\/?$/, '')
+
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -494,9 +497,9 @@ const runToastAction = async () => {
 				class="w-12 shrink-0 bg-accent-700 dark:bg-accent-900 flex flex-col items-center">
 				<!-- 品牌区：与顶栏同高，下边框与顶栏底边对齐 -->
 				<div class="h-12 w-full flex items-center justify-center border-b border-white/20">
-					<RouterLink to="/" title="回到主页" class="h-full w-full flex items-center justify-center">
+					<a :href="siteHomeUrl" title="回到首页" class="h-full w-full flex items-center justify-center">
 						<img :src="logoSrc" alt="TodoHeap" class="h-7 w-7" />
-					</RouterLink>
+					</a>
 				</div>
 
 				<!-- 主入口：清单 / 日程 / AI，占据中部剩余空间 -->

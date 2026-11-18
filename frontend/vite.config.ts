@@ -16,6 +16,13 @@ export default defineConfig({
   server: {
     open: true, // 调试时自动打开浏览器
     port: 5200, // 前端开发服务器端口
+    proxy: {
+      // 站点首页与文档由 docs dev server（4321）提供，应用只占 /TodoHeap/app/
+      '^/TodoHeap/(?!app(?:/|$))': {
+        target: 'http://localhost:4321',
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') } // 设置 @ 为 src 目录的别名
