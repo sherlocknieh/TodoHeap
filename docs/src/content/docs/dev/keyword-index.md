@@ -37,7 +37,7 @@ title: 关键词索引
 | --- | --- | --- |
 | 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：整行可聚焦」 | 整行可聚焦，回车即存；新任务挂根任务末尾 |
 | 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `paddingLeft: (4 + item._level * 22)` | 层级来自树展开，缩进是纯展示 |
-| 折叠按钮 / 右侧圆圈加减号 / 点击任务展开收起 | `components/TodoListItem.vue` `toggleExpand`、`handleRowClick`；`utils/taskCollapse.js` | 按钮在任务行右侧，圆圈内 +/−；非多选模式下点击任务行本身也会切换，双击进入编辑时不切换；折叠状态列表、图、回收站共享 |
+| 折叠按钮 / 右侧圆圈加减号 | `components/TodoListItem.vue` `toggleExpand`；`utils/taskCollapse.js` | 按钮在任务行右侧，圆圈内 +/−；折叠状态列表、图、回收站共享 |
 | 复选框 / 打勾 / 完成 / 取消完成 | `components/TodoListItem.vue` `cycleStatus` | 完成判定看 `completed_at` 是否为空 |
 | 圆形勾选圈 / 完成圈变圆 / 方框是选择 | `components/TodoListItem.vue` 模板内完成按钮与 `selectionMode` 分支 | 圆形表示完成状态，方形只在多选模式出现，形状即语义 |
 | 缩进引导线 / 层级竖线 / 子任务连到父级 | `components/TodoListItem.vue`「缩进引导线」 | 竖线沿父级缩进位，只为看清层级，不参与拖拽 |
