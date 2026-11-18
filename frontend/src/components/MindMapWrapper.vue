@@ -46,15 +46,15 @@
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @pointerenter="holdLeafControl(node)" @pointerleave="releaseLeafControl()"
           @click.stop="selectNode(node)">
-          <!-- 悬停与选中用同一个绿色，只靠透明度与描边粗细分强弱：悬停是半透明绿细框，选中是实绿粗框加淡底 -->
-          <rect :width="nodeWidth" :height="node.height" rx="8" :stroke-width="node.selected ? selectedNodeStroke : nodeStroke"
+          <!-- 悬停与选中用同一个绿色、同样粗细，只靠透明度分强弱：悬停是半透明绿框，选中是实绿框加淡底 -->
+          <rect :width="nodeWidth" :height="node.height" rx="8"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
             class="transition-colors" :class="[
               dragState.targetId === node.id
-                ? 'stroke-accent-600 dark:stroke-accent-400'
+                ? 'stroke-2 stroke-accent-600 dark:stroke-accent-400'
                 : node.selected
-                  ? 'stroke-accent-600 dark:stroke-accent-400'
-                  : 'stroke-neutral-200 group-hover:stroke-accent-600/45 dark:stroke-neutral-700 dark:group-hover:stroke-accent-400/45',
+                  ? 'stroke-2 stroke-accent-600 dark:stroke-accent-400'
+                  : 'stroke-1 stroke-neutral-200 group-hover:stroke-2 group-hover:stroke-accent-600/45 dark:stroke-neutral-700 dark:group-hover:stroke-accent-400/45',
               node.isRoot
                 ? 'fill-accent-700 dark:fill-accent-500'
                 : dragState.targetId === node.id
