@@ -113,19 +113,15 @@
             @pointerenter="holdLeafControl(node)" @pointerleave="releaseLeafControl()"
             @pointerdown.stop="onTogglePointerDown($event, node)" @click.stop="onToggleClick(node)">
             <!-- 透明热区：命中范围略大于可见圆，指针稍偏也能点到，又不至于抢走节点边缘的点击 -->
+            <!-- 按钮挂在节点外侧的画布上，配色统一按画布底走，根节点也不跟着节点底色变化 -->
             <circle :r="toggleRadius + 3" class="cursor-pointer fill-transparent" />
-            <circle :r="toggleRadius" class="cursor-pointer transition-colors" stroke-width="1" :class="node.isRoot
-              ? 'fill-white/15 stroke-white/40 hover:fill-white/25'
-              : 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'" />
+            <circle :r="toggleRadius" stroke-width="1"
+              class="cursor-pointer transition-colors fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800" />
             <template v-if="node.childCount > 0">
               <text v-if="node.collapsed" y="0" text-anchor="middle" dominant-baseline="central"
-                class="pointer-events-none text-[10px] tabular-nums" :class="node.isRoot
-                  ? 'fill-white'
-                  : 'fill-neutral-500 dark:fill-neutral-400'">{{ node.childCount }}</text>
+                class="pointer-events-none text-[10px] tabular-nums fill-neutral-500 dark:fill-neutral-400">{{ node.childCount }}</text>
               <path v-else d="M-3 0 H3" fill="none" stroke-width="1.3" stroke-linecap="round"
-                class="pointer-events-none" :class="node.isRoot
-                  ? 'stroke-white'
-                  : 'stroke-neutral-500 dark:stroke-neutral-300'" />
+                class="pointer-events-none stroke-neutral-500 dark:stroke-neutral-300" />
               <title>{{ node.collapsed ? `展开此节点的 ${node.childCount} 条子链接` : `折叠此节点的 ${node.childCount} 条子链接` }}</title>
             </template>
             <template v-else>
