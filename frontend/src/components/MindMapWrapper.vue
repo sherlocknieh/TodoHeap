@@ -1842,23 +1842,29 @@ const toGraphPoint = (event) => {
   }
 }
 
-// 拖拽建链接的落点：从折叠/加号按钮拉线时，指针不必精确压在目标节点上，
-// 落在节点附近同样命中；多个节点同时进入范围时取最近的那个，避免在两个节点之间抖动。
+// 拖拽落点：以矩形到节点矩形的间距判定。拖节点时被测的是影子节点，
+// 影子与目标接触（间距为 0）即命中，不看指针在哪；
+// 从折叠/加号按钮拉线时被测矩形退化为指针点，并按屏幕像素外扩一圈，
+// 指针不必精确压在目标上。多个节点同时进入范围时取中心最近的，避免在两者之间抖动。
 // 余量按屏幕像素折算，缩小时仍保持手感，但设上限，防止缩小后跨到相邻节点。
 const LINK_HIT_PADDING = 24
 const LINK_HIT_PADDING_MAX = 48
 const linkHitPadding = () => Math.min(LINK_HIT_PADDING / view.scale, LINK_HIT_PADDING_MAX)
-const linkTargetAtPoint = (point) => {
+const linkTargetAtRect = (rect) => {
   const padding = dragState.fromToggle ? linkHitPadding() : 0
   let nearest = null
   let nearestDistance = Infinity
   for (const node of layout.value.nodes) {
     if (node.id === dragState.sourceId || node.isRef) continue
-    // 点到节点矩形的最近距离：矩形内为 0，外部按横向/纵向空隙计算
-    const dx = Math.max(node.x - point.x, 0, point.x - (node.x + nodeWidth))
-    const dy = Math.max(node.y - point.y, 0, point.y - (node.y + node.height))
+    // 两矩形之间的空隙：相交或接触时为 0，否则取横向/纵向最近的一段
+    const gapX = Math.max(node.x - (rect.x + rect.width), rect.x - (node.x + nodeWidth), 0)
+    const gapY = Math.max(node.y - (rect.y + rect.height), rect.y - (node.y + node.height), 0)
+    if (Math.hypot(gapX, gapY) > padding) continue
+    // 接触的节点可能不止一个（影子跨在两节点之间），取中心最近的
+    const dx = node.x + nodeWidth / 2 - (rect.x + rect.width / 2)
+    const dy = node.y + node.height / 2 - (rect.y + rect.height / 2)
     const distance = Math.hypot(dx, dy)
-    if (distance > padding || distance >= nearestDistance) continue
+    if (distance >= nearestDistance) continue
     nearest = node
     nearestDistance = distance
   }
@@ -1954,6 +1960,8 @@ const updateDrag = (event) => {
   const source = layout.value.nodes.find((node) => node.id === dragState.sourceId)
   if (!source) return
   const point = toGraphPoint(event)
+  // 被测矩形的宽高：拖节点用影子，按钮拉线退化为一个点
+  let hitRect
   if (dragState.fromToggle) {
     const tip = outAnchor(source)
     const dx = point.x - tip.x
@@ -1962,17 +1970,19 @@ const updateDrag = (event) => {
     const ahead = DRAG_ARROW_GAP / view.scale
     const end = { x: point.x + (dx / length) * ahead, y: point.y + (dy / length) * ahead }
     dragState.preview = `M${tip.x} ${tip.y} L${end.x} ${end.y}`
+    hitRect = { x: point.x, y: point.y, width: 0, height: 0 }
   } else {
-    // 拖节点不画线：影子副本跟随指针，指针落在节点上才高亮目标
+    // 拖节点不画线：影子副本跟随指针，影子与目标接触就算命中
     dragState.preview = null
     dragState.shadow = {
       node: source,
       x: point.x - dragState.grab.x,
       y: point.y - dragState.grab.y
     }
+    hitRect = { x: dragState.shadow.x, y: dragState.shadow.y, width: nodeWidth, height: source.height }
   }
 
-  const hit = linkTargetAtPoint(point)
+  const hit = linkTargetAtRect(hitRect)
   dragState.targetId = hit ? hit.id : null
 }
 
