@@ -1,132 +1,25 @@
 # TodoHeap 项目索引
 
-> 给 agent 的导航文件：**先读这一份，再按需打开具体文件**，不要为了了解结构而全量阅读源码。
-> 用户用现象描述界面细节（如「节点垃圾桶悬停变红」）时，先查 `docs/zh/dev/keyword-index.md`。
+> 本文件只做导航：**完整索引已迁到 [docs/zh/dev/04.code-map.md](docs/zh/dev/04.code-map.md)**。开工先读那一页，再按需打开具体文件，不要为了了解结构而全量阅读源码。
 
-## 一句话
+AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Realtime / Edge Functions）。仓库含三个可独立安装的子项目：`frontend/`、`docs/`、`supabase/`。
 
-AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Realtime / Edge Functions）。
-产品目标是把模糊任务转化为可执行、可调整的日程，完整方案见 `docs/zh/dev/00.goals.md`。
-仓库含三个可独立安装的子项目：`frontend/`（应用）、`docs/`（VitePress 文档）、`supabase/`（迁移与边缘函数）。
+## 文档分工
 
-## 目录地图
-
-| 路径 | 职责 |
+| 要知道什么 | 去哪里 |
 | --- | --- |
-| `frontend/src/` | 应用源码，见下文 |
-| `frontend/vite.config.ts` | `base: '/TodoHeap/'`、构建输出 `../dist`、`@` → `src` 别名 |
-| `docs/zh/dev/logic/` | 机制与链路文档：讲现状逻辑、约束与验证，如 `task-create.md`；修 bug 时更新对应篇 |
-| `docs/zh/dev/keyword-index.md` | 关键词索引：用户对界面的说法 → 代码位置；定位 UI 需求先查，定位后补登记 |
-| `docs/` | VitePress 站点，`base: '/TodoHeap/docs/'`，中英双语（`zh/`、`en/`），侧栏由 `vitepress-sidebar` 自动生成；`zh/features/` 是按功能域描述当前实现的文档，只写现状、不记变更历史，只有中文 |
-| `supabase/migrations/` | 按时间戳排序的 SQL 迁移，**数据库结构的唯一事实来源** |
-| `supabase/functions/` | Deno 边缘函数 |
-| `.github/workflows/deploy.yaml` | push 到 main 且改动 `docs/`、`frontend/` 时，构建两者并发布到 GitHub Pages |
-| `dist/` | 混合部署产物，已 gitignore |
-
-## 常用命令
-
-| 场景 | 命令 |
-| --- | --- |
-| 启动应用 | 根目录 `pnpm dev`（= `cd frontend && pnpm dev`，端口 5200） |
-| 启动文档 | 根目录 `pnpm dev:docs`（端口 5201） |
-| 两者同时 | `pnpm dev:all` |
-| 构建前端 | `cd frontend && npm run build` |
-| 单元测试 | `cd frontend && npm test`（vitest，覆盖 store 层与滴答清单导入解析） |
-| 类型检查 | `cd frontend && npm run type-check`；⚠️ vue-tsc 1.8 与 TS 5.9 不兼容会直接崩，属已知问题，不是新引入的错误 |
-| 数据库迁移 | `npx supabase migration list --remote` 看远程状态；`npx supabase db push --remote --yes` 推送新迁移；直连 `db.<ref>.supabase.co` 在本机被拦截，改用 pooler：`npx supabase db push --yes --db-url "postgresql://postgres.<ref>:<密码>@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"`（密码需 URL 编码） |
-
-`frontend/` 与 `docs/` 各自安装依赖，仓库根只装 `concurrently`。
-
-## 前端结构 `frontend/src`
-
-| 文件 | 职责 |
-| --- | --- |
-| `main.ts`、`App.vue` | 入口，仅 `<RouterView />` |
-| `router/index.ts` | hash 路由；`/app` 需登录，默认落到任务图，子路由 `graph` / `list` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
-| `pages/Todo.vue` | 工作区外壳：活动栏、侧栏、中栏、详情面板、底栏统计；子视图由 `<router-view>` 注入 |
-| `pages/todo/TodoList.vue` | 任务表：快速添加 + 树形缩进的扁平列表 |
-| `pages/todo/TodoGraph.vue` | 任务图（默认视图）：渲染 `MindMapWrapper`，把键盘增删改接到 store |
-| `pages/todo/TodoHeap.vue` | 堆视图（侧栏入口已注释，路由仍可达） |
-| `pages/todo/ScheduleView.vue` | 日程视图：只展示 `schedules` 事件，按开始日期分组，选中事件交给右栏详情 |
-| `pages/todo/AIView.vue` | AI 工作台：对话式 Agent，可读写任务、日程与偏好 |
-| `pages/todo/Trash.vue` | 回收站：恢复、永久删除、清空，含越级删除的恢复限制弹窗 |
-| `pages/todo/Settings.vue` | 设置：账户信息、改密、删号、模型接入、日历、滴答清单 MCP 导入 |
-| `pages/{Home,Login,ResetPassword,404}.vue` | 落地页与认证页 |
-| `lib/supabase.ts` | 唯一 Supabase client，读 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUB_KEY` |
-| `lib/userSettings.js` | `user_settings` 表读写与 `DEFAULT_USER_SETTINGS` |
-| `lib/ticktickImport.js` | 滴答清单 CSV/JSON 解析、清单分组计划与逐条写入 |
-| `lib/didaMcp.js` | 滴答清单 MCP：OAuth 授权、工具调用、拉取任务后交给导入解析 |
-| `lib/llmProvider.js` | OpenAI 兼容服务预设、流式对话与工具调用解析 |
-| `lib/agentTools.js` | Agent 工具定义与执行器：读写任务、日程、偏好，含 `ask_user` 选择面板与 `switch_mode` |
-| `lib/agentModes.js` | 工作模式：只读模式 / 全能模式 / 清单读写 / 日程读写 / 设置读写，各自限定工具集与提示词；只读模式不可写 |
-| `lib/mcpServers.js` | 通用 MCP 服务：本机配置、内置预设（滴答清单一键添加）、JSON-RPC 握手、工具列举与调用、工具名映射 |
-| `lib/agentSkills.js` | Agent 技能模型：默认技能、归一化与新建，技能只绑定工作模式 |
-| `lib/ics.js` | ICS 解析/生成/下载，重复事件展开与 75 字节折行 |
-| `lib/calendarTransfer.js` | 日历导入导出封装、订阅令牌生成与撤销 |
-| `utils/priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
-| `utils/rootTask.js` | 根任务唯一判定入口（`isRootTodo` / `findRootTodo` / `withoutRootTodos`）与列表顶层展开 |
-| `utils/taskGraph.js` | 任务图遍历：后代收集、多父查找、森林展开（支持环，兄弟顺序直接取 `child_ids`） |
-| `utils/taskCollapse.js` | 跨视图共享的折叠状态（保存显式切换过的任务 ID） |
-| `utils/todoDrag.js` | 列表拖拽状态：源任务 ID、源父级与落点提示 |
-| `utils/detailPanelContext.js` | provide/inject key，供深层组件打开详情面板 |
-| `utils/settingsPanel.js` | 设置浮窗的共享状态 |
-| `utils/handleAuthCallback.ts` | 认证回调处理 |
-| `style.css` | Tailwind v4 入口 + 设计令牌（`accent-*` 色阶）+ 基元类 |
-
-组件（`frontend/src/components/`）：
-
-| 文件 | 职责 |
-| --- | --- |
-| `AppIcon.vue` | 线性图标全集（`name` + `size`），全站唯一图标来源 |
-| `LeftSidebar.vue` | 视图切换、AI 会话列表、技能与 MCP 服务管理 |
-| `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单 |
-| `TodoDetailEditor.vue` | 右栏详情：标题、起止时间、耗时、Markdown 描述 |
-| `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
-| `MindMapWrapper.vue` | 自研 SVG 思维导图：布局、缩放平移、键盘导航与内联重命名 |
-| `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认、请求详情 |
-| `AgentContextPanel.vue` | AI 视图右栏：会话、模型、上下文构成与本轮工具 |
-| `ScheduleDetailPanel.vue` | 日程视图右栏：选中日程的标题、起止时间与备注编辑 |
-| `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
-| `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
-
-### 状态管理
-
-`stores/todos.js` 是门面，其余切片装配进去。改同步逻辑时按职责定位文件：
-
-| 文件 | 职责 |
-| --- | --- |
-| `stores/todos.js` | 主 store：拉取（缺根任务时懒建）、树构建（兄弟顺序取 `child_ids`）、CRUD 入口、realtime 状态 |
-| `stores/todos.optimistic.js` | 乐观更新与级联（删父删子等） |
-| `stores/todos.rollback.js` | 失败回滚 |
-| `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
-| `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
-| `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除 |
-| `stores/agent.js` | 对话 Agent：多会话、技能管理、系统提示、工具循环、确认与本地持久化 |
-| `stores/llm.js` | 模型配置（仅浏览器本地）与聊天入口 |
-| `stores/auth.ts` | Supabase Auth 会话 |
-| `stores/todos.*.test.js` | vitest 覆盖乐观更新与回滚 |
-
-写操作链路：UI → `todos.js` action → 本地乐观更新并入队 → Supabase → 成功派发 `sync:id-replaced` / 失败回滚。
-
-对话 Agent 不直接写库：工具调用复用 `todos.js` / `schedules.js` 的 action，破坏性操作先经界面确认。模型接入有两档：`byok` 直连用户自带密钥，`builtin` 经 `llm_gateway` 用平台密钥转发；密钥只存浏览器或 Supabase secrets。技能（名称 + 图标 + 指令 + 绑定模式）存于 `user_settings.settings.skills`，点选技能会切到它绑定的模式，指令以 `<skill_content>` 块随该轮用户消息下发；全局优化只是默认技能，没有独立的边缘函数。
-
-## Supabase
-
-`todos` 表：`id, user_id, child_ids(BIGINT[] 子任务 ID 列表), title, details, deadline, duration(预计耗时, 小时, DECIMAL(5,2)), completed_at, external_id(外部来源标识), client_key(创建幂等键, 同一用户下唯一), is_root, created_at, updated_at, deleted_at`；已启 RLS，删除是软删除（`deleted_at`），完成状态由 `completed_at` 是否为空判定，`updated_at` 由触发器维护。
-每个用户有一条 `is_root` 根任务「全部任务」，顶层任务挂在它的 `child_ids` 下；`ensure_root_todo()` 幂等补建，`attach_root_children()` 供旧数据恢复后补挂。根任务由 RLS 禁止插入/删除（删号的外键级联不受影响），触发器只放行 `child_ids` 修改。
-`user_settings` 表：用户偏好，如 `autoApplyAITasks`。
-`schedules` 表：日程事件，`id, user_id, todo_id(可空), title, notes, location, url, attendees(TEXT[]), all_day, status, color, reminder_minutes(INTEGER[]), external_id, start_at, end_at, created_at, updated_at`；已启 RLS 与 Realtime。
-`get_calendar_feed(feed_token)`：SECURITY DEFINER 函数，按 `user_settings.settings.calendarFeedToken` 返回该用户的日程，授权 anon 调用，供日历订阅使用。
-
-| 边缘函数 | 作用 |
-| --- | --- |
-| `calendar_feed` | 日历订阅源：`?token=` 调用 `get_calendar_feed` RPC 输出 ICS，`verify_jwt = false` |
-| `llm_gateway` | 内置模型网关：校验用户 JWT 后用平台密钥转发 OpenAI 兼容请求；`GET` 返回实际可用模型（白名单或上游 `/models`）；订阅校验在 `authorizeRequest` 留空 |
-| `dida_auth` | 滴答清单 OAuth 代理：动态注册客户端与 PKCE 换令牌；MCP 调用统一走 `mcp_gateway`，令牌不落库 |
-| `mcp_gateway` | 通用 MCP 网关：校验用户 JWT 后转发任意 MCP 服务的 JSON-RPC（含滴答清单），只允许 http(s) 地址，令牌只在请求内使用 |
-
-密钥只放 Supabase secrets 与 GitHub Actions vars/secrets；前端仅持 `VITE_SUPABASE_PUB_KEY`。
+| 目录地图、常用命令、文件职责、状态管理与 Supabase 结构 | [代码地图](docs/zh/dev/04.code-map.md) |
+| 用户对界面的说法 → 代码位置 | [关键词索引](docs/zh/dev/keyword-index.md) |
+| 机制与链路（为什么这样写、约束、如何验证） | [逻辑文档](docs/zh/dev/logic/index.md) |
+| 产品目标与完整闭环 | [项目愿景与方案](docs/zh/dev/00.goals.md) |
+| 系统设计、技术选型、数据库设计 | [架构与技术栈](docs/zh/dev/02.architecture.md) |
+| 开发流程与常见任务 | [开发流程与任务](docs/zh/dev/03.development.md) |
+| 按功能域记录当前实现 | [特性记录](docs/zh/features/index.md) |
 
 ## 开工流程
 
-开工前加载 `dev-init` skill（全局 `dev` 分组），按「定位 → 核对约定 → 实现 → 验证 → 记录 → 提交」走。本仓库的 UI、数据模型、文档记录与验证细则在该 skill 的 `references/todoheap.md`；本文件只保留结构与命令索引。
+开工前加载 `dev-init` skill（全局 `dev` 分组），按「定位 → 核对约定 → 实现 → 验证 → 记录 → 提交」走。本仓库的 UI、数据模型、文档记录与验证细则在该 skill 的 `references/todoheap.md`。
+
+## 维护
+
+改动源码文件结构、命令或数据模型时，同步更新[代码地图](docs/zh/dev/04.code-map.md)；本文件只在文档分工变化时修改。

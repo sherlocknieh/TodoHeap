@@ -49,6 +49,11 @@ pnpm dev
 
 - [**开发流程与任务**](./03.development.md) - 开发流程、常见任务、本地调试
 
+### 代码地图
+按文件定位代码，先查这一页再打开目标文件
+
+- [**代码地图**](./04.code-map.md) - 目录地图、常用命令、前端各文件的职责、状态管理与 Supabase 结构
+
 ### 逻辑文档
 按机制讲清实现链路与约束，修 bug 时更新对应篇
 
@@ -87,7 +92,7 @@ pnpm dev
 1. 先读[项目愿景与方案](./00.goals.md)明确要解决的问题
 2. 再读 [架构与技术栈](./02.architecture.md) 获得全景
 3. 再读 [开发流程与任务](./03.development.md) 了解动手方式
-4. 需要定位代码时看仓库根目录的 `AGENTS.md` 索引
+4. 需要定位代码时看[代码地图](./04.code-map.md)
 
 ---
 
@@ -100,11 +105,12 @@ docs/zh/dev/
 ├── 01.setup.md           ← 环境搭建
 ├── 02.architecture.md    ← 架构与技术栈
 ├── 03.development.md     ← 开发流程与常见任务
+├── 04.code-map.md        ← 代码地图：文件职责与常用命令
 ├── keyword-index.md      ← 用户说法 → 代码位置的关键词索引
 └── logic/                ← 机制与链路文档（修 bug 时更新）
 
 supabase/functions/       ← Edge Functions 实现
-frontend/src/             ← 前端源码（详见仓库根目录 AGENTS.md）
+frontend/src/             ← 前端源码（逐文件职责见 04.code-map.md）
 ```
 
 ---
