@@ -978,6 +978,29 @@ const graphLayout = computed(() => {
     })
   })
 
+  // 块在交叉方向的实际范围：节点自身加所有可见后代，用来按可见边缘算间距。
+  // 块中心对称的跨度会高估空白，尤其当子树只朝一侧展开时
+  const blockBoundsCache = new Map()
+  const blockBoundsOf = (id, visiting = new Set()) => {
+    const cached = blockBoundsCache.get(id)
+    if (cached) return cached
+    if (visiting.has(id)) {
+      return { top: crossCenter.get(id) - crossSizeOf(id) / 2, bottom: crossCenter.get(id) + crossSizeOf(id) / 2 }
+    }
+    visiting.add(id)
+    let top = crossCenter.get(id) - crossSizeOf(id) / 2
+    let bottom = crossCenter.get(id) + crossSizeOf(id) / 2
+    ;(visibleChildren.get(id) || []).forEach((child) => {
+      const bounds = blockBoundsOf(child, visiting)
+      if (bounds.top < top) top = bounds.top
+      if (bounds.bottom > bottom) bottom = bounds.bottom
+    })
+    visiting.delete(id)
+    const value = { top, bottom }
+    blockBoundsCache.set(id, value)
+    return value
+  }
+
   // 保序回归（PAVA）：把期望位置投影到「同层最小间距」约束上，得到该层的最优解
   const projectLayer = (layer) => {
     const list = order.get(layer)
@@ -985,7 +1008,8 @@ const graphLayout = computed(() => {
 
     const offsets = [0]
     for (let i = 1; i < list.length; i += 1) {
-      const gap = (blockSizeOf(list[i - 1].id) + blockSizeOf(list[i].id)) / 2 + crossGap
+      // 投影只保证节点自身不重叠，子树块之间的空白由 limitGaps 按实际边缘压缩
+      const gap = (crossSizeOf(list[i - 1].id) + crossSizeOf(list[i].id)) / 2 + crossGap
       offsets.push(offsets[i - 1] + gap)
     }
 
@@ -1037,17 +1061,11 @@ const graphLayout = computed(() => {
   }
   nodes.forEach((node) => blockNodes.set(node.id, collectBlock(node.id, new Set())))
 
-  // 同层大间距回收：下方节点被别的父链拉远后，把上方块整体下移，
-  // 让空白被吸收而不是留在原地；从下往上处理，保持相邻块的最小间距。
-  // 移动单位是并列块根（如学习项目、软件项目），整支子树一起平移，内部布局不变
-  const blockRootOf = (id) => {
-    let parent = (parentsOf.get(id) || [])[0]
-    while (parent) {
-      const grand = (parentsOf.get(parent) || [])[0]
-      if (grand && (childrenOf.get(grand) || []).length > 1) return parent
-      parent = grand
-    }
-    return id
+  // 同层大间距回收：只处理同一父级下的兄弟分支，移动上方节点自己的整棵子树。
+  // 这样压的是兄弟之间的空白，既不会把子树拆开，也不会越过父级把整块平移回去
+  const shareParent = (a, b) => {
+    const parents = new Set(parentsOf.get(b) || [])
+    return (parentsOf.get(a) || []).some((id) => parents.has(id))
   }
 
   const shiftBlock = (id, shift, moved) => {
@@ -1064,12 +1082,14 @@ const graphLayout = computed(() => {
       const prev = list[i - 1]
       const cur = list[i]
       if (moved.has(prev.id) || moved.has(cur.id)) continue
-      const minGap = (blockSizeOf(prev.id) + blockSizeOf(cur.id)) / 2 + crossGap
-      const maxGap = minGap + crossGap * 2
-      const gap = crossCenter.get(cur.id) - crossCenter.get(prev.id)
-      if (gap <= maxGap) continue
-      const shift = gap - maxGap
-      for (let j = 0; j < i; j += 1) shiftBlock(blockRootOf(list[j].id), shift, moved)
+      if (!shareParent(prev.id, cur.id)) continue
+      // 按两块的可见边缘计算空白：上方子树底部到下方子树顶部的距离
+      blockBoundsCache.clear()
+      const gap = blockBoundsOf(cur.id).top - blockBoundsOf(prev.id).bottom
+      if (gap <= crossGap) continue
+      const shift = gap - crossGap
+      for (let j = 0; j < i; j += 1) shiftBlock(list[j].id, shift, moved)
+      blockBoundsCache.clear()
     }
   }
 
