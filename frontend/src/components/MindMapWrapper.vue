@@ -253,12 +253,17 @@
           leave-active-class="transition ease-in duration-75" leave-from-class="opacity-100 scale-100"
           leave-to-class="opacity-0 scale-95">
           <div v-if="helpOpen"
-            class="absolute bottom-full right-0 mb-2 w-72 origin-bottom-right panel p-2.5 text-[11px] leading-5 text-neutral-600 shadow-lg dark:text-neutral-400"
+            class="absolute bottom-full right-0 mb-2 w-max origin-bottom-right panel p-2.5 text-[11px] leading-5 text-neutral-600 shadow-lg dark:text-neutral-400"
             @keydown.escape.stop="helpOpen = false">
             <p class="mb-1.5 eyebrow">操作提示</p>
-            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">Ctrl+滚轮</span>：缩放</p>
-            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">Enter</span>：新建同级节点</p>
-            <p><span class="font-medium text-neutral-800 dark:text-neutral-200">Tab</span>：新建子节点</p>
+            <div class="grid grid-cols-[auto_1fr] gap-x-3">
+              <span class="font-medium text-neutral-800 dark:text-neutral-200">Ctrl+滚轮</span>
+              <span>缩放</span>
+              <span class="font-medium text-neutral-800 dark:text-neutral-200">Enter</span>
+              <span>新建同级节点</span>
+              <span class="font-medium text-neutral-800 dark:text-neutral-200">Tab</span>
+              <span>新建子节点</span>
+            </div>
           </div>
         </Transition>
       </div>
