@@ -34,14 +34,14 @@
           :class="edge.deletable ? 'cursor-pointer' : 'cursor-default'"
           @pointerdown.stop @click.stop="selectEdge(edge)" />
 
-        <!-- 拖拽落点的预览线：节点拖拽时箭头指向源节点，按钮拖拽时从按钮连向指针 -->
+        <!-- 拉线预览：只在从折叠/加号按钮建链接时画，从按钮连向指针 -->
         <path v-if="dragState.active && dragState.preview" :d="dragState.preview" fill="none"
           class="stroke-accent-500 dark:stroke-accent-400" stroke-width="1.6" stroke-dasharray="6 4"
           stroke-linecap="round" marker-end="url(#mm-arrow-ref)" />
 
         <!-- 节点 -->
         <g v-for="node in layout.nodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
-          :opacity="node.completed_at ? 0.55 : 1" :data-mm-node="node.id"
+          :opacity="nodeOpacity(node)" :data-mm-node="node.id"
           class="cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @pointerenter="holdLeafControl(node)" @pointerleave="releaseLeafControl()"
@@ -171,6 +171,18 @@
           <path d="M-1.8 -1.8 L1.8 1.8 M1.8 -1.8 L-1.8 1.8" fill="none"
             class="pointer-events-none" stroke-width="1.3" stroke-linecap="round"
             :class="confirmUnlink ? 'stroke-white' : 'stroke-accent-600 dark:stroke-accent-400'" />
+        </g>
+
+        <!-- 拖拽影子：按住节点拖动时跟随指针的副本，抓取点与原件保持同一相对位置；
+             原件同时淡出，落点节点仍按 targetId 高亮 -->
+        <g v-if="dragState.shadow" :transform="`translate(${dragState.shadow.x} ${dragState.shadow.y})`"
+          class="pointer-events-none">
+          <rect :width="nodeWidth" :height="dragState.shadow.node.height" rx="8" fill-opacity="0.92"
+            stroke-width="1.4" stroke-dasharray="6 4"
+            class="fill-white stroke-accent-500 dark:fill-neutral-900 dark:stroke-accent-400" />
+          <text v-for="(line, index) in dragState.shadow.node.lines" :key="index"
+            :x="dragState.shadow.node.textX" :y="paddingTop + fontSize + index * lineHeight"
+            :style="textStyle" class="fill-neutral-800 font-medium dark:fill-neutral-100">{{ line }}</text>
         </g>
       </g>
     </svg>
@@ -1799,12 +1811,28 @@ let lastPanEndAt = 0
 
 // 拖拽落点：两种起点——拖节点表示「它将成为落点节点的子任务」，
 // 拖折叠/加号按钮表示「落点节点将成为它的子任务」，方向相反；
-// 节点拖拽是移动还是新增链接由调用方按父级数量决定，按钮拖拽只建链接
-const dragState = reactive({ active: false, sourceId: null, targetId: null, preview: null, moved: false, fromToggle: false })
+// 节点拖拽是移动还是新增链接由调用方按父级数量决定，按钮拖拽只建链接。
+// shadow 是拖节点时跟随指针的影子副本，grab 记录按下点相对节点左上角的偏移
+const dragState = reactive({
+  active: false,
+  sourceId: null,
+  targetId: null,
+  preview: null,
+  shadow: null,
+  grab: { x: 0, y: 0 },
+  moved: false,
+  fromToggle: false
+})
 let dragStart = { x: 0, y: 0 }
 let lastDragEndAt = 0
 
-// 屏幕坐标换算成画布坐标，供命中检测与预览线使用
+// 拖拽中的源节点淡出，视线交给影子节点；拉线建链接时源节点保持原样
+const nodeOpacity = (node) => {
+  if (dragState.active && dragState.moved && !dragState.fromToggle && node.id === dragState.sourceId) return 0.3
+  return node.completed_at ? 0.55 : 1
+}
+
+// 屏幕坐标换算成画布坐标，供命中检测、拉线与拖拽影子使用
 const toGraphPoint = (event) => {
   const rect = container.value?.getBoundingClientRect()
   if (!rect) return { x: 0, y: 0 }
@@ -1900,10 +1928,15 @@ const startDrag = (event, sourceId, fromToggle) => {
   hasInteracted = true
   draggingLeafId.value = fromToggle ? String(sourceId) : null
   dragStart = { x: event.clientX, y: event.clientY }
+  // 记录按下点在源节点内的位置，影子节点全程保持这个偏移，指针就像捏着原件在拖
+  const source = layout.value.nodes.find((node) => node.id === sourceId)
+  const origin = source ? toGraphPoint(event) : null
+  dragState.grab = origin ? { x: origin.x - source.x, y: origin.y - source.y } : { x: 0, y: 0 }
   dragState.active = true
   dragState.sourceId = sourceId
   dragState.targetId = null
   dragState.preview = null
+  dragState.shadow = null
   dragState.moved = false
   dragState.fromToggle = fromToggle
   // 不用 pointer capture：它会把 click 改派到画布，节点自身的选中与双击会失效
@@ -1915,8 +1948,8 @@ const startDrag = (event, sourceId, fromToggle) => {
 // 预览线终点再越过指针一小段（屏幕像素），让箭头露在鼠标图标之外，避免被指针盖住
 const DRAG_ARROW_GAP = 18
 
-// 预览线：节点拖拽从指针连向源的入边锚点，箭头落在源节点上；
-// 按钮拖拽从源的折叠按钮连向指针，箭头指向待挂接的节点
+// 拖拽中的实时反馈：拉线只用于从折叠/加号按钮建链接，从按钮连向指针；
+// 拖节点改为影子副本跟随指针，不再画线
 const updateDrag = (event) => {
   const source = layout.value.nodes.find((node) => node.id === dragState.sourceId)
   if (!source) return
@@ -1930,10 +1963,13 @@ const updateDrag = (event) => {
     const end = { x: point.x + (dx / length) * ahead, y: point.y + (dy / length) * ahead }
     dragState.preview = `M${tip.x} ${tip.y} L${end.x} ${end.y}`
   } else {
-    const tip = inAnchor(source)
-    // 线端沿法线后退一个箭头长度，箭头尖端正好落在节点边缘
-    const end = { x: tip.x + tip.dx * arrowLength, y: tip.y + tip.dy * arrowLength }
-    dragState.preview = `M${point.x} ${point.y} L${end.x} ${end.y}`
+    // 拖节点不画线：影子副本跟随指针，指针落在节点上才高亮目标
+    dragState.preview = null
+    dragState.shadow = {
+      node: source,
+      x: point.x - dragState.grab.x,
+      y: point.y - dragState.grab.y
+    }
   }
 
   const hit = linkTargetAtPoint(point)
@@ -1961,6 +1997,7 @@ const onDragEnd = (event) => {
   dragState.sourceId = null
   dragState.targetId = null
   dragState.preview = null
+  dragState.shadow = null
   dragState.moved = false
   dragState.fromToggle = false
   draggingLeafId.value = null
