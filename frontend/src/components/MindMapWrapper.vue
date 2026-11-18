@@ -458,7 +458,8 @@ const textUnitsFor = (hasCheckbox) => {
   return Math.max(4, Math.floor(available / fontSize))
 }
 
-// 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出
+// 中文按整字宽度、西文按半角宽度估算换行，保证节点内文字不溢出；
+// 手工换行（Shift+Enter）按硬换行处理，空白行也占一行
 const wrapLines = (text, unitsPerLine, limit = maxLines) => {
   const chars = [...String(text || '未命名任务')]
   const lines = []
@@ -466,6 +467,12 @@ const wrapLines = (text, unitsPerLine, limit = maxLines) => {
   let units = 0
 
   for (const char of chars) {
+    if (char === '\n') {
+      lines.push(line)
+      line = ''
+      units = 0
+      continue
+    }
     const charUnits = /[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 1 : 0.55
     if (units + charUnits > unitsPerLine && line) {
       lines.push(line)
@@ -1624,7 +1631,12 @@ const commitEdit = (event) => {
     releaseSelection(el)
     return
   }
-  const title = editingText.value.replace(/\s+/g, ' ').trim()
+  // 行内空白压成单个空格，但保留 Shift+Enter 的手工换行；首尾空行丢弃
+  const title = editingText.value
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .join('\n')
+    .replace(/^\n+|\n+$/g, '')
   const id = finishEdit(el)
   if (!title) return
   const node = layout.value.nodes.find((item) => item.id === String(id))
@@ -1638,6 +1650,8 @@ const cancelEdit = () => {
 
 const onEditKeydown = (event) => {
   if (event.key === 'Enter') {
+    // Shift+Enter 插入手工换行，交给输入框默认行为；单独回车仍然提交
+    if (event.shiftKey) return
     event.preventDefault()
     commitEdit(event)
   } else if (event.key === 'Escape') {
@@ -1736,7 +1750,8 @@ const copySubtreeAsMarkdown = async (id) => {
     const nodeId = String(node.id)
     if (visited.has(nodeId)) return
     visited.add(nodeId)
-    lines.push(`${'  '.repeat(depth)}- ${node.title || '未命名任务'}`)
+    // 节点标题可能含手工换行，复制成 Markdown 时压成一行，避免打断列表结构
+    lines.push(`${'  '.repeat(depth)}- ${(node.title || '未命名任务').replace(/\s*\n\s*/g, ' ')}`)
     ;(node.children || []).forEach((child) => {
       if (!child.isRef) render(child, depth + 1)
     })
