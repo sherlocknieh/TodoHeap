@@ -789,6 +789,26 @@ const buildGraphData = (forest, collapsed) => {
   return { nodes: nodeList, edges: edgeList }
 }
 
+// 拖拽状态必须在布局计算之前声明：占位槽预览让布局依赖它，而 watch(layout) 在 setup 阶段就会求值。
+// 两种起点——拖节点表示「它将成为落点节点的子任务或排到它前后」，
+// 拖折叠/加号按钮表示「落点节点将成为它的子任务」，方向相反；
+// 节点拖拽是移动、重排还是新增链接由调用方按落点与父级数量决定，按钮拖拽只建链接。
+// shadow 是拖节点时跟随指针的影子副本，grab 记录按下点相对节点左上角的偏移
+const dragState = reactive({
+  active: false,
+  sourceId: null,
+  targetId: null,
+  // 落点语义：inside 成为子任务；before/after 插到目标节点的兄弟序列前后
+  dropPosition: 'inside',
+  preview: null,
+  shadow: null,
+  grab: { x: 0, y: 0 },
+  moved: false,
+  fromToggle: false
+})
+let dragStart = { x: 0, y: 0 }
+let lastDragEndAt = 0
+
 // 拖拽排序的占位槽：在目标兄弟序列里临时插入一个假节点，让布局真正腾出空位。
 // 只用于显示；拖拽命中检测仍用不含占位槽的布局，避免目标节点被顶走后反复抖动
 const DROP_PLACEHOLDER_ID = '__drop-placeholder__'
@@ -2139,25 +2159,6 @@ let panMoved = false
 // 本次平移是否从根节点按起：松手后按位移分派选中或平移
 let panFromRoot = false
 let lastPanEndAt = 0
-
-// 拖拽落点：两种起点——拖节点表示「它将成为落点节点的子任务或排到它前后」，
-// 拖折叠/加号按钮表示「落点节点将成为它的子任务」，方向相反；
-// 节点拖拽是移动、重排还是新增链接由调用方按落点与父级数量决定，按钮拖拽只建链接。
-// shadow 是拖节点时跟随指针的影子副本，grab 记录按下点相对节点左上角的偏移
-const dragState = reactive({
-  active: false,
-  sourceId: null,
-  targetId: null,
-  // 落点语义：inside 成为子任务；before/after 插到目标节点的兄弟序列前后
-  dropPosition: 'inside',
-  preview: null,
-  shadow: null,
-  grab: { x: 0, y: 0 },
-  moved: false,
-  fromToggle: false
-})
-let dragStart = { x: 0, y: 0 }
-let lastDragEndAt = 0
 
 // 只有 inside 才算「拖进节点」，前后插序时目标节点不高亮，改由占位槽提示落点
 const isDropInside = (node) => dragState.targetId === node.id && dragState.dropPosition === 'inside'
