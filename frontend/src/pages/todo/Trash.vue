@@ -50,11 +50,14 @@
         <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id"
           class="group cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
           <!-- 缩进留在外层，行内容单独成块，选中底色只覆盖任务自身范围 -->
-          <div class="flex items-center gap-2.5 rounded-xl border py-2.5 pl-2 pr-3 transition-all" :class="[
+          <div class="relative flex items-center gap-2.5 rounded-xl border py-2.5 pl-2 pr-3 transition-all" :class="[
             selectedTaskId === item.id
-              ? 'border-hairline bg-neutral-100 shadow-[inset_3px_0_0_0_var(--color-accent-600),0_2px_8px_rgb(6_80_48/0.12)] dark:border-hairline-dark dark:bg-neutral-800/70 dark:shadow-[inset_3px_0_0_0_var(--color-accent-400)]'
-              : 'border-hairline bg-surface shadow-[0_1px_3px_rgb(6_80_48/0.07)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.1)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40 dark:hover:shadow-none'
+              ? 'border-hairline bg-neutral-100 shadow-[0_2px_8px_rgb(6_80_48/0.1)] dark:border-hairline-dark dark:bg-neutral-800/70 dark:shadow-none'
+              : 'border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
           ]">
+            <!-- 选中的弱化短条，与任务列表同一套提示 -->
+            <span v-if="selectedTaskId === item.id" aria-hidden="true"
+              class="pointer-events-none absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-accent-500/40 dark:bg-accent-400/40"></span>
             <!-- 展开/折叠 -->
             <button v-if="item.children && item.children.length"
               class="p-0.5 rounded text-neutral-400 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"

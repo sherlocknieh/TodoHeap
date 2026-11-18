@@ -35,7 +35,7 @@
 				<div v-for="(node, idx) in heapTree" :key="node.id" data-task-item :class="[
 					'flex items-start gap-3 px-3 py-2 border-b border-hairline dark:border-hairline-dark last:border-0 cursor-pointer border-l-2 transition-colors',
 					selectedTaskId === node.id
-						? 'bg-neutral-100/80 dark:bg-neutral-800/60 border-l-accent-600 dark:border-l-accent-400'
+						? 'bg-neutral-100/80 dark:bg-neutral-800/60 border-l-accent-500/45 dark:border-l-accent-400/40'
 						: 'border-l-transparent hover:bg-neutral-100/80 dark:hover:bg-neutral-800/40'
 				]" @click="selectTask(node.id)">
 					<span class="w-5 shrink-0 pt-0.5 font-mono text-xs text-neutral-400">{{ idx + 1 }}</span>

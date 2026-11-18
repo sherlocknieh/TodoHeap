@@ -113,11 +113,14 @@
       </div>
       <ul v-if="showCompletedPanel" class="mt-1 space-y-1.5 pb-2">
         <li v-for="t in completedTodos" :key="t.id" @click="handleTaskSelected(t.id)" :class="[
-          'group flex cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm transition-all',
+          'group relative flex cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm transition-all',
           props.selectedTaskId === t.id
-            ? 'border-accent-200 bg-neutral-100 shadow-[inset_3px_0_0_0_var(--color-accent-600),0_2px_8px_rgb(6_80_48/0.1)] dark:border-accent-500/40 dark:bg-neutral-800/70 dark:shadow-[inset_3px_0_0_0_var(--color-accent-400)]'
+            ? 'border-accent-200 bg-neutral-100 shadow-[0_2px_8px_rgb(6_80_48/0.1)] dark:border-accent-500/40 dark:bg-neutral-800/70 dark:shadow-none'
             : 'border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
         ]">
+          <!-- 选中的弱化短条，与任务列表同一套提示 -->
+          <span v-if="props.selectedTaskId === t.id" aria-hidden="true"
+            class="pointer-events-none absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-accent-500/40 dark:bg-accent-400/40"></span>
           <button type="button"
             class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-accent-600 bg-accent-600 text-white transition-colors hover:bg-accent-700 hover:border-accent-700 dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950"
             title="标记为未完成" aria-label="标记为未完成" @click.stop="toggleCompletedTodo(t)">

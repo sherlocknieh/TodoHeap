@@ -12,9 +12,9 @@
         <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围 -->
         <div class="relative flex items-center gap-2.5 rounded-xl border py-1.5 pl-2 pr-1.5 transition-all"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
-          <!-- 选中强调条：绝对定位直条，避免跟随圆角弯曲 -->
+          <!-- 选中提示：2px 低透明度短条，只做定位线索，不与任务标题抢注意力 -->
           <span v-if="isRowSelected(item)"
-            class="pointer-events-none absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-600 dark:bg-accent-400"></span>
+            class="pointer-events-none absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-accent-500/40 dark:bg-accent-400/40"></span>
           <!-- 展开/折叠 -->
           <button v-if="item.children && item.children.length"
             class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
