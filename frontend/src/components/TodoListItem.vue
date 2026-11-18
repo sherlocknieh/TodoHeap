@@ -3,23 +3,15 @@
     <template v-for="item in flatList">
       <li v-if="isItemVisible(item)" :key="item.id" data-task-item :draggable="canDrag(item)"
         class="group relative cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }"
-        @click="handleRowClick(item)" @dragstart="onDragStart(item, $event)" @dragover.prevent="onDragOver(item, $event)"
+        @click="handleRowClick(item, $event)" @dragstart="onDragStart(item, $event)" @dragover.prevent="onDragOver(item, $event)"
         @dragleave="onDragLeave(item, $event)" @drop.prevent="onDrop(item, $event)" @dragend="onDragEnd">
-        <!-- 缩进引导线：沿父级展开箭头中心向下贯穿，深层子任务在独立卡片间仍看得出归属 -->
+        <!-- 缩进引导线：沿父级层级缩进位向下贯穿，深层子任务在独立卡片间仍看得出归属 -->
         <span v-if="item._level > 0" aria-hidden="true"
           class="pointer-events-none absolute inset-y-0 w-px bg-hairline/70 dark:bg-hairline-dark/70"
           :style="{ left: (item._level * 22 - 1) + 'px' }"></span>
         <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围；圆圈角与左边框宽度由状态类给出 -->
         <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
-          <!-- 展开/折叠 -->
-          <button v-if="item.children && item.children.length"
-            class="p-0.5 rounded text-neutral-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
-            @click.stop="toggleExpand(item)">
-            <AppIcon :name="isItemExpanded(item) ? 'chevronDown' : 'chevronRight'" :size="13" />
-          </button>
-          <span v-else class="w-[18px] shrink-0"></span>
-
           <!-- 多选模式用方形选择框，日常完成状态用圆形勾选圈：形状即语义，避免两种状态混淆 -->
           <button v-if="selectionMode" type="button"
             class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-[5px] border transition-colors"
@@ -51,7 +43,7 @@
                   ? 'font-semibold text-accent-900 dark:text-accent-100'
                   : ['text-neutral-800 dark:text-neutral-200', item._level === 0 ? 'font-medium' : ''],
                 { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
-              ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
+              ]" @dblclick.stop="handleRowDblClick(item)">
                 <AppIcon v-if="item._isRef" name="link" :size="11"
                   class="shrink-0 text-neutral-400 dark:text-neutral-500" />
                 <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
@@ -80,6 +72,14 @@
           </div>
 
           <!-- 行内操作 -->
+          <!-- 折叠开关放在右侧，圆圈内 +/− 表示当前状态；点击整行同样切换 -->
+          <button v-if="item.children && item.children.length" type="button"
+            class="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+            :title="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
+            :aria-label="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
+            :aria-expanded="isItemExpanded(item)" @click.stop="toggleExpand(item)">
+            <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="10" />
+          </button>
           <div v-if="item._isRef && !selectionMode" class="flex shrink-0 items-center gap-0.5">
             <button type="button"
               class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 opacity-0 transition-all hover:bg-accent-50 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
@@ -299,13 +299,47 @@ const rowStateClass = (item) => {
 
 // 拖拽刚结束时浏览器仍会补发一次 click，短暂忽略避免误选中
 let suppressClickUntil = 0
-const handleRowClick = (item) => {
+// 点击行触发的折叠延后执行：双击会先清掉待执行的切换，进入编辑时不收起子任务
+const ROW_CLICK_TOGGLE_DELAY = 300
+let rowClickTimer = null
+let lastRowToggleAt = 0
+
+const scheduleRowToggle = (item) => {
+  clearTimeout(rowClickTimer)
+  rowClickTimer = setTimeout(() => {
+    rowClickTimer = null
+    lastRowToggleAt = Date.now()
+    toggleExpand(item)
+  }, ROW_CLICK_TOGGLE_DELAY)
+}
+
+const handleRowClick = (item, event) => {
   if (Date.now() < suppressClickUntil) return
   if (props.selectionMode) {
     emitToggleSelect(item)
     return
   }
   selectTask(item)
+  if (item._isRef || !item.children || !item.children.length) return
+  // 第二击属于双击，撤掉第一击排队的切换
+  if ((event?.detail ?? 1) > 1) {
+    clearTimeout(rowClickTimer)
+    rowClickTimer = null
+    return
+  }
+  scheduleRowToggle(item)
+}
+
+const handleRowDblClick = (item) => {
+  clearTimeout(rowClickTimer)
+  rowClickTimer = null
+  // 双击间隔较长时第一击已触发切换，这里补回原状态
+  if (Date.now() - lastRowToggleAt < ROW_CLICK_TOGGLE_DELAY + 150) {
+    lastRowToggleAt = 0
+    toggleExpand(item)
+  }
+  if (props.selectionMode || item._isRef) return
+  startEdit(item.id, item.title)
 }
 
 // 截止时间快捷预设由共享工具换算，自定义与实际选择统一转 ISO
@@ -449,6 +483,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside)
   window.removeEventListener('sync:id-replaced', handleIdReplaced)
+  clearTimeout(rowClickTimer)
 })
 
 const handleIdReplaced = (event) => {
