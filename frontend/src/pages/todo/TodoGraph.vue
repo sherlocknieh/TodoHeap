@@ -2,6 +2,7 @@
 	<!-- 任务图：思维导图占满活动栏以外的区域，支持键盘增删改 -->
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
+			:controls-target="props.controlsTarget"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
 			@delete-task="deleteTask" @toggle-done="toggleDone" @drop-task="dropTask" @unlink-task="unlinkTask"
 			@notify="payload => emit('notify', payload)" />
@@ -16,7 +17,9 @@ import { collectDescendantIds, findParentIds } from '@/utils/taskGraph'
 import { ROOT_TODO_TITLE } from '@/utils/rootTask'
 
 const props = defineProps({
-	selectedTaskId: { type: Number, default: null }
+	selectedTaskId: { type: Number, default: null },
+	// 视图控件要 teleport 到的页面浮层节点，右栏占宽由 flex 自动让出
+	controlsTarget: { type: String, default: null }
 })
 
 const emit = defineEmits(['task-selected', 'notify'])

@@ -58,6 +58,8 @@ const selectedTaskId = persistedRef('selected-task', null, {
 	validate: (value) => value === null || Number.isFinite(value)
 })
 const showDetailPanel = persistedRef('detail-open', false)
+// 任务图浮层里承载导图视图控件的占位节点：按钮由画布 teleport 过来，位置交给 flex 行决定
+const GRAPH_CONTROLS_HOST_ID = 'graph-view-controls'
 // 日程视图的右栏编辑选中的日程，与其他视图的任务选中互不干扰
 const selectedEventId = persistedRef('selected-event', null, {
 	validate: (value) => value === null || Number.isFinite(value)
@@ -185,6 +187,7 @@ const syncState = computed(() => {
 const viewProps = computed(() => {
 	if (activeView.value === 'schedule') return { selectedEventId: selectedEventId.value }
 	if (activeView.value === 'heap') return { todos: todoStore.tasks }
+	if (activeView.value === 'graph') return { controlsTarget: GRAPH_CONTROLS_HOST_ID }
 	return {}
 })
 
@@ -376,8 +379,8 @@ const createNewTask = async () => {
 // 浮层侧栏：窄屏抽屉或任务图覆盖模式，点击外部应自动收起
 const isSidebarFloating = computed(() => activeView.value === 'graph' || windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
 
-// 右栏在窄屏同样浮在内容之上，宽屏才挤压中栏
-const isDetailPanelFloating = computed(() => windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
+// 右栏在其他视图窄屏时浮在内容之上，宽屏挤压中栏；任务图另有整行浮层
+const isDetailPanelFloating = computed(() => isNarrowScreen.value)
 
 // 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {
@@ -393,8 +396,8 @@ const handleClickOutside = (event) => {
 			showLeftSidebar.value = false
 		}
 	}
-	// 窄屏右栏浮在内容之上，点击面板外收起
-	if (showDetailPanel.value && isDetailPanelFloating.value) {
+	// 窄屏右栏浮在内容之上，点击面板外收起；任务图的浮层要留在画布旁，不跟着点画布关掉
+	if (showDetailPanel.value && isNarrowScreen.value) {
 		const insidePanel = event.target.closest?.('[data-detail-panel]')
 		const insideTrigger = event.target.closest?.('[data-detail-panel-trigger]')
 		if (!insidePanel && !insideTrigger) closeDetailPanel()
@@ -591,8 +594,20 @@ const runToastAction = async () => {
 				</div>
 			</div>
 
-			<!-- 右栏：窄屏浮在内容之上，宽屏挤压中栏 -->
-			<div :class="isDetailPanelFloating && showDetailPanel
+			<!-- 任务图：画布保持整宽；右栏与视图控件同处一个浮层，空白区由 flex 自然让出 -->
+			<div v-if="activeView === 'graph'" class="pointer-events-none absolute inset-0 z-30 flex">
+				<div class="relative min-w-0 flex-1">
+					<!-- 导图视图控件由画布 teleport 到这里，右下角随面板左缘停靠 -->
+					<div :id="GRAPH_CONTROLS_HOST_ID"></div>
+				</div>
+				<div v-if="showDetailPanel" class="pointer-events-auto flex max-w-[85vw] shadow-lg">
+					<TodoDetailEditor :todo-id="selectedTaskId" :show="true" @close="closeDetailPanel"
+						@task-selected="handleTaskSelected" />
+				</div>
+			</div>
+
+			<!-- 其他视图右栏：窄屏浮在内容之上，宽屏挤压中栏 -->
+			<div v-else :class="isDetailPanelFloating && showDetailPanel
 				? 'absolute inset-y-0 right-0 z-30 flex max-w-[85vw] shadow-lg'
 				: 'flex'">
 				<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel"
