@@ -207,7 +207,7 @@
          任务图把控件 teleport 到页面浮层的空白区，右栏占宽后由 flex 自然让位 -->
     <Teleport :to="controlsTarget" :disabled="!controlsTarget" defer>
       <div class="pointer-events-auto absolute bottom-3 right-3 z-10 flex items-center gap-1" @pointerdown.stop
-        @keydown.stop @keydown.escape.stop="helpOpen = false">
+        @click.stop @keydown.stop @keydown.escape.stop="helpOpen = false">
         <button
           class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
           :title="allExpanded ? '收起全部' : '展开全部'" @click.stop="toggleAllCollapse">

@@ -379,8 +379,8 @@ const createNewTask = async () => {
 // 浮层侧栏：窄屏抽屉或任务图覆盖模式，点击外部应自动收起
 const isSidebarFloating = computed(() => activeView.value === 'graph' || windowWidth.value < SIDEBAR_FLOAT_BREAKPOINT)
 
-// 右栏在其他视图窄屏时浮在内容之上，宽屏挤压中栏；任务图另有整行浮层
-const isDetailPanelFloating = computed(() => isNarrowScreen.value)
+// 任务图固定浮层，其他视图窄屏浮层：两者都算浮在内容之上
+const isDetailPanelFloating = computed(() => activeView.value === 'graph' || isNarrowScreen.value)
 
 // 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {
@@ -396,8 +396,8 @@ const handleClickOutside = (event) => {
 			showLeftSidebar.value = false
 		}
 	}
-	// 窄屏右栏浮在内容之上，点击面板外收起；任务图的浮层要留在画布旁，不跟着点画布关掉
-	if (showDetailPanel.value && isNarrowScreen.value) {
+	// 浮层右栏点击面板外收起；任务图里点画布由导图自己处理选中与关闭
+	if (showDetailPanel.value && isDetailPanelFloating.value) {
 		const insidePanel = event.target.closest?.('[data-detail-panel]')
 		const insideTrigger = event.target.closest?.('[data-detail-panel-trigger]')
 		if (!insidePanel && !insideTrigger) closeDetailPanel()
