@@ -99,7 +99,7 @@ pnpm dev
 ## 文档结构
 
 ```
-docs/zh/dev/
+docs/dev/
 ├── index.md              ← 你在这里（导引）
 ├── 00.goals.md           ← 项目愿景与方案
 ├── 01.setup.md           ← 环境搭建

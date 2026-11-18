@@ -58,7 +58,7 @@ const features = [
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-3">
           <button class="btn-primary px-4 py-2" @click="openApp">{{ auth.isAuthenticated ? '进入应用' : '免费开始使用' }}</button>
-          <a href="/TodoHeap/docs/zh/" class="btn-outline px-4 py-2">看看怎么用</a>
+          <a href="/TodoHeap/docs/" class="btn-outline px-4 py-2">看看怎么用</a>
         </div>
       </section>
 
@@ -78,8 +78,8 @@ const features = [
         class="w-full px-6 md:px-10 lg:px-16 py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-500">
         <span>© 2026 TodoHeap · 任务堆</span>
         <nav class="flex items-center gap-4">
-          <a href="/TodoHeap/docs/zh/user/" class="hover:text-accent-800 dark:hover:text-accent-200">使用指南</a>
-          <a href="/TodoHeap/docs/zh/dev/" class="hover:text-accent-800 dark:hover:text-accent-200">开发文档</a>
+          <a href="/TodoHeap/docs/user/" class="hover:text-accent-800 dark:hover:text-accent-200">使用指南</a>
+          <a href="/TodoHeap/docs/dev/" class="hover:text-accent-800 dark:hover:text-accent-200">开发文档</a>
         </nav>
       </div>
     </footer>

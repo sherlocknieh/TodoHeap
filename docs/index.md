@@ -12,10 +12,10 @@ hero:
   actions:
     - theme: brand
       text: 用户指南
-      link: /zh/user/
+      link: /user/
     - theme: alt
       text: 开发文档
-      link: /zh/dev/
+      link: /dev/
 
 features:
   - icon:

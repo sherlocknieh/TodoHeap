@@ -1,134 +1,105 @@
 import { defineConfig, type HeadConfig } from 'vitepress'
-import { withSidebar } from 'vitepress-sidebar'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import katex from 'markdown-it-katex'
 
-// 多语言导航统一定义：每项包含链接与中/英文文本，方便生成各语言的 nav
-const baseNav = [
-  { link: '/user/', text: { en: 'User Guide', zh: '用户指南' } },
-  { link: '/dev/', text: { en: 'Developer Guide', zh: '开发文档' } },
+// 侧栏显式声明：URL 即文件路径，新增页面时在这里补一行。
+// 不再依赖目录扫描插件，避免"改了目录、侧栏悄悄变化"。
+const userSidebar = [
+  { text: '用户指南', link: '/user/' },
+  { text: '任务管理详解', link: '/user/01.task-management' },
+  { text: 'AI 智能功能', link: '/user/02.ai-features' },
+  { text: '视图详解', link: '/user/03.views' },
+  { text: '数据同步与离线使用', link: '/user/04.sync-offline' },
+  { text: '常见问题 (FAQ)', link: '/user/05.faq' },
+  { text: '日历导入导出与订阅', link: '/user/06.calendar' },
 ]
 
-function makeNav(lang: 'en' | 'zh') {
-  const prefix = lang === 'zh' ? '/zh' : ''
-  const nav = baseNav.map(item => ({ text: item.text[lang], link: `${prefix}${item.link}` }))
-  // 特性记录目前只有中文版，不进英文导航
-  if (lang === 'zh') nav.push({ text: '特性记录', link: '/zh/features/' })
-  return nav
-}
-const vitePressOptions = {
-  // https://vitepress.dev/reference/site-config
+const devSidebar = [
+  { text: '开发指南', link: '/dev/' },
+  { text: '项目愿景与方案', link: '/dev/00.goals' },
+  { text: '环境搭建指南', link: '/dev/01.setup' },
+  { text: '架构与技术栈', link: '/dev/02.architecture' },
+  { text: '开发流程与常见任务', link: '/dev/03.development' },
+  { text: '代码地图', link: '/dev/04.code-map' },
+  { text: '关键词索引', link: '/dev/keyword-index' },
+  {
+    text: '逻辑文档',
+    collapsed: false,
+    items: [
+      { text: '索引', link: '/dev/logic/' },
+      { text: '任务创建逻辑', link: '/dev/logic/task-create' },
+      { text: '任务图布局逻辑', link: '/dev/logic/mindmap-layout' },
+      { text: '节点文字折行与节点高度', link: '/dev/logic/mindmap-text-wrap' },
+      { text: '侧栏开合与窗口宽度', link: '/dev/logic/layout-sidebar' },
+      { text: '详情右栏与任务图布局', link: '/dev/logic/layout-detail-panel' },
+    ],
+  },
+]
+
+const featuresSidebar = [
+  { text: '功能现状', link: '/features/' },
+  { text: '任务与层级', link: '/features/01.tasks' },
+  { text: '视图与交互', link: '/features/02.views' },
+  { text: 'AI 能力', link: '/features/03.ai' },
+  { text: '日历与订阅', link: '/features/04.calendar' },
+  { text: '同步与设置', link: '/features/05.sync-settings' },
+]
+
+// 单语言站点：中文文档在 docs/ 根，URL 不带语言前缀。
+// en/ 保留在磁盘用于后续翻译，但已排除在构建之外。
+export default defineConfig(withMermaid({
   base: '/TodoHeap/docs/',
-  // 本文档部署在 https://sherlocknieh.github.io/TodoHeap/docs/ 路径下,
-  // 静态网页中资源(CSS/JS/图片文件等)的引用路径默认相对于服务器域名的根目录,
-  // 访问 /assets/style.css 相当于访问 https://sherlocknieh.github.io/assets/style.css
-  // 需要把 /assets/style.css 改为 /TodoHeap/docs/assets/style.css 才能正确访问
-  // Vite 构建时会根据 base 配置给资源链接添加前缀, 并处理多余的双斜杠, 解决资源路径问题
+  lang: 'zh-CN',
+  title: 'TodoHeap 任务堆',
+  description: 'TodoHeap 文档：AI 驱动的任务与日程管理',
+  srcExclude: ['en/**', 'README.md'],
+
   head: [
-    // 设置浏览器标签栏图标
     ['link', { rel: 'icon', href: '/TodoHeap/docs/logo.svg' }],
-    // 引入 KaTeX CSS 文件
     ['link', { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css' }],
-    // 引入 copy-tex 扩展的 JS 和 CSS
     ['link', { rel: 'stylesheet', href: 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/copy-tex.min.css' }],
     ['script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/copy-tex.min.js' }]
   ] as HeadConfig[],
 
-  // 配置 Markdown 插件
-  // 开启 KaTeX 公式渲染
   markdown: {
     config: (md: any) => {
       md.use(katex)
     }
   },
-  cleanUrls: true,  // 去掉 .html 后缀
-  outDir: '../dist/docs', // 与前端混合部署的输出目录
+
+  cleanUrls: true,
+  outDir: '../dist/docs',
+  // 死链会让构建失败，避免把断链带上线
+  ignoreDeadLinks: false,
+
   vite: {
     server: {
-      // open: true,  // 调试时自动打开浏览器
-      port: 5201,     // 文档开发服务器端口
+      port: 5201,
     },
     optimizeDeps: {
       include: ['mermaid', 'dayjs', 'debug', '@braintree/sanitize-url', 'cytoscape', 'cytoscape-cose-bilkent', 'markdown-it-katex'],
       exclude: ['vitepress'],
     },
   },
-  // 死链会让构建失败，避免把断链带上线
-  ignoreDeadLinks: false,
-  // 通用主题配置
+
   themeConfig: {
     logo: '/TodoHeap/docs/logo.svg',
+    nav: [
+      { text: '用户指南', link: '/user/' },
+      { text: '开发文档', link: '/dev/' },
+      { text: '特性记录', link: '/features/' },
+    ],
+    sidebar: {
+      '/user/': userSidebar,
+      '/dev/': devSidebar,
+      '/features/': featuresSidebar,
+    },
     socialLinks: [
       { icon: 'github', link: 'https://github.com/sherlocknieh/TodoHeap' }
     ],
-  },
-  // URL重写规则
-  rewrites: {
-    'en/:rest*': ':rest*',  // 构建时会把 en/ 目录下的文件移动到根目录
-    // 效果1: 浏览器访问 / 时，实际展示 en/index.md 内容
-    // 效果2: 浏览器访问 /en/ 时，自动重定向到 /
-  },
-  // 多语言配置
-  locales: {
-    root: {
-      label: 'English',
-      lang: 'en',
-      link: '/',
-      title: "TodoHeap",
-      description: "TodoHeap Documentation",
-      themeConfig: {
-        nav: makeNav('en'),
-        footer: {
-          message: 'Documentation built with <a href="https://vitepress.dev/">VuePress</a>',
-          copyright: 'Copyright © 2026 TodoHeap'
-        },
-      }
+    footer: {
+      message: '文档使用 <a href="https://vitepress.dev/zh/">VitePress</a> 构建',
+      copyright: 'Copyright © 2026 TodoHeap',
     },
-    'zh': {
-      label: '简体中文',
-      lang: 'zh',
-      link: '/zh/',
-
-      title: "TodoHeap 任务堆",
-      description: "TodoHeap 文档",
-
-      themeConfig: {
-        // https://vitepress.dev/reference/default-theme-config
-        nav: makeNav('zh'),
-
-        footer: {
-          message: '文档使用 <a href="https://vitepress.dev/zh/">VuePress</a> 构建',
-          copyright: 'Copyright © 2026 TodoHeap'
-        },
-      },
-    }
   },
-};
-
-// 生成多语言×多文件夹侧边栏
-const languages = ['zh', 'en'];
-const folders = ['user', 'dev'];
-// 特性记录只有中文版，英文站点不扫描该目录
-const foldersOf = (lang: string) => (lang === 'zh' ? [...folders, 'features'] : folders);
-const sidebarConfigs = languages.flatMap(lang =>
-  foldersOf(lang).map(mod => ({
-    scanStartPath: `${lang}/${mod}`,  // 当前侧栏扫描的目录
-    resolvePath: `/${lang}/${mod}/`,  // 当前侧边栏链接前缀
-    useTitleFromFileHeading: true,    // 从文档内部获取标题
-    collapsed: false,                 // 子菜单默认不折叠
-    capitalizeFirst: true,            // 菜单标题首字母大写
-    includeRootIndexFile: true,       // 包含根目录的 index.md 文件
-    includeFolderIndexFile: true,     // 包含文件夹目录的 index.md 文件
-    useFolderTitleFromIndexFile: true,// 文件夹标题从 index.md 文档内获取
-    useFolderLinkFromIndexFile: true, // 点击文件夹标题跳转 index.md
-    removeFileNamePrefixNumbers: true, // 移除文件名中的编号前缀（01. 02. 等）
-    manualSortFileNameByPriority: [   // 排序优先级
-      'index.md',
-      'user',
-      'dev',
-      'logic',
-    ]
-  }))
-);
-
-export default defineConfig(withSidebar(withMermaid(vitePressOptions), sidebarConfigs));
+}))
