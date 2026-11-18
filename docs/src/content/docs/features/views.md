@@ -29,8 +29,8 @@ title: "视图与交互"
 
 ### 聚焦与右栏
 
-- 选中任务的聚焦固定为三栏视野（父级、当前、子级各一栏）：节点横向居中，纵向保留当前屏幕位置，只有移出视口时才夹回可见范围；容器尺寸变化时重新贴合（`focusTargetFor`、`centerOnNode`、`followColumnFocus`）。
-- 详情右栏是浮层，不挤压画布；右下角视图控件与节点菜单按 `detailPanelInset` 左移，避免被面板遮住（`utils/detailPanelContext.js`）。
+- 选中任务的聚焦固定为三栏视野（父级、当前、子级各一栏）：选中节点在中间栏，横向以画布整宽居中，纵向保留当前屏幕位置，只有移出视口时才夹回可见范围；窗口缩放或侧栏开合这类画布尺寸变化时重新贴合（`focusTargetFor`、`centerOnNode`、`followColumnFocus`）。
+- 详情右栏是浮层，不挤压画布，也不影响三栏聚焦；适应视图与节点菜单按 `detailPanelInset` 避让，右下角视图控件随面板左移（`utils/detailPanelContext.js`）。
 
 ## 拖拽与连线
 
