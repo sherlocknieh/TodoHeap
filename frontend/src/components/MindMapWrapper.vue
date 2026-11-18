@@ -51,14 +51,14 @@
           <rect :width="nodeWidth" :height="node.height" rx="8"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
             class="transition-colors" :class="[
-              dragState.targetId === node.id
+              isDropInside(node)
                 ? 'stroke-2 stroke-accent-600 dark:stroke-accent-400'
                 : node.selected
                   ? 'stroke-2 stroke-accent-600 dark:stroke-accent-400'
                   : 'stroke-1 stroke-neutral-200 group-hover:stroke-2 group-hover:stroke-accent-600/45 dark:stroke-neutral-700 dark:group-hover:stroke-accent-400/45',
               node.isRoot
                 ? 'fill-accent-700 dark:fill-accent-500'
-                : dragState.targetId === node.id
+                : isDropInside(node)
                   ? 'fill-accent-100 dark:fill-accent-500/25'
                   : node.selected
                     ? 'fill-accent-50 dark:fill-neutral-800'
@@ -149,6 +149,14 @@
           </g>
         </g>
 
+        <!-- 排序落点：拖到目标节点上下四分之一时，在它的上/下缘画插入线，表示放到该兄弟前后 -->
+        <line v-if="dropTargetNode && dragState.dropPosition !== 'inside'"
+          :x1="dropTargetNode.x - 10" :x2="dropTargetNode.x + nodeWidth + 10"
+          :y1="dropTargetNode.y + (dragState.dropPosition === 'before' ? -7 : dropTargetNode.height + 7)"
+          :y2="dropTargetNode.y + (dragState.dropPosition === 'before' ? -7 : dropTargetNode.height + 7)"
+          class="pointer-events-none stroke-accent-600 dark:stroke-accent-400"
+          stroke-width="2.4" stroke-linecap="round" />
+
         <!-- 选中连线：压在节点之上高亮，配合中点删除按钮 -->
         <path v-if="selectedEdge" :d="selectedEdge.d" fill="none" stroke-linecap="round"
           class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
@@ -170,7 +178,7 @@
         </g>
 
         <!-- 拖拽影子：按住节点拖动时跟随指针的副本，抓取点与原件保持同一相对位置；
-             原件同时淡出，落点节点仍按 targetId 高亮 -->
+             原件同时淡出；拖进目标时目标仍按 targetId 高亮，前后插序则只显示插入线 -->
         <g v-if="dragState.shadow" :transform="`translate(${dragState.shadow.x} ${dragState.shadow.y})`"
           class="pointer-events-none">
           <rect :width="nodeWidth" :height="dragState.shadow.node.height" rx="8" fill-opacity="0.92"
@@ -2061,14 +2069,16 @@ let panMoved = false
 let panFromRoot = false
 let lastPanEndAt = 0
 
-// 拖拽落点：两种起点——拖节点表示「它将成为落点节点的子任务」，
+// 拖拽落点：两种起点——拖节点表示「它将成为落点节点的子任务或排到它前后」，
 // 拖折叠/加号按钮表示「落点节点将成为它的子任务」，方向相反；
-// 节点拖拽是移动还是新增链接由调用方按父级数量决定，按钮拖拽只建链接。
+// 节点拖拽是移动、重排还是新增链接由调用方按落点与父级数量决定，按钮拖拽只建链接。
 // shadow 是拖节点时跟随指针的影子副本，grab 记录按下点相对节点左上角的偏移
 const dragState = reactive({
   active: false,
   sourceId: null,
   targetId: null,
+  // 落点语义：inside 成为子任务；before/after 插到目标节点的兄弟序列前后
+  dropPosition: 'inside',
   preview: null,
   shadow: null,
   grab: { x: 0, y: 0 },
@@ -2077,6 +2087,22 @@ const dragState = reactive({
 })
 let dragStart = { x: 0, y: 0 }
 let lastDragEndAt = 0
+
+// 只有 inside 才算「拖进节点」，前后插序时目标节点不高亮，改画插入线
+const isDropInside = (node) => dragState.targetId === node.id && dragState.dropPosition === 'inside'
+const dropTargetNode = computed(() => (dragState.targetId
+  ? layout.value.nodes.find((node) => node.id === dragState.targetId) ?? null
+  : null))
+
+// 与列表拖拽一致：上四分之一插入到目标之前，下四分之一插入到之后，其余区域成为子任务。
+// 根节点没有兄弟序列，拖到它身上一律按拖进根层级处理
+const dropPositionAt = (node, point) => {
+  if (node.isRoot || dragState.fromToggle) return 'inside'
+  const ratio = (point.y - node.y) / Math.max(node.height, 1)
+  if (ratio < 0.25) return 'before'
+  if (ratio > 0.75) return 'after'
+  return 'inside'
+}
 
 // 拖拽中的源节点淡出，视线交给影子节点；拉线建链接时源节点保持原样
 const nodeOpacity = (node) => {
@@ -2194,6 +2220,7 @@ const startDrag = (event, sourceId, fromToggle) => {
   dragState.active = true
   dragState.sourceId = sourceId
   dragState.targetId = null
+  dragState.dropPosition = 'inside'
   dragState.preview = null
   dragState.shadow = null
   dragState.moved = false
@@ -2237,6 +2264,7 @@ const updateDrag = (event) => {
 
   const hit = linkTargetAtRect(hitRect)
   dragState.targetId = hit ? hit.id : null
+  dragState.dropPosition = hit ? dropPositionAt(hit, point) : 'inside'
 }
 
 const onDragMove = (event) => {
@@ -2254,11 +2282,12 @@ const onDragEnd = (event) => {
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
 
-  const { active, sourceId, targetId, moved, fromToggle } = dragState
+  const { active, sourceId, targetId, dropPosition, moved, fromToggle } = dragState
   const dragged = active && moved
   dragState.active = false
   dragState.sourceId = null
   dragState.targetId = null
+  dragState.dropPosition = 'inside'
   dragState.preview = null
   dragState.shadow = null
   dragState.moved = false
@@ -2271,10 +2300,19 @@ const onDragEnd = (event) => {
   // 拖拽结束后紧跟的 click 不应再改变选中或触发折叠
   lastDragEndAt = Date.now()
   if (!targetId) return
-  // 拖节点：落点成为父；拖折叠/加号按钮：源节点成为父，且只建立链接
+  // 拖节点：落点成为父或兄弟；拖折叠/加号按钮：源节点成为父，且只建立链接。
+  // 带出两侧父级，前后插序才能落在用户看到的那条兄弟序列里
+  const source = layout.value.nodes.find((node) => node.id === sourceId)
+  const target = layout.value.nodes.find((node) => node.id === targetId)
   emit('drop-task', fromToggle
     ? { parentId: Number(sourceId), childId: Number(targetId), linkOnly: true }
-    : { parentId: Number(targetId), childId: Number(sourceId) })
+    : {
+      parentId: Number(targetId),
+      childId: Number(sourceId),
+      position: dropPosition,
+      sourceParentId: source?.parent_id ?? null,
+      targetParentId: target?.parent_id ?? null
+    })
 }
 
 const onPointerDown = (event, fromRoot = false) => {

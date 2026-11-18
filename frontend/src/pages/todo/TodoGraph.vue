@@ -51,6 +51,8 @@ const mapNode = (todo) => ({
 	completed_at: todo.completed_at || null,
 	isRef: !!todo._isRef,
 	targetId: todo._isRef ? todo._refTargetId : todo.id,
+	// 拖拽重排要写回落点所在的兄弟序列，先保留树展开时的父级
+	parent_id: todo.parent_id ?? null,
 	children: (todo.children || []).map(mapNode)
 })
 
@@ -144,10 +146,18 @@ const unlinkOtherParents = async ({ childId, parentId }) => {
 	if (failed?.error) emit('notify', { message: failed.error })
 }
 
-// 拖拽落点：拖节点本体时，子任务只有一个父级就移动、多个父级就新增链接；
-// 从折叠/加号按钮拉出的拖拽只建立链接，不搬动任务。
-// 只有链接需要提示；移动是直接结果，不弹提示
-const dropTask = async ({ parentId, childId, linkOnly = false }) => {
+// 拖拽落点：拖节点本体时，上/下四分之一插到目标兄弟前后，中间成为子任务；
+// 插序使用树展开时记录的父级，多父任务落在首个父链下。从折叠/加号按钮拉出的拖拽只建立链接。
+// 拖节点成子任务时，子任务只有一个父级就移动、多个父级就新增链接。
+// 只有链接需要提示；移动与插序是直接结果，不弹提示
+const dropTask = async ({
+	parentId,
+	childId,
+	position = 'inside',
+	sourceParentId = null,
+	targetParentId = null,
+	linkOnly = false
+}) => {
 	if (parentId === childId) return
 	const parent = todoStore.findTodoById(parentId)
 	const child = todoStore.findTodoById(childId)
@@ -156,6 +166,18 @@ const dropTask = async ({ parentId, childId, linkOnly = false }) => {
 	// 父任务已在子任务的子树里时再挂过去会成环
 	if (collectDescendantIds(todoStore.todos, childId).includes(parentId)) {
 		emit('notify', { message: '不能移动到自己的子任务下' })
+		return
+	}
+
+	// 前后插序只重排落点所在的兄弟序列，不改变父子关系
+	if (!linkOnly && position !== 'inside') {
+		const result = await todoStore.moveTodo(childId, {
+			targetId: parentId,
+			position,
+			sourceParentId,
+			targetParentId
+		})
+		if (!result.success && result.error) emit('notify', { message: result.error })
 		return
 	}
 
