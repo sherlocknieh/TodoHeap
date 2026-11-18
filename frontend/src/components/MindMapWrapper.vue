@@ -2,7 +2,7 @@
   <!-- 自研思维导图：SVG 渲染，支持滚轮缩放、拖拽平移与键盘增删改 -->
   <div ref="container" tabindex="0"
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
-    :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', dotGrid && 'mindmap-dots']"
+    :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', darkCanvas && 'mindmap-canvas--dark', dotGrid && 'mindmap-dots']"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
     @keydown="onKeydown">
@@ -220,6 +220,15 @@
         title="适应视图" @click.stop="fitView">
         <AppIcon name="target" :size="14" />
       </button>
+      <button type="button" :aria-pressed="darkCanvas" :aria-label="darkCanvas ? '切换浅色背景' : '切换深色背景'"
+        :title="darkCanvas ? '浅色背景' : '深色背景'"
+        class="flex rounded border p-1.5 transition-colors"
+        :class="darkCanvas
+          ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
+          : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
+        @click.stop="darkCanvas = !darkCanvas">
+        <AppIcon :name="darkCanvas ? 'moon' : 'sun'" :size="14" />
+      </button>
       <button type="button" :aria-pressed="dotGrid" :aria-label="dotGrid ? '隐藏点阵背景' : '显示点阵背景'"
         :title="dotGrid ? '隐藏点阵背景' : '显示点阵背景'"
         class="flex rounded border p-1.5 transition-colors"
@@ -408,6 +417,13 @@ const direction = persistedRef('mindmap-direction', 'right', {
 
 // 点阵底纹同属阅读偏好：开关状态本地保存，默认开启
 const dotGrid = persistedRef('mindmap-dot-grid', true, {
+  validate: (value) => typeof value === 'boolean'
+})
+
+// 画布底色：首次进入跟随系统主题，之后按用户手动选择固定，点阵点色随底色切换
+const systemPrefersDark = typeof window !== 'undefined'
+  && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
+const darkCanvas = persistedRef('mindmap-dark-canvas', systemPrefersDark, {
   validate: (value) => typeof value === 'boolean'
 })
 
@@ -2340,9 +2356,13 @@ watch(direction, () => nextTick(fitView))
 </script>
 
 <style scoped>
-/* 画布底色：比页面稍亮/稍暗，给导图一块独立的纸面 */
+/* 画布底色：默认亮色，与点阵一样由开关决定；深色沿用应用的画布深色令牌 */
 .mindmap-canvas {
   background-color: #fafafa;
+}
+
+.mindmap-canvas.mindmap-canvas--dark {
+  background-color: var(--color-canvas-dark);
 }
 
 /* 点阵底纹：开关打开后铺一层网格点，给拖拽平移一个空间参照；
@@ -2352,13 +2372,8 @@ watch(direction, () => nextTick(fitView))
   background-size: 24px 24px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .mindmap-canvas {
-    background-color: #141414;
-  }
-
-  .mindmap-canvas.mindmap-dots {
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
-  }
+/* 深色画布上点色反相，否则点阵沉进底色看不出来 */
+.mindmap-canvas.mindmap-canvas--dark.mindmap-dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
 }
 </style>
