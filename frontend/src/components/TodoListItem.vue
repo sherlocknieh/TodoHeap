@@ -46,14 +46,16 @@
           <div class="flex min-w-0 flex-1 items-center gap-2">
             <div class="min-w-0 flex-1">
               <span v-if="editingId !== item.id" :class="[
-                'flex min-w-0 items-center gap-1 overflow-hidden text-sm leading-5 text-neutral-800 dark:text-neutral-200',
-                item._level === 0 ? 'font-medium' : '',
+                'flex min-w-0 items-center gap-1 overflow-hidden text-sm leading-5',
+                isRowSelected(item)
+                  ? 'font-semibold text-accent-900 dark:text-accent-100'
+                  : ['text-neutral-800 dark:text-neutral-200', item._level === 0 ? 'font-medium' : ''],
                 { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
               ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
                 <AppIcon v-if="item._isRef" name="link" :size="11"
                   class="shrink-0 text-neutral-400 dark:text-neutral-500" />
                 <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
-                  :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }" />
+                  :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef && !isRowSelected(item) }" />
               </span>
               <input v-else :id="'edit-input-' + item.id" v-model="editingText"
                 class="w-full bg-transparent text-sm leading-5 text-neutral-900 dark:text-neutral-100 outline-none border-b border-accent-600 dark:border-accent-400"
@@ -280,9 +282,9 @@ const rowStateClass = (item) => {
   if (indicator && indicator.id === item.id && indicator.position === 'inside') {
     return 'border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
   }
-  // 选中提示沿用左侧视图列表：左边缘一条通栏 2px 实线，跟随卡片圆角
+  // 选中提示沿用左侧视图列表：绿底 + 左缘通栏实线 + 绿色文字，去掉四周外框
   if (isRowSelected(item)) {
-    return 'border-accent-200 border-l-2 border-l-accent-600 bg-neutral-100 shadow-[0_2px_8px_rgb(6_80_48/0.1)] dark:border-accent-500/40 dark:border-l-accent-400 dark:bg-neutral-800/70 dark:shadow-none'
+    return 'border-transparent border-l-2 border-l-accent-600 bg-accent-100/80 dark:border-l-accent-400 dark:bg-accent-500/20 shadow-none'
   }
   // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻
   return [
