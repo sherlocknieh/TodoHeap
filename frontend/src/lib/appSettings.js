@@ -9,9 +9,7 @@ export const UI_PREFERENCE_SETTINGS = [
     group: '界面',
     type: 'enum',
     options: [
-      { value: 'down', label: '从上到下' },
       { value: 'right', label: '从左到右' },
-      { value: 'up', label: '从下到上' },
       { value: 'left', label: '从右到左' }
     ],
     default: 'right'

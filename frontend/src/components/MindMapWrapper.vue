@@ -403,10 +403,9 @@ watch(helpOpen, (open) => {
   else document.removeEventListener('pointerdown', onHelpOutside)
 })
 
+// 只有横向布局：根节点在左时向右展开，在右时向左展开
 const directionOptions = [
-  { value: 'down', icon: 'chevronDown', label: '从上到下' },
   { value: 'right', icon: 'chevronRight', label: '从左到右' },
-  { value: 'up', icon: 'chevronUp', label: '从下到上' },
   { value: 'left', icon: 'chevronLeft', label: '从右到左' }
 ]
 
@@ -428,7 +427,7 @@ const darkCanvas = persistedRef('mindmap-dark-canvas', systemPrefersDark, {
 })
 
 const currentDirection = computed(() =>
-  directionOptions.find((option) => option.value === direction.value) ?? directionOptions[1])
+  directionOptions.find((option) => option.value === direction.value) ?? directionOptions[0])
 
 // 视图控件跟随浮层右栏左移：面板多宽就右偏多少，面板收起时回到常规右下角
 const controlsStyle = computed(() => ({
@@ -475,32 +474,21 @@ const toggleAllCollapse = () => {
   setTasksCollapsed(collapsibleIds.value, false)
 }
 
-// 单个按钮按固定顺序轮换四个方向
+// 单个按钮在左右两个方向之间轮换
 const cycleDirection = () => {
   const index = directionOptions.findIndex((option) => option.value === direction.value)
   direction.value = directionOptions[(index + 1) % directionOptions.length].value
 }
 
-const isVertical = computed(() => direction.value === 'down' || direction.value === 'up')
-const isForward = computed(() => direction.value === 'down' || direction.value === 'right')
-
-// 主方向是层级展开方向，交叉方向是同层节点的排列方向
-const nodeMainSize = (node) => (isVertical.value ? node.height : nodeWidth)
-const nodeCrossSize = (node) => (isVertical.value ? nodeWidth : node.height)
+// 主方向是层级展开方向（横向），交叉方向是同层节点的排列方向（纵向）
+const isForward = computed(() => direction.value === 'right')
 
 // 折叠按钮位置：沿出边方向外切于节点边框，正对连线起点，参考图形软件的挂点样式
 const controlPointFor = (height, selected) => {
   const gap = toggleOffset(selected)
-  switch (direction.value) {
-    case 'up':
-      return { x: nodeWidth / 2, y: -gap }
-    case 'left':
-      return { x: -gap, y: height / 2 }
-    case 'down':
-      return { x: nodeWidth / 2, y: height + gap }
-    default:
-      return { x: nodeWidth + gap, y: height / 2 }
-  }
+  return direction.value === 'left'
+    ? { x: -gap, y: height / 2 }
+    : { x: nodeWidth + gap, y: height / 2 }
 }
 
 // 文字可用宽度（像素）：右侧只让出更多操作按钮，折叠按钮挂在节点外不占正文
@@ -611,32 +599,17 @@ const measureNode = (raw) => {
 const outAnchor = (node) => {
   const x = node.x + node.controlX
   const y = node.y + node.controlY
-  switch (direction.value) {
-    case 'up':
-      return { x, y, dx: 0, dy: -1 }
-    case 'right':
-      return { x, y, dx: 1, dy: 0 }
-    case 'left':
-      return { x, y, dx: -1, dy: 0 }
-    default:
-      return { x, y, dx: 0, dy: 1 }
-  }
+  return direction.value === 'left'
+    ? { x, y, dx: -1, dy: 0 }
+    : { x, y, dx: 1, dy: 0 }
 }
 
-const inAnchor = (node) => {
-  switch (direction.value) {
-    case 'up':
-      return { x: node.x + nodeWidth / 2, y: node.y + node.height, dx: 0, dy: 1 }
-    case 'right':
-      return { x: node.x, y: node.y + node.height / 2, dx: -1, dy: 0 }
-    case 'left':
-      return { x: node.x + nodeWidth, y: node.y + node.height / 2, dx: 1, dy: 0 }
-    default:
-      return { x: node.x + nodeWidth / 2, y: node.y, dx: 0, dy: -1 }
-  }
-}
+const inAnchor = (node) => (direction.value === 'left'
+  ? { x: node.x + nodeWidth, y: node.y + node.height / 2, dx: 1, dy: 0 }
+  : { x: node.x, y: node.y + node.height / 2, dx: -1, dy: 0 })
 
-const crossVector = () => (isVertical.value ? { x: 1, y: 0 } : { x: 0, y: 1 })
+// 交叉方向恒为纵向：同层节点上下排开
+const crossVector = () => ({ x: 0, y: 1 })
 
 // 折线转圆角路径：拐点用二次曲线过渡，避免生硬直角
 const roundedPath = (points, radius = 8) => {
@@ -720,7 +693,7 @@ const createEdge = (from, to, key, backward = false, laneCross = null) => {
     midpoint = { x: (laneStart.x + laneEnd.x) / 2, y: (laneStart.y + laneEnd.y) / 2 }
   } else {
     // 两端控制点都沿主方向，曲线在节点处水平进出，箭头与线自然同向
-    const distance = isVertical.value ? Math.abs(end.y - start.y) : Math.abs(end.x - start.x)
+    const distance = Math.abs(end.x - start.x)
     const bend = Math.max(20, distance * 0.5)
     const c1 = { x: start.x + start.dx * bend, y: start.y + start.dy * bend }
     const c2 = { x: end.x + end.dx * bend, y: end.y + end.dy * bend }
@@ -876,18 +849,12 @@ const graphLayout = computed(() => {
     ordered.forEach((id, offset) => nodeLayer.set(id, componentLayer[index] + offset))
   })
 
-  // 每层沿交叉方向排开，层与层沿主方向堆叠
-  const layers = new Map()
-  nodes.forEach((node) => {
-    const layer = nodeLayer.get(node.id) ?? 0
-    if (!layers.has(layer)) layers.set(layer, [])
-    layers.get(layer).push(node)
-  })
-
-  const layerKeys = [...layers.keys()].sort((a, b) => a - b)
+  // 每层沿交叉方向排开，层与层沿主方向堆叠；节点等宽，层厚就是节点宽度
+  const layerKeys = [...new Set(nodes.map((node) => nodeLayer.get(node.id) ?? 0))]
+    .sort((a, b) => a - b)
   const layerMain = new Map()
   layerKeys.forEach((layer) => {
-    layerMain.set(layer, Math.max(...layers.get(layer).map(nodeMainSize)))
+    layerMain.set(layer, nodeWidth)
   })
 
   let cursorMain = 0
@@ -900,7 +867,7 @@ const graphLayout = computed(() => {
 
   // 交叉方向：分层图布局。层内顺序按父节点位置（重心）排序，坐标由「贴近父节点 + 同层最小间距」求得
   const crossCenter = new Map()
-  const crossSizeOf = (id) => nodeCrossSize(byId.get(id))
+  const crossSizeOf = (id) => byId.get(id).height
 
   // 只统计沿主方向向前的边；回边绕行展示，不参与交叉方向定位
   const parentsOf = new Map(nodes.map((node) => [node.id, []]))
@@ -1122,24 +1089,19 @@ const graphLayout = computed(() => {
   const crossOrigin = crossCenter.get(anchorNode.id) - crossSizeOf(anchorNode.id) / 2
   const anchorLayer = nodeLayer.get(anchorNode.id) ?? 0
   const anchorMain = layerStart.get(anchorLayer)
-    + (layerMain.get(anchorLayer) - nodeMainSize(anchorNode)) / 2
+    + (layerMain.get(anchorLayer) - nodeWidth) / 2
   const mainOrigin = isForward.value
     ? anchorMain
-    : contentMain - anchorMain - nodeMainSize(anchorNode)
+    : contentMain - anchorMain - nodeWidth
 
   nodes.forEach((node) => {
-    const cross = crossCenter.get(node.id) - nodeCrossSize(node) / 2 - crossOrigin
+    const cross = crossCenter.get(node.id) - node.height / 2 - crossOrigin
     const layer = nodeLayer.get(node.id) ?? 0
-    const mainOffset = layerStart.get(layer) + (layerMain.get(layer) - nodeMainSize(node)) / 2
-    const main = (isForward.value ? mainOffset : contentMain - mainOffset - nodeMainSize(node))
+    const mainOffset = layerStart.get(layer) + (layerMain.get(layer) - nodeWidth) / 2
+    const main = (isForward.value ? mainOffset : contentMain - mainOffset - nodeWidth)
       - mainOrigin
-    if (isVertical.value) {
-      node.x = cross
-      node.y = main
-    } else {
-      node.y = cross
-      node.x = main
-    }
+    node.x = main
+    node.y = cross
   })
 
   // 内容包围盒同样是相对根节点的偏移，可能为负值
@@ -1164,11 +1126,11 @@ const graphLayout = computed(() => {
   return {
     nodes,
     edges: routedEdges,
-    contentWidth: isVertical.value ? contentCross : contentMain,
-    contentHeight: isVertical.value ? contentMain : contentCross,
+    contentWidth: contentMain,
+    contentHeight: contentCross,
     // 内容左上角在图坐标里的位置，供适应视图对齐
-    minX: isVertical.value ? crossMin : mainMin,
-    minY: isVertical.value ? mainMin : crossMin
+    minX: mainMin,
+    minY: crossMin
   }
 })
 
@@ -1541,36 +1503,30 @@ const focusScale = () => Math.max(0.15, Math.min(
 
 // 聚焦固定为三栏视野：父级层、当前层、子级层各占一栏，与真实父子关系无关。
 // 多父、回边或子级落在远处时也不会把画面缩得过小；叶子还没子级时栏位照样留着
-const focusMainSpan = (node) => {
-  const mainSize = isVertical.value ? node.height : nodeWidth
-  return mainSize * 3 + mainGap * 2
-}
+const focusMainSpan = () => nodeWidth * 3 + mainGap * 2
 
 // 三栏视野状态：选中节点后进入；手动缩放/平移、适应视图或编辑时退出。
 // 处于该状态时容器尺寸变化（例如开关详情面板）要重新按三栏贴合，否则画面会错位
 const columnFocus = ref(false)
 
-const columnFocusScale = (node) => {
+const columnFocusScale = () => {
   const pad = 48
-  const viewportMain = isVertical.value ? size.height : visibleWidth.value
   return Math.max(0.15, Math.min(
     FOCUS_SCALE,
-    (viewportMain - pad * 2) / Math.max(focusMainSpan(node), 1)
+    (visibleWidth.value - pad * 2) / Math.max(focusMainSpan(), 1)
   ))
 }
 
-// 聚焦目标：横向布局把节点摆在视口水平中央，竖向沿用节点当前的屏幕位置，
-// 只有掉出视口时才夹回可见范围；纵向布局的三栏沿高度排列，仍需垂直居中
+// 聚焦目标：横向把节点摆在视口水平中央，纵向沿用节点当前的屏幕位置，
+// 只有掉出视口时才夹回可见范围
 const focusTargetFor = (node) => {
-  const scale = columnFocusScale(node)
+  const scale = columnFocusScale()
   const centerY = node.y + node.height / 2
   const anchorY = view.y + centerY * view.scale
   const margin = (node.height * scale) / 2 + 24
   return {
     x: visibleWidth.value / 2 - (node.x + nodeWidth / 2) * scale,
-    y: isVertical.value
-      ? size.height / 2 - centerY * scale
-      : Math.max(margin, Math.min(anchorY, size.height - margin)) - centerY * scale,
+    y: Math.max(margin, Math.min(anchorY, size.height - margin)) - centerY * scale,
     scale
   }
 }
@@ -1647,18 +1603,9 @@ watch(selectedId, (id) => {
 })
 
 // 主方向键沿层级深入/返回，交叉方向键在同级之间移动
-const axisKeys = computed(() => {
-  switch (direction.value) {
-    case 'down':
-      return { forward: 'ArrowDown', backward: 'ArrowUp' }
-    case 'up':
-      return { forward: 'ArrowUp', backward: 'ArrowDown' }
-    case 'left':
-      return { forward: 'ArrowLeft', backward: 'ArrowRight' }
-    default:
-      return { forward: 'ArrowRight', backward: 'ArrowLeft' }
-  }
-})
+const axisKeys = computed(() => (direction.value === 'left'
+  ? { forward: 'ArrowLeft', backward: 'ArrowRight' }
+  : { forward: 'ArrowRight', backward: 'ArrowLeft' }))
 
 const focusTask = (id) => {
   if (id == null) return
@@ -2075,7 +2022,11 @@ const onWheel = (event) => {
   // 行模式滚轮（部分鼠标/触控板）的 delta 单位是行，换算成像素
   const unit = event.deltaMode === 1 ? 16 : 1
 
-  if (wheelMode === null) {
+  // Ctrl/Cmd + 滚轮在任意位置缩放（触控板双指捏合也会带上 ctrlKey），
+  // 其余位置沿用「选中项上缩放、空白处平移」的既有手势
+  if (event.ctrlKey || event.metaKey) {
+    wheelMode = 'zoom'
+  } else if (wheelMode === null) {
     wheelMode = isOnSelection(event.target) ? 'zoom' : 'pan'
   }
 

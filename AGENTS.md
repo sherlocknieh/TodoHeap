@@ -17,7 +17,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `frontend/vite.config.ts` | `base: '/TodoHeap/'`、构建输出 `../dist`、`@` → `src` 别名 |
 | `docs/zh/dev/logic/` | 机制与链路文档：讲现状逻辑、约束与验证，如 `task-create.md`；修 bug 时更新对应篇 |
 | `docs/zh/dev/keyword-index.md` | 关键词索引：用户对界面的说法 → 代码位置；定位 UI 需求先查，定位后补登记 |
-| `docs/` | VitePress 站点，`base: '/TodoHeap/docs/'`，中英双语（`zh/`、`en/`），侧栏由 `vitepress-sidebar` 自动生成；`zh/features/` 是按功能域记录已实现需求的特性文档，只有中文 |
+| `docs/` | VitePress 站点，`base: '/TodoHeap/docs/'`，中英双语（`zh/`、`en/`），侧栏由 `vitepress-sidebar` 自动生成；`zh/features/` 是按功能域描述当前实现的文档，只写现状、不记变更历史，只有中文 |
 | `supabase/migrations/` | 按时间戳排序的 SQL 迁移，**数据库结构的唯一事实来源** |
 | `supabase/functions/` | Deno 边缘函数 |
 | `.github/workflows/deploy.yaml` | push 到 main 且改动 `docs/`、`frontend/` 时，构建两者并发布到 GitHub Pages |

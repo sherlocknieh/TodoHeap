@@ -409,9 +409,9 @@ describe('createAgentToolRunner', () => {
   })
 
   it('修改界面偏好写入本地状态，非法取值被拒绝', async () => {
-    const ok = await runner.run('update_app_setting', { key: 'mindmap-direction', value: 'down' })
+    const ok = await runner.run('update_app_setting', { key: 'mindmap-direction', value: 'left' })
     expect(ok.ok).toBe(true)
-    expect(JSON.parse(localStorage.getItem('todoheap:ui:mindmap-direction'))).toBe('down')
+    expect(JSON.parse(localStorage.getItem('todoheap:ui:mindmap-direction'))).toBe('left')
 
     const invalid = await runner.run('update_app_setting', { key: 'mindmap-direction', value: 'diagonal' })
     expect(invalid.ok).toBe(false)
