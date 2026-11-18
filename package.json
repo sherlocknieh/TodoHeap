@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "cd frontend && nub run dev",
     "dev:docs": "cd docs && nub run dev",
-    "dev:all": "concurrently \"nub run dev\" \"nub run dev:docs\""
+    "dev:all": "concurrently \"nub run dev\" \"nub run dev:docs\"",
+    "db:push": "node --env-file-if-exists=.env.local scripts/db-push.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"

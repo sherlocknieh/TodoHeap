@@ -41,7 +41,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 构建前端 | `cd frontend && nub run build` |
 | 单元测试 | `cd frontend && npm test`（vitest，覆盖 store 层、Agent 工具与滴答清单导入解析） |
 | 类型检查 | `cd frontend && nub run type-check`；⚠️ vue-tsc 1.8 与 TS 5.9 不兼容会直接崩，属已知问题，不要当成新引入的错误 |
-| 数据库迁移 | `npx supabase migration list --remote` 看远程状态（直连受限时用 Dashboard 的 Migrations 页）；`db.<ref>.supabase.co` 只有 IPv6 记录，本机无 IPv6 出口必然 `Connection terminated unexpectedly`，改用 pooler：`npx supabase db push --yes --remote "<pooler 连接串>"`（v4 起 `--db-url` 改名为 `--remote=<连接串>`，密码需 URL 编码） |
+| 数据库迁移 | `nub run db:push`（读 `.env.local` 的 `SUPABASE_DB_URL`，可加 `-- --dry-run`）；`npx supabase migration list --remote` 看远程状态（直连受限时用 Dashboard 的 Migrations 页）；`db.<ref>.supabase.co` 只有 IPv6 记录，本机无 IPv6 出口必然 `Connection terminated unexpectedly`，连接串须指向 pooler（v4 起 `--db-url` 改名为 `--remote=<连接串>`，密码需 URL 编码） |
 
 `frontend/` 与 `docs/` 各自安装依赖，仓库根只装 `concurrently`。
 

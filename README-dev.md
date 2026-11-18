@@ -12,22 +12,18 @@
 
 ### 数据库管理
   - 创建迁移脚本: `npx supabase migration new <title>`
-  - 推送更改到远程: `npx supabase db push --yes --remote "postgresql://postgres.<ref>:<密码>@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"`（密码需 URL 编码；旧版 CLI 用 `--db-url`，v4 起改叫 `--remote=<连接串>`）
+  - 推送更改到远程: `nub run db:push`（自动读取 `.env.local`；等价命令是 `npx supabase db push --yes --remote "$SUPABASE_DB_URL"`）
     - 不要用裸 `db push`：不带参数时目标是本地 Docker 栈，没起 `supabase start` 就报 `ECONNREFUSED 127.0.0.1:54322`
     - `--remote` 不带连接串时会直连 `db.<ref>.supabase.co`，该域名只有 IPv6 记录；本机没有 IPv6 出口时会报 `Connection terminated unexpectedly`
     - pooler 同时提供 IPv4，所以用 `--remote <pooler 连接串>` 是当前唯一稳定的推送方式
+    - 其他参数可透传，如预览 `nub run db:push -- --dry-run`
   - 重置远程数据库: `npx supabase db reset --remote <pooler 连接串>`
 
-密码不必每次手输，写进根目录 `.env.local`（已在 `.gitignore`）即可：
+密码不必每次手输，写进根目录 `.env.local`（已在 `.gitignore`，`db:push` 脚本会自动加载）：
 
 ```bash
-# .env.local：密码含特殊字符时先 URL 编码
+# .env.local：密码含特殊字符时先 URL 编码（@ → %40，& → %26）
 SUPABASE_DB_URL="postgresql://postgres.<ref>:<URL 编码后的密码>@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
-```
-
-```bash
-set -a; . ./.env.local; set +a
-npx supabase db push --yes --remote "$SUPABASE_DB_URL"
 ```
 
 注意：变量名不要加 `VITE_` 前缀，否则会被 Vite 打进前端产物；密码只留在本机的 `.env.local`，不要提交。
