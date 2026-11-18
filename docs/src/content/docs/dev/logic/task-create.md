@@ -173,7 +173,7 @@ if (error && clientKey && isMissingClientKeySupport(error)) {
 
 | 入口 | 说明 |
 | --- | --- |
-| `TodoList.vue` 快速添加 | `addTodo(title, { deadline: null })`，默认挂根任务 |
+| `TodoList.vue` 快速添加 | `addTodo(title, { deadline })`，可在添加栏先选截止时间；默认挂根任务 |
 | `TodoList.vue` 新建子任务 | `addTodo('(新任务)', { parent_id })`，随后进入行内编辑 |
 | `TodoGraph.vue` / `MindMapWrapper.vue` | Enter 建同级、Tab 建子级；同级创建后调 `moveTodo` 调整到落点之后 |
 | `Todo.vue` 顶部新建 | `addTodo('新任务', { details: '' })` |

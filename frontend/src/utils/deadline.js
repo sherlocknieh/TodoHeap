@@ -36,3 +36,42 @@ export const toDateTimeLocalValue = (value) => {
   const pad = (num) => String(num).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
+
+// 截止时间的口语化标签：最近一周说「x 天后」，更远只给月日；任务行与添加栏共用
+export const formatDeadlineLabel = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+
+  const diffDays = Math.floor((target - today) / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return '今天'
+  if (diffDays === 1) return '明天'
+  if (diffDays === -1) return '昨天'
+  if (diffDays > 0 && diffDays <= 7) return `${diffDays}天后`
+  if (diffDays < 0 && diffDays >= -7) return `${Math.abs(diffDays)}天前`
+
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+// 截止标签按到期状态着色：逾期红、今天绿、以后中性，扫清单时最急的先跳出来
+export const deadlineChipClass = (value) => {
+  if (!value) return ''
+  const due = new Date(value)
+  if (Number.isNaN(due.getTime())) return ''
+
+  const now = new Date()
+  const endOfToday = new Date(now)
+  endOfToday.setHours(23, 59, 59, 999)
+
+  if (due < now) {
+    return 'border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:border-rose-500/50'
+  }
+  if (due <= endOfToday) {
+    return 'border-accent-200 bg-accent-50 text-accent-800 hover:border-accent-300 dark:border-accent-500/30 dark:bg-accent-500/10 dark:text-accent-200 dark:hover:border-accent-500/50'
+  }
+  return 'border-hairline text-neutral-500 hover:border-accent-300 hover:text-neutral-700 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:text-neutral-200'
+}

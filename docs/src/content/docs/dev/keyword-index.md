@@ -35,7 +35,9 @@ title: 关键词索引
 
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
-| 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：整行可聚焦」 | 整行可聚焦，回车即存；新任务挂根任务末尾 |
+| 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：外观对齐任务行」 | 外观是一行任务：左侧虚线圈、右侧折叠开关与日历按钮；整行可聚焦，回车即存，新任务挂根任务末尾 |
+| 一键展开 / 一键折叠 / 全部展开全部折叠 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 快速添加栏上的圆圈按钮，折叠的是整张列表 |
+| 添加时设截止时间 / 先选日期再添加 | `pages/todo/TodoList.vue` `newTaskDeadline`、`toggleAddDeadlineMenu` | 选中后变成任务行同款截止标签，随任务一起创建 |
 | 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `paddingLeft: (4 + item._level * 22)` | 层级来自树展开，缩进是纯展示 |
 | 折叠按钮 / 右侧圆圈加减号 | `components/TodoListItem.vue` `toggleExpand`；`utils/taskCollapse.js` | 按钮在任务行右侧，圆圈内 +/−；折叠状态列表、图、回收站共享 |
 | 复选框 / 打勾 / 完成 / 取消完成 | `components/TodoListItem.vue` `cycleStatus` | 完成判定看 `completed_at` 是否为空 |

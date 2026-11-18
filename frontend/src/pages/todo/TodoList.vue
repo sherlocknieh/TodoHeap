@@ -32,17 +32,58 @@
       </div>
     </Teleport>
 
-    <!-- 快速添加：整行可聚焦，回车即存 -->
+    <!-- 快速添加：外观对齐任务行，左侧虚线圈表示这是一条待填写的任务，回车即存 -->
     <div
-      class="mt-4 flex items-center gap-2 rounded-xl border border-hairline bg-surface px-3 shadow-[0_1px_2px_rgb(6_80_48/0.05)] transition-colors focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/15 dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none">
-      <AppIcon name="plus" :size="16" class="text-neutral-400 dark:text-neutral-500" />
+      class="mt-4 ml-1 flex items-center gap-2.5 rounded-lg border border-hairline bg-surface py-1.5 pl-2 pr-1.5 shadow-[0_1px_2px_rgb(6_80_48/0.05)] transition-[border-color,box-shadow] focus-within:border-accent-500 focus-within:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:focus-within:border-accent-500/60">
+      <span aria-hidden="true"
+        class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-dashed border-neutral-300 text-neutral-400 dark:border-neutral-600 dark:text-neutral-500">
+        <AppIcon name="plus" :size="9" />
+      </span>
       <input v-model.trim="newTaskTitle" @keyup.enter="addTodo" placeholder="添加任务，回车保存"
-        class="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500" />
-      <kbd
-        class="rounded border border-hairline px-1.5 py-0.5 font-mono text-[10px] text-neutral-400 dark:border-hairline-dark dark:text-neutral-500">Enter</kbd>
-      <button
-        class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-30 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-        :disabled="!newTaskTitle.trim()" title="添加任务" @click="addTodo">
+        class="h-5 min-w-0 flex-1 bg-transparent text-sm leading-5 text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-200 dark:placeholder:text-neutral-500" />
+      <!-- 折叠开关与任务行同位置同尺寸；这里作用范围是整张列表 -->
+      <button v-if="foldableTasks.length" type="button"
+        class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+        :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+        :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+        :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
+        <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
+      </button>
+      <!-- 截止时间：未设置时是日历按钮，设置后变成任务行同款标签，随任务一起创建 -->
+      <div class="relative" data-add-deadline>
+        <button v-if="!newTaskDeadline" type="button"
+          class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+          title="设置截止时间" aria-label="设置截止时间" @click="toggleAddDeadlineMenu">
+          <AppIcon name="calendar" :size="14" />
+        </button>
+        <button v-else type="button" class="chip gap-1 font-medium transition-colors"
+          :class="deadlineChipClass(newTaskDeadline)"
+          :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" @click="toggleAddDeadlineMenu">
+          <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(newTaskDeadline) }}
+        </button>
+        <div v-if="showAddDeadline" class="absolute right-0 top-full z-30 mt-1 w-48 panel py-1 shadow-lg">
+          <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
+            class="flex w-full items-center gap-2 px-2.5 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+            @click="applyAddDeadline(preset.value)">
+            <AppIcon :name="preset.icon" :size="13" />
+            <span>{{ preset.label }}</span>
+          </button>
+          <label class="block px-2.5 py-1.5 text-xs text-neutral-500">
+            自定义时间
+            <input v-model="addCustomDeadline" type="datetime-local" class="field mt-1 text-xs"
+              @change="applyAddDeadline('custom')" />
+          </label>
+          <button v-if="newTaskDeadline" type="button"
+            class="flex w-full items-center gap-2 px-2.5 py-1.5 text-sm text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            @click="applyAddDeadline('clear')">
+            <AppIcon name="close" :size="13" />
+            <span>清除截止时间</span>
+          </button>
+        </div>
+      </div>
+      <button type="button"
+        class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-30 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+        :disabled="!newTaskTitle.trim()" title="添加任务" aria-label="添加任务" @click="addTodo">
         <AppIcon name="chevronRight" :size="15" />
       </button>
     </div>
@@ -70,7 +111,7 @@
     </section>
 
     <!-- 任务列表 -->
-    <div v-else-if="!loading" class="mt-4 space-y-1.5">
+    <div v-else-if="!loading" class="mt-1.5 space-y-1.5">
       <TodoListItem
         v-for="node in sortedTree"
         :key="node.id"
@@ -179,15 +220,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { collectDescendantIds } from '@/utils/taskGraph'
-import { DEADLINE_PRESETS, resolveDeadlinePreset } from '@/utils/deadline'
+import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
 import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
-import { pruneTaskCollapseTree } from '@/utils/taskCollapse'
+import { pruneTaskCollapseTree, isTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
 import TodoListItem from '@/components/TodoListItem.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -204,6 +245,10 @@ const authStore = useAuthStore()
 const emit = defineEmits(['task-selected', 'notify'])
 
 const newTaskTitle = ref('')
+// 添加栏可以先选截止时间，创建任务时一并写入
+const newTaskDeadline = ref('')
+const showAddDeadline = ref(false)
+const addCustomDeadline = ref('')
 const loading = computed(() => todoStore.loading)
 const isFetched = computed(() => todoStore.isFetched)
 const errorText = computed(() => todoStore.error)
@@ -212,6 +257,11 @@ onMounted(async () => {
   if (authStore.isAuthenticated && !todoStore.isFetched) {
     await todoStore.fetchTodos()
   }
+  document.addEventListener('pointerdown', closeAddDeadlineOnOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', closeAddDeadlineOnOutside)
 })
 
 // 排序只影响显示，偏好存在本地，不写数据库
@@ -232,6 +282,26 @@ watch(() => todoStore.treeNodes, (nodes) => {
 
 const countNodes = (list) => list.reduce((acc, n) => acc + (n._isRef || n.completed_at ? 0 : 1) + countNodes(n.children || []), 0)
 const visibleCount = computed(() => countNodes(sortedTree.value))
+
+// 带子任务的可见行：快速添加栏的折叠开关按整张列表生效
+const foldableTasks = computed(() => {
+  const list = []
+  const walk = (nodes, level) => nodes.forEach((node) => {
+    if (node._isRef) return
+    if (node.children && node.children.length) list.push({ id: node.id, level })
+    walk(node.children || [], level + 1)
+  })
+  walk(sortedTree.value, 0)
+  return list
+})
+
+// 全部收起时按钮显示 +，点它展开全部；否则显示 −，点它折叠全部
+const allCollapsed = computed(() => foldableTasks.value.length > 0
+  && foldableTasks.value.every(({ id, level }) => isTaskCollapsed(id, level > 1)))
+
+const toggleAllCollapsed = () => {
+  setTasksCollapsed(foldableTasks.value.map(({ id }) => id), !allCollapsed.value)
+}
 const completedTodos = computed(() => todoStore.tasks.filter(todo => todo.completed_at))
 const completedCount = computed(() => completedTodos.value.length)
 
@@ -356,9 +426,34 @@ const addTodo = async () => {
   const title = newTaskTitle.value.trim()
   if (!title) return
 
-  await todoStore.addTodo(title, { deadline: null })
+  await todoStore.addTodo(title, { deadline: newTaskDeadline.value || null })
 
   newTaskTitle.value = ''
+  newTaskDeadline.value = ''
+}
+
+const toggleAddDeadlineMenu = () => {
+  if (!showAddDeadline.value) {
+    addCustomDeadline.value = newTaskDeadline.value ? toDateTimeLocalValue(newTaskDeadline.value) : ''
+  }
+  showAddDeadline.value = !showAddDeadline.value
+}
+
+const applyAddDeadline = (preset) => {
+  if (preset === 'custom') {
+    if (!addCustomDeadline.value) return
+    newTaskDeadline.value = new Date(addCustomDeadline.value).toISOString()
+  } else {
+    newTaskDeadline.value = resolveDeadlinePreset(preset) || ''
+  }
+  showAddDeadline.value = false
+}
+
+// 点菜单外收起，与任务行的截止菜单行为一致
+const closeAddDeadlineOnOutside = (event) => {
+  if (!showAddDeadline.value) return
+  if (event.target.closest?.('[data-add-deadline]')) return
+  showAddDeadline.value = false
 }
 
 const addSubtask = async (parentId, startEditCb) => {
