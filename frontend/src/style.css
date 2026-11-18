@@ -69,10 +69,6 @@ html, body, #app {
     -webkit-tap-highlight-color: transparent;
   }
 
-  ::selection {
-    @apply bg-accent-200 text-accent-900;
-  }
-
   /* 细窄滚动条，避免抢视觉重心；限定在应用容器内，这两条属性可继承且会穿透
      Shadow DOM，作用到 * 上会被页面里的浏览器扩展面板继承，改掉它们的滚动条 */
   #app,
