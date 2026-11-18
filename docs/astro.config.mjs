@@ -7,6 +7,21 @@ export default defineConfig({
   site: 'https://sherlocknieh.github.io',
   base: '/TodoHeap',
   outDir: '../dist',
+  // 开发期把 /app 转发到前端 dev server（5200）：生产环境 /app 是构建产物目录，
+  // 但两个 dev server 分端口运行，文档站点本身没有这条路由。
+  vite: {
+    server: {
+      proxy: {
+        // Astro 会先剥掉 base，代理看到的是 /app/*
+        '/app': {
+          target: 'http://localhost:5200',
+          changeOrigin: true,
+          ws: true,
+          rewrite: (path) => '/TodoHeap' + path,
+        },
+      },
+    },
+  },
   integrations: [
     starlight({
       title: 'TodoHeap 任务堆',
