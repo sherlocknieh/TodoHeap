@@ -256,6 +256,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
+import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import {
   collapsedTaskSet,
@@ -269,9 +270,7 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedTaskId: { type: Number, default: null },
   // 新建任务后由父级指定要立即重命名的节点
-  editTaskId: { type: Number, default: null },
-  // 浮在画布右侧的详情面板宽度：视图控件、聚焦、适应视图与菜单定位都避让它
-  panelInset: { type: Number, default: 0 }
+  editTaskId: { type: Number, default: null }
 })
 
 const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'drop-task', 'unlink-task', 'notify', 'background-click'])
@@ -308,7 +307,7 @@ const menuHeight = 140
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
 // 可见宽度：画布保持整宽，右侧浮层面板盖住的部分不算可用视野
-const visibleWidth = computed(() => Math.max(160, size.width - props.panelInset))
+const visibleWidth = computed(() => Math.max(160, size.width - detailPanelInset.value))
 const view = reactive({ x: 0, y: 0, scale: 1 })
 const panning = ref(false)
 
@@ -389,7 +388,7 @@ const currentDirection = computed(() =>
 
 // 视图控件跟随浮层右栏左移：面板多宽就右偏多少，面板收起时回到常规右下角
 const controlsStyle = computed(() => ({
-  right: `calc(0.75rem + ${props.panelInset}px)`
+  right: `calc(0.75rem + ${detailPanelInset.value}px)`
 }))
 
 // 折叠状态按任务 ID 与列表、回收站共享：折叠后只隐藏子节点，任务本身与其它父级链接不受影响
@@ -1438,7 +1437,7 @@ const followColumnFocus = () => {
 }
 
 // 右栏浮层宽度变化时，选中节点重新贴到可见区中央，避免三点按钮和菜单被面板压住
-watch(() => props.panelInset, () => { followColumnFocus() })
+watch(detailPanelInset, () => { followColumnFocus() })
 
 // 单击选中后稍等再居中：双击编辑时节点还没移走，可以原地改字
 let pendingCenter = null

@@ -26,7 +26,7 @@ outline: deep
 | 侧栏分组折叠 / 收起标题 | `components/LeftSidebar.vue` `collapsedSections` | 折叠选择本地保留 |
 | 顶栏标题 / 主区域标题 / 当前视图名 | `pages/Todo.vue` `activeViewTitle` | 各视图统一在顶栏显示名称 |
 | 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏 |
-| 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue` | 任务图始终浮层、不挤压画布，导图按 `graphPanelInset` 把聚焦与节点菜单留在面板左侧；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
+| 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图按 `detailPanelInset` 把聚焦与节点菜单留在面板左侧；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
 | 底栏 / 状态栏 / 底部统计 / 进度条 | `pages/Todo.vue`「底栏统计」「底栏：导航开关、统计与同步状态」 | 根任务不计入统计 |
 | 同步状态 / 断线 / 待同步 | `pages/Todo.vue` `syncStatus`；`stores/syncQueue.js` | 优先级：断线 > 待同步 > 连接中 > 已同步 |
 | 设置浮窗 / 设置弹窗 / 齿轮 | `pages/todo/Settings.vue`；`pages/Todo.vue`「设置浮窗」 | 地址栏 `tab` 参数控制，刷新可回到同一面板 |
@@ -63,7 +63,7 @@ outline: deep
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
 | 布局方向 / 横向纵向 / 文字横竖排 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留 |
-| 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`controlsStyle`；`pages/Todo.vue` `graphPanelInset` | 视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
+| 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`controlsStyle`；`utils/detailPanelContext.js` 的 `detailPanelInset` | 视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
 | 节点悬停 / 鼠标移到节点上 / 悬停高亮弱一档 | `components/MindMapWrapper.vue` 节点 `g` 的 `group` + rect 的 `group-hover:stroke-accent-600/45` | 悬停与选中同一个绿色、同样 2px 粗细，只靠透明度分强弱：悬停是半透明绿框、不改底色，选中是实绿框加淡底 |
 | 拖拽落点 / 预览线 / 拖到节点上 / 影子节点 / 拖拽残影 / 拖动时没有连线 | `components/MindMapWrapper.vue` `dragState.shadow`、`dragState.preview`、`onNodePointerDown` | 拖节点时在指针处显示节点副本（原件淡出），不画线；只有从折叠/加号按钮建链接才画预览线 |

@@ -14,23 +14,22 @@
 
 ## 共享宽度
 
-宽度常量在 `frontend/src/utils/detailPanelContext.js`：`detail-width`、默认 320、最小 260。
+宽度与占位状态都定义在 `frontend/src/utils/detailPanelContext.js`：
 
-- `TodoDetailEditor` 用 `useResizablePanel` 写这个键；
-- `Todo.vue` 用 `persistedRef` 读同一个键，得到 `detailPanelWidth`；
-- `graphPanelInset` 只在任务图且面板展开时返回宽度，并受 `85vw` 上限约束，否则为 0。
+- `detailPanelWidth` 是持久化 ref（`detail-width`，默认 320，最小 260），`TodoDetailEditor` 与页面外壳 import 同一个对象，不再各建一份；
+- `detailPanelInset` 是导图实际要避让的宽度，由 `Todo.vue` 的 `graphPanelInset` 写入：只在任务图且面板展开时非 0，并受 `85vw` 上限约束。
 
-面板拖宽时 `persistedRef` 通过 `todoheap:ui-change` 同步到页面外壳，不需要额外的 `ResizeObserver`。
+面板拖宽直接改写共享的 `detailPanelWidth`，导图与控件读到的值同步变化，不需要额外的 `ResizeObserver` 或跨实例同步。
 
 ## 谁按它避让
 
 | 位置 | 用法 |
 | --- | --- |
-| 导图视图控件 | `MindMapWrapper` 的 `controlsStyle` 用 `right: calc(0.75rem + inset)`，面板多宽就左移多少；面板收起时回到右下角 |
-| 导图视野 | `visibleWidth = 画布宽 - inset`；选中节点聚焦、适应视图、编辑缩放都按可见宽度计算 |
+| 导图视图控件 | `MindMapWrapper` 的 `controlsStyle` 用 `right: calc(0.75rem + detailPanelInset)`，面板多宽就左移多少；面板收起时回到右下角 |
+| 导图视野 | `visibleWidth = 画布宽 - detailPanelInset`；选中节点聚焦、适应视图、编辑缩放都按可见宽度计算 |
 | 节点更多菜单 | `menuPosition` 的右侧夹紧改用 `visibleWidth`，菜单不会钻到面板下面 |
 
-`watch(() => props.panelInset)` 在面板开合或拖宽时重新贴合当前选中节点，保证三点按钮留在面板左侧。
+`watch(detailPanelInset)` 在面板开合或拖宽时重新贴合当前选中节点，保证三点按钮留在面板左侧。
 
 ## 为什么控件不 teleport
 

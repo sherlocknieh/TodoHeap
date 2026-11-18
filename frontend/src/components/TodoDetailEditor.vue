@@ -155,8 +155,7 @@ import { useSyncQueueStore } from '@/stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import {
-  DETAIL_PANEL_WIDTH_KEY,
-  DETAIL_PANEL_DEFAULT_WIDTH,
+  detailPanelWidth,
   DETAIL_PANEL_MIN_WIDTH
 } from '@/utils/detailPanelContext'
 
@@ -193,8 +192,7 @@ const show = computed(() => props.show)
 
 // 面板左缘可拖拽调宽，拖过最小宽度后再拖一段即收起
 const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapseArmed, start: startResize } = useResizablePanel({
-  key: DETAIL_PANEL_WIDTH_KEY,
-  initial: DETAIL_PANEL_DEFAULT_WIDTH,
+  width: detailPanelWidth,
   min: DETAIL_PANEL_MIN_WIDTH,
   side: 'right',
   onCollapse: () => emit('close')

@@ -1,9 +1,10 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { persistedRef } from './uiState'
 
-// 面板边缘拖拽调宽：宽度本地保留，拖过最小宽度后还要再拖一段才收起面板
-export const useResizablePanel = ({ key, initial, min, side, onCollapse }) => {
-	const width = persistedRef(key, initial, {
+// 面板边缘拖拽调宽：宽度本地保留，拖过最小宽度后还要再拖一段才收起面板。
+// 传入 width 时复用外部共享的宽度状态，避免同一面板出现两份宽度来源
+export const useResizablePanel = ({ key, initial, min, side, onCollapse, width: sharedWidth }) => {
+	const width = sharedWidth ?? persistedRef(key, initial, {
 		validate: (value) => Number.isFinite(value) && value >= min
 	})
 	const resizing = ref(false)

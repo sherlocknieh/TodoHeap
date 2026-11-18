@@ -13,9 +13,8 @@ import AgentContextPanel from '@/components/AgentContextPanel.vue'
 import ScheduleDetailPanel from '@/components/ScheduleDetailPanel.vue'
 import {
 	TODO_DETAIL_PANEL_CONTEXT,
-	DETAIL_PANEL_WIDTH_KEY,
-	DETAIL_PANEL_DEFAULT_WIDTH,
-	DETAIL_PANEL_MIN_WIDTH
+	detailPanelWidth,
+	detailPanelInset
 } from '@/utils/detailPanelContext'
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
@@ -63,10 +62,7 @@ const selectedTaskId = persistedRef('selected-task', null, {
 	validate: (value) => value === null || Number.isFinite(value)
 })
 const showDetailPanel = persistedRef('detail-open', false)
-// 与面板组件读写同一个宽度：任务图按可见区聚焦、视图控件按它左移
-const detailPanelWidth = persistedRef(DETAIL_PANEL_WIDTH_KEY, DETAIL_PANEL_DEFAULT_WIDTH, {
-	validate: (value) => Number.isFinite(value) && value >= DETAIL_PANEL_MIN_WIDTH
-})
+// 右栏宽度与浮层占位宽度是共享状态：面板拖宽、任务图避让都读同一份
 // 日程视图的右栏编辑选中的日程，与其他视图的任务选中互不干扰
 const selectedEventId = persistedRef('selected-event', null, {
 	validate: (value) => value === null || Number.isFinite(value)
@@ -194,9 +190,6 @@ const syncState = computed(() => {
 const viewProps = computed(() => {
 	if (activeView.value === 'schedule') return { selectedEventId: selectedEventId.value }
 	if (activeView.value === 'heap') return { todos: todoStore.tasks }
-	if (activeView.value === 'graph') {
-		return { panelInset: graphPanelInset.value }
-	}
 	return {}
 })
 
@@ -404,6 +397,9 @@ const graphPanelInset = computed(() => {
 	if (activeView.value !== 'graph' || !showDetailPanel.value) return 0
 	return Math.min(detailPanelWidth.value, Math.round(windowWidth.value * 0.85))
 })
+
+// 把占位宽度同步给导图：面板开合、拖宽或视口变化时一起更新
+watch(graphPanelInset, (value) => { detailPanelInset.value = value }, { immediate: true })
 
 // 点击外部关闭用户菜单与浮层侧栏
 const handleClickOutside = (event) => {
