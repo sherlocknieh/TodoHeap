@@ -2,6 +2,7 @@
 	<!-- 任务图：思维导图占满活动栏以外的区域，支持键盘增删改 -->
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
+			:new-edge="newEdge"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
 			@delete-task="deleteTask" @toggle-done="toggleDone" @drop-task="dropTask" @unlink-task="unlinkTask"
 			@notify="payload => emit('notify', payload)" @background-click="emit('background-click')" />
@@ -26,6 +27,9 @@ const todoStore = useTodoStore()
 
 // 新建后立即进入重命名，避免留下「新任务」占位
 const editTaskId = ref(null)
+
+// 刚建立的链接交给导图按点击选线处理，引用变化即重新触发
+const newEdge = ref(null)
 
 // 临时 ID 换成真实 ID 后，重命名目标要跟着换，否则输入框会随节点消失
 const handleIdReplaced = (event) => {
@@ -147,9 +151,10 @@ const unlinkOtherParents = async ({ childId, parentId }) => {
 	if (failed?.error) emit('notify', { message: failed.error })
 }
 
-// 落点折叠时展开它，否则新挂上的子任务与连线会被折叠计数按钮藏住
-const revealDropParent = (parentId) => {
+// 新链接落成后：展开折叠的落点并选中新连线，否则连线会被折叠计数藏住、或在细灰线里找不到
+const revealNewLink = (parentId, childId) => {
 	if (isTaskCollapsed(parentId)) setTaskCollapsed(parentId, false)
+	newEdge.value = { parentId, childId }
 }
 
 // 拖拽落点：拖节点本体时，上/下四分之一插到目标兄弟前后，中间成为子任务；
@@ -203,8 +208,8 @@ const dropTask = async ({
 			return
 		}
 
-		// 建链接后立刻展开父节点，新建的连线才可见
-		revealDropParent(parentId)
+		// 建链接后立刻展开父节点并选中新连线，让用户看见落点
+		revealNewLink(parentId, childId)
 
 		emit('notify', {
 			message: `已将「${childTitle}」链接到「${parentTitle}」`,
@@ -229,8 +234,8 @@ const dropTask = async ({
 		return
 	}
 
-	// 移动同样形成新的父子关系，展开落点避免子任务一落进去就消失
-	revealDropParent(parentId)
+	// 移动同样形成新的父子关系，展开落点并选中新连线，避免子任务一落进去就消失
+	revealNewLink(parentId, childId)
 }
 
 // 删除连线：只从父任务的 child_ids 移除引用；最后一个父级被摘掉时任务回到顶层

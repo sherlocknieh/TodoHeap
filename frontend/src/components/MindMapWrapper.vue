@@ -165,8 +165,8 @@
           class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
           marker-end="url(#mm-arrow)" />
 
-        <!-- 选中连线：在连线中点显示删除按钮，置于节点之上以免被遮挡 -->
-        <g v-if="selectedEdge && selectedEdge.midpoint"
+        <!-- 选中连线：在连线中点显示删除按钮，置于节点之上以免被遮挡；根任务的边不可删，只高亮 -->
+        <g v-if="selectedEdge?.deletable && selectedEdge.midpoint"
           :transform="`translate(${selectedEdge.midpoint.x} ${selectedEdge.midpoint.y})`"
           @pointerdown.stop @click.stop="onUnlinkClick">
           <circle r="12" class="cursor-pointer fill-transparent stroke-transparent" />
@@ -300,7 +300,9 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedTaskId: { type: Number, default: null },
   // 新建任务后由父级指定要立即重命名的节点
-  editTaskId: { type: Number, default: null }
+  editTaskId: { type: Number, default: null },
+  // 新建立的链接，形如 { parentId, childId }；引用变化即按点击连线选中它
+  newEdge: { type: Object, default: null }
 })
 
 const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'drop-task', 'unlink-task', 'notify', 'background-click'])
@@ -1483,6 +1485,23 @@ const selectEdge = (edge) => {
   selectedEdgeKey.value = selectedEdgeKey.value === edge.key ? null : edge.key
   if (selectedEdgeKey.value) emit('task-selected', null)
 }
+
+// 新建立的链接直接走点击选线的同一条路径：强调色、加粗与中点删除按钮一起出现，
+// 用户不必在一堆细灰线里找刚连上的那条。等布局更新完再找边，避免刚展开父节点时还看不到它
+watch(() => props.newEdge, (link) => {
+  if (!link) return
+  const edge = layout.value.edges.find((item) =>
+    item.from === String(link.parentId) && item.to === String(link.childId))
+  if (!edge) return
+
+  if (edge.deletable) {
+    selectEdge(edge)
+    return
+  }
+  // 根任务发出的边没有中点删除按钮，无法走点击路径，仍给出同款高亮
+  selectedEdgeKey.value = edge.key
+  emit('task-selected', null)
+}, { flush: 'post' })
 
 // 删除选中连线：只解除父子引用，任务本身保留
 const deleteSelectedEdge = () => {
