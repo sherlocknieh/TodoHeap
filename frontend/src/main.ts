@@ -6,6 +6,9 @@ import './style.css'
 import { handleAuthCallback } from '@/utils/handleAuthCallback'
 import { closeAuthTabIfStandalone, handleDidaCallback } from '@/lib/didaMcp'
 import { readPendingPreset } from '@/lib/mcpServers'
+import { initTheme } from '@/utils/theme'
+
+initTheme()
 
 const app = createApp(App)
 const pinia = createPinia()

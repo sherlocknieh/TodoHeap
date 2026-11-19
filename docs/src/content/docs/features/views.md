@@ -16,7 +16,7 @@ title: "视图与交互"
 
 ### 画布
 
-- 点阵底纹固定 24px 点距，不随平移与缩放变化；画布可切浅色/深色，深色下点阵转白。底色首次跟随 `prefers-color-scheme`，之后按手动选择保存（`mindmap-dot-grid`、`mindmap-dark-canvas`）。
+- 两种底纹互斥、各自开关：点阵固定 24px 点距，不随平移与缩放变化；坐标网格跟随平移缩放，原点取根节点出边按钮的圆心（布局仍以根节点左上角为基准，只平移读数），主刻度按 1/2/5×10ⁿ 自适应（相邻主刻度的屏幕间距不小于 100px），坐标轴与标签显示世界坐标（`mindmap-dot-grid`、`mindmap-coordinate-grid`、`gridOrigin`、`utils/canvasGrid.js`），机制见[任务图坐标网格](../dev/logic/mindmap-coordinate-grid.md)。画布可切浅色/深色，深色下点阵与网格线条转白。底色首次跟随 `prefers-color-scheme`，之后按手动选择保存（`mindmap-dark-canvas`）。
 - 滚轮在选中节点或选中连线上缩放，其余位置上下平移；Ctrl/Cmd + 滚轮在任意位置缩放，触控板双指捏合也走这条分支。画布 `@wheel.prevent`，不会触发浏览器整页缩放（`onWheel`）。
 - 拖拽空白处或根节点平移，右下角「适应视图」按钮复位。
 
@@ -52,7 +52,8 @@ title: "视图与交互"
 
 - 行卡片使用 `rounded-lg` 与较轻阴影；选中行沿用侧栏激活样式：绿色浅底、绿色文字、左缘 2px 实线，选中态与普通行共用同一组阴影值，切换时不跳动。
 - 完成状态为圆形勾选圈，多选使用方形选择框；未设截止时只显示日历按钮，已设时按逾期/今天/以后分别用红/绿/中性色。
-- 子任务沿父级缩进位画细引导线；有子任务的行右侧是圆圈 +/− 折叠开关；已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
+- 子任务按层级画树状连线：每层一条竖线，祖先层仍有后续兄弟时竖线贯穿整行，末位兄弟在行中心收成 └ 角并横接到卡片左缘；折叠或完成后连线随可见行重算（`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle`，机制见[任务表树状连线](../dev/logic/task-list-tree-lines.md)）。
+- 有子任务的行在卡片左侧放圆圈 +/− 折叠开关，开关中心正好落在树状连线的交叉点上；顶层行没有连线，开关仍停在卡片前的同一列，快速添加栏与卡片左缘对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
 
 ## 日程与堆视图
 

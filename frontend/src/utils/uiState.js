@@ -3,7 +3,7 @@ import { getCurrentInstance, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 // 界面状态本地持久化：刷新后回到离开时的布局与位置
 const STORAGE_PREFIX = 'todoheap:ui:'
 // 同页广播：Agent 改设置后，已挂载的组件据此同步，不必刷新
-const CHANGE_EVENT = 'todoheap:ui-change'
+export const UI_STATE_CHANGE_EVENT = 'todoheap:ui-change'
 
 // 侧栏转为浮层的宽度阈值：更窄时才把侧栏抽屉盖在内容上，需与模板中的 md: 断点一致
 export const SIDEBAR_FLOAT_BREAKPOINT = 768
@@ -29,7 +29,7 @@ export const writeUiState = (key, value) => {
     // 无法持久化时保持当前界面行为
   }
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { key, value } }))
+    window.dispatchEvent(new CustomEvent(UI_STATE_CHANGE_EVENT, { detail: { key, value } }))
   }
 }
 
@@ -49,8 +49,8 @@ export const persistedRef = (key, fallback, { validate } = {}) => {
       if (JSON.stringify(next) === JSON.stringify(state.value)) return
       state.value = next
     }
-    window.addEventListener(CHANGE_EVENT, onExternalChange)
-    if (getCurrentInstance()) onBeforeUnmount(() => window.removeEventListener(CHANGE_EVENT, onExternalChange))
+    window.addEventListener(UI_STATE_CHANGE_EVENT, onExternalChange)
+    if (getCurrentInstance()) onBeforeUnmount(() => window.removeEventListener(UI_STATE_CHANGE_EVENT, onExternalChange))
   }
 
   return state

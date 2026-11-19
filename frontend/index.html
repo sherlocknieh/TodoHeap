@@ -15,6 +15,17 @@
       name="description"
       content="TodoHeap 用对话 Agent 理解任务、拆成可执行步骤并排好先后，再落进日程：从记住任务到排进日程。" />
     <meta name="theme-color" content="#f1f3f3" />
+    <!-- 首屏前写入主题，避免强制深色时先闪一帧浅色 -->
+    <script>
+      try {
+        var mode = JSON.parse(localStorage.getItem('todoheap:ui:theme') || '"auto"')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme = mode === 'dark' || (mode !== 'light' && prefersDark) ? 'dark' : 'light'
+      } catch (error) {
+        document.documentElement.dataset.theme =
+          window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

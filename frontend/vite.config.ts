@@ -22,6 +22,14 @@ export default defineConfig({
         target: 'http://localhost:4321',
         changeOrigin: true,
       },
+      // Astro 开发期的模块与资源地址都是根路径（/@vite、/@id、/@fs、/_image、/node_modules），
+      // 不带 /TodoHeap 前缀；这些请求也要转发，否则文档页的图片、脚本会 404
+      // （例如搜索组件脚本加载失败，按钮就一直是 disabled）。
+      '^/(?:@fs|@id|@vite|@astro|_image|_astro|node_modules)(?:/|\\?|$)': {
+        target: 'http://localhost:4321',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   resolve: {

@@ -1,72 +1,68 @@
 /**
  * @module handleAuthCallback
- * 
- * [问题来由] 
- * 
- * Supabase 的认证流程中，用户注册后会通过回调 URL 将 access_token 和 refresh_token 传回应用。
- * 正常情况下回调链接类似: /#access_token=... , 能被 Supabase SDK 自动处理
- * 但是本应用使用 Vue Router 的 Hash 路由模式，回调 URL 会变成 /#/access_token...
- * 导致 SDK 无法正确解析，同时 Vue Router 也不能匹配到正确的路由，最终显示 404 页面。
+ *
+ * [问题来由]
+ *
+ * Supabase 的认证流程中，用户注册确认/找回密码后，令牌会拼在回跳地址的 hash 里：
+ *   .../TodoHeap/app/#access_token=...&refresh_token=...&type=signup
+ * 本应用用 Vue Router 的 Hash 路由，这串参数会被当成路由路径直接渲染 404，
+ * Supabase SDK 也没有机会处理。
  *
  * [模块功能]
- * 
- * 1. 拦截回调 URL，主动提取 access_token 和各种参数, 写入本地 session。
- * 2. 重新进行路由跳转。
+ *
+ * 1. 在路由挂载前拦截回跳地址，把令牌写入 session，再回到应用首页。
+ * 2. 找回密码的回跳直接进入重置密码页。
+ * 3. 链接过期/被拒（error_code）时回到登录页，并带上原因供 Login.vue 提示。
  *
  * [使用方法]
- * 
- * // 写在 main.ts 中, auth.init() 之后;
- * import { auth } from '@/stores/auth'
+ *
+ * // 写在 main.ts 中，挂载 router 之前：
  * import { handleAuthCallback } from '@/utils/handleAuthCallback'
- * ...
- * await auth.init() // 确保认证状态已初始化
- * await handleAuthCallback() // 处理认证回调URL
+ * await handleAuthCallback()
  */
-
-
-// 回调 URL 示例（magic link/email confirmation）：
-// https://your-app.com/#/access_token=...&expires_at=1772025904&expires_in=3600&refresh_token=...&token_type=bearer&type=signup
-// https://your-app.com/#/error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&sb=
 
 import { supabase } from '@/lib/supabase'
 
-// 👇 直接解析
+// 回调 URL 示例（应用挂在 /TodoHeap/app/，hash 由 Supabase 拼在 base 之后）：
+// https://your-app.com/TodoHeap/app/#access_token=...&expires_in=3600&refresh_token=...&token_type=bearer&type=signup
+// https://your-app.com/TodoHeap/app/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired
+// 也兼容被 Hash 路由提前改写成 #/access_token=... 的旧链接
+
+// 这些标记说明当前地址承载的是认证回跳，而不是普通深链
+const CALLBACK_MARKERS = ['access_token', 'error_code', 'error_description']
+
 export async function handleAuthCallback() {
   const hash = window.location.hash
-  // 普通页面（含刷新、深链）不带 token，直接保留当前路由
-  if (!hash.includes('access_token')) return
+  // 普通页面（含刷新、深链）不带回跳参数，直接保留当前路由
+  if (!CALLBACK_MARKERS.some((marker) => hash.includes(marker))) return
 
-  // 匹配 #/access_token= 或 #access_token=
-  if (hash.includes('access_token')) {
-    const cleaned = hash.startsWith('#/')
-      ? hash.slice(2)
-      : hash.slice(1)
-    
-    console.log('Cleaned:', cleaned)
-    
-    const params = new URLSearchParams(cleaned)
+  const params = new URLSearchParams(hash.startsWith('#/') ? hash.slice(2) : hash.slice(1))
 
-    const access_token = params.get('access_token')
-    const refresh_token = params.get('refresh_token')
-
-    console.log('Extracted tokens from URL:', { access_token, refresh_token })
-
-    if (access_token && refresh_token) {
-      const { data, error } = await supabase.auth.setSession({
-        access_token,
-        refresh_token
-      })
-      
-      console.log('Supabase session set successfully:', data)
-
-      if (error) {
-        console.error('Error setting Supabase session:', error)
-      } else if (params.get('type') === 'recovery') {
-        window.location.hash = '#/reset-password'
-        return
-      }
-    }
+  // 邮箱链接过期/已被使用、第三方授权被拒：回登录页说明原因
+  const errorCode = params.get('error_code') || params.get('error')
+  if (errorCode || params.get('error_description')) {
+    window.location.hash = `#/login?reason=${encodeURIComponent(errorCode || 'link_invalid')}`
+    return
   }
-  // 处理完回调参数后回到首页，避免 token 留在地址栏
-  window.location.hash = '#/'
+
+  const access_token = params.get('access_token')
+  const refresh_token = params.get('refresh_token')
+  // 参数残缺的回跳同样没有可用会话，别让它停在 404
+  if (!access_token || !refresh_token) {
+    window.location.hash = '#/login?reason=link_invalid'
+    return
+  }
+
+  const isRecovery = params.get('type') === 'recovery'
+  const { error } = await supabase.auth.setSession({ access_token, refresh_token })
+
+  if (error) {
+    console.error('Error setting Supabase session:', error)
+    // 令牌失效：找回密码回重置页（那里会提示重新申请），其余回登录页
+    window.location.hash = isRecovery ? '#/reset-password' : '#/login?reason=link_invalid'
+    return
+  }
+
+  // 处理完回跳参数后离开当前 hash，避免令牌留在地址栏
+  window.location.hash = isRecovery ? '#/reset-password' : '#/'
 }

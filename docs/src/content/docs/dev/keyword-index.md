@@ -38,11 +38,11 @@ title: 关键词索引
 | 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：外观对齐任务行」 | 外观是一行任务：左侧虚线圈、右侧折叠开关与日历按钮；整行可聚焦，回车即存，新任务挂根任务首位 |
 | 一键展开 / 一键折叠 / 全部展开全部折叠 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 快速添加栏上的圆圈按钮，折叠的是整张列表 |
 | 添加时设截止时间 / 先选日期再添加 | `pages/todo/TodoList.vue` `newTaskDeadline`、`toggleAddDeadlineMenu` | 选中后变成任务行同款截止标签，随任务一起创建 |
-| 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `paddingLeft: (4 + item._level * 22)` | 层级来自树展开，缩进是纯展示 |
-| 折叠按钮 / 右侧圆圈加减号 | `components/TodoListItem.vue` `toggleExpand`；`utils/taskCollapse.js` | 按钮在任务行右侧，圆圈内 +/−；折叠状态列表、图、回收站共享 |
+| 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `rowPaddingLeft`、`LEVEL_INDENT` | 层级来自树展开，缩进是纯展示 |
+| 折叠按钮 / 圆圈加减号 / 按钮在任务前面 / 开关对准树线交叉点 | `components/TodoListItem.vue` `toggleStyle`、`toggleExpand`；`utils/taskCollapse.js` | 按钮在卡片左侧，圆心落在竖线与横线的交叉点；圆圈内 +/−，折叠状态列表、图、回收站共享 |
 | 复选框 / 打勾 / 完成 / 取消完成 | `components/TodoListItem.vue` `cycleStatus` | 完成判定看 `completed_at` 是否为空 |
 | 圆形勾选圈 / 完成圈变圆 / 方框是选择 | `components/TodoListItem.vue` 模板内完成按钮与 `selectionMode` 分支 | 圆形表示完成状态，方形只在多选模式出现，形状即语义 |
-| 缩进引导线 / 层级竖线 / 子任务连到父级 | `components/TodoListItem.vue`「缩进引导线」 | 竖线沿父级缩进位，只为看清层级，不参与拖拽 |
+| 缩进引导线 / 层级竖线 / 子任务连到父级 / 树状连线 / 分支线 / 末位收角 | `components/TodoListItem.vue`「树状连线」、`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle` | 每层一条竖线，祖先有后续兄弟时贯穿整行；末位兄弟在行中心收成 └ 角并横接到卡片左缘。只为看清层级，不参与拖拽；机制见[任务表树状连线](./logic/task-list-tree-lines.md) |
 | 截止标签变色 / 逾期红 / 今天绿 | `components/TodoListItem.vue` `deadlineChipClass` | 逾期红、当天绿、以后中性；未设截止时只显示日历图标按钮 |
 | 两态完成 / 点了变完成又变灰 | `components/TodoListItem.vue` `statusMap` | 行内先给即时反馈，再落库 |
 | 多选 / 批量操作 / 选择模式 | `pages/todo/TodoList.vue` `toggleSelectionMode`、`batchSetCompleted`；`components/TodoListItem.vue` `selectionMode` | 多选时复选框替换完成状态与行内操作 |
@@ -67,7 +67,8 @@ title: 关键词索引
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
 | 展开子节点 / 兄弟被推开 / 子树重叠 / 多父展开后空白 / 节点重叠 | `components/MindMapWrapper.vue` `computeGraphLayout` 的 `laneChildren`、`blockSizeOf`、`blockBoundsOf`、`shareParent`、`limitGaps` | 同层按子树块跨度推开兄弟；多父节点取全部前向父级平均定位；同父级兄弟的实际边缘空白超过 `2 × crossGap` 时整支子树下移吸收，正常展开空间不变 |
 | 布局方向 / 左右翻转 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留，只有左右两向 |
-| 点阵背景 / 网格背景 / 画布底纹 / 背景不动 / 点阵跟着画布走 / 背景太花 | `components/MindMapWrapper.vue` `dotGrid`、`mindmap-dots` 样式 | 右下角视图控件的网格按钮切换点阵底纹，默认开启，状态本地保存；点阵是固定 24px 的静态纹理，不随平移与缩放变化 |
+| 点阵背景 / 画布底纹 / 背景不动 / 点阵跟着画布走 / 背景太花 | `components/MindMapWrapper.vue` `dotGrid`、`toggleDotGrid`、`mindmap-dots` 样式 | 右下角视图控件的点阵按钮切换点阵底纹，默认开启，状态本地保存；点阵是固定 24px 的静态纹理，不随平移与缩放变化；开启坐标网格时自动关掉点阵 |
+| 坐标网格 / 坐标轴 / 刻度标签 / 图上有数字 / 网格跟着画布走 | `components/MindMapWrapper.vue` `coordinateGrid`、`gridLayer`、`mindmap-grid-*` 样式；`utils/canvasGrid.js` | 右下角视图控件的坐标按钮切换带刻度的网格，默认关闭、状态本地保存；细线与主刻度跟随平移缩放，原点在根节点出边按钮圆心（`gridOrigin`），轴标签显示世界坐标，主刻度按 1/2/5 自适应，屏幕间距不小于 100px；与点阵互斥 |
 | 深色背景 / 暗色画布 / 背景颜色 / 想用深色底 | `components/MindMapWrapper.vue` `darkCanvas`、`mindmap-canvas--dark` | 右下角视图控件的日/月按钮切换画布底色，点阵点色跟着切换；首次按系统主题取值，之后按手动选择保存 |
 | 适应视图 / 缩放到刚好 / 操作提示 / 面板挡住右下角按钮 / 控件跟着面板走 | `components/MindMapWrapper.vue` `fitView`、`helpOpen`、`controlsStyle`；`utils/detailPanelContext.js` 的 `detailPanelInset` | 视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
@@ -141,7 +142,7 @@ title: 关键词索引
 | --- | --- | --- |
 | 主题色 / 绿色 / 强调色 / accent | `frontend/src/style.css` `@theme` 的 `--color-accent-*` | 绿色是唯一强调色，只出现在交互与状态上 |
 | 危险色 / 红色 / 删除红 / danger | `frontend/src/style.css` `--color-danger-*` | 只用于删除等不可逆确认态 |
-| 暗色模式 / 深色 / 跟随系统 | `frontend/src/style.css` `prefers-color-scheme`；组件里的 `dark:` 类 | 跟随系统切换 |
+| 暗色模式 / 深色 / 跟随系统 / 主题切换 | `frontend/src/utils/theme.js`、`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 设置 → 外观可切跟随系统/浅色/深色，偏好存 `theme`，auto 时随系统解析成 light/dark |
 | 圆角 / 阴影 / 卡片 / 输入框样式 | `frontend/src/style.css` `@layer components` 的 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` | 优先复用基元类，不另造样式 |
 | 图标 / 加号 / 垃圾桶图标 / 改图标 | `components/AppIcon.vue` | 全站唯一图标来源，用 `name` + `size`；不要用 emoji |
 | 字体 / 等宽数字 | `frontend/src/style.css` `--font-sans`、`--font-mono` | 统计数字用 `font-mono tabular-nums` |

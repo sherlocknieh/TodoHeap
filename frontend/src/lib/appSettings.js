@@ -1,8 +1,17 @@
 // 应用设置注册表：界面偏好与模型参数的唯一事实来源，Agent 与设置页共用
 import { readUiState, writeUiState } from '@/utils/uiState'
+import { THEME_KEY, THEME_OPTIONS } from '@/utils/theme'
 
 // 界面偏好：键名与各组件 persistedRef 使用的键一致，写入后组件即时生效
 export const UI_PREFERENCE_SETTINGS = [
+  {
+    key: THEME_KEY,
+    label: '外观主题',
+    group: '界面',
+    type: 'enum',
+    options: THEME_OPTIONS.map(({ value, label }) => ({ value, label })),
+    default: 'auto'
+  },
   {
     key: 'mindmap-direction',
     label: '任务图布局方向',

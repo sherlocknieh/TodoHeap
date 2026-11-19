@@ -1,15 +1,34 @@
 <template>
   <ul class="space-y-1.5">
-    <template v-for="item in flatList">
-      <li v-if="isItemVisible(item)" :key="item.id" data-task-item :draggable="canDrag(item)"
-        class="group relative cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }"
+    <template v-for="item in visibleRows" :key="item.id">
+      <li data-task-item :draggable="canDrag(item)"
+        class="group relative cursor-pointer" :style="{ paddingLeft: rowPaddingLeft(item._level) + 'px' }"
         @click="handleRowClick(item)" @dragstart="onDragStart(item, $event)" @dragover.prevent="onDragOver(item, $event)"
         @dragleave="onDragLeave(item, $event)" @drop.prevent="onDrop(item, $event)" @dragend="onDragEnd">
-        <!-- 缩进引导线：沿父级层级缩进位向下贯穿，深层子任务在独立卡片间仍看得出归属 -->
+        <!-- 树状连线：祖先层还有后续兄弟时，竖线沿本行贯穿到下一行 -->
+        <template v-for="(continues, index) in item._guides" :key="'guide-' + index">
+          <span v-if="continues" aria-hidden="true"
+            class="pointer-events-none absolute -top-1.5 -bottom-1.5 w-px bg-hairline/70 dark:bg-hairline-dark/70"
+            :style="{ left: guideLeft(index + 1) + 'px' }"></span>
+        </template>
+        <!-- 自身层：竖线自上一行接到行中心，末位兄弟收成 └ 角，其余继续向下 -->
         <span v-if="item._level > 0" aria-hidden="true"
-          class="pointer-events-none absolute inset-y-0 w-px bg-hairline/70 dark:bg-hairline-dark/70"
-          :style="{ left: (item._level * 22 - 1) + 'px' }"></span>
-        <!-- 缩进留在外层，行内容单独成卡片，选中底色只覆盖任务自身范围；圆圈角与左边框宽度由状态类给出 -->
+          class="pointer-events-none absolute w-px bg-hairline/70 dark:bg-hairline-dark/70"
+          :style="itemGuideStyle(item)"></span>
+        <!-- 分叉横线：从竖线指向卡片左缘 -->
+        <span v-if="item._level > 0" aria-hidden="true"
+          class="pointer-events-none absolute h-px bg-hairline/70 dark:bg-hairline-dark/70"
+          :style="elbowStyle(item)"></span>
+        <!-- 折叠开关：中心落在连线交叉点上，位于任务卡片之前；底色盖住穿过圆心的连线 -->
+        <button v-if="item.children && item.children.length" type="button"
+          class="absolute z-10 grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-neutral-300 bg-canvas text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:bg-canvas-dark dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+          :style="toggleStyle(item)"
+          :title="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
+          :aria-label="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
+          :aria-expanded="isItemExpanded(item)" @click.stop="toggleExpand(item)">
+          <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="8" />
+        </button>
+        <!-- 缩进留在外层，行内容单独成卡片；边框、底色与内边距都由状态类统一给出，选中时不改变盒子尺寸 -->
         <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
           <!-- 多选模式用方形选择框，日常完成状态用圆形勾选圈：形状即语义，避免两种状态混淆 -->
@@ -39,15 +58,14 @@
             <div class="min-w-0 flex-1">
               <span v-if="editingId !== item.id" :class="[
                 'flex min-w-0 items-center gap-1 overflow-hidden text-sm leading-5',
-                isRowSelected(item)
-                  ? 'font-semibold text-accent-900 dark:text-accent-100'
-                  : ['text-neutral-800 dark:text-neutral-200', item._level === 0 ? 'font-medium' : ''],
+                'text-neutral-800 dark:text-neutral-200',
+                item._level === 0 ? 'font-medium' : '',
                 { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
               ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
                 <AppIcon v-if="item._isRef" name="link" :size="11"
                   class="shrink-0 text-neutral-400 dark:text-neutral-500" />
                 <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
-                  :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef && !isRowSelected(item) }" />
+                  :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }" />
               </span>
               <input v-else :id="'edit-input-' + item.id" v-model="editingText"
                 class="w-full bg-transparent text-sm leading-5 text-neutral-900 dark:text-neutral-100 outline-none"
@@ -72,14 +90,6 @@
           </div>
 
           <!-- 行内操作 -->
-          <!-- 折叠开关放在右侧，圆圈内 +/− 表示当前状态 -->
-          <button v-if="item.children && item.children.length" type="button"
-            class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
-            :title="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
-            :aria-label="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
-            :aria-expanded="isItemExpanded(item)" @click.stop="toggleExpand(item)">
-            <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="8" />
-          </button>
           <div v-if="item._isRef && !selectionMode" class="flex shrink-0 items-center gap-0.5">
             <button type="button"
               class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 opacity-0 transition-all hover:bg-accent-50 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
@@ -220,6 +230,65 @@ const isItemVisible = (item) => {
   return true
 }
 
+// 缩进、树状连线与折叠开关共用同一套几何：每层 22px。
+// 竖线（也是折叠开关中心）比缩进位右移 12px，卡片再从竖线右移 10px，
+// 于是开关正好落在竖线与横线的交叉点上，且不压住卡片。
+const LEVEL_INDENT = 22
+const GUIDE_OFFSET = 12
+const ELBOW_WIDTH = 10
+const guideLeft = (level) => level * LEVEL_INDENT + GUIDE_OFFSET
+const rowPaddingLeft = (level) => guideLeft(level) + ELBOW_WIDTH
+
+// 渲染行：过滤隐藏项，并为每行算出连线（祖先层竖线 + 自身分叉、末位兄弟收角）
+const visibleRows = computed(() => {
+  const rows = flatList.value.filter(isItemVisible)
+  const byId = flatMap.value
+
+  // 同父同层的最后一个可见兄弟即末位，竖线到此收成 └ 角
+  const lastVisible = new Map()
+  rows.forEach((item) => {
+    lastVisible.set(`${item.parent_id ?? 'root'}@${item._level}`, item.id)
+  })
+  const hasNextSibling = (item) =>
+    lastVisible.get(`${item.parent_id ?? 'root'}@${item._level}`) !== item.id
+
+  const ancestorAtLevel = (item, level) => {
+    let current = item
+    while (current && current._level > level) {
+      current = current.parent_id == null ? null : byId.get(current.parent_id)
+    }
+    return current && current._level === level ? current : null
+  }
+
+  return rows.map((item) => {
+    const guides = []
+    for (let level = 1; level < item._level; level += 1) {
+      const ancestor = ancestorAtLevel(item, level)
+      // 祖先本身被隐藏时不再画它那一层的竖线
+      guides.push(Boolean(ancestor) && isItemVisible(ancestor) && hasNextSibling(ancestor))
+    }
+    return { ...item, _guides: guides, _lastSibling: !hasNextSibling(item) }
+  })
+})
+
+const itemGuideStyle = (item) => {
+  const style = { left: guideLeft(item._level) + 'px', top: '-6px' }
+  // 末位兄弟只连到行中心，后面的兄弟则贯穿整行并补上列表间距
+  if (item._lastSibling) style.height = 'calc(50% + 6px)'
+  else style.bottom = '-6px'
+  return style
+}
+
+// 横线长度等于竖线到卡片左缘的距离，末端正好顶到卡片边框
+const elbowStyle = (item) => ({
+  left: guideLeft(item._level) + 'px',
+  top: '50%',
+  width: ELBOW_WIDTH + 'px'
+})
+
+// 折叠开关中心即交叉点；translate 在模板类里把按钮自身居中
+const toggleStyle = (item) => ({ left: guideLeft(item._level) + 'px', top: '50%' })
+
 // 折叠状态与图、回收站共享；未记录的任务默认展开前两层，更深的任务默认收起
 const isItemExpanded = (item) => !isTaskCollapsed(item.id, (item._level || 0) > 1)
 
@@ -274,7 +343,7 @@ const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
 const isSelected = (item) => props.selectedIds.includes(selectableIdOf(item))
 const emitToggleSelect = (item) => emit('toggle-select', selectableIdOf(item))
 
-// 行状态底色：选中用中性底加左侧强调条，拖入内部才用浅强调色提示；底色与边框全部由状态决定，避免基础类覆盖
+// 行状态：拖入内部用浅强调色提示；选中只强调边框，边框与底色全部由状态决定，避免基础类覆盖
 const isRowSelected = (item) => props.selectedTaskId === selectableIdOf(item)
 
 const rowStateClass = (item) => {
@@ -282,16 +351,13 @@ const rowStateClass = (item) => {
   if (indicator && indicator.id === item.id && indicator.position === 'inside') {
     return 'border py-1.5 pl-2 pr-1.5 border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
   }
-  // 选中沿用左侧视图列表：绿底 + 只留左缘实线 + 绿字。没有上下边框，绿条才能顺圆角收成尖端；
-  // 用 7px 内边距补回普通行 1px 上下边框与 1px 左右边框占掉的空间，选中时不跳动；
-  // 阴影与未选中保持同一组值，行只过渡悬停的边框与阴影，其余属性随选中一起在一帧内切换，
-  // 因此不存在半透明的中间帧
+  // 选中与任务添加栏的聚焦态一致：只换边框色并加投影，盒子尺寸、底色和文字都不动
   if (isRowSelected(item)) {
-    return 'border-l-2 border-l-accent-600 bg-accent-100/80 py-[7px] pl-[7px] pr-[7px] shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-l-accent-400 dark:bg-accent-500/20 dark:shadow-none'
+    return 'border py-1.5 pl-2 pr-1.5 border-accent-500 bg-surface shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
   }
   // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻
   return [
-    'border py-1.5 pl-2 pr-1.5 border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)]',
+    'border py-1.5 pl-2 pr-1.5 border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)]',
     'dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40',
     item._isRef ? 'border-dashed' : ''
   ].join(' ')

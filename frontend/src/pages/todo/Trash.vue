@@ -49,11 +49,11 @@
       <template v-for="item in flatTrashList" :key="item.id">
         <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id"
           class="group cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
-          <!-- 缩进留在外层，行内容单独成块，选中底色只覆盖任务自身范围 -->
+          <!-- 缩进留在外层，行内容单独成块；选中与任务添加栏一样只换边框色和投影 -->
           <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]" :class="[
             selectedTaskId === item.id
-              ? 'border-l-2 border-l-accent-600 bg-accent-100/80 py-[11px] pl-[7px] pr-[13px] shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-l-accent-400 dark:bg-accent-500/20 dark:shadow-none'
-              : 'border border-hairline bg-surface py-2.5 pl-2 pr-3 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-200 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
+              ? 'border border-accent-500 bg-surface py-2.5 pl-2 pr-3 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
+              : 'border border-hairline bg-surface py-2.5 pl-2 pr-3 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
           ]">
             <!-- 展开/折叠 -->
             <button v-if="item.children && item.children.length"
@@ -182,33 +182,26 @@
   background: #fef2f2;
 }
 
-@media (prefers-color-scheme: dark) {
-  .btn-primary {
-    background: #f5f5f5;
-    color: #171717;
-  }
-
-  .btn-primary:hover {
-    background: #fff;
-  }
-
-  .btn-secondary {
-    color: #d4d4d4;
-    border-color: #262626;
-  }
-
-  .btn-secondary:hover {
-    background: #171717;
-  }
-
-  .btn-danger {
-    color: #f87171;
-    border-color: #7f1d1d;
-  }
-
-  .btn-danger:hover {
-    background: rgba(127, 29, 29, 0.3);
-  }
+html[data-theme='dark'] .btn-primary {
+  background: #f5f5f5;
+  color: #171717;
+}
+html[data-theme='dark'] .btn-primary:hover {
+  background: #fff;
+}
+html[data-theme='dark'] .btn-secondary {
+  color: #d4d4d4;
+  border-color: #262626;
+}
+html[data-theme='dark'] .btn-secondary:hover {
+  background: #171717;
+}
+html[data-theme='dark'] .btn-danger {
+  color: #f87171;
+  border-color: #7f1d1d;
+}
+html[data-theme='dark'] .btn-danger:hover {
+  background: rgba(127, 29, 29, 0.3);
 }
 
 /* 弹窗 */

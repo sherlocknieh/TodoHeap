@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppIcon from '@/components/AppIcon.vue'
@@ -19,6 +19,15 @@ const errorMsg = ref('')
 const successMsg = ref('')
 const isSignUp = ref(false)
 const showPassword = ref(false)
+
+// 认证回跳失败（链接过期/无效）时 handleAuthCallback 会把原因写进 query.reason
+const callbackNotice = computed(() => {
+  const reason = router.currentRoute.value.query.reason
+  if (typeof reason !== 'string' || !reason) return ''
+  return reason === 'otp_expired'
+    ? '邮箱链接已过期或已被使用，请重新获取。'
+    : '登录链接无效或已失效，请重新登录或重新获取链接。'
+})
 
 /**
  * 获取重定向路径
@@ -159,6 +168,13 @@ const handleOAuth = async (provider) => {
           <h1 class="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">TodoHeap</h1>
           <p class="mt-1 text-sm text-neutral-500">任务堆，始终知道下一步做什么</p>
         </div>
+
+        <!-- 邮箱链接过期或被拒：回跳时带回的原因 -->
+        <p v-if="callbackNotice"
+          class="mb-5 flex items-start gap-1.5 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <AppIcon name="alert" :size="12" class="mt-1 shrink-0" />
+          <span>{{ callbackNotice }}</span>
+        </p>
 
         <!-- 登录 / 注册 -->
         <div class="flex gap-5 border-b border-hairline dark:border-hairline-dark mb-6">

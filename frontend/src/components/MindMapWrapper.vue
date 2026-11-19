@@ -15,6 +15,23 @@
         </marker>
       </defs>
 
+      <!-- 坐标网格：铺在内容下层，线条与刻度按当前视口换算，跟随平移与缩放但线宽、字号不变 -->
+      <g v-if="coordinateGrid" class="pointer-events-none select-none">
+        <line v-for="(line, index) in gridLayer.minorLines" :key="`minor-${index}`" :x1="line.x1" :y1="line.y1"
+          :x2="line.x2" :y2="line.y2" stroke-width="1" class="mindmap-grid-minor" />
+        <line v-for="(line, index) in gridLayer.majorLines" :key="`major-${index}`" :x1="line.x1" :y1="line.y1"
+          :x2="line.x2" :y2="line.y2" stroke-width="1" class="mindmap-grid-major" />
+        <line v-if="gridLayer.xAxis" x1="0" :y1="gridLayer.xAxis.y" :x2="size.width" :y2="gridLayer.xAxis.y"
+          stroke-width="1.4" class="mindmap-grid-axis" />
+        <line v-if="gridLayer.yAxis" :x1="gridLayer.yAxis.x" y1="0" :x2="gridLayer.yAxis.x" :y2="size.height"
+          stroke-width="1.4" class="mindmap-grid-axis" />
+        <line v-for="(tick, index) in gridLayer.ticks" :key="`tick-${index}`" :x1="tick.x1" :y1="tick.y1"
+          :x2="tick.x2" :y2="tick.y2" stroke-width="1.2" class="mindmap-grid-axis" />
+        <text v-for="(label, index) in gridLayer.labels" :key="`label-${index}`" :x="label.x" :y="label.y"
+          :text-anchor="label.anchor" :dominant-baseline="label.anchor === 'end' ? 'middle' : 'auto'"
+          class="mindmap-grid-label">{{ label.text }}</text>
+      </g>
+
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
         <!-- 未选中的连线铺在节点下层，节点框可以压住线头；选中节点的祖先链用强调色 -->
         <path v-for="edge in baseEdges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
@@ -242,8 +259,17 @@
         :class="dotGrid
           ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
           : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
-        @click.stop="dotGrid = !dotGrid">
+        @click.stop="toggleDotGrid">
         <AppIcon name="grid" :size="14" />
+      </button>
+      <button type="button" :aria-pressed="coordinateGrid" :aria-label="coordinateGrid ? '隐藏坐标网格' : '显示坐标网格'"
+        :title="coordinateGrid ? '隐藏坐标网格' : '显示坐标网格'"
+        class="flex rounded border p-1.5 transition-colors"
+        :class="coordinateGrid
+          ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
+          : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
+        @click.stop="toggleCoordinateGrid">
+        <AppIcon name="axes" :size="14" />
       </button>
       <div ref="helpRef" class="relative">
         <button type="button" :aria-expanded="helpOpen" :aria-label="helpOpen ? '收起操作提示' : '操作提示'"
@@ -284,6 +310,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
+import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import {
   collapsedTaskSet,
   isTaskCollapsed,
@@ -439,6 +466,40 @@ const systemPrefersDark = typeof window !== 'undefined'
 const darkCanvas = persistedRef('mindmap-dark-canvas', systemPrefersDark, {
   validate: (value) => typeof value === 'boolean'
 })
+
+// 坐标网格带世界坐标刻度，和点阵底纹互斥：同时铺两层纹理太花，切换时关掉另一层
+const coordinateGrid = persistedRef('mindmap-coordinate-grid', false, {
+  validate: (value) => typeof value === 'boolean'
+})
+
+const toggleDotGrid = () => {
+  dotGrid.value = !dotGrid.value
+  if (dotGrid.value) coordinateGrid.value = false
+}
+
+const toggleCoordinateGrid = () => {
+  coordinateGrid.value = !coordinateGrid.value
+  if (coordinateGrid.value) dotGrid.value = false
+}
+
+// 坐标原点取根节点出边按钮的圆心：布局仍以根节点左上角为基准，只把网格读数平移到按钮中心
+const gridOrigin = computed(() => {
+  const root = layout.value.nodes.find((node) => node.isRoot)
+  return root
+    ? { x: root.x + root.controlX, y: root.y + root.controlY }
+    : { x: 0, y: 0 }
+})
+
+// 网格几何随视口、缩放与原点重算；未测量出画布尺寸时为空，不渲染任何线条
+const gridLayer = computed(() => buildCoordinateGrid({
+  width: size.width,
+  height: size.height,
+  offsetX: view.x,
+  offsetY: view.y,
+  scale: view.scale,
+  originX: gridOrigin.value.x,
+  originY: gridOrigin.value.y
+}))
 
 const currentDirection = computed(() =>
   directionOptions.find((option) => option.value === direction.value) ?? directionOptions[0])
@@ -2512,5 +2573,41 @@ watch(direction, () => nextTick(fitView))
 /* 深色画布上点色反相，否则点阵沉进底色看不出来 */
 .mindmap-canvas.mindmap-canvas--dark.mindmap-dots {
   background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+}
+
+/* 坐标网格：细线托底、主刻度略深、坐标轴与刻度最醒目，标签保持弱化 */
+.mindmap-grid-minor {
+  stroke: rgba(20, 20, 40, 0.07);
+}
+
+.mindmap-grid-major {
+  stroke: rgba(20, 20, 40, 0.14);
+}
+
+.mindmap-grid-axis {
+  stroke: rgba(20, 20, 40, 0.32);
+}
+
+.mindmap-grid-label {
+  fill: rgba(20, 20, 40, 0.5);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 深色画布上线条与标签反相，保持同样的层次 */
+.mindmap-canvas--dark .mindmap-grid-minor {
+  stroke: rgba(255, 255, 255, 0.07);
+}
+
+.mindmap-canvas--dark .mindmap-grid-major {
+  stroke: rgba(255, 255, 255, 0.13);
+}
+
+.mindmap-canvas--dark .mindmap-grid-axis {
+  stroke: rgba(255, 255, 255, 0.35);
+}
+
+.mindmap-canvas--dark .mindmap-grid-label {
+  fill: rgba(255, 255, 255, 0.5);
 }
 </style>

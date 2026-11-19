@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* dark: 变体跟随根元素上的解析结果，auto 模式由主题模块折算成 light/dark */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 /* 设计令牌：白底 + 清新绿为唯一强调色，彩色只出现在交互与状态上 */
 @theme {
   --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
@@ -46,15 +49,13 @@
   --color-context-messages: #13b566;
 }
 
-/* 跟随系统切换亮暗主题 */
+/* 主题：data-theme 由主题模块按偏好写入，auto 时取系统亮暗 */
 html {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-  }
+html[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 /* 使应用程序占满视口高度 */
@@ -91,15 +92,13 @@ html, body, #app {
     border-radius: 9999px;
   }
 
-  @media (prefers-color-scheme: dark) {
-    #app,
-    #app * {
-      scrollbar-color: rgb(255 255 255 / 0.18) transparent;
-    }
+  html[data-theme='dark'] #app,
+  html[data-theme='dark'] #app * {
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  }
 
-    *::-webkit-scrollbar-thumb {
-      background-color: rgb(255 255 255 / 0.16);
-    }
+  html[data-theme='dark'] *::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.16);
   }
 }
 

@@ -165,6 +165,23 @@ GitHub Pages 的构建从仓库变量读取前端配置，不读 `.env.local`。
 | `VITE_SUPABASE_URL` | Supabase 项目地址，如 `https://<project>.supabase.co` |
 | `VITE_SUPABASE_PUB_KEY` | 项目的 publishable key |
 
+### Supabase 认证回跳地址
+
+注册确认、找回密码、第三方登录都回跳到「当前域名 + 前端 base」，
+即开发环境的 `http://localhost:5200/TodoHeap/app/` 与生产环境的
+`https://sherlocknieh.github.io/TodoHeap/app/`。地址不在白名单里时，Supabase 会拒绝该
+`redirect_to` 并回落到 Site URL，用户最终停在文档首页且令牌丢失。
+
+需要在 Supabase 控制台 `Authentication → URL Configuration` 中放行：
+
+| 环境 | Redirect URL |
+| --- | --- |
+| 本地开发 | `http://localhost:5200/TodoHeap/app/**` |
+| 生产 | `https://sherlocknieh.github.io/TodoHeap/app/**` |
+
+本地 `supabase start` 使用 `supabase/config.toml` 中 `[auth]` 的 `site_url` 与
+`additional_redirect_urls`，保持同一组地址。
+
 ### 后端环境变量
 
 Edge Functions 的环境变量在 `supabase/config.toml` 中配置：

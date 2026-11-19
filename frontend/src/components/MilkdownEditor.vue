@@ -128,10 +128,8 @@ defineExpose({
     font-family: inherit;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor {
-      color: var(--text-dark);
-    }
+  html[data-theme='dark'] .milkdown-editor {
+    color: var(--text-dark);
   }
 
   /* Milkdown 编辑器内层容器 */
@@ -145,12 +143,10 @@ defineExpose({
     height: 100%;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor .milkdown,
-    .milkdown-editor .milkdown .editor,
-    .milkdown-editor .milkdown .ProseMirror {
-      color: var(--text-dark) !important;
-    }
+  html[data-theme='dark'] .milkdown-editor .milkdown,
+  html[data-theme='dark'] .milkdown-editor .milkdown .editor,
+  html[data-theme='dark'] .milkdown-editor .milkdown .ProseMirror {
+    color: var(--text-dark) !important;
   }
 
   /* 编辑区域 */
@@ -166,10 +162,8 @@ defineExpose({
     scrollbar-gutter: stable;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor .editor {
-      color: var(--text-dark);
-    }
+  html[data-theme='dark'] .milkdown-editor .editor {
+    color: var(--text-dark);
   }
 
   /* ProseMirror 编辑框 */
@@ -213,10 +207,8 @@ defineExpose({
     scrollbar-color: rgb(148 163 184 / 0.6) transparent;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor .ProseMirror {
-      color: var(--text-dark);
-    }
+  html[data-theme='dark'] .milkdown-editor .ProseMirror {
+    color: var(--text-dark);
   }
 
   /* 占位符 */
@@ -227,10 +219,8 @@ defineExpose({
     position: absolute;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor .ProseMirror:empty::before {
-      color: rgb(100 116 139);
-    }
+  html[data-theme='dark'] .milkdown-editor .ProseMirror:empty::before {
+    color: rgb(100 116 139);
   }
 
   /* 聚焦样式 */
@@ -244,10 +234,8 @@ defineExpose({
     margin: 0.5em 0;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor p {
-      color: var(--text-dark);
-    }
+  html[data-theme='dark'] .milkdown-editor p {
+    color: var(--text-dark);
   }
 
   /* 标题 */
@@ -263,15 +251,13 @@ defineExpose({
     margin-bottom: 0.5em;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor h1,
-    .milkdown-editor h2,
-    .milkdown-editor h3,
-    .milkdown-editor h4,
-    .milkdown-editor h5,
-    .milkdown-editor h6 {
-      color: rgb(241 245 249);
-    }
+  html[data-theme='dark'] .milkdown-editor h1,
+  html[data-theme='dark'] .milkdown-editor h2,
+  html[data-theme='dark'] .milkdown-editor h3,
+  html[data-theme='dark'] .milkdown-editor h4,
+  html[data-theme='dark'] .milkdown-editor h5,
+  html[data-theme='dark'] .milkdown-editor h6 {
+    color: rgb(241 245 249);
   }
 
   .milkdown-editor h1 { font-size: 1.5em; }
@@ -286,11 +272,9 @@ defineExpose({
     margin: 0.5em 0;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor ul,
-    .milkdown-editor ol {
-      color: var(--text-dark);
-    }
+  html[data-theme='dark'] .milkdown-editor ul,
+  html[data-theme='dark'] .milkdown-editor ol {
+    color: var(--text-dark);
   }
 
   .milkdown-editor ul { list-style-type: disc; }
@@ -301,10 +285,8 @@ defineExpose({
     margin: 0.25em 0;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor li {
-      color: var(--text-dark);
-    }
+  html[data-theme='dark'] .milkdown-editor li {
+    color: var(--text-dark);
   }
 
   /* 代码 */
@@ -316,11 +298,9 @@ defineExpose({
     font-size: 0.9em;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor code {
-      background-color: rgb(30 41 59);
-      color: rgb(226 232 240);
-    }
+  html[data-theme='dark'] .milkdown-editor code {
+    background-color: rgb(30 41 59);
+    color: rgb(226 232 240);
   }
 
   .milkdown-editor pre {
@@ -346,11 +326,9 @@ defineExpose({
     font-style: italic;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor blockquote {
-      border-left-color: rgb(129 140 248);
-      color: rgb(203 213 225);
-    }
+  html[data-theme='dark'] .milkdown-editor blockquote {
+    border-left-color: rgb(129 140 248);
+    color: rgb(203 213 225);
   }
 
   /* 链接 */
@@ -359,10 +337,8 @@ defineExpose({
     text-decoration: underline;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor a {
-      color: rgb(129 140 248);
-    }
+  html[data-theme='dark'] .milkdown-editor a {
+    color: rgb(129 140 248);
   }
 
   /* 分割线 */
@@ -372,10 +348,8 @@ defineExpose({
     margin: 1em 0;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor hr {
-      border-top-color: rgb(71 85 105);
-    }
+  html[data-theme='dark'] .milkdown-editor hr {
+    border-top-color: rgb(71 85 105);
   }
 
   /* 表格 */
@@ -391,12 +365,10 @@ defineExpose({
     color: var(--text-primary);
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor th,
-    .milkdown-editor td {
-      border-color: rgb(71 85 105);
-      color: var(--text-dark);
-    }
+  html[data-theme='dark'] .milkdown-editor th,
+  html[data-theme='dark'] .milkdown-editor td {
+    border-color: rgb(71 85 105);
+    color: var(--text-dark);
   }
 
   .milkdown-editor th {
@@ -404,10 +376,17 @@ defineExpose({
     font-weight: 600;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .milkdown-editor th {
-      background-color: rgb(30 41 59);
-    }
+  html[data-theme='dark'] .milkdown-editor th {
+    background-color: rgb(30 41 59);
+  }
+
+  /* nord 主题按系统亮暗给表格隔行底色，这里改按应用主题取值 */
+  html[data-theme='dark'] .milkdown-editor :where(td, th):nth-child(odd) {
+    background-color: rgb(30 41 59);
+  }
+
+  html[data-theme='light'] .milkdown-editor :where(td, th):nth-child(odd) {
+    background-color: rgb(248 250 252);
   }
 
   /* 已删除内容 */

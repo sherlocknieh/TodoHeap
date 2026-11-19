@@ -150,10 +150,15 @@ max_indexes = 5
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
-site_url = "http://127.0.0.1:3000"
+# in emails. 前端挂在 vite base 上，与 auth.ts 的 redirectTo 保持一致。
+site_url = "http://localhost:5200/TodoHeap/app/"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# 通配符 ** 覆盖带不带末尾斜杠两种写法；生产地址同样需要加进托管项目的 Dashboard 白名单。
+additional_redirect_urls = [
+  "http://localhost:5200/TodoHeap/app/**",
+  "http://127.0.0.1:5200/TodoHeap/app/**",
+  "https://sherlocknieh.github.io/TodoHeap/app/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
