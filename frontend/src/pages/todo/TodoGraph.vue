@@ -83,7 +83,7 @@ const mindMapNodes = computed(() => {
 	}]
 })
 
-// 新建任务：同级插到当前节点之后，子级追加到同级末尾，随后进入重命名
+// 新建任务：同级插到当前节点之后，子级追加到同级末尾；插入位置规则见 docs/src/content/docs/dev/logic/task-order.md
 const createTask = async ({ parentId = null, afterId = null } = {}) => {
 	const result = await todoStore.addTodo('新任务', { parent_id: parentId })
 	if (!result.success || !result.data) {

@@ -36,6 +36,7 @@ title: 关键词索引
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
 | 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：外观对齐任务行」 | 外观是一行任务：左侧虚线圈、右侧折叠开关与日历按钮；整行可聚焦，回车即存，新任务挂根任务首位 |
+| 新建任务排最上面 / 新任务在首位 / 最近添加先看到 | `stores/todos.optimistic.js` 的 `addTodo`；`supabase/migrations/20261118000200_create_todo_prepend.sql` | 列表入口本地与服务端都头插到父级 `child_ids`，机制与成本见[任务顺序](./logic/task-order.md) |
 | 一键展开 / 一键折叠 / 全部展开全部折叠 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 快速添加栏上的圆圈按钮，折叠的是整张列表 |
 | 添加时设截止时间 / 先选日期再添加 | `pages/todo/TodoList.vue` `newTaskDeadline`、`toggleAddDeadlineMenu` | 选中后变成任务行同款截止标签，随任务一起创建 |
 | 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `rowPaddingLeft`、`LEVEL_INDENT` | 层级来自树展开，缩进是纯展示 |
@@ -62,7 +63,7 @@ title: 关键词索引
 | 连线删除 / 线中点叉号 / 断开父子关系 | `components/MindMapWrapper.vue` `confirmUnlink`、`onUnlinkClick`、`selectEdge` | 只从父任务 `child_ids` 移除引用；最后一个父级被摘掉时回顶层 |
 | 加号 / 出边按钮 / 新建子任务 / 折叠计数 / 靠近就显示加号 / 拉线时加号消失 | `components/MindMapWrapper.vue`「出边按钮」、`onToggleClick`、`holdLeafControl`、`updateLeafControlHover`、`draggingLeafId` | 有子任务时是折叠开关；叶子节点指针靠近按钮位置即显示加号，从加号拉线期间保持可见，拖到别的节点建立链接 |
 | 双击重命名 / F2 改名 / 原地编辑 / Shift+Enter 换行 / 节点里打多行 / 编辑时节点撑高 / 编辑框出现滚动条 | `components/MindMapWrapper.vue` `startEdit`、`commitEdit`、`onEditKeydown`、`measureNode`、`wrapLines` | 节点文字常驻输入框，平时只读；编辑中节点随行数长高、不出现内部滚动条，Shift+Enter 插入手工换行，单回车提交 |
-| 键盘新建 / Enter 同级 / Tab 子级 | `components/MindMapWrapper.vue` `onKeydown` | 快捷键说明收在右下角帮助浮层 |
+| 键盘新建 / Enter 同级 / Tab 子级 / 新节点排第几 / Enter 新建插哪 / 新节点在末尾 | `components/MindMapWrapper.vue` `onKeydown`、`createSibling`、`createChild`；`pages/todo/TodoGraph.vue` 的 `createTask` | Enter 建同级落在当前节点之后；Tab、出边加号、菜单「新建子任务」追加到同级末尾，插入规则见[任务顺序](./logic/task-order.md) |
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
 | 展开子节点 / 兄弟被推开 / 子树重叠 / 多父展开后空白 / 节点重叠 | `components/MindMapWrapper.vue` `computeGraphLayout` 的 `laneChildren`、`blockSizeOf`、`blockBoundsOf`、`shareParent`、`limitGaps` | 同层按子树块跨度推开兄弟；多父节点取全部前向父级平均定位；同父级兄弟的实际边缘空白超过 `2 × crossGap` 时整支子树下移吸收，正常展开空间不变 |

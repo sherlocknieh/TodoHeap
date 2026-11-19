@@ -121,7 +121,7 @@ export const createTodoOptimisticActions = ({
 
     todosRef.value.push(newTodo)
 
-    // 子列表由父节点保存，新任务插到首位，最近添加的先看到
+    // 子列表由父节点保存，新任务插到首位，最近添加的先看到；插入位置规则见 docs/src/content/docs/dev/logic/task-order.md
     if (parentId != null) {
       const parent = todosRef.value.find(t => t.id === parentId)
       if (parent) {

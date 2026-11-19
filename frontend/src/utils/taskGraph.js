@@ -1,4 +1,4 @@
-// 任务图遍历: 父子关系由父节点的 child_ids 保存, 允许环与多个父节点
+// 任务图遍历: 父子关系与同级顺序由父节点的 child_ids 保存, 允许环与多个父节点; 顺序机制见 docs/src/content/docs/dev/logic/task-order.md
 // 渲染时把图展开成森林: 每个任务首次出现为普通节点, 之后再次出现的引用收缩为回边节点
 
 const EMPTY_IDS = []

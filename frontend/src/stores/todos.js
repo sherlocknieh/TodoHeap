@@ -308,7 +308,7 @@ export const useTodoStore = defineStore('todos', () => {
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
       })
-      // 手动顺序 = 父级 child_ids 的数组顺序
+      // 手动顺序 = 父级 child_ids 的数组顺序, 插入规则见 docs/src/content/docs/dev/logic/task-order.md
     })
   })
 
