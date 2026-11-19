@@ -171,6 +171,8 @@ if (error && clientKey && isMissingClientKeySupport(error)) {
 
 ## 五、其他创建入口
 
+插入位置（头插、落点之后、同级末尾）的完整规则见[任务顺序](./task-order.md)。
+
 | 入口 | 说明 |
 | --- | --- |
 | `TodoList.vue` 快速添加 | `addTodo(title, { deadline })`，可在添加栏先选截止时间；默认挂根任务 |

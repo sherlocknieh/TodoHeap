@@ -26,7 +26,7 @@ title: "视图与交互"
 - 选中后节点右侧出现竖三点按钮，悬停也会露出；右键直接唤出菜单。菜单含重命名、新建子任务、复制为 Markdown、删除任务，靠近边缘自动翻转（`MENU_ITEMS`、`openNodeMenuAt`）。
 - 出边一侧有圆形控件：有子任务时是折叠开关，叶子节点在指针接近时显示加号；按钮中心就是连线起点（`controlPointFor`、`updateLeafControlHover`、`LEAF_CONTROL_REVEAL`）。
 - 原地编辑使用常驻 textarea：Enter 提交、Esc 取消、Shift+Enter 插入硬换行；节点随内容长高，不出现内部滚动条（`onEditKeydown`、`commitEdit`）。
-- 新建节点：Enter 建同级并落在当前节点之后；Tab、出边加号、菜单「新建子任务」建子级并追加到同级末尾，不受任务列表「新建置顶」影响（`TodoGraph.vue` 的 `createTask`）。
+- 新建节点：Enter 建同级并落在当前节点之后；Tab、出边加号、菜单「新建子任务」建子级并追加到同级末尾，不受任务列表「新建置顶」影响（`TodoGraph.vue` 的 `createTask`，机制见[任务顺序](../dev/logic/task-order.md)）。
 
 ### 聚焦与右栏
 
