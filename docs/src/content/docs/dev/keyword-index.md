@@ -127,7 +127,7 @@ title: 关键词索引
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
 | 根任务 / 全部任务 / 顶层任务挂哪 | `utils/rootTask.js` `isRootTodo`、`findRootTodo` | 根任务不出现在列表、统计、回收站、Agent 输出里 |
-| 子任务顺序 / 手动排序 / 新任务放哪 | `stores/todos.js` 树构建；父级 `child_ids` | 数组顺序是手动顺序的唯一来源，新任务插入首位 |
+| 子任务顺序 / 手动排序 / 新任务放哪 | `stores/todos.js` 树构建；父级 `child_ids` | 数组顺序是手动顺序的唯一来源；列表新建插首位，节点图新建追加到同级末尾 |
 | 软删除 / 删除后还能找回 | `deleted_at`；`stores/todos.js` `trashTodos` | 删除是软删除，完成状态看 `completed_at` |
 | 乐观更新 / 点了立即生效 | `stores/todos.optimistic.js` | 先改本地并入队，再写 Supabase |
 | 失败回滚 / 操作失败恢复原样 | `stores/todos.rollback.js` | 与乐观更新成对出现 |

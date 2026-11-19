@@ -83,7 +83,7 @@ const mindMapNodes = computed(() => {
 	}]
 })
 
-// 新建任务：同级插到当前节点之后，子级挂到当前节点下，随后进入重命名
+// 新建任务：同级插到当前节点之后，子级追加到同级末尾，随后进入重命名
 const createTask = async ({ parentId = null, afterId = null } = {}) => {
 	const result = await todoStore.addTodo('新任务', { parent_id: parentId })
 	if (!result.success || !result.data) {
@@ -95,6 +95,20 @@ const createTask = async ({ parentId = null, afterId = null } = {}) => {
 	if (afterId != null) {
 		// 新建任务与落点在同一父级，带上父级上下文只做同级重排
 		await todoStore.moveTodo(newId, { targetId: afterId, position: 'after', sourceParentId: parentId, targetParentId: parentId })
+	} else {
+		// 列表入口把新任务头插到 child_ids 首位；节点图沿用自然顺序追加到末尾，新节点不应挤到最上面
+		const parent = todoStore.findTodoById(result.data.parent_id)
+		const lastSiblingId = [...(parent?.child_ids || [])]
+			.reverse()
+			.find(id => id !== newId && todoStore.findTodoById(id))
+		if (parent && lastSiblingId != null) {
+			await todoStore.moveTodo(newId, {
+				targetId: lastSiblingId,
+				position: 'after',
+				sourceParentId: parent.id,
+				targetParentId: parent.id
+			})
+		}
 	}
 
 	emit('task-selected', newId)

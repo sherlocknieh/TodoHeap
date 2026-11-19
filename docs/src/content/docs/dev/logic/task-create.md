@@ -175,7 +175,7 @@ if (error && clientKey && isMissingClientKeySupport(error)) {
 | --- | --- |
 | `TodoList.vue` 快速添加 | `addTodo(title, { deadline })`，可在添加栏先选截止时间；默认挂根任务 |
 | `TodoList.vue` 新建子任务 | `addTodo('(新任务)', { parent_id })`，随后进入行内编辑 |
-| `TodoGraph.vue` / `MindMapWrapper.vue` | Enter 建同级、Tab 建子级；同级创建后调 `moveTodo` 调整到落点之后 |
+| `TodoGraph.vue` / `MindMapWrapper.vue` | Enter 建同级、Tab 建子级；同级创建后调 `moveTodo` 调整到落点之后，子级/顶层创建追加到同级末尾（不受列表的新建置顶影响） |
 | `Todo.vue` 顶部新建 | `addTodo('新任务', { details: '' })` |
 | `TodoDetailEditor.vue` | 在详情面板里新建子任务 |
 | `agentTools.js` | Agent 工具复用 `addTodo`，顶层任务同样挂根 |
