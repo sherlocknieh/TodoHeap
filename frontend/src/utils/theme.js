@@ -4,7 +4,7 @@ import { readUiState, UI_STATE_CHANGE_EVENT } from '@/utils/uiState'
 export const THEME_KEY = 'theme'
 export const THEME_MODES = ['auto', 'light', 'dark']
 export const THEME_OPTIONS = [
-  { value: 'auto', label: '跟随系统', icon: 'monitor' },
+  { value: 'auto', label: '跟随系统', icon: 'sunMoon' },
   { value: 'light', label: '浅色', icon: 'sun' },
   { value: 'dark', label: '深色', icon: 'moon' }
 ]
