@@ -138,7 +138,7 @@
                     class="chip gap-[3px] font-medium text-[10px] leading-[14px]"
                     :class="deadlineChipClass(node.deadline)" :aria-expanded="open"
                     :title="`修改截止时间（${formatDeadlineLabel(node.deadline)}）`" @click.stop="toggle">
-                    <AppIcon name="clock" :size="9" class="transition-opacity group-hover/picker:opacity-0" />{{ formatDeadlineLabel(node.deadline) }}
+                    <AppIcon name="clock" :size="9" class="transition-opacity group-hover/picker:opacity-0 group-has-[:focus-visible]/picker:opacity-0" />{{ formatDeadlineLabel(node.deadline) }}
                   </button>
                 </template>
               </DateTimePicker>

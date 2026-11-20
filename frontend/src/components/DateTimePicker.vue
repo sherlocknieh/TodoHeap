@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
     <!-- 「胶囊上的清除」：悬停时直接盖在胶囊左侧的时钟图标上（图标同时淡出），点击清空；
          不可见时不接收点击，避免误触 -->
     <button v-if="clearable && triggerClear && modelValue && !disabled" type="button"
-      class="pointer-events-none absolute top-1/2 left-1 grid h-4 w-4 -translate-y-1/2 place-items-center text-rose-500 opacity-0 transition-opacity group-hover/picker:pointer-events-auto group-hover/picker:opacity-100 group-focus-within/picker:pointer-events-auto group-focus-within/picker:opacity-100 hover:text-rose-600 focus-visible:pointer-events-auto focus-visible:opacity-100 dark:text-rose-400 dark:hover:text-rose-300"
+      class="pointer-events-none absolute top-1/2 left-1 grid h-4 w-4 -translate-y-1/2 place-items-center text-rose-500 opacity-0 transition-opacity group-hover/picker:pointer-events-auto group-hover/picker:opacity-100 group-has-[:focus-visible]/picker:pointer-events-auto group-has-[:focus-visible]/picker:opacity-100 hover:text-rose-600 focus-visible:pointer-events-auto focus-visible:opacity-100 dark:text-rose-400 dark:hover:text-rose-300"
       title="清除截止时间" aria-label="清除截止时间" @click.stop="clearValue">
       <AppIcon name="close" :size="10" />
     </button>

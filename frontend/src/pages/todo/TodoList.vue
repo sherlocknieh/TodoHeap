@@ -33,7 +33,7 @@
           <button v-else type="button" class="chip gap-1 font-medium"
             :class="deadlineChipClass(newTaskDeadline)"
             :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" :aria-expanded="open" @click="toggle">
-            <AppIcon name="clock" :size="10" class="transition-opacity group-hover/picker:opacity-0" />{{ formatDeadlineLabel(newTaskDeadline) }}
+            <AppIcon name="clock" :size="10" class="transition-opacity group-hover/picker:opacity-0 group-has-[:focus-visible]/picker:opacity-0" />{{ formatDeadlineLabel(newTaskDeadline) }}
           </button>
         </template>
       </DateTimePicker>
