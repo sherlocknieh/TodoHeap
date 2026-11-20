@@ -290,7 +290,7 @@
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         :title="allExpanded ? '收起全部' : '展开全部'" @click.stop="toggleAllCollapse">
-        <AppIcon :name="allExpanded ? 'shrink' : 'expand'" :size="14" />
+        <AppIcon :name="allExpanded ? 'collapseArrows' : 'expandArrows'" :size="14" />
       </button>
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
@@ -598,7 +598,8 @@ const allExpanded = computed(() =>
   collapsibleIds.value.every((id) => !collapsedSet.value.has(id)))
 
 // 工具栏的展开/收起全部：只改折叠标记，任务数据不受影响；
-// 收起时连根节点一起折叠，画布上只剩根节点。根节点由布局钉在原点，切换后不会跳动
+// 收起时连根节点一起折叠，画布上只剩根节点，并聚焦根节点；展开后回到全景
+// 根节点由布局钉在原点，切换后不会跳动
 const toggleAllCollapse = () => {
   if (allExpanded.value) {
     setTasksCollapsed(collapsibleIds.value, true)
@@ -609,9 +610,13 @@ const toggleAllCollapse = () => {
       emit('task-selected', null)
       nextTick(() => { localSelection = false })
     }
+    // 等折叠后的布局落到 layout 上再聚焦，避免按旧包围盒计算
+    nextTick(focusRoot)
     return
   }
   setTasksCollapsed(collapsibleIds.value, false)
+  // 展开全部后整图落进视口
+  nextTick(fitView)
 }
 
 // 单个按钮在左右两个方向之间轮换
