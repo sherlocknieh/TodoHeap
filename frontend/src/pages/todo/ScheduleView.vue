@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useScheduleStore } from '@/stores/schedules'
 import { exportSchedulesIcs, readIcsFile } from '@/lib/calendarTransfer'
-import { parseDateKey, toDateKey } from '@/utils/scheduleRange'
+import { parseDateKey, toDateKey, defaultScheduleRange } from '@/utils/scheduleRange'
 import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps({
@@ -103,6 +103,35 @@ const monthGrid = computed(() => {
   return { label: `${year}年${month + 1}月`, cells }
 })
 
+// 新建日程：按选中日期落一条「新日程」，再交给右栏详情继续编辑
+const isCreating = ref(false)
+const createError = ref('')
+
+const createSchedule = async () => {
+  if (isCreating.value) return
+  if (!navigator.onLine) {
+    createError.value = '当前离线，恢复网络后再新建'
+    return
+  }
+
+  const range = defaultScheduleRange(selectedDate.value)
+  if (!range) return
+
+  createError.value = ''
+  isCreating.value = true
+  try {
+    const result = await scheduleStore.createSchedules([{ title: '新日程', ...range }])
+    if (!result.success) throw new Error(result.error)
+    const created = result.data?.[0]
+    if (!created) throw new Error('新建日程失败')
+    emit('event-selected', created.id)
+  } catch (err) {
+    createError.value = err instanceof Error ? err.message : '新建日程失败'
+  } finally {
+    isCreating.value = false
+  }
+}
+
 // 导入日历：先预览再写入，成功后 store 会立即反映到列表
 const calendarFileInput = ref(null)
 const importFileName = ref('')
@@ -197,10 +226,14 @@ onMounted(() => {
 <template>
   <!-- 日程：按日期排出 schedules 中的日历事件 -->
   <div class="panel p-4 text-neutral-900 dark:text-neutral-100">
-    <!-- 页面操作：日程数量与导入、导出、订阅入口放进主区域顶栏 -->
+    <!-- 页面操作：日程数量与新建、导入、导出、订阅入口放进主区域顶栏 -->
     <Teleport defer to="#main-topbar-actions">
       <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ dayEvents.length }} 个日程</span>
       <div class="flex shrink-0 items-center gap-1.5">
+        <button class="btn-primary" :disabled="isCreating" @click="createSchedule">
+          <AppIcon name="plus" :size="14" />
+          <span>{{ isCreating ? '新建中…' : '新建' }}</span>
+        </button>
         <label class="btn-outline cursor-pointer">
           <input ref="calendarFileInput" type="file" accept=".ics,text/calendar" class="sr-only" @change="handleFileChange" />
           <AppIcon name="upload" :size="14" />
@@ -264,6 +297,10 @@ onMounted(() => {
       <AppIcon name="check" :size="12" />
       <span>{{ importMessage }}</span>
     </p>
+    <p v-if="createError" class="mt-2 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+      <AppIcon name="alert" :size="12" />
+      <span>{{ createError }}</span>
+    </p>
 
     <!-- 导入预览：确认事件数量后再写入，成功后收起只留结果提示 -->
     <div v-if="importEvents.length && !importDone" class="mt-3 rounded-md border border-neutral-200 px-3 py-2.5 dark:border-neutral-800">
@@ -290,10 +327,18 @@ onMounted(() => {
 
     <!-- 当天日程：时间在左、内容在右，notes 一并展示 -->
     <section class="mt-4">
-      <p class="px-1 pb-1.5 text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
-        当天日程
-        <span class="ml-1 font-mono text-neutral-400 dark:text-neutral-600">{{ dayEvents.length }}</span>
-      </p>
+      <div class="flex items-center justify-between px-1 pb-1.5">
+        <p class="text-[11px] font-semibold tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
+          当天日程
+          <span class="ml-1 font-mono text-neutral-400 dark:text-neutral-600">{{ dayEvents.length }}</span>
+        </p>
+        <!-- 「新建日程」图标：顶栏操作在窄屏被隐藏时，入口仍留在这里 -->
+        <button type="button"
+          class="rounded p-1 text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
+          :disabled="isCreating" title="新建日程" aria-label="新建日程" @click="createSchedule">
+          <AppIcon name="plus" :size="14" />
+        </button>
+      </div>
       <!-- 首次载入时先给状态，避免空状态一闪而过 -->
       <div v-if="scheduleStore.loading" class="flex items-center justify-center gap-2 py-10 text-sm text-neutral-500 dark:text-neutral-400">
         <AppIcon name="loader" :size="14" class="animate-spin" />
@@ -332,11 +377,15 @@ onMounted(() => {
         </li>
       </ul>
 
-      <!-- 空状态：当天没有安排 -->
+      <!-- 空状态：当天没有安排，顺手给新建入口 -->
       <div v-else class="rounded-md border border-dashed border-neutral-200 py-10 text-center dark:border-neutral-800">
         <AppIcon name="calendar" :size="18" class="mx-auto text-neutral-300 dark:text-neutral-700" />
         <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{{ isToday ? '今天没有日程' : '这天没有日程' }}</p>
         <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">用左右箭头或上面的月历切换日期</p>
+        <button class="btn-outline mt-3" :disabled="isCreating" @click="createSchedule">
+          <AppIcon name="plus" :size="14" />
+          <span>新建日程</span>
+        </button>
       </div>
     </section>
 

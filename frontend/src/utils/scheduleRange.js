@@ -18,6 +18,17 @@ export const parseDateKey = (value) => {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+// 新建日程的默认时间段：落在选中日期的「现在时刻」，持续一小时
+export const defaultScheduleRange = (date, now = new Date()) => {
+  const start = new Date(date)
+  if (Number.isNaN(start.getTime())) return null
+  start.setHours(now.getHours(), now.getMinutes(), 0, 0)
+  return {
+    start_at: start.toISOString(),
+    end_at: new Date(start.getTime() + 60 * 60 * 1000).toISOString()
+  }
+}
+
 // 以自然日划分：与今天有重叠的跨天事件算今天，结束于今天零点之前算已过去
 export const scheduleRangeOf = (event, now = new Date()) => {
   const startOfToday = new Date(now)

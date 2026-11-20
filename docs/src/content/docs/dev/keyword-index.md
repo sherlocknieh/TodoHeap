@@ -101,6 +101,7 @@ title: 关键词索引
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
 | 日期切换 / 左右箭头 / 回到今天 | `pages/todo/ScheduleView.vue`「日期导航」、`goToDate` | 选中日期由路由 query 承载，刷新不丢 |
+| 新建日程 / 加日程 / 添加日程 | `pages/todo/ScheduleView.vue` `createSchedule`；`utils/scheduleRange.js` `defaultScheduleRange` | 顶栏「新建」与空状态按钮都走这里，按选中日期落「新日程」后交右栏编辑 |
 | 月历 / 圆点 / 有日程的日子 | `pages/todo/ScheduleView.vue`「月历总览」 | 只渲染选中日期所在月份，周一起头 |
 | 按天分组 / 跨天事件算哪天 | `pages/todo/ScheduleView.vue`「跨天事件归入开始日」 | 与月历圆点口径一致 |
 | 日程右栏 / 标题备注地点 / 编辑日程 | `components/ScheduleDetailPanel.vue` | 与任务选中互不干扰 |

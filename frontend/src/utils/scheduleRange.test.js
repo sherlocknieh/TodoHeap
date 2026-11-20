@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseDateKey, scheduleRangeOf, toDateKey } from './scheduleRange'
+import { defaultScheduleRange, parseDateKey, scheduleRangeOf, toDateKey } from './scheduleRange'
 
 const now = new Date('2026-05-10T12:00:00')
 
@@ -24,6 +24,20 @@ describe('scheduleRangeOf', () => {
 
   it('明天开始的事件算以后', () => {
     expect(scheduleRangeOf(event('2026-05-11T08:00:00', '2026-05-11T09:00:00'), now)).toBe('future')
+  })
+})
+
+describe('defaultScheduleRange', () => {
+  it('把选中日期与当前时分拼成默认时间段', () => {
+    const range = defaultScheduleRange(new Date('2026-05-12T00:00:00'), now)
+
+    expect(toDateKey(range.start_at)).toBe('2026-05-12')
+    expect(range.start_at).toBe(new Date('2026-05-12T12:00:00').toISOString())
+    expect(range.end_at).toBe(new Date('2026-05-12T13:00:00').toISOString())
+  })
+
+  it('非法日期返回 null', () => {
+    expect(defaultScheduleRange(new Date('nope'), now)).toBeNull()
   })
 })
 
