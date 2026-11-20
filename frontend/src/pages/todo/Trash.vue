@@ -61,31 +61,34 @@
       <p class="text-xs text-neutral-400 dark:text-neutral-600">删除的任务会保留在这里</p>
     </div>
 
-    <!-- 任务列表 -->
-    <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto space-y-2.5"
+    <!-- 任务列表：卡片几何与任务表一致（左右内距、行距、缩进） -->
+    <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto space-y-1.5"
       @scroll.passive="saveTrashScroll">
       <template v-for="item in flatTrashList" :key="item.id">
         <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id"
-          class="group cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
+          class="group cursor-pointer" :style="{ paddingLeft: (22 + item._level * 28) + 'px' }" @click="selectTask(item.id)">
           <!-- 缩进留在外层，行内容单独成块；选中与任务添加栏一样只换边框色和投影 -->
           <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]" :class="[
             isRowSelected(item.id)
-              ? 'border border-accent-500 bg-surface py-2.5 pl-2 pr-3 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
-              : 'border border-hairline bg-surface py-2.5 pl-2 pr-3 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
+              ? 'border border-accent-500 bg-surface py-1.5 pl-2 pr-1.5 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
+              : 'border border-hairline bg-surface py-1.5 pl-2 pr-1.5 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
           ]">
-            <!-- 展开/折叠 -->
-            <button v-if="item.children && item.children.length"
-              class="p-0.5 rounded text-neutral-400 hover:text-accent-800 dark:hover:text-accent-200 transition-colors"
-              @click.stop="toggleExpand(item.id)">
-              <AppIcon :name="isTaskCollapsed(item.id) ? 'chevronRight' : 'chevronDown'" :size="13" />
+            <!-- 折叠开关：与列表同款圆形 +/−；无子任务时用垃圾桶占位，保持标题左缘对齐 -->
+            <button v-if="item.children && item.children.length" type="button"
+              class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+              :title="isTaskCollapsed(item.id) ? '展开子任务' : '折叠子任务'"
+              :aria-label="isTaskCollapsed(item.id) ? '展开子任务' : '折叠子任务'"
+              :aria-expanded="!isTaskCollapsed(item.id)" @click.stop="toggleExpand(item.id)">
+              <AppIcon :name="isTaskCollapsed(item.id) ? 'plus' : 'minus'" :size="8" />
             </button>
-            <span v-else class="w-[17px] shrink-0"></span>
-
-            <AppIcon name="trash" :size="13" class="text-neutral-300 dark:text-neutral-700" />
+            <span v-else
+              class="grid h-[18px] w-[18px] shrink-0 place-items-center text-neutral-300 dark:text-neutral-700">
+              <AppIcon name="trash" :size="13" />
+            </span>
 
             <!-- 标题 -->
             <div class="flex-1 min-w-0 flex items-baseline gap-2">
-              <span class="text-sm text-neutral-400 dark:text-neutral-600 line-through truncate">
+              <span class="text-sm leading-5 text-neutral-400 dark:text-neutral-600 line-through truncate">
                 {{ item.title || '未命名任务' }}
               </span>
               <span v-if="item.children && item.children.length" class="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-600">
@@ -93,15 +96,15 @@
               </span>
             </div>
 
-            <!-- 元信息 -->
+            <!-- 元信息：删除时间用与列表截止时间同款的 chip -->
             <div class="flex items-center gap-2 shrink-0">
-              <span class="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
-                {{ formatDate(item.deleted_at) }}
+              <span class="chip gap-1 text-neutral-500 dark:text-neutral-400">
+                <AppIcon name="clock" :size="10" />{{ formatDate(item.deleted_at) }}
               </span>
             </div>
 
-            <!-- 行内操作 -->
-            <div class="flex items-center gap-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <!-- 行内操作：与列表一致常显，不再只在悬停时出现 -->
+            <div class="flex items-center gap-0.5 shrink-0">
               <button
                 class="p-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
                 @click.stop="handleRestoreWithCheck(item.id)" title="恢复任务">
