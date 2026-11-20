@@ -12,6 +12,12 @@ export const THEME_OPTIONS = [
 
 export const normalizeThemeMode = (value) => (THEME_MODES.includes(value) ? value : 'auto')
 
+// 顶栏按钮点击时按菜单顺序前进一档：浅色 → 深色 → 自动
+export const nextThemeMode = (value) => {
+  const index = THEME_OPTIONS.findIndex((option) => option.value === normalizeThemeMode(value))
+  return THEME_OPTIONS[(index + 1) % THEME_OPTIONS.length].value
+}
+
 // auto 只取决于系统偏好，其余模式直接使用所选值
 export const resolveTheme = (mode, prefersDark) => {
   const normalized = normalizeThemeMode(mode)

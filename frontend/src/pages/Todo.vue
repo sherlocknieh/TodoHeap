@@ -21,7 +21,7 @@ import {
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
-import { THEME_KEY, THEME_MODES, THEME_OPTIONS, normalizeThemeMode } from '@/utils/theme'
+import { THEME_KEY, THEME_MODES, THEME_OPTIONS, normalizeThemeMode, nextThemeMode } from '@/utils/theme'
 import logoSrc from '@/assets/logo.svg'
 
 // 应用挂在 /TodoHeap/app/，站点首页在去掉 app/ 后的根路径
@@ -58,6 +58,20 @@ const closeThemeMenu = () => {
 const selectTheme = (mode) => {
 	themeMode.value = mode
 	closeThemeMenu()
+}
+// 点击按钮直接换主题：浅色 → 深色 → 自动，菜单同步收起
+const cycleTheme = () => {
+	themeMode.value = nextThemeMode(themeMode.value)
+	closeThemeMenu()
+}
+// 有精确指针时点击即循环；触屏与键盘激活改为展开菜单，保证三档都能选
+const handleThemeToggleClick = (event) => {
+	const hoverCapable = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches !== false
+	if (event.detail === 0 || !hoverCapable) {
+		openThemeMenu()
+		return
+	}
+	cycleTheme()
 }
 
 // 根据路由名称同步当前视图
@@ -637,12 +651,12 @@ const runToastAction = async () => {
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
-							<!-- 「顶栏主题按钮」：悬停即展开，点击也展开（触屏与键盘）；图标是当前模式 -->
+							<!-- 「顶栏主题按钮」：悬停即展开菜单，点击按 浅色→深色→自动 循环；触屏与键盘点击展开菜单（图标是当前模式） -->
 							<div class="relative" @mouseenter="openThemeMenu" @mouseleave="closeThemeMenu">
 								<button type="button" data-theme-toggle aria-haspopup="menu"
 									:aria-expanded="showThemeMenu"
 									class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-									:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="openThemeMenu">
+									:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="handleThemeToggleClick">
 									<AppIcon :name="currentThemeOption.icon" :size="15" />
 								</button>
 								<!-- 下拉菜单：外层 pt-1 当间距，鼠标从按钮移到面板不会离开悬停区；宽度由菜单项内容撑开，面板与按钮水平居中对齐 -->

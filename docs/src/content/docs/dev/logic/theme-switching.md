@@ -13,7 +13,7 @@ title: "主题切换逻辑"
 | 启动 | `frontend/src/main.ts` 的 `initTheme()` | 按同一份偏好重新解析并应用，注册系统与界面状态监听 |
 | 偏好解析 | `theme.js` 的 `normalizeThemeMode` / `resolveTheme` | 非法值回退 `auto`；`auto` 折算成当前系统亮暗 |
 | 应用 | `theme.js` 的 `applyTheme` | 写 `data-theme`、`color-scheme` 与 `meta[name="theme-color"]` |
-| 修改 | 顶栏主题菜单 `selectTheme`（`persistedRef('theme')`）或 Agent `update_app_setting` | 写入 `todoheap:ui:theme`，广播 `todoheap:ui-change` |
+| 修改 | 顶栏主题菜单 `selectTheme`、顶栏主题按钮 `cycleTheme`（`persistedRef('theme')`）或 Agent `update_app_setting` | 写入 `todoheap:ui:theme`，广播 `todoheap:ui-change` |
 | 同步 | `theme.js` 的 `handlePreferenceChange` | 收到同一键的广播后重新应用，已打开界面即时换色 |
 | 自动（跟随系统） | `theme.js` 的 `handleSystemChange` | 仅在 `auto` 下响应 `prefers-color-scheme` 变化 |
 
@@ -25,7 +25,19 @@ title: "主题切换逻辑"
 - 顶栏主题菜单用 `persistedRef` 读写，组件卸载不会丢值；Agent 走 `writeUiPreference`，与顶栏命中同一份存储。
 - 偏好是设备级的，不进入用户账户设置，也不参与实时同步。
 
-## 三、解析
+## 三、顶栏按钮的两种入口
+
+按钮支持悬停与点击两条路径，写入的是同一个 `theme` 键：
+
+| 操作 | 行为 |
+| --- | --- |
+| 悬停 | 展开菜单，可从浅色 / 深色 / 自动中直接选 |
+| 点击（精确指针） | `nextThemeMode` 按菜单顺序前进一档：浅色 → 深色 → 自动 → 浅色，同时收起菜单 |
+| 点击（触屏 / 键盘激活） | 展开菜单；触屏没有悬停、键盘需要可达的菜单，故选档仍走菜单 |
+
+`nextThemeMode` 先经 `normalizeThemeMode` 收敛非法值，因此损坏的偏好会落到 `auto` 的下一档 `light`。点击循环与菜单选择都只改偏好，具体亮暗仍由 `resolveTheme` 决定。
+
+## 四、解析
 
 `resolveTheme(mode, prefersDark)` 是唯一的解析规则：
 
@@ -38,7 +50,7 @@ title: "主题切换逻辑"
 - `normalizeThemeMode` 把缺失、损坏或未知值收敛到 `auto`，避免旧数据或手写存储让界面停在无主题状态。
 - 解析结果只有 `light`/`dark` 两种，后续样式不需要再判断 `auto`。
 
-## 四、应用与首屏
+## 五、应用与首屏
 
 `applyTheme` 做三件事：
 
@@ -48,7 +60,7 @@ title: "主题切换逻辑"
 
 `index.html` 的内联脚本在 CSS 与模块加载前执行，直接读 `localStorage` 做同样的一次解析，避免强制深色时先画出浅色底再切换。内联脚本只保留读取与折算，不复制监听逻辑；模块启动后由 `initTheme` 接管全部后续变化。
 
-## 五、持续同步
+## 六、持续同步
 
 ### 系统变化
 
@@ -60,7 +72,7 @@ title: "主题切换逻辑"
 
 这条广播是双向一致的：`persistedRef` 本身也监听同一事件，所以无论从顶栏菜单还是 Agent 发起，另一侧都能同步，不依赖刷新或重新挂载。
 
-## 六、样式接线
+## 七、样式接线
 
 ### Tailwind 变体
 
@@ -86,7 +98,7 @@ title: "主题切换逻辑"
 
 Milkdown 的 nord 主题自带按系统亮暗切换的规则，不受 `data-theme` 控制。编辑器在自身作用域内对可见差异做覆盖，例如表格隔行底色在 `light`/`dark` 下分别指定；其余规则（表格行边框、`pre`/`code` 背景）要么已被编辑器样式覆盖，要么不影响当前布局。新增第三方主题或升级 nord 时，需要重新检查这组按系统切换的规则是否漏出。
 
-## 七、取舍
+## 八、取舍
 
 | 取舍 | 做法 | 原因与代价 |
 | --- | --- | --- |
@@ -96,13 +108,14 @@ Milkdown 的 nord 主题自带按系统亮暗切换的规则，不受 `data-them
 | 手动选择后忽略系统变化 | 系统监听只在 `auto` 下生效 | 用户显式选择优先，不会被系统事件悄悄改回 |
 | 任务图画布保持独立 | `mindmap-dark-canvas` 单独持久化 | 画布底色是阅读偏好，允许与界面主题不同；不做联动 |
 
-## 八、验证
+## 九、验证
 
-- `frontend/src/utils/theme.test.js` 覆盖 `auto` 跟随系统、手动模式忽略系统、非法值回退三类解析。
+- `frontend/src/utils/theme.test.js` 覆盖 `auto` 跟随系统、手动模式忽略系统、非法值回退三类解析，以及点击循环 浅色 → 深色 → 自动。
 - `cd frontend && npm run test` 与 `npm run build` 必须通过；构建后检查 CSS 中的 `dark:` 选择器是否落在 `[data-theme='dark']` 上。
 - 手动检查：
   1. 三种模式逐一切换，页面、浮窗、滚动条与原生控件同时变化；
-  2. 选深色后刷新，首屏不出现浅色闪烁；
-  3. `auto` 下用系统或浏览器开发者工具切换 `prefers-color-scheme`，界面实时跟随；
-  4. 切到浅色后把系统改为深色，界面保持浅色；
-  5. 顶栏菜单选中某档后，再让 Agent 通过 `update_app_setting` 改 `theme`，顶栏图标与界面同步。
+  2. 连续点击顶栏主题按钮，图标与界面按 浅色 → 深色 → 自动 循环，菜单同步收起；
+  3. 选深色后刷新，首屏不出现浅色闪烁；
+  4. `auto` 下用系统或浏览器开发者工具切换 `prefers-color-scheme`，界面实时跟随；
+  5. 切到浅色后把系统改为深色，界面保持浅色；
+  6. 顶栏菜单选中某档后，再让 Agent 通过 `update_app_setting` 改 `theme`，顶栏图标与界面同步。
