@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deadlineCountdown, deadlineUrgency } from './deadline'
+import { deadlineCountdown, deadlineUrgency, formatDeadlineShort } from './deadline'
 
 const now = new Date('2026-11-20T14:34:00')
 const at = (value) => new Date(value).toISOString()
@@ -39,5 +39,18 @@ describe('deadlineCountdown', () => {
 
   it('无截止日期返回空串', () => {
     expect(deadlineCountdown(null, now)).toBe('')
+  })
+})
+
+describe('formatDeadlineShort', () => {
+  it('节点右区只放简短倒数', () => {
+    expect(formatDeadlineShort(at('2026-11-18T09:00:00'), now)).toBe('逾期')
+    expect(formatDeadlineShort(at('2026-11-20T23:59:00'), now)).toBe('今天')
+    expect(formatDeadlineShort(at('2026-11-21T09:00:00'), now)).toBe('明天')
+    expect(formatDeadlineShort(at('2026-11-25T09:00:00'), now)).toBe('5天')
+  })
+
+  it('无截止日期返回空串', () => {
+    expect(formatDeadlineShort(null, now)).toBe('')
   })
 })

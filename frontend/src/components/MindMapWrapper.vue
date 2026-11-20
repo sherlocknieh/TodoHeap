@@ -121,6 +121,12 @@
             :class="node.isRoot ? 'fill-white/70' : 'fill-neutral-500 dark:fill-neutral-400'">
             {{ node.subtitle }}
           </text>
+          <!-- 「截止标签」：节点右区、三点按钮左侧的简短倒数（今天/明天/3天/逾期），颜色随紧急度 -->
+          <text v-if="node.deadlineLabel"
+            :x="nodeWidth - paddingX - moreSize - 4" :y="node.height / 2"
+            text-anchor="end" dominant-baseline="central"
+            class="pointer-events-none text-[10px] tabular-nums"
+            :class="URGENCY_LABEL_CLASS[node.urgency]">{{ node.deadlineLabel }}</text>
 
           <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号）；
                叶子节点悬停或选中时显示加号，离开后短暂保留，指针移向按钮时不会消失。
@@ -217,16 +223,6 @@
       class="absolute z-20 panel cursor-default py-1 shadow-lg"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px`, width: `${menuWidth}px` }"
       @pointerdown.stop @click.stop @contextmenu.prevent>
-      <!-- 「截止提示」：菜单顶部的只读信息行，倒数日颜色与勾选框的紧急度一致 -->
-      <div v-if="menuNode.deadline"
-        class="flex items-baseline justify-between gap-2 border-b border-hairline px-2.5 pb-1.5 pt-0.5 dark:border-hairline-dark">
-        <span class="text-[11px] text-neutral-500 dark:text-neutral-400">截止</span>
-        <span class="text-xs font-medium tabular-nums text-neutral-800 dark:text-neutral-100">
-          {{ formatDeadlineDateTime(menuNode.deadline) }}
-          <span v-if="menuNode.urgency && !menuNode.completed" class="ml-1 text-[11px] font-normal"
-            :class="URGENCY_TEXT_CLASS[menuNode.urgency]">{{ deadlineCountdown(menuNode.deadline) }}</span>
-        </span>
-      </div>
       <button v-for="item in MENU_ITEMS" :key="item.key" type="button"
         class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors"
         :class="item.danger
@@ -344,7 +340,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
-import { deadlineCountdown, deadlineUrgency, formatDeadlineDateTime } from '@/utils/deadline'
+import { deadlineUrgency, formatDeadlineShort } from '@/utils/deadline'
 import {
   collapsedTaskSet,
   isTaskCollapsed,
@@ -389,9 +385,9 @@ const checkboxReserve = checkboxSize + checkboxGap
 const moreSize = 16
 const moreGap = 4
 const moreReserve = moreSize + moreGap * 2
-// 更多操作菜单的宽度与估算高度（含顶部的截止信息行）：贴住画布右/下边缘时据此翻到左侧或向上夹紧
+// 更多操作菜单的宽度与估算高度：贴住画布右/下边缘时据此翻到左侧或向上夹紧
 const menuWidth = 168
-const menuHeight = 176
+const menuHeight = 140
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -600,9 +596,11 @@ const controlPointFor = (height, selected) => {
     : { x: nodeWidth + gap, y: height / 2 }
 }
 
-// 文字可用宽度（像素）：右侧只让出更多操作按钮，折叠按钮挂在节点外不占正文
-const textWidthFor = (hasCheckbox) => Math.max(fontSize * 4,
-  nodeWidth - paddingX * 2 - (hasCheckbox ? checkboxReserve : 0) - moreReserve)
+// 文字可用宽度（像素）：右侧让出更多操作按钮与紧急度文字标签，折叠按钮挂在节点外不占正文
+const deadlineReserve = 34
+const textWidthFor = (hasCheckbox, hasDeadlineLabel) => Math.max(fontSize * 4,
+  nodeWidth - paddingX * 2 - (hasCheckbox ? checkboxReserve : 0) - moreReserve
+  - (hasDeadlineLabel ? deadlineReserve : 0))
 
 // 量宽用的 canvas：显示态由这里折行、编辑态由浏览器折行，两边必须用同一套字体与宽度，
 // 断行位置才会一致。字体取容器（未挂载时退回 body）的计算值，与输入框的 font-medium 对应
@@ -696,8 +694,11 @@ const measureNode = (raw) => {
   const completed = Boolean(raw.completed_at)
   // 选中态决定是否显示更多操作按钮：根节点不是真实任务，选中也不给操作菜单
   const selected = String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
-  // 文字可用宽度：右侧固定让出更多操作按钮，选中时不再重排
-  const textWidth = textWidthFor(hasCheckbox)
+  // 紧急度分级与右区简短倒数：已完成与根节点（没有勾选框）都不提示截止
+  const urgency = completed || raw.isRoot ? null : deadlineUrgency(raw.deadline)
+  const deadlineLabel = urgency ? formatDeadlineShort(raw.deadline) : ''
+  // 文字可用宽度：右侧让出更多操作按钮与截止标签，选中时不再重排
+  const textWidth = textWidthFor(hasCheckbox, Boolean(deadlineLabel))
   const lines = editingId.value === Number(raw.id)
     ? wrapLines(editingText.value, textWidth, Infinity)
     : wrapLines(raw.title, textWidth)
@@ -710,8 +711,9 @@ const measureNode = (raw) => {
     subtitle,
     hasCheckbox,
     completed,
-    // 右上角紧急圆点的分级，无截止日期为 null，不显示
-    urgency: deadlineUrgency(raw.deadline),
+    // 勾选框描边与右区标签共用的紧急度分级，无截止日期为 null
+    urgency,
+    deadlineLabel,
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
     textWidth,
@@ -1561,11 +1563,11 @@ const URGENCY_CHECK_CLASS = {
   urgent: 'stroke-amber-500 hover:stroke-amber-600 dark:stroke-amber-400 dark:hover:stroke-amber-300',
   soon: 'stroke-yellow-500 hover:stroke-yellow-600 dark:stroke-yellow-400 dark:hover:stroke-yellow-300'
 }
-// 菜单里倒数日的文字色，与勾选框描边同色系
-const URGENCY_TEXT_CLASS = {
-  critical: 'text-rose-600 dark:text-rose-400',
-  urgent: 'text-amber-600 dark:text-amber-400',
-  soon: 'text-yellow-600 dark:text-yellow-400'
+// 节点右区截止标签的文字色，与勾选框描边同色系
+const URGENCY_LABEL_CLASS = {
+  critical: 'fill-rose-600 dark:fill-rose-400',
+  urgent: 'fill-amber-600 dark:fill-amber-400',
+  soon: 'fill-yellow-600 dark:fill-yellow-400'
 }
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护

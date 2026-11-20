@@ -114,3 +114,13 @@ export const deadlineCountdown = (value, now = new Date()) => {
   if (days === 1) return '明天到期'
   return `还剩 ${days} 天`
 }
+
+// 节点右区的简短倒数：逾期/今天/明天/N天，只用于一周内的紧急任务
+export const formatDeadlineShort = (value, now = new Date()) => {
+  const days = calendarDaysUntil(value, now)
+  if (days == null) return ''
+  if (days < 0) return '逾期'
+  if (days === 0) return '今天'
+  if (days === 1) return '明天'
+  return `${days}天`
+}
