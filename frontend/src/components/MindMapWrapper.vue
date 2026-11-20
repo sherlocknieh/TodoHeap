@@ -89,6 +89,16 @@
               stroke-linejoin="round" />
             <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
           </g>
+          <!-- 「紧急程度圆点」：节点右上角，红=一天内（含逾期）、橙=三天内、蓝=一周内；
+               无截止日期或已完成的任务不显示，点开浮层看截止时间与倒数日 -->
+          <g v-if="node.urgency && !node.completed" data-mm-urgency
+            :transform="`translate(${nodeWidth - urgencyDotX} ${urgencyDotY})`"
+            class="cursor-pointer"
+            @pointerdown.stop @click.stop="toggleUrgencyPopover(node)">
+            <circle r="4.5" class="fill-transparent" />
+            <circle r="3.4" class="transition-colors" :class="URGENCY_DOT_CLASS[node.urgency]" />
+            <title>截止：{{ deadlineCountdown(node.deadline) }}</title>
+          </g>
           <!-- 节点文字：常驻输入框承载，平时只读，双击后原地编辑。
                高度与节点框同步取内容行数，编辑时随输入增长，不靠内部滚动 -->
           <foreignObject :x="node.textX" :y="paddingTop + 1" :width="node.textWidth"
@@ -225,6 +235,20 @@
       </button>
     </div>
 
+    <!-- 「紧急程度浮层」：点节点右上角圆点展开，显示截止时间与倒数日；
+         位置随节点与视口重算，平移缩放时跟着圆点走，点外部收起 -->
+    <div v-if="urgencyNode" data-mm-urgency-popover
+      class="absolute z-20 panel px-2.5 py-2 shadow-lg"
+      :style="urgencyPopoverStyle" @pointerdown.stop @click.stop>
+      <p class="eyebrow">截止时间</p>
+      <p class="mt-0.5 text-xs font-medium tabular-nums text-neutral-800 dark:text-neutral-100">
+        {{ formatDeadlineDateTime(urgencyNode.deadline) }}
+      </p>
+      <p class="mt-0.5 text-[11px]" :class="URGENCY_TEXT_CLASS[urgencyNode.urgency]">
+        {{ deadlineCountdown(urgencyNode.deadline) }}
+      </p>
+    </div>
+
     <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布；
          右栏浮起时按面板宽度左移，避免盖住按钮 -->
     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" @pointerdown.stop
@@ -330,6 +354,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
+import { deadlineCountdown, deadlineUrgency, formatDeadlineDateTime } from '@/utils/deadline'
 import {
   collapsedTaskSet,
   isTaskCollapsed,
@@ -695,6 +720,8 @@ const measureNode = (raw) => {
     subtitle,
     hasCheckbox,
     completed,
+    // 右上角紧急圆点的分级，无截止日期为 null，不显示
+    urgency: deadlineUrgency(raw.deadline),
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
     textWidth,
@@ -1460,6 +1487,7 @@ const closeNodeMenu = () => {
 // 三点按钮开合菜单；锚点清空，菜单回到按钮下方
 const toggleNodeMenu = (node) => {
   const id = String(node.id)
+  closeUrgencyPopover()
   menuAnchor.value = null
   menuNodeId.value = menuNodeId.value === id ? null : id
 }
@@ -1470,6 +1498,7 @@ const openNodeMenuAt = (node, event) => {
   // 原地编辑保留浏览器右键菜单，选词与粘贴要用；根节点没有可操作的菜单，同样放行
   if (editingId.value != null || node.isRoot || !container.value) return
   event.preventDefault()
+  closeUrgencyPopover()
   const rect = container.value.getBoundingClientRect()
   menuAnchor.value = {
     x: (event.clientX - rect.left - view.x) / view.scale,
@@ -1517,6 +1546,66 @@ const onMenuOutside = () => {
 watch(menuNodeId, (id) => {
   if (id == null) document.removeEventListener('pointerdown', onMenuOutside)
   else document.addEventListener('pointerdown', onMenuOutside)
+})
+
+// 「紧急程度圆点」配色：红=一天内（含逾期）、橙=三天内、蓝=一周内，深色下同色系提亮
+const URGENCY_DOT_CLASS = {
+  critical: 'fill-rose-500 dark:fill-rose-400',
+  urgent: 'fill-amber-500 dark:fill-amber-400',
+  soon: 'fill-sky-500 dark:fill-sky-400'
+}
+const URGENCY_TEXT_CLASS = {
+  critical: 'text-rose-600 dark:text-rose-400',
+  urgent: 'text-amber-600 dark:text-amber-400',
+  soon: 'text-sky-600 dark:text-sky-400'
+}
+
+// 圆点圆心距节点右/上边缘的内缩量，浮层定位按同一套坐标反算屏幕位置；
+// 上移一点，避开节点右侧中部的三点按钮热区
+const urgencyDotX = 8
+const urgencyDotY = 7
+const urgencyPopoverWidth = 176
+const urgencyPopoverHeight = 58
+
+// 浮层只记节点 id：位置在渲染时按节点坐标与视口重算，平移缩放时跟着圆点走；
+// 节点被折叠隐藏后找不到就自然消失
+const urgencyPopoverId = ref(null)
+const urgencyNode = computed(() => urgencyPopoverId.value == null
+  ? null
+  : layout.value.nodes.find((node) => node.id === urgencyPopoverId.value) ?? null)
+
+const closeUrgencyPopover = () => {
+  urgencyPopoverId.value = null
+}
+
+const toggleUrgencyPopover = (node) => {
+  const id = String(node.id)
+  closeNodeMenu()
+  urgencyPopoverId.value = urgencyPopoverId.value === id ? null : id
+}
+
+// 点浮层与圆点之外的位置收起；两者自身的按下都 stop 在文档监听之前
+const onUrgencyOutside = () => {
+  closeUrgencyPopover()
+}
+
+watch(urgencyPopoverId, (id) => {
+  if (id == null) document.removeEventListener('pointerdown', onUrgencyOutside)
+  else document.addEventListener('pointerdown', onUrgencyOutside)
+})
+
+// 浮层贴圆点右下方展开，撞到可见区右/下边缘时向左、向上翻
+const urgencyPopoverStyle = computed(() => {
+  const node = urgencyNode.value
+  if (!node) return {}
+  const dotX = view.x + (node.x + nodeWidth - urgencyDotX) * view.scale
+  const dotY = view.y + (node.y + urgencyDotY) * view.scale
+  const left = Math.max(8, Math.min(dotX + 10, visibleWidth.value - urgencyPopoverWidth - 8))
+  const below = dotY + 12
+  const top = below + urgencyPopoverHeight > size.height
+    ? Math.max(8, dotY - urgencyPopoverHeight - 12)
+    : below
+  return { left: `${left}px`, top: `${top}px`, width: `${urgencyPopoverWidth}px` }
 })
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
@@ -2584,6 +2673,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   document.removeEventListener('pointerdown', onHelpOutside)
   document.removeEventListener('pointerdown', onMenuOutside)
+  document.removeEventListener('pointerdown', onUrgencyOutside)
   window.removeEventListener('sync:id-replaced', handleEditIdReplaced)
   clearTimeout(leafHideTimer)
   stopViewAnimation()

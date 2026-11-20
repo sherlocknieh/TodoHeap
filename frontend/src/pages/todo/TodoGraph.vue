@@ -54,6 +54,8 @@ const mapNode = (todo) => ({
 	id: String(todo.id),
 	title: todo._isRef ? `\u21A9\uFE0E ${todo.title || '未命名任务'}` : (todo.title || '未命名任务'),
 	completed_at: todo.completed_at || null,
+	// 任务图右上角的紧急圆点与浮层要读截止时间
+	deadline: todo.deadline ?? null,
 	isRef: !!todo._isRef,
 	targetId: todo._isRef ? todo._refTargetId : todo.id,
 	// 拖拽重排要写回落点所在的兄弟序列，先保留树展开时的父级

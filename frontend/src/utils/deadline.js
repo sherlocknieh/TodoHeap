@@ -75,3 +75,42 @@ export const deadlineChipClass = (value) => {
   }
   return 'border-hairline text-neutral-500 hover:border-accent-300 hover:text-neutral-700 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:text-neutral-200'
 }
+
+// 截止时间到本地自然日的剩余天数，逾期为负；无值或非法日期返回 null
+const calendarDaysUntil = (value, now) => {
+  if (!value) return null
+  const due = new Date(value)
+  if (Number.isNaN(due.getTime())) return null
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  due.setHours(0, 0, 0, 0)
+  return Math.round((due - today) / (1000 * 60 * 60 * 24))
+}
+
+// 任务图紧急圆点的分级：一天内 critical、三天内 urgent、一周内 soon；
+// 逾期同样算 critical，一周以外与无截止日期返回 null（画布上不显示提示）
+export const deadlineUrgency = (value, now = new Date()) => {
+  const days = calendarDaysUntil(value, now)
+  if (days == null) return null
+  if (days <= 1) return 'critical'
+  if (days <= 3) return 'urgent'
+  if (days <= 7) return 'soon'
+  return null
+}
+
+// 紧急圆点浮层里的截止时间：月日 + 时分，例如「11月21日 23:59」
+export const formatDeadlineDateTime = (value) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+// 紧急圆点浮层里的倒数日：逾期/今天/明天/还剩 N 天
+export const deadlineCountdown = (value, now = new Date()) => {
+  const days = calendarDaysUntil(value, now)
+  if (days == null) return ''
+  if (days < 0) return `已逾期 ${-days} 天`
+  if (days === 0) return '今天到期'
+  if (days === 1) return '明天到期'
+  return `还剩 ${days} 天`
+}
