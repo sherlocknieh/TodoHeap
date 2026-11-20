@@ -11,7 +11,7 @@ title: "视图与交互"
 
 - 只有两种横向布局：从左到右、从右到左。工具栏方向按钮在两者间轮换，选择存本地（`directionOptions`、`cycleDirection`、`persistedRef('mindmap-direction')`）。
 - `computeGraphLayout` 先按折叠状态求出可见图，再用 Tarjan 缩点与最长路径分层；根节点钉在坐标原点，展开或折叠其它节点时根节点在画布上不动。
-- 同层节点按子树块跨度排开：只累计紧邻下一列的子节点，且每个子节点只归第一个紧邻父级；多父节点取全部前向父级的中心均值。`limitGaps` 每层独立、自下而上压缩同一父级兄弟之间超过两个 `crossGap` 的可见边缘空白，把该对之前的块整体下移（`blockSizeOf`、`blockBoundsOf`、`shareParent`）。
+- 同层节点按子树块跨度排开：只累计紧邻下一列的子节点，且每个子节点只归第一个紧邻父级；多父节点取全部前向父级的中心均值。`limitGaps` 每层独立、自下而上压缩同一父级兄弟之间超过两个 `crossGap` 的可见边缘空白，把该对之前的块整体下移；随后 `separateLayer` 按节点真实边缘兜底，避免压到别的父级分支（`blockSizeOf`、`blockBoundsOf`、`shareParent`）。
 - 节点高度由 `measureNode` 按 canvas 实测像素折行算出，显示态与编辑态共用同一套断行（`wrapLines`），编辑中不截断行数。
 
 ### 画布

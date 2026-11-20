@@ -1244,6 +1244,23 @@ const computeGraphLayout = (forest) => {
     }
   }
 
+  // 兜底：回收空白时整块下移可能压到别的父级分支（limitGaps 只看同父兄弟）。
+  // 同层按节点真实上下边缘保证最小间距，重叠时把 cur 及之后的块整体下移。
+  const separateLayer = (layer) => {
+    const list = order.get(layer)
+    for (let i = 1; i < list.length; i += 1) {
+      const prev = list[i - 1]
+      const cur = list[i]
+      const gap = (crossCenter.get(cur.id) - crossSizeOf(cur.id) / 2)
+        - (crossCenter.get(prev.id) + crossSizeOf(prev.id) / 2)
+      if (gap >= crossGap) continue
+      // 只下移 cur 及之后的块，保持层内顺序与块内相对位置
+      const shift = crossGap - gap
+      for (let j = i; j < list.length; j += 1) shiftBlock(list[j].id, shift)
+      blockBoundsCache.clear()
+    }
+  }
+
   // 逐层定位：down 让子节点贴近父节点（多父节点取各父节点位置的平均值），
   // up 让父节点居中于子节点带。每层定位后投影回间距约束，避免重叠。
   const relaxLayer = (layer, mode) => {
@@ -1263,7 +1280,10 @@ const computeGraphLayout = (forest) => {
     ;[...layerKeys].reverse().forEach((layer) => relaxLayer(layer, 'up'))
     layerKeys.forEach((layer) => relaxLayer(layer, 'down'))
     // 层间互不阻塞：每层都按当前坐标重新测量，浅层的下移不跳过深层内部的大空白
-    layerKeys.forEach((layer) => limitGaps(layer))
+    layerKeys.forEach((layer) => {
+      limitGaps(layer)
+      separateLayer(layer)
+    })
   }
 
   let minCross = Infinity
