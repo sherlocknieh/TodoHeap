@@ -78,7 +78,7 @@ const initDraft = () => {
   viewMonth.value = draftDate.value.getMonth()
 }
 
-// 面板锚在触发器下方，空间不足翻到上方，水平方向夹进视口
+// 面板水平居中对齐触发器，空间不足时夹进视口；垂直方向放不下就翻到上方
 const updatePosition = () => {
   if (!open.value || !rootEl.value || !panelEl.value) return
   const triggerRect = rootEl.value.getBoundingClientRect()
@@ -88,7 +88,8 @@ const updatePosition = () => {
   if (top + panelRect.height > window.innerHeight - margin) {
     top = Math.max(margin, triggerRect.top - panelRect.height - 4)
   }
-  const left = Math.min(Math.max(margin, triggerRect.left), window.innerWidth - panelRect.width - margin)
+  const centered = triggerRect.left + triggerRect.width / 2 - panelRect.width / 2
+  const left = Math.min(Math.max(margin, centered), window.innerWidth - panelRect.width - margin)
   position.value = { top, left }
 }
 
