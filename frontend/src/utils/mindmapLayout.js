@@ -15,6 +15,8 @@ const SETTLE_ROUNDS = 24
 // 有界父子吸引：单轮位移上限与轮数，限制压缩程度，避免把父子居中彻底拉散
 const BOUNDED_STEP = 120
 const BOUNDED_ROUNDS = 3
+// 块压紧比例：吃掉多父平移留下的多余空隙的比例。0 = 不压紧，保留空隙，父级居中更稳
+const REPACK_RATIO = 0
 
 const averageOf = (values) => (values.length
   ? values.reduce((sum, value) => sum + value, 0) / values.length
@@ -519,7 +521,8 @@ const computeStandardLayout = ({ nodes, edges, direction = 'right', bounded = fa
       const nextPinned = end + 1 < blocks.length ? blocks[end + 1] : null
       const prevPinned = index > 0 ? blocks[index - 1] : null
       if (nextPinned) {
-        let bottom = nextPinned.top - CROSS_GAP
+        const excess = nextPinned.top - blocks[end].bottom - CROSS_GAP
+        let bottom = nextPinned.top - CROSS_GAP - excess * (1 - REPACK_RATIO)
         for (let k = end; k >= index; k -= 1) {
           const block = blocks[k]
           const delta = bottom - block.bottom
@@ -527,7 +530,8 @@ const computeStandardLayout = ({ nodes, edges, direction = 'right', bounded = fa
           bottom = block.top + delta - CROSS_GAP
         }
       } else if (prevPinned) {
-        let top = prevPinned.bottom + CROSS_GAP
+        const excess = blocks[index].top - prevPinned.bottom - CROSS_GAP
+        let top = prevPinned.bottom + CROSS_GAP + excess * (1 - REPACK_RATIO)
         for (let k = index; k <= end; k += 1) {
           const block = blocks[k]
           const delta = top - block.top

@@ -109,7 +109,7 @@ describe('computeGraphPositions', () => {
     expect(standard.layers.get('T')).toBe(compact.layers.get('T'))
   })
 
-  it('标准布局以多父节点为锚压紧兄弟块，不留空隙', () => {
+  it('标准布局保持多父节点居中，兄弟块不重叠', () => {
     const nodes = [
       makeNode('R', 52, { isRoot: true }),
       makeNode('P1'),
@@ -130,9 +130,9 @@ describe('computeGraphPositions', () => {
     const top = (id) => result.positions.get(id).y
     const bottom = (id) => top(id) + height(id)
 
-    // 多父节点 M 保持在父级平均位置，普通兄弟 S 让位贴紧
+    // 多父节点 M 保持在父级平均位置，兄弟块之间不重叠
     expect(Math.abs(center('M') - (center('P1') + center('P2')) / 2)).toBeLessThan(0.5)
-    expect(Math.abs(bottom('S') + CROSS_GAP - top('M'))).toBeLessThan(0.5)
+    expect(top('M') - bottom('S')).toBeGreaterThanOrEqual(CROSS_GAP - 0.5)
   })
 
   it('从右到左时主方向翻转，根节点仍在原点', () => {
