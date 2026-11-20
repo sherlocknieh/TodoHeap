@@ -146,7 +146,7 @@ title: 关键词索引
 | --- | --- | --- |
 | 主题色 / 绿色 / 强调色 / accent | `frontend/src/style.css` `@theme` 的 `--color-accent-*` | 绿色是唯一强调色，只出现在交互与状态上 |
 | 危险色 / 红色 / 删除红 / danger | `frontend/src/style.css` `--color-danger-*` | 只用于删除等不可逆确认态 |
-| 暗色模式 / 深色 / 跟随系统 / 主题切换 / 顶栏主题按钮 / 右上角日/月图标 | `pages/Todo.vue`「顶栏主题按钮」`cycleTheme`；`frontend/src/utils/theme.js`；`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 顶栏右侧图标按钮点一下按 跟随系统→浅色→深色 循环，图标随当前模式变化；偏好存 `theme`，auto 时随系统解析成 light/dark，Agent 也可改同一个键 |
+| 暗色模式 / 深色 / 跟随系统 / 主题切换 / 顶栏主题按钮 / 顶栏主题菜单 / 右上角日/月图标 | `pages/Todo.vue`「顶栏主题按钮」`selectTheme`；`frontend/src/utils/theme.js`；`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 顶栏右侧图标按钮显示当前模式，点开下拉菜单选跟随系统/浅色/深色，点外部或 Esc 收起；偏好存 `theme`，auto 时随系统解析成 light/dark，Agent 也可改同一个键 |
 | 圆角 / 阴影 / 卡片 / 输入框样式 | `frontend/src/style.css` `@layer components` 的 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` | 优先复用基元类，不另造样式 |
 | 菜单 / 下拉面板 / 选中项背景戳出卡片 / 高亮方角超出圆角 | `components/TodoListItem.vue`（截止时间、更多菜单）、`pages/todo/TodoList.vue`（添加栏截止菜单）、`components/MindMapWrapper.vue`（节点菜单） | 面板用 `panel py-1 overflow-hidden`、菜单项通栏矩形不加圆角：高亮左右顶到边框，尖角由面板的 12px 圆角自然裁掉 |
 | 图标 / 加号 / 垃圾桶图标 / 改图标 | `components/AppIcon.vue` | 全站唯一图标来源，用 `name` + `size`；不要用 emoji |

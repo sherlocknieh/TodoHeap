@@ -13,7 +13,7 @@ title: "主题切换逻辑"
 | 启动 | `frontend/src/main.ts` 的 `initTheme()` | 按同一份偏好重新解析并应用，注册系统与界面状态监听 |
 | 偏好解析 | `theme.js` 的 `normalizeThemeMode` / `resolveTheme` | 非法值回退 `auto`；`auto` 折算成当前系统亮暗 |
 | 应用 | `theme.js` 的 `applyTheme` | 写 `data-theme`、`color-scheme` 与 `meta[name="theme-color"]` |
-| 修改 | 顶栏主题按钮 `cycleTheme`（`persistedRef('theme')`）或 Agent `update_app_setting` | 写入 `todoheap:ui:theme`，广播 `todoheap:ui-change` |
+| 修改 | 顶栏主题菜单 `selectTheme`（`persistedRef('theme')`）或 Agent `update_app_setting` | 写入 `todoheap:ui:theme`，广播 `todoheap:ui-change` |
 | 同步 | `theme.js` 的 `handlePreferenceChange` | 收到同一键的广播后重新应用，已打开界面即时换色 |
 | 跟随系统 | `theme.js` 的 `handleSystemChange` | 仅在 `auto` 下响应 `prefers-color-scheme` 变化 |
 
@@ -22,7 +22,7 @@ title: "主题切换逻辑"
 - 键名 `theme`，存于界面状态前缀下，实际本地键为 `todoheap:ui:theme`。
 - 合法值只有 `auto`、`light`、`dark`，默认 `auto`。
 - 写入统一走 `writeUiState`，因此会经过 JSON 序列化、存储不可用时的静默降级，以及同页广播。
-- 顶栏主题按钮用 `persistedRef` 读写，组件卸载不会丢值；Agent 走 `writeUiPreference`，与顶栏命中同一份存储。
+- 顶栏主题菜单用 `persistedRef` 读写，组件卸载不会丢值；Agent 走 `writeUiPreference`，与顶栏命中同一份存储。
 - 偏好是设备级的，不进入用户账户设置，也不参与实时同步。
 
 ## 三、解析
@@ -37,7 +37,6 @@ title: "主题切换逻辑"
 
 - `normalizeThemeMode` 把缺失、损坏或未知值收敛到 `auto`，避免旧数据或手写存储让界面停在无主题状态。
 - 解析结果只有 `light`/`dark` 两种，后续样式不需要再判断 `auto`。
-- `nextThemeMode` 只服务于顶栏按钮：按 `auto → light → dark → auto` 循环，非法值先收敛到 `auto` 再前进到 `light`。
 
 ## 四、应用与首屏
 
@@ -57,9 +56,9 @@ title: "主题切换逻辑"
 
 ### 偏好变化
 
-顶栏按钮与 Agent 的写入最终都会触发 `writeUiState` 里的 `UI_STATE_CHANGE_EVENT` 广播。`handlePreferenceChange` 只处理 `detail.key === THEME_KEY` 的事件，更新内存中的 `currentMode` 并立即应用。
+顶栏主题菜单与 Agent 的写入最终都会触发 `writeUiState` 里的 `UI_STATE_CHANGE_EVENT` 广播。`handlePreferenceChange` 只处理 `detail.key === THEME_KEY` 的事件，更新内存中的 `currentMode` 并立即应用。
 
-这条广播是双向一致的：`persistedRef` 本身也监听同一事件，所以无论从顶栏还是 Agent 发起，另一侧都能同步，不依赖刷新或重新挂载。
+这条广播是双向一致的：`persistedRef` 本身也监听同一事件，所以无论从顶栏菜单还是 Agent 发起，另一侧都能同步，不依赖刷新或重新挂载。
 
 ## 六、样式接线
 
@@ -106,4 +105,4 @@ Milkdown 的 nord 主题自带按系统亮暗切换的规则，不受 `data-them
   2. 选深色后刷新，首屏不出现浅色闪烁；
   3. `auto` 下用系统或浏览器开发者工具切换 `prefers-color-scheme`，界面实时跟随；
   4. 切到浅色后把系统改为深色，界面保持浅色；
-  5. 顶栏按钮切换到某档后，再让 Agent 通过 `update_app_setting` 改 `theme`，顶栏图标与界面同步。
+  5. 顶栏菜单选中某档后，再让 Agent 通过 `update_app_setting` 改 `theme`，顶栏图标与界面同步。

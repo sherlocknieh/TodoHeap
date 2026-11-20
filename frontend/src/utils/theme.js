@@ -11,12 +11,6 @@ export const THEME_OPTIONS = [
 
 export const normalizeThemeMode = (value) => (THEME_MODES.includes(value) ? value : 'auto')
 
-// 顶栏按钮的循环顺序：按 THEME_MODES 走，末尾回到开头
-export const nextThemeMode = (mode) => {
-  const index = THEME_MODES.indexOf(normalizeThemeMode(mode))
-  return THEME_MODES[(index + 1) % THEME_MODES.length]
-}
-
 // auto 只取决于系统偏好，其余模式直接使用所选值
 export const resolveTheme = (mode, prefersDark) => {
   const normalized = normalizeThemeMode(mode)

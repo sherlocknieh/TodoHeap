@@ -19,7 +19,7 @@ import {
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
-import { THEME_KEY, THEME_MODES, THEME_OPTIONS, nextThemeMode } from '@/utils/theme'
+import { THEME_KEY, THEME_MODES, THEME_OPTIONS } from '@/utils/theme'
 import logoSrc from '@/assets/logo.svg'
 
 // 应用挂在 /TodoHeap/app/，站点首页在去掉 app/ 后的根路径
@@ -36,17 +36,22 @@ const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
 
 const userMenuRef = ref(null)
 
-// 顶栏主题按钮：与 Agent 共用同一个界面偏好，点击按 跟随系统→浅色→深色 循环
+// 顶栏主题按钮：与 Agent 共用同一个界面偏好，点开下拉菜单选 跟随系统/浅色/深色
 const themeMode = persistedRef(THEME_KEY, 'auto', {
 	validate: (value) => THEME_MODES.includes(value)
 })
-const themeOption = (mode) => THEME_OPTIONS.find((option) => option.value === mode)
-const currentThemeOption = computed(() => themeOption(themeMode.value))
-const themeToggleLabel = computed(
-	() => `主题：${currentThemeOption.value.label}（点击切换到${themeOption(nextThemeMode(themeMode.value)).label}）`
+const themeMenuRef = ref(null)
+const showThemeMenu = ref(false)
+const currentThemeOption = computed(
+	() => THEME_OPTIONS.find((option) => option.value === themeMode.value) || THEME_OPTIONS[0]
 )
-const cycleTheme = () => {
-	themeMode.value = nextThemeMode(themeMode.value)
+const themeToggleLabel = computed(() => `主题：${currentThemeOption.value.label}`)
+const toggleThemeMenu = () => {
+	showThemeMenu.value = !showThemeMenu.value
+}
+const selectTheme = (mode) => {
+	themeMode.value = mode
+	showThemeMenu.value = false
 }
 
 // 根据路由名称同步当前视图
@@ -281,6 +286,7 @@ onMounted(async () => {
 	}
 	// 添加事件监听器
 	document.addEventListener('click', handleClickOutside)
+	document.addEventListener('keydown', handleKeydown)
 	window.addEventListener('beforeunload', handleBeforeUnload)
 	window.addEventListener('resize', handleWindowResize)
 	window.addEventListener('sync:id-replaced', handleSelectedIdReplaced)
@@ -418,11 +424,17 @@ const graphPanelInset = computed(() => {
 // 把占位宽度同步给导图：面板开合、拖宽或视口变化时一起更新
 watch(graphPanelInset, (value) => { detailPanelInset.value = value }, { immediate: true })
 
-// 点击外部关闭用户菜单与浮层侧栏
+// 点击外部关闭用户菜单、主题菜单与浮层侧栏
 const handleClickOutside = (event) => {
 	if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
 		if (!event.target.closest('[data-user-menu-trigger]')) {
 			showUserMenu.value = false
+		}
+	}
+	if (showThemeMenu.value) {
+		const insideMenu = themeMenuRef.value?.contains(event.target)
+		if (!insideMenu && !event.target.closest?.('[data-theme-toggle]')) {
+			showThemeMenu.value = false
 		}
 	}
 	if (showLeftSidebar.value && isSidebarFloating.value) {
@@ -438,6 +450,11 @@ const handleClickOutside = (event) => {
 		const insideTrigger = event.target.closest?.('[data-detail-panel-trigger]')
 		if (!insidePanel && !insideTrigger) closeDetailPanel()
 	}
+}
+
+// 主题菜单：Esc 收起，与点击外部关闭同一份状态
+const handleKeydown = (event) => {
+	if (event.key === 'Escape' && showThemeMenu.value) showThemeMenu.value = false
 }
 
 // 点击中栏区域时关闭详情面板（如果点击的不是任务项）
@@ -457,6 +474,7 @@ const onMainAreaClick = (e) => {
 
 onUnmounted(() => {
 	document.removeEventListener('click', handleClickOutside)
+	document.removeEventListener('keydown', handleKeydown)
 	// 清理 Realtime 订阅
 	todoStore.cleanupRealtimeSubscription()
 	// 移除页面离开警告
@@ -589,12 +607,30 @@ const runToastAction = async () => {
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
-							<!-- 「顶栏主题按钮」：图标随当前模式（跟随系统/浅色/深色），点击切到下一档 -->
-							<button type="button" data-theme-toggle
-								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-								:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="cycleTheme">
-								<AppIcon :name="currentThemeOption.icon" :size="15" />
-							</button>
+							<!-- 「顶栏主题按钮」：图标是当前模式，点开下拉菜单选择 -->
+							<div class="relative">
+								<button type="button" data-theme-toggle aria-haspopup="menu"
+									:aria-expanded="showThemeMenu"
+									class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+									:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="toggleThemeMenu">
+									<AppIcon :name="currentThemeOption.icon" :size="15" />
+								</button>
+								<!-- 下拉菜单：三项一次可见，当前项用强调色与对勾标出 -->
+								<div v-if="showThemeMenu" ref="themeMenuRef" role="radiogroup" aria-label="主题"
+									class="absolute right-0 top-full mt-1 w-36 panel shadow-lg z-40 py-1 overflow-hidden">
+									<button v-for="option in THEME_OPTIONS" :key="option.value" type="button"
+										role="radio" :aria-checked="themeMode === option.value"
+										class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm transition-colors"
+										:class="themeMode === option.value
+											? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
+											: 'text-neutral-700 hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10'"
+										@click="selectTheme(option.value)">
+										<AppIcon :name="option.icon" :size="13" />
+										<span>{{ option.label }}</span>
+										<AppIcon v-if="themeMode === option.value" name="check" :size="13" class="ml-auto" />
+									</button>
+								</div>
+							</div>
 							<button type="button" data-detail-panel-trigger
 								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors"
 								:class="showDetailPanel
