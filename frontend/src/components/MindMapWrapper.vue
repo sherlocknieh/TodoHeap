@@ -356,6 +356,7 @@ import DateTimePicker from '@/components/DateTimePicker.vue'
 import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
+import { revealView } from '@/utils/mindmapView'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
@@ -409,10 +410,9 @@ const menuHeight = 140
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
-// 避让宽度：画布保持整宽，右侧浮层面板盖住的部分不算可用视野，供适应视图与菜单边界使用
+// 避让宽度：画布保持整宽，右侧浮层面板盖住的部分不算可用视野，
+// 供适应视图、选中项可见性修正、编辑可读档位与菜单边界使用
 const visibleWidth = computed(() => Math.max(160, size.width - detailPanelInset.value))
-// 聚焦宽度：三栏聚焦把选中节点放在中间栏，中间栏位于整宽中心，不受右侧浮层影响
-const focusWidth = computed(() => Math.max(160, size.width))
 const view = reactive({ x: 0, y: 0, scale: 1 })
 
 // 右下角目标按钮的两档视角：null=自由视角，fit=全景，root=聚焦根节点；点按钮在 fit/root 间来回切
@@ -1449,8 +1449,6 @@ watch(view, () => {
 const fitView = () => {
   const el = container.value
   if (!el) return
-  // 适应视图是显式离开三栏视野的手动操作
-  columnFocus.value = false
   const { contentWidth, contentHeight, minX, minY } = layout.value
   if (!contentWidth || !size.width || !size.height) return
 
@@ -1470,7 +1468,7 @@ const fitView = () => {
 }
 
 // 缩放控件：加减按 1.2 倍等比，围绕画布可见区中心缩放，右栏盖住的部分不作中心；
-// 范围与滚轮一致（0.15~2.5），手动缩放即离开三栏视野，并记住新视口
+// 范围与滚轮一致（0.15~2.5），手动缩放即离开目标按钮档位，并记住新视口
 const ZOOM_STEP = 1.2
 const ZOOM_MIN = 0.15
 const ZOOM_MAX = 2.5
@@ -1480,7 +1478,6 @@ const zoomTo = (nextScale) => {
   if (!size.width || !size.height) return
   const target = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, nextScale))
   if (Math.abs(target - view.scale) < 0.001) return
-  columnFocus.value = false
   viewMode.value = null
   hasInteracted = true
   closeNodeMenu()
@@ -1731,19 +1728,17 @@ const selectNode = (node, event) => {
 
   if (node.isRoot) {
     rootSelected.value = true
-    // 图内点击自己负责居中，标记一下让 watch 跳过，避免重复启动动画
+    // 图内点击本身就在可见区，标记一下让 watch 跳过可见性修正
     localSelection = true
     emit('task-selected', null)
-    scheduleCenter(node.id)
     nextTick(() => { localSelection = false })
     return
   }
 
   rootSelected.value = false
-  // 图内点击自己负责居中，标记一下让 watch 跳过，避免重复启动动画
+  // 图内点击本身就在可见区，标记一下让 watch 跳过可见性修正
   localSelection = true
   emit('task-selected', Number(node.id))
-  scheduleCenter(node.id)
   nextTick(() => { localSelection = false })
 }
 
@@ -1942,16 +1937,19 @@ const animateView = (target, duration = 320) => {
   viewAnimation = requestAnimationFrame(step)
 }
 
-// 三栏聚焦与编辑共用的观看档位上限：宽视口封顶 1.1 倍，
-// 窄视口由各场景按可用宽度缩小，避免节点被裁切
+// 编辑时的可读档位上限：节点主体约占可见区宽度的 1/5，
+// 窄视口退让到刚好放得下，避免节点被裁切；基准扣掉右栏，避免放大后落在面板下面
 const FOCUS_SCALE = 1.1
+const readableScale = () => Math.max(ZOOM_MIN, Math.min(
+  FOCUS_SCALE,
+  (visibleWidth.value - 96) / nodeWidth
+))
 
 // 聚焦根节点：把根节点摆到可见区中央，缩放固定 100%；
-// 可见区比节点还窄时按可用宽度缩小，避免节点被裁切；与三栏聚焦无关，不依赖当前选中项
+// 可见区比节点还窄时按可用宽度缩小，避免节点被裁切；与选中项的可见性修正无关
 const focusRoot = () => {
   const root = layout.value.nodes.find((node) => node.isRoot)
   if (!root || !size.width || !size.height) return
-  columnFocus.value = false
   const scale = Math.max(ZOOM_MIN, Math.min(1, (visibleWidth.value - 96) / nodeWidth))
   animateView({
     scale,
@@ -1967,82 +1965,25 @@ const toggleViewMode = () => {
   else fitView()
 }
 
-// 聚焦固定为三栏视野：父级层、当前层、子级层各占一栏，与真实父子关系无关。
-// 多父、回边或子级落在远处时也不会把画面缩得过小；叶子还没子级时栏位照样留着
-const focusMainSpan = () => nodeWidth * 3 + mainGap * 2
-
-// 三栏视野状态：选中节点后进入；手动缩放/平移、适应视图或编辑时退出。
-// 处于该状态时容器本身变宽变窄（窗口缩放、侧栏开合）要重新按三栏贴合，否则画面会错位；
-// 右侧浮层开关不改画布宽度，因此不触发重排
-const columnFocus = ref(false)
-
-const columnFocusScale = () => {
-  const pad = 48
-  return Math.max(0.15, Math.min(
-    FOCUS_SCALE,
-    (focusWidth.value - pad * 2) / Math.max(focusMainSpan(), 1)
-  ))
-}
-
-// 聚焦目标：横向把节点摆在画布水平中央，纵向沿用节点当前的屏幕位置，
-// 只有掉出视口时才夹回可见范围
-const focusTargetFor = (node) => {
-  const scale = columnFocusScale()
-  const centerY = node.y + node.height / 2
-  const anchorY = view.y + centerY * view.scale
-  const margin = (node.height * scale) / 2 + 24
-  return {
-    x: focusWidth.value / 2 - (node.x + nodeWidth / 2) * scale,
-    y: Math.max(margin, Math.min(anchorY, size.height - margin)) - centerY * scale,
-    scale
-  }
-}
-
-// 把选中节点摆到聚焦目标位置
-const centerOnNode = (id) => {
+// 选中项只做可见性修正（「点节点画面会跳」「选中后自动居中」）：完整可见就完全不动，
+// 出界时最小平移带回；节点比可见区还大时才缩小。可见区扣掉右侧浮层，避免停在面板下面
+const ensureNodeVisible = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
-  columnFocus.value = true
+  const target = revealView({
+    view,
+    node: { x: node.x, y: node.y, width: nodeWidth, height: node.height },
+    viewport: { width: visibleWidth.value, height: size.height },
+    minScale: ZOOM_MIN
+  })
+  if (!target) return
   viewMode.value = null
-  const target = focusTargetFor(node)
-  // 位置与缩放都已到位时不再启动动画，重复点击同一节点不会抖动
-  const settled = Math.abs(target.x - view.x) < 0.5
-    && Math.abs(target.y - view.y) < 0.5
-    && Math.abs(target.scale - view.scale) < 0.001
-  if (settled) return
+  stopViewAnimation()
   animateView(target)
 }
 
-// 画布尺寸变化时按三栏重新贴合：窗口缩放、侧栏开合会改画布宽度，跟随缩放才能保住三栏
-const followColumnFocus = () => {
-  if (!columnFocus.value) return
-  const node = layout.value.nodes.find((item) => item.id === selectedId.value)
-  if (!node || !size.width || !size.height) return
-  const target = focusTargetFor(node)
-  view.x = target.x
-  view.y = target.y
-  view.scale = target.scale
-}
-
-// 单击选中后稍等再居中：双击编辑时节点还没移走，可以原地改字
-let pendingCenter = null
-
-const scheduleCenter = (id) => {
-  cancelPendingCenter()
-  pendingCenter = setTimeout(() => {
-    pendingCenter = null
-    centerOnNode(id)
-  }, 220)
-}
-
-const cancelPendingCenter = () => {
-  if (pendingCenter == null) return
-  clearTimeout(pendingCenter)
-  pendingCenter = null
-}
-
 // 从别处选中任务时，若它被折叠隐藏，自动展开祖先链，保证选中项可见
-// 图内点击已在 selectNode 里居中，这里只处理外部来源，避免重复启动动画
+// 图内点击本身就在可见区，由 localSelection 跳过这里的修正
 let localSelection = false
 
 watch(selectedId, (id) => {
@@ -2063,8 +2004,8 @@ watch(selectedId, (id) => {
     localSelection = false
     return
   }
-  // 展开后布局会重算，等节点落位再居中
-  nextTick(() => centerOnNode(id))
+  // 展开后布局会重算，等节点落位再修正可见性
+  nextTick(() => ensureNodeVisible(id))
 })
 
 // 主方向键沿层级深入/返回，交叉方向键在同级之间移动
@@ -2167,13 +2108,11 @@ const editTextStyle = (node) => ({
   userSelect: editingId.value === Number(node.id) ? 'text' : 'none'
 })
 
-// 编辑前把过小的缩放提到与三栏聚焦同一档位，避免原地编辑时字号看不清；
+// 编辑前把过小的缩放提到可读档位（「双击后变大」），避免原地编辑时字号看不清；
 // 以节点中心为锚点只缩放不移动，编辑框仍贴在节点上
 const ensureEditScale = (node) => {
-  const target = columnFocusScale()
+  const target = readableScale()
   if (view.scale >= target) return
-  // 从自由视角补档位属于视图变化，退出三栏跟随，避免尺寸变化把编辑框拉走
-  columnFocus.value = false
   viewMode.value = null
   const centerX = node.x + nodeWidth / 2
   const centerY = node.y + node.height / 2
@@ -2203,8 +2142,6 @@ const focusEditInput = (id) => {
 // 编辑已有文字时保留内容、光标落在末尾，避免误输把原文冲掉
 const startEdit = (node, { selectText = false } = {}) => {
   if (!node || node.isRoot || node.isRef) return
-  // 双击编辑时取消待执行的居中，避免输入框刚出现就被移走
-  cancelPendingCenter()
   stopViewAnimation()
   const id = Number(node.id)
   editingId.value = id
@@ -2538,10 +2475,9 @@ const onWheel = (event) => {
   if (!el) return
   closeNodeMenu()
   hasInteracted = true
-  // 手动缩放/平移即离开三栏视野，之后尺寸变化不再跟随
-  columnFocus.value = false
+  // 手动缩放/平移即离开目标按钮档位
   viewMode.value = null
-  // 手动缩放/平移优先，打断正在进行的居中动画
+  // 手动缩放/平移优先，打断正在进行的视口动画
   stopViewAnimation()
 
   // 行模式滚轮（部分鼠标/触控板）的 delta 单位是行，换算成像素
@@ -2822,10 +2758,9 @@ const onPointerDown = (event, fromRoot = false) => {
   closeNodeMenu()
   confirmUnlink.value = false
   hasInteracted = true
-  // 拖拽平移会改变视口，三栏视野不再成立
-  columnFocus.value = false
+  // 拖拽平移会改变视口，目标按钮档位不再成立
   viewMode.value = null
-  // 拖拽平移优先，打断正在进行的居中动画
+  // 拖拽平移优先，打断正在进行的视口动画
   stopViewAnimation()
   panning.value = true
   panMoved = false
@@ -2876,9 +2811,8 @@ onMounted(() => {
     if (!box) return
     size.width = box.width
     size.height = box.height
-    // 三栏视野跟随画布宽度重新贴合；其余情况只有未交互过的首屏才自动适配
-    if (columnFocus.value) followColumnFocus()
-    else if (!hasInteracted) fitView()
+    // 只有未交互过的首屏才按新尺寸自动适配，之后视口由用户控制
+    if (!hasInteracted) fitView()
   })
   if (container.value) resizeObserver.observe(container.value)
   if (!restoredView) nextTick(fitView)
@@ -2891,7 +2825,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onMenuOutside)
   window.removeEventListener('sync:id-replaced', handleEditIdReplaced)
   stopViewAnimation()
-  cancelPendingCenter()
   if (saveViewTimer) clearTimeout(saveViewTimer)
   clearTimeout(wheelIdleTimer)
   window.removeEventListener('pointermove', onDragMove)
