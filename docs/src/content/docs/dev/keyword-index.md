@@ -105,6 +105,7 @@ title: 关键词索引
 | 月历 / 圆点 / 有日程的日子 | `pages/todo/ScheduleView.vue`「月历总览」 | 只渲染选中日期所在月份，周一起头 |
 | 按天分组 / 跨天事件算哪天 | `pages/todo/ScheduleView.vue`「跨天事件归入开始日」 | 与月历圆点口径一致 |
 | 日程右栏 / 标题备注地点 / 编辑日程 | `components/ScheduleDetailPanel.vue` | 与任务选中互不干扰 |
+| 时长 / 持续时间 / 结束时间 | `components/ScheduleDetailPanel.vue` `applyDuration` | 改时长按开始时间算出结束，快捷项 30 分钟 / 1 / 2 / 3 小时 |
 | 点击日程 / 展开右栏 / 日程详情 | `pages/Todo.vue`「浮层右栏点击面板外收起」`data-keep-detail-panel` | 选中即展开右栏，窄屏浮在内容上；同一次点击不会把它收起 |
 | 删除日程 / 删日程确认 | `components/ScheduleDetailPanel.vue` `deleteSchedule` | 删除后收起面板并清掉选中项 |
 | 日历导入导出 / ICS / 订阅链接 | `pages/todo/Settings.vue`「日历：ICS 导入导出与只读订阅链接」；`lib/ics.js`、`lib/calendarTransfer.js` | 订阅链接本身就是凭据，可重新生成或停用 |

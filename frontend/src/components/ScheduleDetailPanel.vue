@@ -90,11 +90,20 @@ const form = ref({
   all_day: false,
   start_at: '',
   end_at: '',
+  duration: '',
   start_date: '',
   end_date: ''
 })
 const errorMessage = ref('')
 const isSaving = ref(false)
+
+// 常用时长：点一下按开始时间算出结束时间
+const DURATION_PRESETS = [
+  { label: '30 分钟', hours: 0.5 },
+  { label: '1 小时', hours: 1 },
+  { label: '2 小时', hours: 2 },
+  { label: '3 小时', hours: 3 }
+]
 
 const emptyForm = () => ({
   title: '',
@@ -108,9 +117,53 @@ const emptyForm = () => ({
   all_day: false,
   start_at: '',
   end_at: '',
+  duration: '',
   start_date: '',
   end_date: ''
 })
+
+// 起止时间换算出小时数；跨天或非法区间返回 null
+const hoursBetween = (startValue, endValue) => {
+  const start = new Date(startValue)
+  const end = new Date(endValue)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null
+  return Math.round(((end - start) / 3600000) * 100) / 100
+}
+
+// 按开始时间加时长算出结束时间；时长非法时不改动草稿
+const applyDuration = (hours) => {
+  if (!(hours > 0)) return false
+  const start = new Date(form.value.start_at)
+  if (Number.isNaN(start.getTime())) return false
+  form.value.end_at = toDateTimeLocalValue(new Date(start.getTime() + hours * 3600000))
+  return true
+}
+
+// 结束时间改动后把时长回填成实际间隔
+const syncDurationFromRange = () => {
+  const hours = hoursBetween(form.value.start_at, form.value.end_at)
+  form.value.duration = hours == null ? '' : String(hours)
+}
+
+const applyDurationInput = () => {
+  const hours = Number(form.value.duration)
+  if (!(hours > 0)) {
+    syncDurationFromRange()
+    return
+  }
+  form.value.duration = String(hours)
+  applyDuration(hours)
+}
+
+const setDuration = (hours) => {
+  form.value.duration = String(hours)
+  applyDuration(hours)
+}
+
+// 开始时间确定后按当前时长顺延结束时间；没有时长就按原区间回填
+const onStartConfirmed = () => {
+  if (!applyDuration(Number(form.value.duration))) syncDurationFromRange()
+}
 
 // 切换选中日程时重置草稿，未保存的编辑不会带到另一条日程
 const resetForm = (item) => {
@@ -134,6 +187,7 @@ const resetForm = (item) => {
     all_day: Boolean(item.all_day),
     start_at: toDateTimeLocalValue(item.start_at),
     end_at: toDateTimeLocalValue(item.end_at),
+    duration: item.all_day ? '' : String(hoursBetween(item.start_at, item.end_at) ?? ''),
     start_date: toDateValue(item.start_at, item.all_day),
     end_date: toDateValue(endBefore, item.all_day)
   }
@@ -156,6 +210,7 @@ const toggleAllDay = (checked) => {
   const end = new Date(endDate.getTime() + 86400000)
   form.value.start_at = toDateTimeLocalValue(start.toISOString())
   form.value.end_at = toDateTimeLocalValue(end.toISOString())
+  syncDurationFromRange()
 }
 
 const startLabel = computed(() => {
@@ -293,15 +348,29 @@ const remove = async () => {
         </label>
         <label v-else class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">开始</span>
-          <DateTimePicker v-model="form.start_at" placeholder="选择开始时间" />
+          <DateTimePicker v-model="form.start_at" placeholder="选择开始时间" @confirm="onStartConfirmed" />
         </label>
+        <!-- 「时长」：改时长按开始时间算出结束；改结束时间则回填时长 -->
+        <div v-if="!form.all_day" class="block">
+          <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">时长（小时）</span>
+          <input v-model="form.duration" class="field" type="number" min="0.5" step="0.5"
+            placeholder="例如 1" @change="applyDurationInput" />
+          <div class="mt-1.5 flex flex-wrap gap-1">
+            <button v-for="preset in DURATION_PRESETS" :key="preset.hours" type="button"
+              class="chip transition-colors"
+              :class="Number(form.duration) === preset.hours
+                ? 'border-accent-500 bg-accent-50 text-accent-800 dark:border-accent-500 dark:bg-accent-500/10 dark:text-accent-200'
+                : 'hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'"
+              @click="setDuration(preset.hours)">{{ preset.label }}</button>
+          </div>
+        </div>
         <label v-if="form.all_day" class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">结束日期（含当天）</span>
           <DateTimePicker v-model="form.end_date" mode="date" placeholder="选择日期" />
         </label>
         <label v-else class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">结束</span>
-          <DateTimePicker v-model="form.end_at" placeholder="选择结束时间" />
+          <DateTimePicker v-model="form.end_at" placeholder="选择结束时间" @confirm="syncDurationFromRange" />
         </label>
       </div>
 
