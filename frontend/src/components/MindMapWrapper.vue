@@ -133,7 +133,7 @@
                 @confirm="applyNodeDeadline(node, $event)">
                 <template #trigger="{ open, toggle }">
                   <button type="button"
-                    class="chip pointer-events-auto gap-[3px] pr-6 pl-[5px] font-medium text-[10px] leading-[14px]"
+                    class="chip pointer-events-auto gap-[3px] font-medium text-[10px] leading-[14px] transition-all duration-150 group-hover:pr-6"
                     :class="deadlineChipClass(node.deadline)" :aria-expanded="open"
                     :title="`修改截止时间（${formatDeadlineLabel(node.deadline)}）`" @click.stop="toggle">
                     <AppIcon name="clock" :size="9" />{{ formatDeadlineLabel(node.deadline) }}
@@ -604,10 +604,10 @@ const controlPointFor = (height, selected) => {
     : { x: nodeWidth + gap, y: height / 2 }
 }
 
-// 截止胶囊的固定占位：1px 描边 ×2、左内边距 5、右内边距 24（悬停时给 × 让位）、时钟图标 9 与图标间距 3；
-// 文案宽度按 chip 的 10px 字号另行量出，节点正文据此让位
+// 截止胶囊的占位按「撑开态」算：1px 描边 ×2、左内边距 6、右内边距 24（悬停时撑开给 × 让位）、
+// 时钟图标 9 与图标间距 3；平时胶囊收紧、悬停才向左撑出 × 的位置，正文以此占位避让
 const chipHeight = 20
-const chipChrome = 2 + 5 + 24 + 9 + 3
+const chipChrome = 2 + 6 + 24 + 9 + 3
 const textWidthFor = (hasCheckbox, deadlineWidth) => Math.max(fontSize * 4,
   nodeWidth - paddingX * 2 - (hasCheckbox ? checkboxReserve : 0) - moreReserve - deadlineWidth)
 // 胶囊右缘贴着三点按钮，与原先文字标签的位置一致
