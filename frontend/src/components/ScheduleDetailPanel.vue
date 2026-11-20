@@ -25,10 +25,7 @@ const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapse
   onCollapse: () => emit('close')
 })
 
-const event = computed(() => {
-  if (props.eventId == null) return null
-  return scheduleStore.schedules.find(item => String(item.id) === String(props.eventId)) || null
-})
+const event = computed(() => scheduleStore.findSchedule(props.eventId))
 
 const STATUS_OPTIONS = [
   { value: 'confirmed', label: '已确认' },
@@ -337,6 +334,8 @@ const resetForm = (item) => {
 
 // 选中日程或数据到达时重置草稿；切走前先把上一条的防抖改动落盘
 watch(() => [props.eventId, event.value?.id], () => {
+  // 新建日程的临时 id 换成真实 id 时仍是同一条，保留正在输入的草稿
+  if (event.value && scheduleStore.isSameSchedule(activeEventId.value, event.value.id)) return
   if (activeEventId.value && syncTimer) {
     clearTimeout(syncTimer)
     syncTimer = null

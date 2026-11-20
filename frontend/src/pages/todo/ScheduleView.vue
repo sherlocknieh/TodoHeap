@@ -103,7 +103,8 @@ const monthGrid = computed(() => {
   return { label: `${year}年${month + 1}月`, cells }
 })
 
-// 新建日程：按选中日期落一条「新日程」，再交给右栏详情继续编辑
+// 新建日程：本地先落一条「新日程」，右栏立刻打开；写库成功后选中迁到真实 id
+// 机制见 docs/src/content/docs/features/calendar.md「手动新建日程」
 const isCreating = ref(false)
 const createError = ref('')
 
@@ -118,18 +119,27 @@ const createSchedule = async () => {
   if (!range) return
 
   createError.value = ''
-  isCreating.value = true
-  try {
-    const result = await scheduleStore.createSchedules([{ title: '新日程', ...range }])
-    if (!result.success) throw new Error(result.error)
-    const created = result.data?.[0]
-    if (!created) throw new Error('新建日程失败')
-    emit('event-selected', created.id)
-  } catch (err) {
-    createError.value = err instanceof Error ? err.message : '新建日程失败'
-  } finally {
-    isCreating.value = false
+  const result = scheduleStore.createSchedule({ title: '新日程', ...range })
+  if (!result.success) {
+    createError.value = result.error
+    return
   }
+
+  const tempId = result.data.id
+  emit('event-selected', tempId)
+  // 右栏已经可编辑，这里只挡住重复点击，不再阻塞界面
+  isCreating.value = true
+  const outcome = await result.settled
+  isCreating.value = false
+
+  const stillSelected = String(props.selectedEventId) === String(tempId)
+  if (!outcome.success) {
+    createError.value = outcome.error
+    if (stillSelected) emit('event-selected', null)
+    return
+  }
+  // 选中跟着换成真实 id，刷新后仍能定位到这条日程
+  if (stillSelected && outcome.data?.id != null) emit('event-selected', outcome.data.id)
 }
 
 // 导入日历：先预览再写入，成功后 store 会立即反映到列表
@@ -232,7 +242,7 @@ onMounted(() => {
       <div class="flex shrink-0 items-center gap-1.5">
         <button class="btn-primary" data-keep-detail-panel :disabled="isCreating" @click="createSchedule">
           <AppIcon name="plus" :size="14" />
-          <span>{{ isCreating ? '新建中…' : '新建' }}</span>
+          <span>新建</span>
         </button>
         <label class="btn-outline cursor-pointer">
           <input ref="calendarFileInput" type="file" accept=".ics,text/calendar" class="sr-only" @change="handleFileChange" />
@@ -348,7 +358,7 @@ onMounted(() => {
       <ul v-else-if="dayEvents.length" class="space-y-2">
         <li v-for="event in dayEvents" :key="event.id" data-keep-detail-panel
           class="group flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors"
-          :class="String(event.id) === String(props.selectedEventId)
+          :class="scheduleStore.isSameSchedule(event.id, props.selectedEventId)
             ? 'border-accent-400 bg-accent-50/60 dark:border-accent-600 dark:bg-accent-500/[0.08]'
             : 'border-hairline bg-neutral-50/60 hover:border-accent-400 hover:bg-accent-50/40 dark:border-hairline-dark dark:bg-neutral-900/40 dark:hover:border-accent-600 dark:hover:bg-accent-500/[0.06]'"
           @click="selectEvent(event)">

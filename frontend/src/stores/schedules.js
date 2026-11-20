@@ -77,6 +77,35 @@ export const useScheduleStore = defineStore('schedules', () => {
     return { ok: true, userId: authStore.user.id }
   }
 
+  // 乐观新建：先落临时 id 的本地行，写库成功后再换成服务端真实行
+  // 详见 docs/src/content/docs/features/calendar.md「手动新建日程」
+  let tempSeq = 0
+  const idAliases = new Map() // 临时 id → 真实 id
+  const pendingCreates = new Map() // 临时 id → 写库结果
+  const sortByStart = (list) => [...list].sort((a, b) => a.start_at.localeCompare(b.start_at))
+
+  // 右栏与选中可能还拿着临时 id，这里统一换算成当前有效 id
+  const resolveScheduleId = (id) => idAliases.get(String(id)) ?? id
+
+  const findSchedule = (id) => {
+    if (id == null) return null
+    const target = String(resolveScheduleId(id))
+    return schedules.value.find((item) => String(item.id) === target) || null
+  }
+
+  // 临时 id 换成真实 id 后仍视为同一条日程，右栏据此避免重置草稿
+  const isSameSchedule = (a, b) => {
+    if (a == null || b == null) return a === b
+    return String(resolveScheduleId(a)) === String(resolveScheduleId(b))
+  }
+
+  // 新建还没落库时，写入/删除先等它的真实 id，避免打到不存在的行
+  const waitForCreate = async (id) => {
+    const pending = pendingCreates.get(String(id))
+    if (pending) await pending
+    return resolveScheduleId(id)
+  }
+
   // 侧栏与日程页会同时进入，同一时刻只发一次请求，两处共用结果
   let inflight = null
 
@@ -99,7 +128,9 @@ export const useScheduleStore = defineStore('schedules', () => {
           .order('start_at', { ascending: true })
 
         if (fetchError) throw fetchError
-        schedules.value = data || []
+        // 刷新时保留还没落库的临时行，避免右栏正在编辑的新建日程被覆盖掉
+        const pendingRows = schedules.value.filter((item) => pendingCreates.has(String(item.id)))
+        schedules.value = [...(data || []), ...pendingRows].sort((a, b) => a.start_at.localeCompare(b.start_at))
         isFetched.value = true
         return { success: true, data: schedules.value }
       } catch (err) {
@@ -115,6 +146,45 @@ export const useScheduleStore = defineStore('schedules', () => {
     } finally {
       inflight = null
     }
+  }
+
+  // 新建单条日程：本地临时行立即返回，右栏不用等网络往返
+  // 返回值里的 settled 是后台写库结果，调用方据此把选中迁到真实 id
+  const createSchedule = (event) => {
+    const auth = requireUserId()
+    if (!auth.ok) return { success: false, error: auth.error }
+
+    const tempId = `temp-schedule-${(tempSeq += 1)}`
+    const payload = toRow(event, auth.userId)
+    const row = { id: tempId, ...payload, updated_at: new Date().toISOString() }
+    schedules.value = sortByStart([...schedules.value, row])
+
+    beginWrite()
+    const settled = (async () => {
+      let message = ''
+      try {
+        const { data, error: insertError } = await supabase
+          .from('schedules')
+          .insert(payload)
+          .select(SCHEDULE_COLUMNS)
+          .single()
+
+        if (insertError) throw insertError
+        idAliases.set(tempId, data.id)
+        schedules.value = sortByStart(schedules.value.map((item) => (item.id === tempId ? data : item)))
+        return { success: true, data }
+      } catch (err) {
+        schedules.value = schedules.value.filter((item) => item.id !== tempId)
+        message = err instanceof Error ? err.message : '新建日程失败'
+        return { success: false, error: message }
+      } finally {
+        pendingCreates.delete(tempId)
+        endWrite(message)
+      }
+    })()
+    pendingCreates.set(tempId, settled)
+
+    return { success: true, data: row, settled }
   }
 
   // 批量写入导入事件；外部来源键相同的事件直接跳过，避免同一份 ICS 重复导入
@@ -150,7 +220,8 @@ export const useScheduleStore = defineStore('schedules', () => {
     const auth = requireUserId()
     if (!auth.ok) return { success: false, error: auth.error }
 
-    const index = schedules.value.findIndex((item) => item.id === id)
+    const targetId = await waitForCreate(id)
+    const index = schedules.value.findIndex((item) => String(item.id) === String(targetId))
     if (index === -1) return { success: false, error: '日程不存在' }
 
     const snapshot = { ...schedules.value[index] }
@@ -162,17 +233,17 @@ export const useScheduleStore = defineStore('schedules', () => {
       const { data, error: updateError } = await supabase
         .from('schedules')
         .update(updates)
-        .eq('id', id)
+        .eq('id', targetId)
         .eq('user_id', auth.userId)
         .select(SCHEDULE_COLUMNS)
         .single()
 
       if (updateError) throw updateError
-      schedules.value[index] = data
-      schedules.value = [...schedules.value].sort((a, b) => a.start_at.localeCompare(b.start_at))
+      schedules.value = sortByStart(schedules.value.map((item) => (item.id === targetId ? data : item)))
       return { success: true, data }
     } catch (err) {
-      schedules.value[index] = snapshot
+      const rollbackIndex = schedules.value.findIndex((item) => String(item.id) === String(targetId))
+      if (rollbackIndex !== -1) schedules.value[rollbackIndex] = snapshot
       message = err instanceof Error ? err.message : '更新日程失败'
       return { success: false, error: message }
     } finally {
@@ -185,15 +256,16 @@ export const useScheduleStore = defineStore('schedules', () => {
     const auth = requireUserId()
     if (!auth.ok) return { success: false, error: auth.error }
 
+    const targetId = await waitForCreate(id)
     const snapshot = schedules.value
-    schedules.value = schedules.value.filter((item) => item.id !== id)
+    schedules.value = schedules.value.filter((item) => String(item.id) !== String(targetId))
     beginWrite()
     let message = ''
     try {
       const { error: deleteError } = await supabase
         .from('schedules')
         .delete()
-        .eq('id', id)
+        .eq('id', targetId)
         .eq('user_id', auth.userId)
 
       if (deleteError) throw deleteError
@@ -215,8 +287,11 @@ export const useScheduleStore = defineStore('schedules', () => {
     syncStatus,
     syncError,
     fetchSchedules,
+    createSchedule,
     createSchedules,
     updateSchedule,
-    deleteSchedule
+    deleteSchedule,
+    findSchedule,
+    isSameSchedule
   }
 })
