@@ -440,6 +440,15 @@ const clearMultiSelection = () => {
   multiAnchor.value = null
 }
 
+// 多选起点：已有选择就沿用；否则把当前单选节点带进来，
+// 避免「图上看起来选了两个，多选集合里其实只有 Ctrl 点到的那个」
+const beginMultiSelection = () => {
+  if (multiSelectedKeys.value.size > 0) return multiSelectedKeys.value
+  const current = selectedId.value
+  if (current && current !== rootNodeId.value) return new Set([current])
+  return new Set()
+}
+
 // 正在原地编辑的节点与其输入内容：布局测量要用它撑高节点，因此声明在布局之前
 const editingId = ref(null)
 const editingText = ref('')
@@ -1712,7 +1721,7 @@ const selectNode = (node, event) => {
       }
     }
 
-    multiSelectedKeys.value = toggleSelection(multiSelectedKeys.value, String(node.id))
+    multiSelectedKeys.value = toggleSelection(beginMultiSelection(), String(node.id))
     multiAnchor.value = String(node.id)
     return
   }
