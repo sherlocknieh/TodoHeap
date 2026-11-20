@@ -158,7 +158,7 @@ title: 关键词索引
 | 临时 ID / id 替换 / 新建任务 ID | `stores/syncQueue.js` `generateTempId`、`id-replaced` 事件 | `client_key` 保证同一用户下创建幂等 |
 | 新建后多出一条根链接 / 新任务先连到根节点 / 刷新后正常 | [任务创建逻辑](./logic/task-create.md)「父级 child_ids 更新的顺序约束」 | 父级 `UPDATE` 若与 `ADD` 并行，会写入负数临时 ID 并用旧快照覆盖父级；任务失去父链接后导图把孤儿挂到根节点 |
 | 幽灵链接 / 新任务多出一条无关父链接 / 挂在旧任务下 | [任务创建逻辑](./logic/task-create.md)「临时 ID 编号与残留清理」 | 父级 `child_ids` 里的历史负数临时 ID 与本次临时 ID 撞号，ID 替换时被一起改成了新任务 |
-| 新建后打字被打断 / 编辑框突然失焦 / 同步后输入中断 / 已输入内容被覆盖 | [任务创建逻辑](./logic/task-create.md)「换号时保持编辑态」 | 节点与任务行按 `client_key` 稳定渲染，换号不重建输入框；任务表换号后恢复原选区而不是全选 |
+| 新建后打字被打断 / 编辑框突然失焦 / 同步后输入中断 / 已输入内容被覆盖 | [任务创建逻辑](./logic/task-create.md)「换号时保持编辑态」；`components/TodoListItem.vue` `ignoreBlurAfterReplace` | 节点与任务行按 `client_key` 稳定渲染，换号不重建输入框；任务表换号后恢复原选区而不是全选，并忽略换号补发的失焦直到用户再次操作 |
 | 实时同步 / 多端刷新 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
 | 递归删除 / 删父删子 | `stores/todos.optimistic.js`；`utils/taskGraph.js` `collectDescendantIds` | 级联范围由任务树决定 |
 

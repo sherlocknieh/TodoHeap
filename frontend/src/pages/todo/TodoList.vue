@@ -234,7 +234,7 @@ import { formatCompletionTime, groupCompletedByDay } from '@/utils/completedGrou
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
-import { pruneTaskCollapseTree, isTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
+import { pruneTaskCollapseTree, isTaskCollapsed, setTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
 import { childTitlesOf, nextTaskTitle } from '@/utils/taskTitle'
 import TodoListItem from '@/components/TodoListItem.vue'
 import DateTimePicker from '@/components/DateTimePicker.vue'
@@ -500,6 +500,8 @@ const moveNewTaskTo = async (newId, parentId, afterId = null) => {
 }
 
 const addSubtask = async (parentId, { append = false, select = false } = {}) => {
+  // 父级折叠时新行会被藏住，先从菜单与键盘进来都先把父级展开
+  setTaskCollapsed(parentId, false)
   // 连续新建子任务同样自动编号，默认标题与顶栏、任务图一致
   const title = nextTaskTitle(null, childTitlesOf(todoStore.todos, parentId))
   const result = await todoStore.addTodo(title, { parent_id: parentId })

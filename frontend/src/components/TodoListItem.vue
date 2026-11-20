@@ -147,7 +147,7 @@ import DateTimePicker from '@/components/DateTimePicker.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { draggingTodoId as draggingId, draggingParentTodoId, dropIndicator, resetDragState } from '@/utils/todoDrag'
-import { isTaskCollapsed, setTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
+import { isTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
 
 const props = defineProps({
   node: Object,
@@ -179,7 +179,6 @@ const emitUnlink = (item) => emit('unlink-task', { parentId: item.parent_id, chi
 const emitAddSubtask = (parentId) => {
   // 正在给这一行改名时先提交草稿，再新增子任务，避免切换编辑目标时丢掉刚输入的名字
   if (editingId.value === parentId) finishEdit(parentId, 'enter')
-  setTaskCollapsed(parentId, false)
   emit('add-subtask', parentId)
 }
 const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
@@ -474,12 +473,21 @@ function handleClickOutside(event) {
     }
   }
 }
+// 换号重新聚焦时浏览器可能补发一次 blur；在下一次用户交互前不把它当作用户失焦，
+// 否则正在输入的新任务会被同步打断。用户一旦按下指针或按键，保护立即解除
+let ignoreBlurAfterReplace = false
+const releaseBlurGuard = () => { ignoreBlurAfterReplace = false }
+
 onMounted(() => {
   document.addEventListener('mousedown', handleClickOutside)
+  window.addEventListener('pointerdown', releaseBlurGuard, true)
+  window.addEventListener('keydown', releaseBlurGuard, true)
   window.addEventListener('sync:id-replaced', handleIdReplaced)
 })
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside)
+  window.removeEventListener('pointerdown', releaseBlurGuard, true)
+  window.removeEventListener('keydown', releaseBlurGuard, true)
   window.removeEventListener('sync:id-replaced', handleIdReplaced)
 })
 
@@ -492,6 +500,7 @@ const handleIdReplaced = (event) => {
     // 记下换号前的位置, 换号后原位恢复; 不能全选, 否则下一次按键会把已输入内容覆盖掉
     const current = document.getElementById('edit-input-' + tempId)
     const selection = current ? [current.selectionStart, current.selectionEnd] : null
+    ignoreBlurAfterReplace = true
     editingId.value = realId
     nextTick(() => {
       const input = document.getElementById('edit-input-' + realId)
@@ -522,6 +531,9 @@ function finishEdit(id, source = 'enter') {
   if (editingId.value != id) {
     return
   }
+
+  // 换号后、用户还没重新操作时补发的 blur 不算失焦提交
+  if (source === 'blur' && ignoreBlurAfterReplace) return
 
   const nextTitle = editingText.value.trim()
   const current = flatMap.value.get(id)
