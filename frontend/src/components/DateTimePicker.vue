@@ -167,6 +167,15 @@ const setMinute = (event) => {
   draftMinute.value = clampMinute(event.target.value)
 }
 
+// 加减器按周期循环：23 点加一小时回到 0 点，59 分加一分回到 0 分
+const stepHour = (delta) => {
+  draftHour.value = (clampHour(draftHour.value) + delta + 24) % 24
+}
+
+const stepMinute = (delta) => {
+  draftMinute.value = (clampMinute(draftMinute.value) + delta + 60) % 60
+}
+
 const applyTime = (time) => {
   const [hour, minute] = time.split(':').map(Number)
   draftHour.value = hour
@@ -259,7 +268,7 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="open" ref="panelEl" tabindex="-1" role="dialog" aria-label="选择日期时间"
-        class="date-picker-panel panel fixed z-50 w-[276px] p-3 outline-none"
+        class="date-picker-panel panel fixed z-50 w-72 p-3 outline-none"
         :style="{ top: `${position.top}px`, left: `${position.left}px`, visibility: panelReady ? 'visible' : 'hidden' }"
         @keydown="onPanelKeydown">
         <!-- 月份切换：标题居中，今天跳回当月 -->
@@ -305,11 +314,39 @@ onBeforeUnmount(() => {
           </div>
           <div class="mt-1.5 flex items-center gap-1.5">
             <AppIcon name="clock" :size="12" class="shrink-0 text-neutral-500 dark:text-neutral-400" />
-            <input :value="draftHour" type="number" min="0" max="23" aria-label="小时"
-              class="field h-7 w-11 px-1 text-center text-xs" @input="setHour" />
+            <div
+              class="flex items-center rounded-md border border-input-border bg-input dark:border-input-border-dark dark:bg-input-dark">
+              <button type="button"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
+                <AppIcon name="minus" :size="9" />
+              </button>
+              <input :value="draftHour" type="text" inputmode="numeric" maxlength="2" aria-label="小时"
+                class="h-7 w-6 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
+                @input="setHour" @keydown.up.prevent="stepHour(1)" @keydown.down.prevent="stepHour(-1)" />
+              <button type="button"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                title="加一小时" aria-label="加一小时" @click="stepHour(1)">
+                <AppIcon name="plus" :size="9" />
+              </button>
+            </div>
             <span class="text-xs text-neutral-400">:</span>
-            <input :value="draftMinute" type="number" min="0" max="59" aria-label="分钟"
-              class="field h-7 w-11 px-1 text-center text-xs" @input="setMinute" />
+            <div
+              class="flex items-center rounded-md border border-input-border bg-input dark:border-input-border-dark dark:bg-input-dark">
+              <button type="button"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
+                <AppIcon name="minus" :size="9" />
+              </button>
+              <input :value="draftMinute" type="text" inputmode="numeric" maxlength="2" aria-label="分钟"
+                class="h-7 w-6 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
+                @input="setMinute" @keydown.up.prevent="stepMinute(1)" @keydown.down.prevent="stepMinute(-1)" />
+              <button type="button"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                title="加一分钟" aria-label="加一分钟" @click="stepMinute(1)">
+                <AppIcon name="plus" :size="9" />
+              </button>
+            </div>
             <div class="ml-auto flex items-center gap-1">
               <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 px-2 text-xs"
                 @click="clearValue">清除</button>
