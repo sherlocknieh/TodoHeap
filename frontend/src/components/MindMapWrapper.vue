@@ -1707,14 +1707,9 @@ const selectNode = (node, event) => {
       const anchor = multiAnchor.value
         || (selectedId.value && selectedId.value !== rootNodeId.value ? selectedId.value : null)
       if (anchor) {
-        const order = layout.value.nodes
-          .filter(item => !item.isPlaceholder && !item.isRoot)
-          .map(item => String(item.id))
-        const start = order.indexOf(anchor)
-        const end = order.indexOf(String(node.id))
-        if (start !== -1 && end !== -1) {
-          const [from, to] = start <= end ? [start, end] : [end, start]
-          multiSelectedKeys.value = new Set(order.slice(from, to + 1))
+        const range = siblingRangeSelection(anchor, String(node.id))
+        if (range) {
+          multiSelectedKeys.value = range
           multiAnchor.value = anchor
           return
         }
@@ -1882,6 +1877,24 @@ const visibleParentOf = (id) => {
   return parents.find((parentId) => visible.has(parentId) && !collapsedSet.value.has(parentId))
     ?? parents.find((parentId) => visible.has(parentId))
     ?? null
+}
+
+// Shift 连选口径：同父只取连续兄弟；跨父级只保留两端，避免把无关分支卷进来
+const siblingRangeSelection = (anchorKey, targetKey) => {
+  const anchorParent = visibleParentOf(anchorKey)
+  if (anchorParent !== visibleParentOf(targetKey)) {
+    return new Set([anchorKey, targetKey])
+  }
+
+  const visible = new Set(layout.value.nodes.map((node) => node.id))
+  const siblings = [...new Set(nodeIndex.value.childrenOf.get(anchorParent) || [])]
+    .filter((id) => visible.has(id))
+  const start = siblings.indexOf(anchorKey)
+  const end = siblings.indexOf(targetKey)
+  if (start === -1 || end === -1) return null
+
+  const [from, to] = start <= end ? [start, end] : [end, start]
+  return new Set(siblings.slice(from, to + 1))
 }
 
 const selectedId = computed(() => {
