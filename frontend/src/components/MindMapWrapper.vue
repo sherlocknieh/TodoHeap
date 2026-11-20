@@ -1853,13 +1853,13 @@ const focusScale = () => Math.max(0.15, Math.min(
   (focusWidth.value - 96) / nodeWidth
 ))
 
-// 聚焦根节点：把根节点摆到可见区中央，按单节点阅读倍率放大；
-// 与三栏聚焦无关，不依赖当前选中项，只改视口
+// 聚焦根节点：把根节点摆到可见区中央，缩放固定 100%；
+// 可见区比节点还窄时按可用宽度缩小，避免节点被裁切；与三栏聚焦无关，不依赖当前选中项
 const focusRoot = () => {
   const root = layout.value.nodes.find((node) => node.isRoot)
   if (!root || !size.width || !size.height) return
   columnFocus.value = false
-  const scale = focusScale()
+  const scale = Math.max(ZOOM_MIN, Math.min(1, (visibleWidth.value - 96) / nodeWidth))
   animateView({
     scale,
     x: visibleWidth.value / 2 - (root.x + nodeWidth / 2) * scale,
