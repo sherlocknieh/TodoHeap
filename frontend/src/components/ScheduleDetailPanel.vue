@@ -11,7 +11,7 @@ const props = defineProps({
   eventId: { type: [Number, String], default: null }
 })
 
-const emit = defineEmits(['close', 'event-deleted'])
+const emit = defineEmits(['close', 'event-deleted', 'saved'])
 
 const scheduleStore = useScheduleStore()
 
@@ -291,6 +291,9 @@ const save = async () => {
     return
   }
   errorMessage.value = ''
+  // 保存成功后收起右栏，由外层一并清掉选中
+  emit('saved', result.data?.id ?? event.value.id)
+  emit('close')
 }
 
 // 删除后日程已不在列表里，收起面板并让外层清掉选中项

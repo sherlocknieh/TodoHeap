@@ -390,6 +390,12 @@ const handleEventSelected = (eventId) => {
 	showDetailPanel.value = true
 }
 
+// 日程保存成功：收起右栏并清掉选中，列表回到未选状态
+const handleScheduleSaved = () => {
+	selectedEventId.value = null
+	closeDetailPanel()
+}
+
 // 创建新任务
 const createNewTask = async () => {
 	try {
@@ -702,7 +708,7 @@ const runToastAction = async () => {
 				<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel"
 					:selected-task-id="selectedTaskId" @close="closeDetailPanel" />
 				<ScheduleDetailPanel v-else-if="activeView === 'schedule'" :show="showDetailPanel"
-					:event-id="selectedEventId" @close="closeDetailPanel"
+					:event-id="selectedEventId" @close="closeDetailPanel" @saved="handleScheduleSaved"
 					@event-deleted="selectedEventId = null" />
 				<TodoDetailEditor v-else :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
 					@task-selected="handleTaskSelected" />
