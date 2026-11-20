@@ -659,7 +659,6 @@ const runToastAction = async () => {
 											@click="selectTheme(option.value)">
 											<AppIcon :name="option.icon" :size="13" />
 											<span>{{ option.label }}</span>
-											<AppIcon v-if="themeMode === option.value" name="check" :size="13" class="ml-auto" />
 										</button>
 									</div>
 								</div>
