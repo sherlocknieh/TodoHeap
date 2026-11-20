@@ -70,10 +70,10 @@
               <DateTimePicker v-if="item.deadline" :model-value="toDateTimeLocalValue(item.deadline)"
                 quick-dates trigger-clear @confirm="applyDeadline(item.id, $event)">
                 <template #trigger="{ open, toggle }">
-                  <button type="button" class="chip gap-1 font-medium transition-all duration-150 group-hover:pr-6"
+                  <button type="button" class="chip gap-1 font-medium"
                     :class="deadlineChipClass(item.deadline)" :aria-expanded="open"
                     :title="`修改截止时间（${formatDeadlineLabel(item.deadline)}）`" @click.stop="toggle">
-                    <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(item.deadline) }}
+                    <AppIcon name="clock" :size="10" class="transition-opacity group-hover/picker:opacity-0" />{{ formatDeadlineLabel(item.deadline) }}
                   </button>
                 </template>
               </DateTimePicker>

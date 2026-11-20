@@ -130,15 +130,15 @@
             :y="(node.height - chipHeight) / 2" :width="node.deadlineWidth" :height="chipHeight"
             class="overflow-visible" @pointerdown.stop @click.stop @dblclick.stop>
             <div xmlns="http://www.w3.org/1999/xhtml"
-              class="pointer-events-none flex h-full items-center justify-end">
+              class="flex h-full items-center justify-end">
               <DateTimePicker :model-value="toDateTimeLocalValue(node.deadline)" quick-dates trigger-clear
                 @confirm="applyNodeDeadline(node, $event)">
                 <template #trigger="{ open, toggle }">
                   <button type="button"
-                    class="chip pointer-events-auto gap-[3px] font-medium text-[10px] leading-[14px] transition-all duration-150 group-hover:pr-6"
+                    class="chip gap-[3px] font-medium text-[10px] leading-[14px]"
                     :class="deadlineChipClass(node.deadline)" :aria-expanded="open"
                     :title="`修改截止时间（${formatDeadlineLabel(node.deadline)}）`" @click.stop="toggle">
-                    <AppIcon name="clock" :size="9" />{{ formatDeadlineLabel(node.deadline) }}
+                    <AppIcon name="clock" :size="9" class="transition-opacity group-hover/picker:opacity-0" />{{ formatDeadlineLabel(node.deadline) }}
                   </button>
                 </template>
               </DateTimePicker>
@@ -669,10 +669,10 @@ const controlPointFor = (height, selected) => {
     : { x: nodeWidth + gap, y: height / 2 }
 }
 
-// 截止胶囊的占位按「撑开态」算：1px 描边 ×2、左内边距 6、右内边距 24（悬停时撑开给 × 让位）、
-// 时钟图标 9 与图标间距 3；平时胶囊收紧、悬停才向左撑出 × 的位置，正文以此占位避让
+// 截止胶囊的占位：1px 描边 ×2、左右内边距 6、时钟图标 9 与图标间距 3；
+// 清除 × 悬停时直接盖在图标上，不额外占宽，正文按这个宽度避让
 const chipHeight = 20
-const chipChrome = 2 + 6 + 24 + 9 + 3
+const chipChrome = 2 + 6 + 6 + 9 + 3
 const textWidthFor = (hasCheckbox, deadlineWidth) => Math.max(fontSize * 4,
   nodeWidth - paddingX * 2 - (hasCheckbox ? checkboxReserve : 0) - moreReserve - deadlineWidth)
 // 胶囊右缘贴着三点按钮，与原先文字标签的位置一致
