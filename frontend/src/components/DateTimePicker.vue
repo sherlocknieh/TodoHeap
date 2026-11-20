@@ -325,13 +325,13 @@ onBeforeUnmount(() => {
           :class="displayText ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400'">
           {{ displayText || placeholderText }}
         </span>
-        <AppIcon name="calendar" :size="14" class="shrink-0 text-neutral-400" />
+        <AppIcon name="calendar" :size="14" class="shrink-0 text-neutral-400 transition-opacity" :class="clearable && modelValue ? 'group-hover:opacity-0 group-focus-within:opacity-0' : ''" />
       </button>
     </slot>
 
     <!-- 「胶囊上的清除」：有值时悬停显示，直接清空当前值 -->
     <button v-if="clearable && modelValue && !disabled" type="button"
-      class="absolute top-1/2 right-1 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full bg-surface text-neutral-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-rose-600 focus-visible:opacity-100 dark:bg-surface-dark dark:text-neutral-400 dark:hover:text-rose-400"
+      class="absolute top-1/2 right-1 grid h-5 w-5 -translate-y-1/2 place-items-center text-neutral-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-rose-600 focus-visible:opacity-100 dark:text-neutral-400 dark:hover:text-rose-400"
       title="清除" aria-label="清除" @click.stop="clearValue">
       <AppIcon name="close" :size="11" />
     </button>
