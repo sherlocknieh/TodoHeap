@@ -15,6 +15,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import MindMapWrapper from '@/components/MindMapWrapper.vue'
 import { collectDescendantIds, findDeleteFocusId, findParentIds } from '@/utils/taskGraph'
+import { childTitlesOf, nextTaskTitle } from '@/utils/taskTitle'
 import { isTaskCollapsed, setTaskCollapsed } from '@/utils/taskCollapse'
 import { ROOT_TODO_TITLE } from '@/utils/rootTask'
 
@@ -90,7 +91,10 @@ const mindMapNodes = computed(() => {
 
 // 新建任务：同级插到当前节点之后，子级追加到同级末尾；插入位置规则见 docs/src/content/docs/dev/logic/task-order.md
 const createTask = async ({ parentId = null, afterId = null } = {}) => {
-	const result = await todoStore.addTodo('新任务', { parent_id: parentId })
+	// 连续新建自动编号：同级续当前节点标题末尾的数字，子级或顶层按默认标题从 1 开始
+	const referenceTitle = afterId == null ? null : todoStore.findTodoById(afterId)?.title
+	const title = nextTaskTitle(referenceTitle, childTitlesOf(todoStore.todos, parentId))
+	const result = await todoStore.addTodo(title, { parent_id: parentId })
 	if (!result.success || !result.data) {
 		if (result.error) emit('notify', { message: result.error })
 		return

@@ -111,7 +111,8 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | --- | --- |
 | `priorityCalculator.js` | 堆视图打分（紧急度 + 进度 + 复杂度），纯函数 |
 | `rootTask.js` | 根任务唯一判定入口（`isRootTodo` / `findRootTodo` / `withoutRootTodos`）与列表顶层展开 |
-| `taskGraph.js` | 任务图遍历：后代收集、多父查找、森林展开（支持环，兄弟顺序直接取 `child_ids`） |
+| `taskGraph.js` | 任务图遍历：后代收集、多父查找、森林展开（支持环，兄弟顺序直接取 `child_ids`）、删除后的焦点落点 |
+| `taskTitle.js` | 连续新建的标题编号：续末尾数字或默认标题取最小未占用编号，同级标题按 `child_ids` 取 |
 | `canvasGrid.js` | 任务图坐标网格的纯几何：可见世界范围、1/2/5 自适应刻度、轴标签与刻度位置 |
 | `taskCollapse.js` | 跨视图共享的折叠状态（保存显式切换过的任务 ID） |
 | `todoDrag.js` | 列表拖拽状态：源任务 ID、源父级与落点提示 |

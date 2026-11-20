@@ -35,6 +35,7 @@ title: "视图与交互"
 - 出边一侧有圆形控件：有子任务时是折叠开关，叶子节点在指针接近时显示加号；按钮中心就是连线起点（`controlPointFor`、`updateLeafControlHover`、`LEAF_CONTROL_REVEAL`）。
 - 原地编辑使用常驻 textarea：Enter 提交、Esc 取消、Shift+Enter 插入硬换行；节点随内容长高，不出现内部滚动条（`onEditKeydown`、`commitEdit`）。已完成节点编辑时按正常文字显示，不套完成态的变灰、删除线与淡出。
 - 新建节点：Enter 建同级并落在当前节点之后；Tab、出边加号、菜单「新建子任务」建子级并追加到同级末尾，不受任务列表「新建置顶」影响（`TodoGraph.vue` 的 `createTask`，机制见[任务顺序](../dev/logic/task-order.md)）。
+- 连续新建自动编号：同级新建续当前节点标题末尾的数字（`步骤 2` → `步骤 3`，已占用的编号跳过），当前标题没有数字则用 `新任务 1`、`新任务 2`；子级没有同级参考，按目标父级的子任务编号（`utils/taskTitle.js` 的 `nextTaskTitle`，机制见[任务创建逻辑](../dev/logic/task-create.md)「连续新建时的标题编号」）。
 
 ### 选中、编辑与右栏
 

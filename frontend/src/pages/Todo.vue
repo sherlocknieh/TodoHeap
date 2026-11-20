@@ -22,6 +22,7 @@ import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
 import { THEME_KEY, THEME_MODES, THEME_OPTIONS, normalizeThemeMode, nextThemeMode } from '@/utils/theme'
+import { childTitlesOf, nextTaskTitle } from '@/utils/taskTitle'
 import logoSrc from '@/assets/logo.svg'
 
 // 应用挂在 /TodoHeap/app/，站点首页在去掉 app/ 后的根路径
@@ -425,7 +426,9 @@ const handleScheduleSaved = () => {
 // 创建新任务
 const createNewTask = async () => {
 	try {
-		const result = await todoStore.addTodo('新任务', {
+		// 顶层任务连续新建时按根任务 child_ids 自动编号
+		const title = nextTaskTitle(null, childTitlesOf(todoStore.todos, todoStore.rootTaskId))
+		const result = await todoStore.addTodo(title, {
 			details: ''
 		})
 		if (result) {

@@ -233,6 +233,7 @@ import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelect
 import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
 import { pruneTaskCollapseTree, isTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
+import { childTitlesOf, nextTaskTitle } from '@/utils/taskTitle'
 import TodoListItem from '@/components/TodoListItem.vue'
 import DateTimePicker from '@/components/DateTimePicker.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
@@ -476,7 +477,9 @@ const applyAddDeadline = (value) => {
 }
 
 const addSubtask = async (parentId, startEditCb) => {
-  const result = await todoStore.addTodo('(新任务)', {
+  // 连续新建子任务同样自动编号；(新任务) 是列表内的占位标题，编号沿用这层外壳
+  const title = nextTaskTitle(null, childTitlesOf(todoStore.todos, parentId), { baseTitle: '(新任务)' })
+  const result = await todoStore.addTodo(title, {
     parent_id: parentId
   })
   if (result.success && result.data) {
