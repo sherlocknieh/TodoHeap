@@ -1,30 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { completionDayKey, formatCompletionDay, formatCompletionTime, groupCompletedByDay } from './completedGroups'
+import { dayKeyOf, formatDayLabel, formatCompletionTime, groupCompletedByDay } from './completedGroups'
 
 const now = new Date('2026-11-20T14:34:00')
 const at = (value) => new Date(value).toISOString()
 
-describe('completionDayKey', () => {
+describe('dayKeyOf', () => {
   it('按本地自然日生成键', () => {
-    expect(completionDayKey('2026-11-20T23:30:00')).toBe('2026-11-20')
-    expect(completionDayKey('2026-11-21T00:10:00')).toBe('2026-11-21')
+    expect(dayKeyOf('2026-11-20T23:30:00')).toBe('2026-11-20')
+    expect(dayKeyOf('2026-11-21T00:10:00')).toBe('2026-11-21')
   })
 
   it('无完成时间或非法时间返回空串', () => {
-    expect(completionDayKey(null)).toBe('')
-    expect(completionDayKey('not-a-date')).toBe('')
+    expect(dayKeyOf(null)).toBe('')
+    expect(dayKeyOf('not-a-date')).toBe('')
   })
 })
 
-describe('formatCompletionDay', () => {
+describe('formatDayLabel', () => {
   it('今天与昨天用口语标签', () => {
-    expect(formatCompletionDay('2026-11-20', now)).toBe('今天')
-    expect(formatCompletionDay('2026-11-19', now)).toBe('昨天')
+    expect(formatDayLabel('2026-11-20', now)).toBe('今天')
+    expect(formatDayLabel('2026-11-19', now)).toBe('昨天')
   })
 
   it('更早的日期给月日，跨年补年份', () => {
-    expect(formatCompletionDay('2026-11-18', now)).toBe('11月18日')
-    expect(formatCompletionDay('2025-12-31', now)).toBe('2025年12月31日')
+    expect(formatDayLabel('2026-11-18', now)).toBe('11月18日')
+    expect(formatDayLabel('2025-12-31', now)).toBe('2025年12月31日')
   })
 })
 

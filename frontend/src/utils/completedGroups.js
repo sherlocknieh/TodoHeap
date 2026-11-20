@@ -1,10 +1,10 @@
-// 已完成任务按天分组：供任务表「已完成」区使用，依赖任务的 completed_at。
-// 分组口径是本地自然日，标题今天/昨天/月日（跨年补年份），组内与组间都按完成时间倒序。
+// 任务按天分组：任务表「已完成」区与回收站共用。
+// 日期键与标题按本地自然日；已完成区再按 completed_at 分组、组内按完成时间倒序。
 
 const pad = (num) => String(num).padStart(2, '0')
 
-// 本地自然日的稳定键，避免用 UTC 日期把深夜完成的任务分到前一天
-export const completionDayKey = (value) => {
+// 本地自然日的稳定键，避免用 UTC 日期把深夜操作的任务分到前一天
+export const dayKeyOf = (value) => {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
@@ -12,14 +12,14 @@ export const completionDayKey = (value) => {
 }
 
 // 日期标题：今天、昨天之外的日期只给月日，跨年时补上年份
-export const formatCompletionDay = (key, now = new Date()) => {
+export const formatDayLabel = (key, now = new Date()) => {
   if (!key) return ''
-  const todayKey = completionDayKey(now)
+  const todayKey = dayKeyOf(now)
   if (key === todayKey) return '今天'
 
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
-  if (key === completionDayKey(yesterday)) return '昨天'
+  if (key === dayKeyOf(yesterday)) return '昨天'
 
   const [year, month, day] = key.split('-').map(Number)
   if (year !== now.getFullYear()) return `${year}年${month}月${day}日`
@@ -39,7 +39,7 @@ export const groupCompletedByDay = (todos, now = new Date()) => {
   const groups = new Map()
 
   for (const todo of todos || []) {
-    const key = completionDayKey(todo?.completed_at)
+    const key = dayKeyOf(todo?.completed_at)
     if (!key) continue
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(todo)
@@ -55,7 +55,7 @@ export const groupCompletedByDay = (todos, now = new Date()) => {
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([key, items]) => ({
       key,
-      label: formatCompletionDay(key, now),
+      label: formatDayLabel(key, now),
       count: items.length,
       todos: items.slice().sort(byCompletedAtDesc)
     }))

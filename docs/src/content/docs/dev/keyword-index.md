@@ -124,6 +124,7 @@ title: 关键词索引
 | 无法恢复 / 父任务限制 / 越级删除 / 恢复到根节点 | `pages/todo/Trash.vue`「恢复限制提示」、`blockedParentId`；`stores/todos.optimistic.js` `restoreTodoToRoot` | 单条恢复遇到父任务也在回收站时先提示恢复父任务；批量恢复则自动把该任务恢复到根节点 |
 | 回收站多选 / 批量恢复 / 批量永久删除 / 回收站 Ctrl 选择 | `pages/todo/Trash.vue`「回收站多选操作」、`handleRowClickCapture`、`restoreSelectedTodos`、`handlePermanentDeleteSelected`；`utils/taskSelection.js` | Ctrl/⌘ 切换、Shift 按可见行连选，操作出现在顶栏；批量恢复按树的从上到下顺序，父任务先恢复；批量永久删除先二次确认，机制见[任务多选](./logic/task-multi-select.md) |
 | 回收站卡片样式 / 卡片比列表高 / 回收站缩进 / 回收站折叠按钮 / 删除时间不要胶囊 | `pages/todo/Trash.vue`「任务列表：卡片几何与任务表一致」 | 与任务表同款内距 `py-1.5`、行距 `space-y-1.5`；根行 22px、每层 28px；圆形 +/− 折叠，删除时间为纯文本，行内按钮常显 |
+| 回收站分组 / 按删除日期分组 / 回收站日期分隔 / 回收站按天 | `pages/todo/Trash.vue`「回收站按天分隔」、`trashGroups`；`utils/trashGroups.js` `groupTrashByDay` | 按子树根的 `deleted_at` 本地自然日分组，子任务跟随父任务；日期倒序、未知时间最后；点标题行收起/展开，机制见[回收站按天分组](./logic/trash-day-groups.md) |
 | 已删除任务的详情 / 灰掉只读 | `components/TodoDetailEditor.vue`「已删除任务时整个面板显示禁用光标」 | 已删除内容不可编辑 |
 
 ## 设置

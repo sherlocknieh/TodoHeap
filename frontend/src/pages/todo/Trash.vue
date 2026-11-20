@@ -62,11 +62,23 @@
       <p class="text-xs text-neutral-400 dark:text-neutral-600">删除的任务会保留在这里</p>
     </div>
 
-    <!-- 任务列表：卡片几何与任务表一致（左右内距、行距、缩进） -->
-    <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto space-y-1.5"
+    <!-- 任务列表：卡片几何与任务表一致（左右内距、行距、缩进），并按删除日期分组 -->
+    <ul v-else ref="trashListRef" class="list-none flex-1 min-h-0 overflow-y-auto space-y-4"
       @scroll.passive="saveTrashScroll">
-      <template v-for="item in flatTrashList" :key="item.id">
-        <li v-if="visibleTrashIds.has(item.id)" :data-task-item="item.id" :data-task-id="item.id"
+      <li v-for="group in trashGroups" :key="group.key">
+        <!-- 「回收站按天分隔」：日期 + 当天数量 + 分隔线，点整行收起/展开 -->
+        <button type="button"
+          class="mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-md pr-0.5 text-left transition-colors hover:text-neutral-700 dark:hover:text-neutral-200"
+          :title="isTrashDayCollapsed(group.key) ? `展开「${group.label}」的已删除任务` : `收起「${group.label}」的已删除任务`"
+          :aria-expanded="!isTrashDayCollapsed(group.key)" @click="toggleTrashDay(group.key)">
+          <AppIcon :name="isTrashDayCollapsed(group.key) ? 'chevronRight' : 'chevronDown'" :size="11"
+            class="shrink-0 text-neutral-400 dark:text-neutral-500" />
+          <span class="text-[11px] font-medium text-neutral-400 dark:text-neutral-500">{{ group.label }}</span>
+          <span class="font-mono text-[10px] text-neutral-300 dark:text-neutral-600">{{ group.count }}</span>
+          <span aria-hidden="true" class="h-px flex-1 bg-neutral-200/80 dark:bg-neutral-800"></span>
+        </button>
+        <ul v-if="!isTrashDayCollapsed(group.key)" class="list-none space-y-1.5">
+        <li v-for="item in group.items" :key="item.id" :data-task-item="item.id" :data-task-id="item.id"
           class="group cursor-pointer" :style="{ paddingLeft: (22 + item._level * 28) + 'px' }" @click="selectTask(item.id)">
           <!-- 缩进留在外层，行内容单独成块；选中与任务添加栏一样只换边框色和投影 -->
           <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]" :class="[
@@ -119,7 +131,8 @@
             </div>
           </div>
         </li>
-      </template>
+        </ul>
+      </li>
     </ul>
 
     <!-- 确认弹窗 -->
@@ -271,6 +284,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import { useTodoStore } from '@/stores/todos'
 import { useScrollMemory } from '@/utils/uiState'
 import { isTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
+import { groupTrashByDay } from '@/utils/trashGroups'
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 
 const props = defineProps({
@@ -364,6 +378,18 @@ const visibleTrashIds = computed(() => {
   }
   return visible
 })
+
+// 按天分组：子树跟随子树根的删除日期，父子不会被拆到不同组；未知日期单独成组排在最后
+const collapsedTrashDays = ref(new Set())
+const isTrashDayCollapsed = (key) => collapsedTrashDays.value.has(key)
+const toggleTrashDay = (key) => {
+  const next = new Set(collapsedTrashDays.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedTrashDays.value = next
+}
+
+const trashGroups = computed(() => groupTrashByDay(flatTrashList.value, visibleTrashIds.value))
 
 // 列表滚动位置，刷新或来回切换后回到原处
 const trashListRef = ref(null)
