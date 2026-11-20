@@ -200,15 +200,6 @@ const hasReasoning = (message) => (
   message.role === 'assistant' && typeof message.reasoning_content === 'string' && message.reasoning_content.length > 0
 )
 
-// 工具调用与思考一样给出行内统计：调用几次、入参共多少字符
-const hasToolCalls = (message) => (
-  message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length > 0
-)
-
-const toolCallChars = (message) => (
-  (message.tool_calls || []).reduce((sum, call) => sum + (call.function?.arguments || '').length, 0)
-)
-
 // 上下文各类：先静态前缀，再过程类内容，正文对话放末尾
 const breakdown = computed(() => {
   const stats = contextStats.value
@@ -380,10 +371,6 @@ const exportSession = () => {
               <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400"
                 :class="section.kind === 'tool' ? 'font-mono text-[10px]' : ''">
                 {{ section.kind === 'tool' ? item.name : requestMessageSummary(item) }}
-              </span>
-              <span v-if="section.kind !== 'tool' && hasToolCalls(item)"
-                class="shrink-0 rounded bg-accent-50 px-1 text-[10px] text-accent-700 dark:bg-accent-500/15 dark:text-accent-300">
-                调用 {{ item.tool_calls.length }} · {{ formatNumber(toolCallChars(item)) }} 字符
               </span>
               <span v-if="section.kind !== 'tool' && hasReasoning(item)"
                 class="shrink-0 rounded bg-accent-50 px-1 text-[10px] text-accent-700 dark:bg-accent-500/15 dark:text-accent-300">
