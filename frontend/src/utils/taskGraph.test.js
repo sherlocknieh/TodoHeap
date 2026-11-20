@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTaskForest, collectCascadeIds, collectDescendantIds } from './taskGraph'
+import { buildTaskForest, collectCascadeIds, collectDescendantIds, withoutStaleTempChildIds } from './taskGraph'
 
 const sortFn = (a, b) => a.id - b.id
 const mapItem = (item) => ({ id: item.id, title: item.title })
@@ -167,5 +167,24 @@ describe('collectDescendantIds', () => {
     ], 1)
 
     expect(ids.sort()).toEqual([2, 3])
+  })
+})
+
+describe('withoutStaleTempChildIds', () => {
+  it('剔除父级 child_ids 里残留的负数临时 ID, 保留有效顺序', () => {
+    const cleaned = withoutStaleTempChildIds([
+      { id: 1, child_ids: [-11, 4, -9, 7] },
+      { id: 4, child_ids: [7] }
+    ])
+
+    expect(cleaned[0].child_ids).toEqual([4, 7])
+    expect(cleaned[1]).toEqual({ id: 4, child_ids: [7] })
+  })
+
+  it('没有残留时保持原对象引用', () => {
+    const items = [{ id: 1, child_ids: [4] }, { id: 4 }]
+
+    expect(withoutStaleTempChildIds(items)[0]).toBe(items[0])
+    expect(withoutStaleTempChildIds(items)[1]).toBe(items[1])
   })
 })

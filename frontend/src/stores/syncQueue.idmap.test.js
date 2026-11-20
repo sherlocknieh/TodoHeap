@@ -121,6 +121,13 @@ describe('syncQueue 临时 ID 替换', () => {
     expect(mocks.update).toHaveBeenCalledWith({ child_ids: [5, 4] })
   })
 
+  it('临时 ID 从大编号起步, 不复用历史残留的小负数', () => {
+    const store = useSyncQueueStore()
+
+    // 旧实现每次重载都从 -1 计数, 会与父级 child_ids 里残留的旧临时 ID 撞号
+    expect(store.generateTempId()).toBeLessThan(-1e12)
+  })
+
   it('临时任务已回滚时剔除死引用, 队列继续执行', async () => {
     const store = useSyncQueueStore()
     store.queue = [

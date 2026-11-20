@@ -88,7 +88,9 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
   const hasUnsyncedChanges = computed(() => queue.value.length > 0)
 
   // 生成临时ID (负数)
-  let tempIdCounter = -1
+  // 起点用时间+随机数: 计数器每次重载都从 -1 重来的话, 会和父级 child_ids 里残留的旧临时 ID 撞号,
+  // ID 替换时把那条残留引用一起改成新任务, 表现为多出一条幽灵链接
+  let tempIdCounter = -(Date.now() * 1000 + Math.floor(Math.random() * 1000))
   const generateTempId = () => {
     return tempIdCounter--
   }

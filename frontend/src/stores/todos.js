@@ -8,7 +8,7 @@ import { useSyncQueueStore, OperationType } from './syncQueue'
 import { createTodosRealtimeManager } from './todos.realtime'
 import { createTodoOptimisticActions } from './todos.optimistic'
 import { createTodoRollbackHandler } from './todos.rollback'
-import { buildTaskForest } from '@/utils/taskGraph'
+import { buildTaskForest, withoutStaleTempChildIds } from '@/utils/taskGraph'
 import { findRootTodo, isRootTodo, withoutRootTodos } from '@/utils/rootTask'
 
 
@@ -186,7 +186,7 @@ export const useTodoStore = defineStore('todos', () => {
       
       // 合并服务器数据与本地未同步的数据
       const syncQueue = getSyncQueue()
-      const serverTodos = data || []
+      const serverTodos = withoutStaleTempChildIds(data || [])
 
       // 新用户或旧数据还没建根任务时, 在这里懒创建一次, 顶层任务才有挂载点
       if (!serverTodos.some(isRootTodo)) {

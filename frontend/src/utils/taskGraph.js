@@ -31,6 +31,14 @@ export const findParentIds = (items, childId) => items
   .filter((item) => childIdsOf(item).includes(childId))
   .map((item) => item.id)
 
+// 服务端行里的负数子 ID 只可能是历史临时 ID 残留(临时 ID 从不落库), 不指向任何任务:
+// 保留下来会和客户端新生成的临时 ID 撞号, ID 替换时把别的父级改错, 表现为多出一条幽灵链接
+export const withoutStaleTempChildIds = (items) => items.map((item) => (
+  Array.isArray(item.child_ids) && item.child_ids.some((id) => Number(id) < 0)
+    ? { ...item, child_ids: item.child_ids.filter((id) => Number(id) >= 0) }
+    : item
+))
+
 // 级联删除集合: 从 roots 出发, 只把没有其它父链接的后代加入集合。
 // parentItems 用于判断“其它链接”, 默认与 items 相同; 永久删除时可传入已删除与未删除的全部任务。
 export const collectCascadeIds = (items, rootIds, { parentItems = items } = {}) => {

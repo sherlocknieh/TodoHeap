@@ -84,6 +84,16 @@ RPC 响应与 Realtime 推送谁先到不确定，两者都通过 `client_key` �
 - `ADD` 已回滚、临时 ID 不会再落地时，把死引用从 payload 剔除，避免队列一直等待；
 - 落地后 `updateQueueTargetIds` 会先把 payload 换成真实 ID 再发出。
 
+### 临时 ID 编号与残留清理
+
+临时 ID 由 `generateTempId` 生成，为负数、只存在于本地。旧实现每次页面重载都从 `-1` 重新计数，而父级 `child_ids` 里可能还留着更早写进去的负数（旧版队列会把临时 ID 落库）。两条 `-8` 一撞，`sync:id-replaced` 的 ID 替换会把那条残留引用一起改成新任务，导图里就凭空多出一条父链接。
+
+现状：
+
+- 起点改为时间 + 随机数，重载后不再复用 `-1`、`-2` 这类小编号；
+- `fetchTodos` 用 `withoutStaleTempChildIds` 剔除服务端行 `child_ids` 里的负数残留，本地不再保留幽灵引用；
+- 迁移 `20261121000000_strip_temp_child_ids.sql` 清理库里已经存在的负数引用。
+
 ---
 
 ## 三、幂等键 `client_key`
@@ -228,6 +238,7 @@ cd frontend && nub run build
 - `todos.optimistic.test.js`：`addTodo` 生成并下发 `client_key`、复用调用方传入的键；
 - `todos.realtime.test.js`：`INSERT` 命中本地 `client_key` 时走 ID 替换而非新增；无匹配时正常追加；
 - `syncQueue.clientKey.test.js`：缺 `client_key` 支持时退回旧签名、之后不再重复试错、支持时只调一次；
-- `syncQueue.idmap.test.js`：`child_ids` 里的临时 ID 未落地时父级 `UPDATE` 不发送、落地后按真实 ID 发送；临时任务已回滚时剔除死引用。
+- `syncQueue.idmap.test.js`：`child_ids` 里的临时 ID 未落地时父级 `UPDATE` 不发送、落地后按真实 ID 发送；临时任务已回滚时剔除死引用；
+- `taskGraph.test.js`：`withoutStaleTempChildIds` 剔除父级 `child_ids` 里残留的负数临时 ID。
 
 数据库：远程推送用 `npx supabase db push --yes --db-url "<pooler 连接串>"`；本机无 Postgres 时可用 PGlite 按时间戳顺序校验迁移。
