@@ -34,6 +34,10 @@ const emit = defineEmits(['update:modelValue', 'confirm'])
 // 常用时间点，省去逐位输入；23:59 是空值默认时分，不重复列出
 const TIME_PRESETS = ['09:00', '12:00', '18:00']
 
+// 面板内可选小按钮统一高度、圆角与描边：备选时间与快捷日期共用
+const CHIP_CLASS =
+  'flex h-7 flex-1 items-center justify-center rounded-md border border-hairline text-[11px] text-neutral-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'
+
 // 面板内的日期快捷项，只给截止时间入口启用
 const QUICK_DATES = [
   { label: '今天', offset: 0 },
@@ -300,25 +304,24 @@ onBeforeUnmount(() => {
         <!-- 月份切换：标题居中，今天跳回当月 -->
         <div class="flex items-center gap-1">
           <button type="button"
-            class="grid h-6 w-6 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             title="上个月" aria-label="上个月" @click="shiftView(-1)">
             <AppIcon name="chevronLeft" :size="14" />
           </button>
           <span class="flex-1 text-center text-xs font-semibold text-neutral-700 dark:text-neutral-200">{{ monthLabel }}</span>
           <button type="button"
-            class="grid h-6 w-6 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             title="下个月" aria-label="下个月" @click="shiftView(1)">
             <AppIcon name="chevronRight" :size="14" />
           </button>
           <button v-if="!quickDates" type="button"
-            class="ml-1 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            class="ml-1 h-7 shrink-0 rounded-md px-2 text-[11px] text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             @click="goToday">今天</button>
         </div>
 
         <!-- 日期快捷项：截止时间入口用，点选只改草稿 -->
         <div v-if="quickDates" class="mt-1.5 flex gap-1">
-          <button v-for="item in QUICK_DATES" :key="item.label" type="button"
-            class="flex-1 rounded-md border border-hairline py-1 text-[11px] text-neutral-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+          <button v-for="item in QUICK_DATES" :key="item.label" type="button" :class="CHIP_CLASS"
             @click="selectQuickDate(item.offset)">{{ item.label }}</button>
         </div>
 
@@ -340,20 +343,19 @@ onBeforeUnmount(() => {
         <!-- 时分：仅日期时间模式；备选时间在上，输入器与清除/确定同一行 -->
         <div v-if="isDateTime" class="mt-2.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
           <div class="flex gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            <button v-for="time in TIME_PRESETS" :key="time" type="button"
-              class="flex-1 rounded-md border border-hairline py-1 text-[11px] text-neutral-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            <button v-for="time in TIME_PRESETS" :key="time" type="button" :class="CHIP_CLASS"
               @click="applyTime(time)">{{ time }}</button>
           </div>
           <div class="mt-1.5 flex items-center gap-1.5">
             <button type="button"
-              class="grid h-7 w-4 shrink-0 place-items-center text-neutral-500 transition-colors hover:text-accent-800 dark:text-neutral-400 dark:hover:text-accent-200"
+              class="grid h-7 w-5 shrink-0 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               title="重置为 23:59" aria-label="重置为 23:59" @click="resetTime">
               <AppIcon name="clock" :size="12" />
             </button>
             <div
-              class="flex items-center rounded-md border border-input-border bg-input dark:border-input-border-dark dark:bg-input-dark">
+              class="flex items-center rounded-md border border-hairline bg-input dark:border-hairline-dark dark:bg-input-dark">
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
@@ -361,16 +363,16 @@ onBeforeUnmount(() => {
                 class="h-7 w-6 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
                 @input="setHour" @keydown.up.prevent="stepHour(1)" @keydown.down.prevent="stepHour(-1)" />
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一小时" aria-label="加一小时" @click="stepHour(1)">
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
             <span class="text-xs text-neutral-400">:</span>
             <div
-              class="flex items-center rounded-md border border-input-border bg-input dark:border-input-border-dark dark:bg-input-dark">
+              class="flex items-center rounded-md border border-hairline bg-input dark:border-hairline-dark dark:bg-input-dark">
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
@@ -378,24 +380,24 @@ onBeforeUnmount(() => {
                 class="h-7 w-6 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
                 @input="setMinute" @keydown.up.prevent="stepMinute(1)" @keydown.down.prevent="stepMinute(-1)" />
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一分钟" aria-label="加一分钟" @click="stepMinute(1)">
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
             <div class="ml-auto flex items-center gap-1">
-              <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 px-2 text-xs"
+              <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 rounded-md px-2 text-xs"
                 @click="clearValue">清除</button>
-              <button type="button" class="btn-primary h-7 px-3 text-xs" @click="confirm">确定</button>
+              <button type="button" class="btn-primary h-7 rounded-md px-3 text-xs" @click="confirm">确定</button>
             </div>
           </div>
         </div>
 
         <!-- 仅日期模式没有时间行，操作单独占一行 -->
         <div v-else class="mt-2.5 flex items-center gap-1.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
-          <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 px-2 text-xs"
+          <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 rounded-md px-2 text-xs"
             @click="clearValue">清除</button>
-          <button type="button" class="btn-primary ml-auto h-7 px-3 text-xs" @click="confirm">确定</button>
+          <button type="button" class="btn-primary ml-auto h-7 rounded-md px-3 text-xs" @click="confirm">确定</button>
         </div>
       </div>
     </Teleport>
