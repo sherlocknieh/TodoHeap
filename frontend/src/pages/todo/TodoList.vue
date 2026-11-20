@@ -39,11 +39,11 @@
             <AppIcon :name="preset.icon" :size="13" />
             <span>{{ preset.label }}</span>
           </button>
-          <label class="block px-2.5 py-1.5 text-xs text-neutral-500">
+          <div class="px-2.5 py-1.5 text-xs text-neutral-500">
             自定义时间
-            <input v-model="addCustomDeadline" type="datetime-local" class="field mt-1 text-xs"
-              @change="applyAddDeadline('custom')" />
-          </label>
+            <DateTimePicker v-model="addCustomDeadline" dense :clearable="false" class="mt-1" placeholder="选择日期时间"
+              @confirm="applyAddCustomDeadline" />
+          </div>
           <button v-if="newTaskDeadline" type="button"
             class="flex w-full items-center gap-2 px-2.5 py-1.5 text-sm text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
             @click="applyAddDeadline('clear')">
@@ -187,6 +187,7 @@ import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
 import { pruneTaskCollapseTree, isTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
 import TodoListItem from '@/components/TodoListItem.vue'
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -320,19 +321,21 @@ const toggleAddDeadlineMenu = () => {
 }
 
 const applyAddDeadline = (preset) => {
-  if (preset === 'custom') {
-    if (!addCustomDeadline.value) return
-    newTaskDeadline.value = new Date(addCustomDeadline.value).toISOString()
-  } else {
-    newTaskDeadline.value = resolveDeadlinePreset(preset) || ''
-  }
+  newTaskDeadline.value = resolveDeadlinePreset(preset) || ''
   showAddDeadline.value = false
 }
 
-// 点菜单外收起，与任务行的截止菜单行为一致
+// 选择器确认后把本地时间转 ISO，随下一次添加写入任务
+const applyAddCustomDeadline = () => {
+  if (!addCustomDeadline.value) return
+  newTaskDeadline.value = new Date(addCustomDeadline.value).toISOString()
+  showAddDeadline.value = false
+}
+
+// 点菜单外收起，与任务行的截止菜单行为一致；选择器面板挂在 body 上，不算外部
 const closeAddDeadlineOnOutside = (event) => {
   if (!showAddDeadline.value) return
-  if (event.target.closest?.('[data-add-deadline]')) return
+  if (event.target.closest?.('[data-add-deadline]') || event.target.closest?.('.date-picker-panel')) return
   showAddDeadline.value = false
 }
 

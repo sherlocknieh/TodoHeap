@@ -105,11 +105,11 @@
                   <AppIcon :name="preset.icon" :size="13" />
                   <span>{{ preset.label }}</span>
                 </button>
-                <label class="block px-2.5 py-1.5 text-xs text-neutral-500">
+                <div class="px-2.5 py-1.5 text-xs text-neutral-500">
                   自定义时间
-                  <input v-model="customDeadline" type="datetime-local" class="field mt-1 text-xs"
-                    @change="applyDeadlinePreset(item.id, 'custom')" />
-                </label>
+                  <DateTimePicker v-model="customDeadline" dense :clearable="false" class="mt-1" placeholder="选择日期时间"
+                    @confirm="applyCustomDeadline(item.id)" />
+                </div>
                 <button v-if="item.deadline" type="button"
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                   @click.stop="applyDeadlinePreset(item.id, 'clear')">
@@ -150,6 +150,7 @@
 <script setup>
 import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
 import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { draggingTodoId as draggingId, draggingParentTodoId, dropIndicator, resetDragState } from '@/utils/todoDrag'
@@ -358,12 +359,14 @@ const handleRowClick = (item) => {
 
 // 截止时间快捷预设由共享工具换算，自定义与实际选择统一转 ISO
 const applyDeadlinePreset = (id, preset) => {
-  if (preset === 'custom') {
-    if (!customDeadline.value) return
-    emit('set-deadline', { id, deadline: new Date(customDeadline.value).toISOString() })
-  } else {
-    emit('set-deadline', { id, deadline: resolveDeadlinePreset(preset) })
-  }
+  emit('set-deadline', { id, deadline: resolveDeadlinePreset(preset) })
+  closeDeadlineMenu()
+}
+
+// 选择器确认后把本地时间转 ISO 落库，并收起菜单
+const applyCustomDeadline = (id) => {
+  if (!customDeadline.value) return
+  emit('set-deadline', { id, deadline: new Date(customDeadline.value).toISOString() })
   closeDeadlineMenu()
 }
 
@@ -485,7 +488,9 @@ function handleClickOutside(event) {
     const target = event.target
     const insideMenu = target.closest?.('[data-deadline-menu]')
     const onTrigger = target.closest?.('[data-deadline-trigger]')
-    if (!insideMenu && !onTrigger) {
+    // 选择器面板挂在 body 上，点它不算点外部
+    const insidePicker = target.closest?.('.date-picker-panel')
+    if (!insideMenu && !onTrigger && !insidePicker) {
       closeDeadlineMenu()
     }
   }

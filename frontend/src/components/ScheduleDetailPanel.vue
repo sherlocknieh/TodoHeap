@@ -4,6 +4,7 @@ import { useScheduleStore } from '@/stores/schedules'
 import { toDateTimeLocalValue } from '@/utils/deadline'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import AppIcon from '@/components/AppIcon.vue'
+import DateTimePicker from '@/components/DateTimePicker.vue'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -288,19 +289,19 @@ const remove = async () => {
       <div class="grid grid-cols-1 gap-2">
         <label v-if="form.all_day" class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">开始日期</span>
-          <input v-model="form.start_date" class="field" type="date" />
+          <DateTimePicker v-model="form.start_date" mode="date" placeholder="选择日期" />
         </label>
         <label v-else class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">开始</span>
-          <input v-model="form.start_at" class="field" type="datetime-local" />
+          <DateTimePicker v-model="form.start_at" placeholder="选择开始时间" />
         </label>
         <label v-if="form.all_day" class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">结束日期（含当天）</span>
-          <input v-model="form.end_date" class="field" type="date" />
+          <DateTimePicker v-model="form.end_date" mode="date" placeholder="选择日期" />
         </label>
         <label v-else class="block">
           <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">结束</span>
-          <input v-model="form.end_at" class="field" type="datetime-local" />
+          <DateTimePicker v-model="form.end_at" placeholder="选择结束时间" />
         </label>
       </div>
 

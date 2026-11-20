@@ -41,13 +41,8 @@
           <div class="mt-3 grid grid-cols-1 gap-2.5">
             <label class="text-[11px] text-neutral-500">
               截止时间
-              <input
-                v-model="draftDeadline"
-                type="datetime-local"
-                :disabled="isDeleted"
-                class="field mt-1"
-                @blur="saveDateField('deadline', draftDeadline)"
-              />
+              <DateTimePicker v-model="draftDeadline" :disabled="isDeleted" placeholder="选择截止时间"
+                class="mt-1" @confirm="saveDateField('deadline', draftDeadline)" />
             </label>
             <label class="text-[11px] text-neutral-500">
               耗时(小时)
@@ -149,6 +144,7 @@
 
 <script setup>
 import AppIcon from '@/components/AppIcon.vue'
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useSyncQueueStore } from '@/stores/syncQueue'
