@@ -105,6 +105,17 @@ const DURATION_PRESETS = [
   { label: '3 小时', hours: 3 }
 ]
 
+// 「更多选项」折叠：链接、状态、颜色与提醒默认收起，减少右栏高度
+const showMore = ref(false)
+
+// 这些字段有非默认值时自动展开，避免把已有内容藏起来
+const hasMoreValues = (item) => Boolean(
+  item.url
+  || (item.status && item.status !== 'confirmed')
+  || item.color
+  || (item.reminder_minutes || []).length
+)
+
 const emptyForm = () => ({
   title: '',
   notes: '',
@@ -171,9 +182,11 @@ const resetForm = (item) => {
   isSaving.value = false
   if (!item) {
     form.value = emptyForm()
+    showMore.value = false
     return
   }
 
+  showMore.value = hasMoreValues(item)
   const endBefore = new Date(new Date(item.end_at).getTime() - 1)
   form.value = {
     title: item.title || '',
@@ -380,34 +393,46 @@ const remove = async () => {
       </label>
 
       <label class="block">
-        <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">链接</span>
-        <input v-model="form.url" class="field" type="url" placeholder="会议链接或相关页面" />
-      </label>
-
-      <label class="block">
         <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">参与人</span>
         <input v-model="form.attendees" class="field" type="text" placeholder="姓名或邮箱，用逗号分隔" />
       </label>
 
-      <div class="grid grid-cols-2 gap-2">
-        <label class="block">
-          <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">状态</span>
-          <select v-model="form.status" class="field">
-            <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
-        </label>
-        <label class="block">
-          <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">颜色</span>
-          <select v-model="form.color" class="field">
-            <option v-for="option in COLOR_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
-        </label>
-      </div>
+      <!-- 「更多选项」：链接、状态、颜色、提醒默认收起；字段有值时自动展开 -->
+      <div class="space-y-3">
+        <button type="button"
+          class="flex w-full items-center gap-1.5 py-0.5 text-[11px] text-neutral-500 transition-colors hover:text-accent-800 dark:text-neutral-400 dark:hover:text-accent-200"
+          :aria-expanded="showMore" @click="showMore = !showMore">
+          <AppIcon :name="showMore ? 'chevronDown' : 'chevronRight'" :size="12" class="opacity-70" />
+          <span>更多选项</span>
+        </button>
 
-      <label class="block">
-        <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">提前提醒（分钟，逗号分隔）</span>
-        <input v-model="form.reminders" class="field" type="text" placeholder="例如 10, 30" />
-      </label>
+        <div v-show="showMore" class="space-y-3">
+          <label class="block">
+            <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">链接</span>
+            <input v-model="form.url" class="field" type="url" placeholder="会议链接或相关页面" />
+          </label>
+
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block">
+              <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">状态</span>
+              <select v-model="form.status" class="field">
+                <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">颜色</span>
+              <select v-model="form.color" class="field">
+                <option v-for="option in COLOR_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="block">
+            <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">提前提醒（分钟，逗号分隔）</span>
+            <input v-model="form.reminders" class="field" type="text" placeholder="例如 10, 30" />
+          </label>
+        </div>
+      </div>
 
       <label class="block">
         <span class="mb-1 block text-[11px] text-neutral-500 dark:text-neutral-400">备注</span>

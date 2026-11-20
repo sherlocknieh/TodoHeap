@@ -106,6 +106,7 @@ title: 关键词索引
 | 按天分组 / 跨天事件算哪天 | `pages/todo/ScheduleView.vue`「跨天事件归入开始日」 | 与月历圆点口径一致 |
 | 日程右栏 / 标题备注地点 / 编辑日程 | `components/ScheduleDetailPanel.vue` | 与任务选中互不干扰 |
 | 时长 / 持续时间 / 结束时间 | `components/ScheduleDetailPanel.vue` `applyDuration` | 改时长按开始时间算出结束，快捷项 30 分钟 / 1 / 2 / 3 小时 |
+| 更多选项 / 折叠字段 / 链接和提醒在哪 | `components/ScheduleDetailPanel.vue`「更多选项」 | 链接、状态、颜色、提醒默认收起，字段有值时自动展开 |
 | 点击日程 / 展开右栏 / 日程详情 | `pages/Todo.vue`「浮层右栏点击面板外收起」`data-keep-detail-panel` | 选中即展开右栏，窄屏浮在内容上；同一次点击不会把它收起 |
 | 点击空白 / 非日程区域 / 清除选中 / 收起日程详情 | `pages/Todo.vue`「日程视图：点非日程区域」`data-date-picker-panel` | 宽屏停靠时也清掉选中并收起右栏；面板、日程项、新建入口与日期选择器除外 |
 | 删除日程 / 删日程确认 | `components/ScheduleDetailPanel.vue` `deleteSchedule` | 删除后收起面板并清掉选中项 |
