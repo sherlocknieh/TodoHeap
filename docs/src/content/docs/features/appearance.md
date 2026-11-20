@@ -7,18 +7,18 @@ title: "外观与主题"
 
 ## 三种模式
 
-- 「设置」→「外观」→「主题」提供三个选项：跟随系统（默认）、浅色、深色。
+- 应用顶栏右上角的主题按钮提供三档循环：跟随系统（默认）、浅色、深色；图标随当前档位变化（显示器 / 太阳 / 月亮），每点一次切到下一档。
 - 跟随系统按操作系统的 `prefers-color-scheme` 实时解析，系统亮暗变化时应用立即跟着切换，无需刷新。
 - 手动选择浅色或深色后固定使用所选主题，系统偏好不再影响界面。
 - 偏好按设备保存在本地 `todoheap:ui:theme`，刷新、关闭标签页或重开应用后保持；不写入账户，也不跨设备同步。
 - 切换即时生效：根元素 `data-theme`、浏览器原生控件配色（`color-scheme`）与地址栏/状态栏使用的 `meta[name="theme-color"]` 同时更新。
-- 主题作用于应用内所有页面与浮窗；登录、设置、任务图等视图没有单独的主题开关。
+- 主题作用于应用内所有页面与浮窗；设置页不提供主题入口，各视图也没有单独的主题开关。
 
-## 设置入口与 Agent
+## 入口与 Agent
 
-- 设置页的「外观」标签是三模式唯一的图形入口，使用单选按钮组呈现当前选择（`THEME_OPTIONS`）。
+- 顶栏右侧的主题按钮是三模式唯一的图形入口，点击按 `nextThemeMode` 的顺序循环，图标取自 `THEME_OPTIONS`。
 - `theme` 同时注册在界面偏好注册表中，因此 Agent 能通过 `list_app_settings` 读到当前值与可选值，并通过 `update_app_setting` 写入 `auto`、`light` 或 `dark`。
-- 设置页与 Agent 写的是同一个键，改动会同步到已打开的其他界面组件，不需要刷新。
+- 顶栏按钮与 Agent 写的是同一个键，改动会同步到已打开的其他界面组件，不需要刷新。
 
 ## 边界
 
@@ -31,8 +31,8 @@ title: "外观与主题"
 
 | 位置 | 作用 |
 | --- | --- |
-| `frontend/src/utils/theme.js` | 偏好读取、系统解析、根元素应用与持续监听 |
-| `frontend/src/pages/todo/Settings.vue` | 「外观」标签与三选一按钮组 |
-| `frontend/src/lib/appSettings.js` | `theme` 界面偏好注册，供设置页与 Agent 共用 |
+| `frontend/src/utils/theme.js` | 偏好读取、系统解析、循环顺序、根元素应用与持续监听 |
+| `frontend/src/pages/Todo.vue` | 「顶栏主题按钮」与循环切换逻辑 |
+| `frontend/src/lib/appSettings.js` | `theme` 界面偏好注册，供顶栏与 Agent 共用 |
 | `frontend/src/style.css` | `dark:` 变体改为跟随 `data-theme` |
 | `frontend/index.html` | 首屏前读取偏好，避免强制深色时闪一帧浅色 |

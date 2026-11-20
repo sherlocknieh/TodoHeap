@@ -19,6 +19,7 @@ import {
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
+import { THEME_KEY, THEME_MODES, THEME_OPTIONS, nextThemeMode } from '@/utils/theme'
 import logoSrc from '@/assets/logo.svg'
 
 // 应用挂在 /TodoHeap/app/，站点首页在去掉 app/ 后的根路径
@@ -34,6 +35,19 @@ const syncQueueStore = useSyncQueueStore()
 const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
 
 const userMenuRef = ref(null)
+
+// 顶栏主题按钮：与 Agent 共用同一个界面偏好，点击按 跟随系统→浅色→深色 循环
+const themeMode = persistedRef(THEME_KEY, 'auto', {
+	validate: (value) => THEME_MODES.includes(value)
+})
+const themeOption = (mode) => THEME_OPTIONS.find((option) => option.value === mode)
+const currentThemeOption = computed(() => themeOption(themeMode.value))
+const themeToggleLabel = computed(
+	() => `主题：${currentThemeOption.value.label}（点击切换到${themeOption(nextThemeMode(themeMode.value)).label}）`
+)
+const cycleTheme = () => {
+	themeMode.value = nextThemeMode(themeMode.value)
+}
 
 // 根据路由名称同步当前视图
 const activeView = computed({
@@ -571,10 +585,16 @@ const runToastAction = async () => {
 							class="shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
 							{{ activeViewTitle }}
 						</h1>
-						<!-- 中栏被详情面板挤窄时，视图自己的操作先让位，保留全局面板开关 -->
+						<!-- 中栏被详情面板挤窄时，视图自己的操作先让位，保留全局开关 -->
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
+							<!-- 「顶栏主题按钮」：图标随当前模式（跟随系统/浅色/深色），点击切到下一档 -->
+							<button type="button" data-theme-toggle
+								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+								:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="cycleTheme">
+								<AppIcon :name="currentThemeOption.icon" :size="15" />
+							</button>
 							<button type="button" data-detail-panel-trigger
 								class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors"
 								:class="showDetailPanel

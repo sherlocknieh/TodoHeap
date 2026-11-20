@@ -3,7 +3,6 @@ import { ref } from 'vue'
 // 设置面板的标签：整页与浮窗共用同一份定义，地址栏的 tab 参数据此校验
 export const SETTINGS_TABS = [
   { id: 'account', label: '账户安全', icon: 'lock' },
-  { id: 'appearance', label: '外观', icon: 'sun' },
   { id: 'provider', label: '模型接入', icon: 'key' },
   { id: 'calendar', label: '日历', icon: 'calendar' },
   { id: 'import', label: '导入数据', icon: 'upload' }

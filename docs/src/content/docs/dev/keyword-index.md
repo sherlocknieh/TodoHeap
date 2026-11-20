@@ -24,7 +24,7 @@ title: 关键词索引
 | 技能区高度 / 上下拖动分隔条 | `components/LeftSidebar.vue`「技能区高度可拖拽调整」 | 分隔条在技能分组上缘 |
 | 侧栏分组折叠 / 收起标题 | `components/LeftSidebar.vue` `collapsedSections` | 折叠选择本地保留 |
 | 顶栏标题 / 主区域标题 / 当前视图名 | `pages/Todo.vue` `activeViewTitle` | 各视图统一在顶栏显示名称 |
-| 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏 |
+| 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏；主题与详情面板开关常驻在这一行，不随视图操作让位 |
 | 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图只让适应视图与节点菜单按 `detailPanelInset` 避开面板，三栏聚焦按整宽居中；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
 | 底栏 / 状态栏 / 底部统计 / 进度条 | `pages/Todo.vue`「底栏统计」「底栏：导航开关、统计与同步状态」 | 根任务不计入统计 |
 | 同步状态 / 断线 / 待同步 | `pages/Todo.vue` `syncStatus`；`stores/syncQueue.js` | 优先级：断线 > 待同步 > 连接中 > 已同步 |
@@ -146,7 +146,7 @@ title: 关键词索引
 | --- | --- | --- |
 | 主题色 / 绿色 / 强调色 / accent | `frontend/src/style.css` `@theme` 的 `--color-accent-*` | 绿色是唯一强调色，只出现在交互与状态上 |
 | 危险色 / 红色 / 删除红 / danger | `frontend/src/style.css` `--color-danger-*` | 只用于删除等不可逆确认态 |
-| 暗色模式 / 深色 / 跟随系统 / 主题切换 | `frontend/src/utils/theme.js`、`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 设置 → 外观可切跟随系统/浅色/深色，偏好存 `theme`，auto 时随系统解析成 light/dark |
+| 暗色模式 / 深色 / 跟随系统 / 主题切换 / 顶栏主题按钮 / 右上角日/月图标 | `pages/Todo.vue`「顶栏主题按钮」`cycleTheme`；`frontend/src/utils/theme.js`；`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 顶栏右侧图标按钮点一下按 跟随系统→浅色→深色 循环，图标随当前模式变化；偏好存 `theme`，auto 时随系统解析成 light/dark，Agent 也可改同一个键 |
 | 圆角 / 阴影 / 卡片 / 输入框样式 | `frontend/src/style.css` `@layer components` 的 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` | 优先复用基元类，不另造样式 |
 | 菜单 / 下拉面板 / 选中项背景戳出卡片 / 高亮方角超出圆角 | `components/TodoListItem.vue`（截止时间、更多菜单）、`pages/todo/TodoList.vue`（添加栏截止菜单）、`components/MindMapWrapper.vue`（节点菜单） | 面板用 `panel py-1 overflow-hidden`、菜单项通栏矩形不加圆角：高亮左右顶到边框，尖角由面板的 12px 圆角自然裁掉 |
 | 图标 / 加号 / 垃圾桶图标 / 改图标 | `components/AppIcon.vue` | 全站唯一图标来源，用 `name` + `size`；不要用 emoji |

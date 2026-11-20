@@ -89,30 +89,6 @@
               </div>
             </section>
 
-            <!-- 外观：三个主题模式立即生效，auto 时跟随系统亮暗 -->
-            <section v-else-if="activeTab === 'appearance'" class="space-y-6">
-              <div>
-                <p class="eyebrow mb-2">主题</p>
-                <p class="text-xs leading-relaxed text-neutral-500">
-                  跟随系统会随操作系统的亮暗设置自动切换；手动选择后固定使用所选主题。
-                </p>
-                <div
-                  class="mt-3 inline-flex rounded-lg border border-hairline bg-input p-1 dark:border-hairline-dark dark:bg-input-dark"
-                  role="radiogroup" aria-label="主题">
-                  <button v-for="option in THEME_OPTIONS" :key="option.value" type="button" role="radio"
-                    :aria-checked="themeMode === option.value" :class="[
-                      'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
-                      themeMode === option.value
-                        ? 'bg-surface text-accent-800 shadow-sm dark:bg-neutral-700 dark:text-accent-200'
-                        : 'text-neutral-600 hover:text-accent-800 dark:text-neutral-400 dark:hover:text-accent-200'
-                    ]" @click="themeMode = option.value">
-                    <AppIcon :name="option.icon" :size="14" />
-                    <span>{{ option.label }}</span>
-                  </button>
-                </div>
-              </div>
-            </section>
-
             <!-- 模型接入：配置第三方 OpenAI 兼容服务，供对话 Agent 使用 -->
             <section v-else-if="activeTab === 'provider'" class="space-y-4">
               <ProviderSettings />
@@ -494,7 +470,6 @@ import {
 } from '@/lib/calendarTransfer'
 import { settingsPanelOpen, SETTINGS_TABS, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef } from '@/utils/uiState'
-import { THEME_KEY, THEME_MODES, THEME_OPTIONS } from '@/utils/theme'
 import {
   TICKTICK_IMPORT_MAX_BYTES,
   parseTickTickFile,
@@ -575,11 +550,6 @@ const selectTab = (id) => {
   if (route.query.tab === id) return
   router.replace({ query: { ...route.query, tab: id } })
 }
-
-// 外观：主题偏好写入界面状态，主题模块监听后即时应用到根元素
-const themeMode = persistedRef(THEME_KEY, 'auto', {
-  validate: (value) => THEME_MODES.includes(value)
-})
 
 // 账户设置
 const showPasswordModal = ref(false)
