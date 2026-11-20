@@ -346,9 +346,9 @@ onBeforeUnmount(() => {
             <button v-for="time in TIME_PRESETS" :key="time" type="button" :class="CHIP_CLASS"
               @click="applyTime(time)">{{ time }}</button>
           </div>
-          <div class="mt-1.5 flex items-center gap-1.5">
+          <div class="relative mt-1.5 grid grid-cols-3 items-center gap-1">
             <div
-              class="flex min-w-0 flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex min-w-0 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
                 class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
@@ -363,9 +363,9 @@ onBeforeUnmount(() => {
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
-            <span class="text-xs text-neutral-400">:</span>
+            <span class="pointer-events-none absolute top-1/2 left-[calc((100%-8px)/3+2px)] -translate-x-1/2 -translate-y-1/2 text-xs text-neutral-400 dark:text-neutral-500">:</span>
             <div
-              class="flex min-w-0 flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex min-w-0 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
                 class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
@@ -380,15 +380,18 @@ onBeforeUnmount(() => {
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
+            <div class="flex items-center justify-end gap-1">
             <button type="button"
               class="grid h-7 w-5 shrink-0 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               title="重置为 23:59" aria-label="重置为 23:59" @click="resetTime">
               <AppIcon name="clock" :size="12" />
             </button>
-            <div class="flex items-center gap-1">
-              <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 rounded-md px-2 text-xs"
-                @click="clearValue">清除</button>
-              <button type="button" class="btn-primary h-7 rounded-md px-3 text-xs" @click="confirm">确定</button>
+              <button v-if="clearable && modelValue" type="button"
+                class="grid h-7 w-4 place-items-center rounded-md text-neutral-400 transition-colors hover:text-rose-600 dark:text-neutral-500 dark:hover:text-rose-400"
+                title="清除" aria-label="清除" @click="clearValue">
+                <AppIcon name="close" :size="11" />
+              </button>
+              <button type="button" class="btn-primary h-7 rounded-md px-2 text-xs" @click="confirm">确定</button>
             </div>
           </div>
         </div>
