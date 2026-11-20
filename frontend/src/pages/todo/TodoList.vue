@@ -613,6 +613,9 @@ const unlinkTask = async ({ parentId, childId }) => {
   const result = await todoStore.unlinkTodo(parentId, childId)
   if (!result.success || result.data?.unchanged) return
 
+  // 本行消失后把选中项切到该任务，另一个父级下出现它的那一行随之高亮
+  emit('task-selected', childId)
+
   emit('notify', {
     message: '已取消链接',
     undo: () => {
