@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useScheduleStore } from '@/stores/schedules'
 import { toDateTimeLocalValue } from '@/utils/deadline'
 import { useResizablePanel } from '@/utils/resizablePanel'
@@ -95,7 +95,10 @@ const form = ref({
   end_date: ''
 })
 const errorMessage = ref('')
-const isSaving = ref(false)
+// 自动同步状态：idle 无提示 / saving / saved / error / invalid
+const syncStatus = ref('idle')
+const syncError = ref('')
+const isSaving = computed(() => syncStatus.value === 'saving')
 
 // 常用时长：点一下按开始时间算出结束时间
 const DURATION_PRESETS = [
@@ -176,10 +179,156 @@ const onStartConfirmed = () => {
   if (!applyDuration(Number(form.value.duration))) syncDurationFromRange()
 }
 
+// —— 自动同步：字段改动防抖写入，「保存」立即冲刷并关闭 ——
+const activeEventId = ref(null)
+let syncTimer = null
+let syncing = false
+let queuedSync = null
+let idleResolvers = []
+let suppressAutoSync = false
+
+const whenIdle = () => new Promise((resolve) => idleResolvers.push(resolve))
+const markIdle = () => {
+  idleResolvers.splice(0).forEach((resolve) => resolve())
+}
+
+// 把草稿折算成更新载荷；非法草稿只返回原因，不写库
+const buildPayload = () => {
+  const title = form.value.title.trim()
+  if (!title) return { error: '填写日程标题' }
+
+  let start
+  let end
+  if (form.value.all_day) {
+    if (!form.value.start_date || !form.value.end_date) return { error: '填写开始和结束日期' }
+    start = toUtcMidnight(form.value.start_date)
+    end = new Date(toUtcMidnight(form.value.end_date).getTime() + 86400000)
+    if (end <= start) return { error: '结束日期不能早于开始日期' }
+  } else {
+    start = new Date(form.value.start_at)
+    end = new Date(form.value.end_at)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return { error: '填写开始和结束时间' }
+    if (end <= start) return { error: '结束时间需要晚于开始时间' }
+  }
+
+  return {
+    payload: {
+      title,
+      notes: form.value.notes.trim() || null,
+      location: form.value.location.trim() || null,
+      url: form.value.url.trim() || null,
+      attendees: splitList(form.value.attendees),
+      all_day: form.value.all_day,
+      status: form.value.status,
+      color: form.value.color || null,
+      reminder_minutes: parseReminders(form.value.reminders),
+      start_at: start.toISOString(),
+      end_at: end.toISOString()
+    }
+  }
+}
+
+// 把当前草稿放进队列；载荷在入队时定格，切换日程也不会写错对象
+const queuePayload = () => {
+  if (!activeEventId.value) return false
+  const built = buildPayload()
+  if (!built.payload) {
+    syncStatus.value = 'invalid'
+    syncError.value = built.error
+    return false
+  }
+  queuedSync = { eventId: activeEventId.value, payload: built.payload }
+  return true
+}
+
+// 串行写入：保存期间的改动排在下一次，完成后统一通知等待者
+const drainSync = async () => {
+  if (syncing) return
+  syncing = true
+  try {
+    while (queuedSync) {
+      const { eventId, payload } = queuedSync
+      queuedSync = null
+      syncStatus.value = 'saving'
+      syncError.value = ''
+      const result = await scheduleStore.updateSchedule(eventId, payload)
+      if (!result.success) {
+        syncStatus.value = 'error'
+        syncError.value = result.error || '同步失败'
+        return
+      }
+      syncStatus.value = 'saved'
+    }
+  } finally {
+    syncing = false
+    if (!queuedSync) markIdle()
+  }
+}
+
+const queueAndDrain = () => {
+  if (!queuePayload()) {
+    markIdle()
+    return
+  }
+  drainSync()
+}
+
+// 字段改动 500ms 后写入；载入或切换日程时由 suppressAutoSync 挡住
+const scheduleSync = () => {
+  if (suppressAutoSync || !activeEventId.value) return
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => {
+    syncTimer = null
+    queueAndDrain()
+  }, 500)
+}
+
+// 「保存」用：取消防抖立即写入，等到队列空再返回
+const flushSync = async () => {
+  if (syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = null
+  }
+  if (!queuePayload()) return false
+  const idle = whenIdle()
+  drainSync()
+  await idle
+  return syncStatus.value === 'saved'
+}
+
+const syncLabel = computed(() => {
+  if (syncStatus.value === 'saving') return '同步中…'
+  if (syncStatus.value === 'error') return syncError.value || '同步失败'
+  if (syncStatus.value === 'invalid') return `未同步：${syncError.value}`
+  if (syncStatus.value === 'saved') return '已同步'
+  return ''
+})
+
+const syncLabelClass = computed(() => {
+  if (syncStatus.value === 'error') return 'text-rose-600 dark:text-rose-400'
+  if (syncStatus.value === 'invalid') return 'text-amber-600 dark:text-amber-400'
+  return 'text-neutral-400 dark:text-neutral-500'
+})
+
+// 面板卸载（切走视图或整页离开）前把待写入的草稿落盘
+onBeforeUnmount(() => {
+  if (syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = null
+    queueAndDrain()
+  }
+})
+
 // 切换选中日程时重置草稿，未保存的编辑不会带到另一条日程
 const resetForm = (item) => {
   errorMessage.value = ''
-  isSaving.value = false
+  suppressAutoSync = true
+  activeEventId.value = item?.id ?? null
+  syncStatus.value = 'idle'
+  syncError.value = ''
+  nextTick(() => {
+    suppressAutoSync = false
+  })
   if (!item) {
     form.value = emptyForm()
     showMore.value = false
@@ -206,8 +355,18 @@ const resetForm = (item) => {
   }
 }
 
-// 选中日程或数据到达时重置草稿；保存后的回写不打断正在编辑的内容
-watch(() => [props.eventId, event.value?.id], () => resetForm(event.value), { immediate: true })
+// 选中日程或数据到达时重置草稿；切走前先把上一条的防抖改动落盘
+watch(() => [props.eventId, event.value?.id], () => {
+  if (activeEventId.value && syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = null
+    queueAndDrain()
+  }
+  resetForm(event.value)
+}, { immediate: true })
+
+// 草稿任何字段变化都排一次自动同步
+watch(form, () => scheduleSync(), { deep: true })
 
 // 勾选全天后把当前时间折算成日期，取消时再折回零点区间
 const toggleAllDay = (checked) => {
@@ -236,70 +395,26 @@ const startLabel = computed(() => {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 })
 
-const save = async () => {
-  if (!event.value || isSaving.value) return
-
-  const title = form.value.title.trim()
-  if (!title) {
-    errorMessage.value = '填写日程标题'
-    return
-  }
-
-  let start
-  let end
-  if (form.value.all_day) {
-    if (!form.value.start_date || !form.value.end_date) {
-      errorMessage.value = '填写开始和结束日期'
-      return
-    }
-    start = toUtcMidnight(form.value.start_date)
-    end = new Date(toUtcMidnight(form.value.end_date).getTime() + 86400000)
-    if (end <= start) {
-      errorMessage.value = '结束日期不能早于开始日期'
-      return
-    }
-  } else {
-    start = new Date(form.value.start_at)
-    end = new Date(form.value.end_at)
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      errorMessage.value = '填写开始和结束时间'
-      return
-    }
-    if (end <= start) {
-      errorMessage.value = '结束时间需要晚于开始时间'
-      return
-    }
-  }
-
-  isSaving.value = true
-  const result = await scheduleStore.updateSchedule(event.value.id, {
-    title,
-    notes: form.value.notes.trim() || null,
-    location: form.value.location.trim() || null,
-    url: form.value.url.trim() || null,
-    attendees: splitList(form.value.attendees),
-    all_day: form.value.all_day,
-    status: form.value.status,
-    color: form.value.color || null,
-    reminder_minutes: parseReminders(form.value.reminders),
-    start_at: start.toISOString(),
-    end_at: end.toISOString()
-  })
-  isSaving.value = false
-  if (!result.success) {
-    errorMessage.value = result.error || '保存日程失败'
-    return
-  }
-  errorMessage.value = ''
-  // 保存成功后收起右栏，由外层一并清掉选中
-  emit('saved', result.data?.id ?? event.value.id)
+// 「保存」：立即同步当前草稿，成功后收起右栏并让外层清掉选中
+const saveAndClose = async () => {
+  if (!event.value) return
+  const ok = await flushSync()
+  if (!ok) return
+  emit('saved', activeEventId.value)
   emit('close')
 }
 
 // 删除后日程已不在列表里，收起面板并让外层清掉选中项
 const remove = async () => {
-  if (!event.value) return
+  if (!event.value || isSaving.value) return
   if (!window.confirm(`删除日程「${event.value.title}」吗？`)) return
+
+  // 待写入的草稿不再需要，丢弃避免删除后又补一次更新
+  if (syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = null
+  }
+  queuedSync = null
 
   const target = event.value
   const result = await scheduleStore.deleteSchedule(target.id)
@@ -454,9 +569,13 @@ const remove = async () => {
         <AppIcon name="trash" :size="13" />
         <span>删除</span>
       </button>
-      <button class="btn-primary ml-auto" :disabled="isSaving" @click="save">
-        <span>{{ isSaving ? '保存中…' : '保存' }}</span>
-      </button>
+      <div class="ml-auto flex min-w-0 items-center gap-2">
+        <!-- 「同步状态」：自动同步结果，失败或草稿不合法时说明原因 -->
+        <span v-if="syncLabel" class="truncate text-[11px]" :class="syncLabelClass">{{ syncLabel }}</span>
+        <button class="btn-primary" :disabled="isSaving" @click="saveAndClose">
+          <span>{{ isSaving ? '同步中…' : '保存' }}</span>
+        </button>
+      </div>
     </footer>
   </div>
 </template>

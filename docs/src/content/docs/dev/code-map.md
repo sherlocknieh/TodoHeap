@@ -82,7 +82,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认、请求详情 |
 | `AgentContextPanel.vue` | AI 视图右栏：会话、模型、上下文构成与本轮工具 |
 | `ComposerPicker.vue` | 输入区浮层选择器：`+` 菜单、`/` 命令、`@` 上下文共用一套列表与高亮 |
-| `ScheduleDetailPanel.vue` | 日程视图右栏：选中日程的标题、起止时间、时长与备注编辑 |
+| `ScheduleDetailPanel.vue` | 日程视图右栏：选中日程的标题、起止时间、时长与备注编辑，改动自动同步 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `MiddleEllipsis.vue` | 按容器宽度截断成「头…尾」，宽度变化时重算 |
 | `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
