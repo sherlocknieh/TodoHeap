@@ -57,6 +57,17 @@ const slideDirection = ref('next')
 const draftDate = ref(null)
 const draftHour = ref(23)
 const draftMinute = ref(59)
+// 输入框里的两位显示文本，输入过程中允许暂时不足两位，失焦后补齐
+const hourText = ref('23')
+const minuteText = ref('59')
+
+const pad2 = (num) => String(num).padStart(2, '0')
+
+// 草稿时分变化后同步成两位显示
+const syncTimeText = () => {
+  hourText.value = pad2(draftHour.value)
+  minuteText.value = pad2(draftMinute.value)
+}
 
 const isDateTime = computed(() => props.mode !== 'date')
 const displayText = computed(() => formatPickerLabel(props.modelValue, props.mode))
@@ -79,6 +90,7 @@ const initDraft = () => {
   draftDate.value = new Date(base.getFullYear(), base.getMonth(), base.getDate())
   draftHour.value = parsed ? parsed.getHours() : 23
   draftMinute.value = parsed ? parsed.getMinutes() : 59
+  syncTimeText()
   viewYear.value = draftDate.value.getFullYear()
   viewMonth.value = draftDate.value.getMonth()
 }
@@ -184,33 +196,54 @@ const onGridWheel = (event) => {
   wheelAt = now
 }
 
-const setHour = (event) => {
-  draftHour.value = clampHour(event.target.value)
+// 输入时只保留两位数字，失焦后再限幅并补齐前导零
+const onHourInput = (event) => {
+  const digits = event.target.value.replace(/\D/g, '').slice(0, 2)
+  event.target.value = digits
+  hourText.value = digits
+  draftHour.value = clampHour(digits || 0)
 }
 
-const setMinute = (event) => {
-  draftMinute.value = clampMinute(event.target.value)
+const onMinuteInput = (event) => {
+  const digits = event.target.value.replace(/\D/g, '').slice(0, 2)
+  event.target.value = digits
+  minuteText.value = digits
+  draftMinute.value = clampMinute(digits || 0)
+}
+
+const onHourBlur = () => {
+  draftHour.value = clampHour(hourText.value || 0)
+  syncTimeText()
+}
+
+const onMinuteBlur = () => {
+  draftMinute.value = clampMinute(minuteText.value || 0)
+  syncTimeText()
 }
 
 // 加减器按周期循环：23 点加一小时回到 0 点，59 分加一分回到 0 分
 const stepHour = (delta) => {
   draftHour.value = (clampHour(draftHour.value) + delta + 24) % 24
+  syncTimeText()
 }
 
 const stepMinute = (delta) => {
   draftMinute.value = (clampMinute(draftMinute.value) + delta + 60) % 60
+  syncTimeText()
 }
 
 const applyTime = (time) => {
   const [hour, minute] = time.split(':').map(Number)
   draftHour.value = hour
   draftMinute.value = minute
+  syncTimeText()
 }
 
-// 点时钟图标把时分重置为默认的 23:59
+// 点重置图标把时分重置为默认的 23:59
 const resetTime = () => {
   draftHour.value = 23
   draftMinute.value = 59
+  syncTimeText()
 }
 
 // 方向键逐日/逐周移动草稿，PgUp/PgDn 翻月，Enter 确定，Esc 关闭
@@ -282,7 +315,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="relative">
+  <div ref="rootEl" class="group relative">
     <!-- 「时间选择器触发器」：默认外观与 .field 一致；截止时间入口用 slot 换成日历按钮/截止标签 -->
     <slot name="trigger" :open="open" :toggle="togglePicker">
       <button type="button" :disabled="disabled" :aria-expanded="open" aria-haspopup="dialog"
@@ -295,6 +328,13 @@ onBeforeUnmount(() => {
         <AppIcon name="calendar" :size="14" class="shrink-0 text-neutral-400" />
       </button>
     </slot>
+
+    <!-- 「胶囊上的清除」：有值时悬停显示，直接清空当前值 -->
+    <button v-if="clearable && modelValue && !disabled" type="button"
+      class="absolute top-1/2 right-1 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full bg-surface text-neutral-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-rose-600 focus-visible:opacity-100 dark:bg-surface-dark dark:text-neutral-400 dark:hover:text-rose-400"
+      title="清除" aria-label="清除" @click.stop="clearValue">
+      <AppIcon name="close" :size="11" />
+    </button>
 
     <Teleport to="body">
       <div v-if="open" ref="panelEl" tabindex="-1" role="dialog" aria-label="选择日期时间"
@@ -317,11 +357,6 @@ onBeforeUnmount(() => {
           <button v-if="!quickDates" type="button"
             class="ml-1 h-7 shrink-0 rounded-md px-2 text-[11px] text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             @click="goToday">今天</button>
-          <button v-if="clearable && modelValue" type="button"
-            class="grid h-7 w-6 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:text-neutral-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-            title="清除" aria-label="清除" @click="clearValue">
-            <AppIcon name="close" :size="13" />
-          </button>
         </div>
 
         <!-- 日期快捷项：截止时间入口用，点选只改草稿 -->
@@ -359,9 +394,9 @@ onBeforeUnmount(() => {
                 title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
-              <input :value="draftHour" type="text" inputmode="numeric" maxlength="2" aria-label="小时"
+              <input :value="hourText" type="text" inputmode="numeric" maxlength="2" aria-label="小时"
                 class="h-full min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
-                @input="setHour" @keydown.up.prevent="stepHour(1)" @keydown.down.prevent="stepHour(-1)" />
+                @input="onHourInput" @blur="onHourBlur" @keydown.up.prevent="stepHour(1)" @keydown.down.prevent="stepHour(-1)" />
               <button type="button"
                 class="grid h-full w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一小时" aria-label="加一小时" @click="stepHour(1)">
@@ -376,9 +411,9 @@ onBeforeUnmount(() => {
                 title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
-              <input :value="draftMinute" type="text" inputmode="numeric" maxlength="2" aria-label="分钟"
+              <input :value="minuteText" type="text" inputmode="numeric" maxlength="2" aria-label="分钟"
                 class="h-full min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
-                @input="setMinute" @keydown.up.prevent="stepMinute(1)" @keydown.down.prevent="stepMinute(-1)" />
+                @input="onMinuteInput" @blur="onMinuteBlur" @keydown.up.prevent="stepMinute(1)" @keydown.down.prevent="stepMinute(-1)" />
               <button type="button"
                 class="grid h-full w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一分钟" aria-label="加一分钟" @click="stepMinute(1)">

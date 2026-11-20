@@ -29,7 +29,7 @@
             title="设置截止时间" aria-label="设置截止时间" :aria-expanded="open" @click="toggle">
             <AppIcon name="calendar" :size="14" />
           </button>
-          <button v-else type="button" class="chip gap-1 font-medium transition-colors"
+          <button v-else type="button" class="chip gap-1 pr-6 font-medium transition-colors"
             :class="deadlineChipClass(newTaskDeadline)"
             :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" :aria-expanded="open" @click="toggle">
             <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(newTaskDeadline) }}
