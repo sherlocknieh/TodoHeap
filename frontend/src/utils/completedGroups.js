@@ -26,6 +26,14 @@ export const formatCompletionDay = (key, now = new Date()) => {
   return `${month}月${day}日`
 }
 
+// 完成时间：已完成区按天分组，行内只显示本地时分
+export const formatCompletionTime = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 // 输出按完成日期倒序的分组，组内任务同样按完成时间倒序
 export const groupCompletedByDay = (todos, now = new Date()) => {
   const groups = new Map()

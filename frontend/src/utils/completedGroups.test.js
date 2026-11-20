@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { completionDayKey, formatCompletionDay, groupCompletedByDay } from './completedGroups'
+import { completionDayKey, formatCompletionDay, formatCompletionTime, groupCompletedByDay } from './completedGroups'
 
 const now = new Date('2026-11-20T14:34:00')
 const at = (value) => new Date(value).toISOString()
@@ -25,6 +25,17 @@ describe('formatCompletionDay', () => {
   it('更早的日期给月日，跨年补年份', () => {
     expect(formatCompletionDay('2026-11-18', now)).toBe('11月18日')
     expect(formatCompletionDay('2025-12-31', now)).toBe('2025年12月31日')
+  })
+})
+
+describe('formatCompletionTime', () => {
+  it('行内只显示本地时分', () => {
+    expect(formatCompletionTime(new Date(2026, 10, 20, 9, 5).toISOString())).toBe('09:05')
+  })
+
+  it('无完成时间或非法时间返回空串', () => {
+    expect(formatCompletionTime(null)).toBe('')
+    expect(formatCompletionTime('not-a-date')).toBe('')
   })
 })
 

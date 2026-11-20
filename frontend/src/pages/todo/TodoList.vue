@@ -203,6 +203,10 @@
               </button>
               <MiddleEllipsis :text="t.title || '未命名任务'"
                 class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
+              <!-- 「完成时间」：日期由所在分组标题给出，行内只显示时分 -->
+              <span class="shrink-0 font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
+                {{ formatCompletionTime(t.completed_at) }}
+              </span>
               <!-- 「已完成行删除」：单条删除走软删除，提示里可撤销，与整区「清除已完成」互不影响 -->
               <button type="button"
                 class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
@@ -223,7 +227,7 @@ import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
-import { groupCompletedByDay } from '@/utils/completedGroups'
+import { formatCompletionTime, groupCompletedByDay } from '@/utils/completedGroups'
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
