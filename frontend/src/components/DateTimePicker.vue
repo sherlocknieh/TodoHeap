@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
             @click="selectQuickDate(item.offset)">{{ item.label }}</button>
         </div>
 
-        <!-- 星期表头固定；日期网格翻月时左右平移 -->
+        <!-- 星期表头固定；日期网格翻月时竖直平移 -->
         <div class="mt-2 grid grid-cols-7 gap-0.5 text-center">
           <span v-for="label in WEEKDAY_LABELS" :key="label"
             class="py-1 text-[10px] text-neutral-400 dark:text-neutral-500">{{ label }}</span>
@@ -407,22 +407,22 @@ onBeforeUnmount(() => {
 }
 
 .month-next-enter-from {
-  transform: translateX(100%);
+  transform: translateY(100%);
   opacity: 0;
 }
 
 .month-next-leave-to {
-  transform: translateX(-100%);
+  transform: translateY(-100%);
   opacity: 0;
 }
 
 .month-prev-enter-from {
-  transform: translateX(-100%);
+  transform: translateY(-100%);
   opacity: 0;
 }
 
 .month-prev-leave-to {
-  transform: translateX(100%);
+  transform: translateY(100%);
   opacity: 0;
 }
 
