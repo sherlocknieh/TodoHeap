@@ -195,11 +195,6 @@ const requestMessageSummary = (message) => {
   return summarizeContent(message.content).slice(0, 80)
 }
 
-// 思考内容在折叠态只给一个标记，展开后看完整 JSON
-const hasReasoning = (message) => (
-  message.role === 'assistant' && typeof message.reasoning_content === 'string' && message.reasoning_content.length > 0
-)
-
 // 上下文各类：先静态前缀，再过程类内容，正文对话放末尾
 const breakdown = computed(() => {
   const stats = contextStats.value
@@ -371,10 +366,6 @@ const exportSession = () => {
               <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400"
                 :class="section.kind === 'tool' ? 'font-mono text-[10px]' : ''">
                 {{ section.kind === 'tool' ? item.name : requestMessageSummary(item) }}
-              </span>
-              <span v-if="section.kind !== 'tool' && hasReasoning(item)"
-                class="shrink-0 rounded bg-accent-50 px-1 text-[10px] text-accent-700 dark:bg-accent-500/15 dark:text-accent-300">
-                思考 {{ formatNumber(item.reasoning_content.length) }}
               </span>
               <AppIcon name="chevronDown" :size="12"
                 class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />

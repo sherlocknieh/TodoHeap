@@ -61,7 +61,7 @@ TodoHeap 只有一个 AI 入口：AI 视图里的对话 Agent。拆解、建任�
 | 高 / 低 | 原样作为 `reasoning_effort` 下发，等级越高推理越深、耗时越长 |
 | 关闭 | DeepSeek 系模型下发 `thinking: { type: "disabled" }` 走非思考模式；其它服务商不发思考参数 |
 
-模型返回思考内容时（`reasoning_content` / `reasoning` / `thinking` 任一字段）会显示在回复上方的「思考过程」折叠块里，默认收起，正文优先；上游不遵守关闭参数时，内容照常展示。右侧栏「请求参数」会同步展示实际下发的 `reasoning_effort` 或 `thinking`。多轮对话里上一轮的思考内容会以 `reasoning_content` 原样回传，满足 DeepSeek 等服务的校验要求。右侧栏「本轮上下文」按会话实时消息统计，模型刚产出的回复也会计入；带思考的消息标注「含思考」并显示思考字符数，展开可见完整 `reasoning_content`。
+模型返回思考内容时（`reasoning_content` / `reasoning` / `thinking` 任一字段）会显示在回复上方的「思考过程」折叠块里，默认收起，正文优先；上游不遵守关闭参数时，内容照常展示。右侧栏「请求参数」会同步展示实际下发的 `reasoning_effort` 或 `thinking`。多轮对话里上一轮的思考内容会以 `reasoning_content` 原样回传，满足 DeepSeek 等服务的校验要求。右侧栏「本轮上下文」按会话实时消息统计，模型刚产出的回复也会计入；带思考的消息展开可见完整 `reasoning_content`。
 
 ### 命令与引用
 
