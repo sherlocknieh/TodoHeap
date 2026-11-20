@@ -77,27 +77,21 @@
                     ? 'fill-accent-50 dark:fill-neutral-800'
                     : 'fill-white dark:fill-neutral-900'
             ]" />
-          <!-- 勾选框：点击切换完成状态，与列表视图的两态复选一致 -->
+          <!-- 勾选框：点击切换完成状态，与列表视图的两态复选一致；
+               未完成时描边按紧急度着色（红=一天内/逾期、橙=三天内、蓝=一周内），
+               无截止或超过一周沿用中性灰，已完成仍是绿色实心 -->
           <g v-if="node.hasCheckbox" :transform="`translate(${paddingX} ${paddingTop + fontSize - 1})`"
             @pointerdown.stop @click.stop="toggleDone(node)">
             <rect :width="checkboxSize" :height="checkboxSize" :y="-checkboxSize + 3" rx="3.5"
               stroke-width="1.2" class="cursor-pointer transition-colors" :class="node.completed_at
                 ? 'fill-accent-600 stroke-accent-600 dark:fill-accent-500 dark:stroke-accent-500'
-                : 'fill-white stroke-neutral-300 hover:stroke-accent-500 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:stroke-accent-400'" />
+                : node.urgency
+                  ? `${URGENCY_CHECK_CLASS[node.urgency]} fill-white dark:fill-neutral-900`
+                  : 'fill-white stroke-neutral-300 hover:stroke-accent-500 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:stroke-accent-400'" />
             <path v-if="node.completed_at" :d="`M3.2 ${-checkboxSize + 9.8} L5.8 ${-checkboxSize + 12.6} L10.8 ${-checkboxSize + 7.4}`"
               fill="none" class="pointer-events-none stroke-white" stroke-width="1.5" stroke-linecap="round"
               stroke-linejoin="round" />
             <title>{{ node.completed_at ? '标记为未完成' : '标记为已完成' }}</title>
-          </g>
-          <!-- 「紧急程度圆点」：节点右上角，红=一天内（含逾期）、橙=三天内、蓝=一周内；
-               无截止日期或已完成的任务不显示，点开浮层看截止时间与倒数日 -->
-          <g v-if="node.urgency && !node.completed" data-mm-urgency
-            :transform="`translate(${nodeWidth - urgencyDotX} ${urgencyDotY})`"
-            class="cursor-pointer"
-            @pointerdown.stop @click.stop="toggleUrgencyPopover(node)">
-            <circle r="4.5" class="fill-transparent" />
-            <circle r="3.4" class="transition-colors" :class="URGENCY_DOT_CLASS[node.urgency]" />
-            <title>截止：{{ deadlineCountdown(node.deadline) }}</title>
           </g>
           <!-- 节点文字：常驻输入框承载，平时只读，双击后原地编辑。
                高度与节点框同步取内容行数，编辑时随输入增长，不靠内部滚动 -->
@@ -223,6 +217,16 @@
       class="absolute z-20 panel cursor-default py-1 shadow-lg"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px`, width: `${menuWidth}px` }"
       @pointerdown.stop @click.stop @contextmenu.prevent>
+      <!-- 「截止提示」：菜单顶部的只读信息行，倒数日颜色与勾选框的紧急度一致 -->
+      <div v-if="menuNode.deadline"
+        class="flex items-baseline justify-between gap-2 border-b border-hairline px-2.5 pb-1.5 pt-0.5 dark:border-hairline-dark">
+        <span class="text-[11px] text-neutral-500 dark:text-neutral-400">截止</span>
+        <span class="text-xs font-medium tabular-nums text-neutral-800 dark:text-neutral-100">
+          {{ formatDeadlineDateTime(menuNode.deadline) }}
+          <span v-if="menuNode.urgency && !menuNode.completed" class="ml-1 text-[11px] font-normal"
+            :class="URGENCY_TEXT_CLASS[menuNode.urgency]">{{ deadlineCountdown(menuNode.deadline) }}</span>
+        </span>
+      </div>
       <button v-for="item in MENU_ITEMS" :key="item.key" type="button"
         class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors"
         :class="item.danger
@@ -233,20 +237,6 @@
         <span class="flex-1">{{ item.label }}</span>
         <span class="text-[10px] text-neutral-400 dark:text-neutral-500">{{ item.hint }}</span>
       </button>
-    </div>
-
-    <!-- 「紧急程度浮层」：点节点右上角圆点展开，显示截止时间与倒数日；
-         位置随节点与视口重算，平移缩放时跟着圆点走，点外部收起 -->
-    <div v-if="urgencyNode" data-mm-urgency-popover
-      class="absolute z-20 panel px-2.5 py-2 shadow-lg"
-      :style="urgencyPopoverStyle" @pointerdown.stop @click.stop>
-      <p class="eyebrow">截止时间</p>
-      <p class="mt-0.5 text-xs font-medium tabular-nums text-neutral-800 dark:text-neutral-100">
-        {{ formatDeadlineDateTime(urgencyNode.deadline) }}
-      </p>
-      <p class="mt-0.5 text-[11px]" :class="URGENCY_TEXT_CLASS[urgencyNode.urgency]">
-        {{ deadlineCountdown(urgencyNode.deadline) }}
-      </p>
     </div>
 
     <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布；
@@ -399,9 +389,9 @@ const checkboxReserve = checkboxSize + checkboxGap
 const moreSize = 16
 const moreGap = 4
 const moreReserve = moreSize + moreGap * 2
-// 更多操作菜单的宽度与估算高度：贴住画布右/下边缘时据此翻到左侧或向上夹紧
+// 更多操作菜单的宽度与估算高度（含顶部的截止信息行）：贴住画布右/下边缘时据此翻到左侧或向上夹紧
 const menuWidth = 168
-const menuHeight = 140
+const menuHeight = 176
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -1487,7 +1477,6 @@ const closeNodeMenu = () => {
 // 三点按钮开合菜单；锚点清空，菜单回到按钮下方
 const toggleNodeMenu = (node) => {
   const id = String(node.id)
-  closeUrgencyPopover()
   menuAnchor.value = null
   menuNodeId.value = menuNodeId.value === id ? null : id
 }
@@ -1498,7 +1487,6 @@ const openNodeMenuAt = (node, event) => {
   // 原地编辑保留浏览器右键菜单，选词与粘贴要用；根节点没有可操作的菜单，同样放行
   if (editingId.value != null || node.isRoot || !container.value) return
   event.preventDefault()
-  closeUrgencyPopover()
   const rect = container.value.getBoundingClientRect()
   menuAnchor.value = {
     x: (event.clientX - rect.left - view.x) / view.scale,
@@ -1548,65 +1536,18 @@ watch(menuNodeId, (id) => {
   else document.addEventListener('pointerdown', onMenuOutside)
 })
 
-// 「紧急程度圆点」配色：红=一天内（含逾期）、橙=三天内、蓝=一周内，深色下同色系提亮
-const URGENCY_DOT_CLASS = {
-  critical: 'fill-rose-500 dark:fill-rose-400',
-  urgent: 'fill-amber-500 dark:fill-amber-400',
-  soon: 'fill-sky-500 dark:fill-sky-400'
+// 勾选框的紧急度描边：红=一天内（含逾期）、橙=三天内、蓝=一周内，深色下同色系提亮
+const URGENCY_CHECK_CLASS = {
+  critical: 'stroke-rose-500 hover:stroke-rose-600 dark:stroke-rose-400 dark:hover:stroke-rose-300',
+  urgent: 'stroke-amber-500 hover:stroke-amber-600 dark:stroke-amber-400 dark:hover:stroke-amber-300',
+  soon: 'stroke-sky-500 hover:stroke-sky-600 dark:stroke-sky-400 dark:hover:stroke-sky-300'
 }
+// 菜单里倒数日的文字色，与勾选框描边同色系
 const URGENCY_TEXT_CLASS = {
   critical: 'text-rose-600 dark:text-rose-400',
   urgent: 'text-amber-600 dark:text-amber-400',
   soon: 'text-sky-600 dark:text-sky-400'
 }
-
-// 圆点圆心距节点右/上边缘的内缩量，浮层定位按同一套坐标反算屏幕位置；
-// 上移一点，避开节点右侧中部的三点按钮热区
-const urgencyDotX = 8
-const urgencyDotY = 7
-const urgencyPopoverWidth = 176
-const urgencyPopoverHeight = 58
-
-// 浮层只记节点 id：位置在渲染时按节点坐标与视口重算，平移缩放时跟着圆点走；
-// 节点被折叠隐藏后找不到就自然消失
-const urgencyPopoverId = ref(null)
-const urgencyNode = computed(() => urgencyPopoverId.value == null
-  ? null
-  : layout.value.nodes.find((node) => node.id === urgencyPopoverId.value) ?? null)
-
-const closeUrgencyPopover = () => {
-  urgencyPopoverId.value = null
-}
-
-const toggleUrgencyPopover = (node) => {
-  const id = String(node.id)
-  closeNodeMenu()
-  urgencyPopoverId.value = urgencyPopoverId.value === id ? null : id
-}
-
-// 点浮层与圆点之外的位置收起；两者自身的按下都 stop 在文档监听之前
-const onUrgencyOutside = () => {
-  closeUrgencyPopover()
-}
-
-watch(urgencyPopoverId, (id) => {
-  if (id == null) document.removeEventListener('pointerdown', onUrgencyOutside)
-  else document.addEventListener('pointerdown', onUrgencyOutside)
-})
-
-// 浮层贴圆点右下方展开，撞到可见区右/下边缘时向左、向上翻
-const urgencyPopoverStyle = computed(() => {
-  const node = urgencyNode.value
-  if (!node) return {}
-  const dotX = view.x + (node.x + nodeWidth - urgencyDotX) * view.scale
-  const dotY = view.y + (node.y + urgencyDotY) * view.scale
-  const left = Math.max(8, Math.min(dotX + 10, visibleWidth.value - urgencyPopoverWidth - 8))
-  const below = dotY + 12
-  const top = below + urgencyPopoverHeight > size.height
-    ? Math.max(8, dotY - urgencyPopoverHeight - 12)
-    : below
-  return { left: `${left}px`, top: `${top}px`, width: `${urgencyPopoverWidth}px` }
-})
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
 const selectNode = (node) => {
@@ -2673,7 +2614,6 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   document.removeEventListener('pointerdown', onHelpOutside)
   document.removeEventListener('pointerdown', onMenuOutside)
-  document.removeEventListener('pointerdown', onUrgencyOutside)
   window.removeEventListener('sync:id-replaced', handleEditIdReplaced)
   clearTimeout(leafHideTimer)
   stopViewAnimation()

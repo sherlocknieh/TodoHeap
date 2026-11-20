@@ -25,7 +25,7 @@ title: "视图与交互"
 
 - 悬停是半透明绿色描边，选中是同色实线加淡绿底，两者同为 2px，只差透明度。
 - 选中后节点右侧出现竖三点按钮，悬停也会露出；右键直接唤出菜单。菜单含重命名、新建子任务、复制为 Markdown、删除任务，靠近边缘自动翻转（`MENU_ITEMS`、`openNodeMenuAt`）。
-- 有截止日期的节点右上角显示紧急圆点：一天内（含逾期）红、三天内橙、一周内蓝，一周以外与无截止日期不显示，已完成任务不显示；点圆点弹出截止时间与倒数日（如「11月21日 23:59 / 明天到期」），浮层随节点与视口移动，点外部收起（`deadlineUrgency`、`deadlineCountdown`、`formatDeadlineDateTime`、`toggleUrgencyPopover`、`urgencyPopoverStyle`；节点数据由 `TodoGraph.vue` 的 `mapNode` 透传 `deadline`）。
+- 未完成任务的勾选框描边按紧急度着色：一天内（含逾期）红、三天内橙、一周内蓝，一周以外与无截止日期沿用中性灰；已完成仍是绿色实心勾。截止时间与倒数日放在节点更多菜单顶部的只读信息行（如「11月21日 23:59 明天到期」，倒数日同色系），根节点没有勾选框与菜单，因此不显示提示（`deadlineUrgency`、`deadlineCountdown`、`formatDeadlineDateTime`、`URGENCY_CHECK_CLASS`、`URGENCY_TEXT_CLASS`；节点数据由 `TodoGraph.vue` 的 `mapNode` 透传 `deadline`）。
 - 出边一侧有圆形控件：有子任务时是折叠开关，叶子节点在指针接近时显示加号；按钮中心就是连线起点（`controlPointFor`、`updateLeafControlHover`、`LEAF_CONTROL_REVEAL`）。
 - 原地编辑使用常驻 textarea：Enter 提交、Esc 取消、Shift+Enter 插入硬换行；节点随内容长高，不出现内部滚动条（`onEditKeydown`、`commitEdit`）。
 - 新建节点：Enter 建同级并落在当前节点之后；Tab、出边加号、菜单「新建子任务」建子级并追加到同级末尾，不受任务列表「新建置顶」影响（`TodoGraph.vue` 的 `createTask`，机制见[任务顺序](../dev/logic/task-order.md)）。
