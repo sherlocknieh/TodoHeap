@@ -45,7 +45,7 @@ title: 关键词索引
 | 复选框 / 打勾 / 完成 / 取消完成 | `components/TodoListItem.vue` `cycleStatus` | 完成判定看 `completed_at` 是否为空 |
 | 圆形勾选圈 / 完成圈变圆 | `components/TodoListItem.vue` 模板内完成按钮 | 圆形表示完成状态，点击在完成/未完成之间切换 |
 | 缩进引导线 / 层级竖线 / 子任务连到父级 / 树状连线 / 分支线 / 末位收角 / 竖线没对准勾选圈 / 连线应该从勾选圈下来 | `components/TodoListItem.vue`「树状连线」、`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle` | 每层一条竖线，`LEVEL_INDENT = 28`：竖线 x 正好是上一级勾选圈圆心，横线再从竖线接到卡片左缘；祖先有后续兄弟时贯穿整行，末位兄弟在行中心收成 └ 角。只为看清层级，不参与拖拽；机制见[任务表树状连线](./logic/task-list-tree-lines.md) |
-| 截止标签变色 / 逾期红 / 今天绿 | `components/TodoListItem.vue` `deadlineChipClass` | 逾期红、当天绿、以后中性；未设截止时只显示日历图标按钮 |
+| 截止标签变色 / 逾期红 / 3 天内橙 / 7 天内黄 | `components/TodoListItem.vue` `deadlineChipClass`；`utils/deadline.js` `deadlineChipClass` | 逾期红、3 天内橙、7 天内黄、更远中性，与任务图紧急度同色系；未设截止时只显示日历图标按钮 |
 | 两态完成 / 点了变完成又变灰 | `components/TodoListItem.vue` `statusMap` | 行内先给即时反馈，再落库 |
 | 已完成区 / 已完成收在下面 / 清除已完成 / 已完成卡片偏左 / 卡片左边缘没对齐 | `pages/todo/TodoList.vue`「已完成：无内容时不占位」、`clearCompletedTodos` | 已完成列表带 `pl-[22px]`，卡片左缘与待办行同一竖线；整棵已完成子树移入回收站，可整体撤销 |
 | 排序 / 排序方式 / 按截止时间 | `pages/todo/TodoList.vue` `sortMode`、`LIST_SORT_OPTIONS` | 「待办」标题栏右侧的排序下拉；手动顺序仍以父级 `child_ids` 为准 |

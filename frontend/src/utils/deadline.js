@@ -26,25 +26,6 @@ export const formatDeadlineLabel = (value) => {
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
-// 截止标签按到期状态着色：逾期红、今天绿、以后中性，扫清单时最急的先跳出来
-export const deadlineChipClass = (value) => {
-  if (!value) return ''
-  const due = new Date(value)
-  if (Number.isNaN(due.getTime())) return ''
-
-  const now = new Date()
-  const endOfToday = new Date(now)
-  endOfToday.setHours(23, 59, 59, 999)
-
-  if (due < now) {
-    return 'border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:border-rose-500/50'
-  }
-  if (due <= endOfToday) {
-    return 'border-accent-200 bg-accent-50 text-accent-800 hover:border-accent-300 dark:border-accent-500/30 dark:bg-accent-500/10 dark:text-accent-200 dark:hover:border-accent-500/50'
-  }
-  return 'border-hairline text-neutral-500 hover:border-accent-300 hover:text-neutral-700 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:text-neutral-200'
-}
-
 // 截止时间到本地自然日的剩余天数，逾期为负；无值或非法日期返回 null
 const calendarDaysUntil = (value, now) => {
   if (!value) return null
@@ -54,6 +35,26 @@ const calendarDaysUntil = (value, now) => {
   today.setHours(0, 0, 0, 0)
   due.setHours(0, 0, 0, 0)
   return Math.round((due - today) / (1000 * 60 * 60 * 24))
+}
+
+// 截止标签按剩余天数分级着色：逾期红、3 天内橙、7 天内黄、更远中性，与任务图紧急度同色系
+export const deadlineChipClass = (value, now = new Date()) => {
+  if (!value) return ''
+  const due = new Date(value)
+  if (Number.isNaN(due.getTime())) return ''
+
+  if (due < now) {
+    return 'border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:border-rose-500/50'
+  }
+
+  const days = calendarDaysUntil(value, now)
+  if (days <= 3) {
+    return 'border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:border-amber-500/50'
+  }
+  if (days <= 7) {
+    return 'border-yellow-200 bg-yellow-50 text-yellow-700 hover:border-yellow-300 dark:border-yellow-500/30 dark:bg-yellow-950/40 dark:text-yellow-300 dark:hover:border-yellow-500/50'
+  }
+  return 'border-hairline text-neutral-500 hover:border-accent-300 hover:text-neutral-700 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:text-neutral-200'
 }
 
 // 任务图紧急圆点的分级：一天内 critical、三天内 urgent、一周内 soon；
