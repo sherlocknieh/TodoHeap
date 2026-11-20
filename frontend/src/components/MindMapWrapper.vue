@@ -1703,17 +1703,18 @@ const selectNode = (node, event) => {
     container.value?.focus({ preventScroll: true })
 
     if (event.shiftKey) {
-      // 没有多选锚点时用当前单选节点当起点，第一次 Shift 也能连选
+      // Shift 与 Ctrl 一样是累加：以上一次选中的节点为锚点，把兄弟区间并入现有选择
+      const target = String(node.id)
       const anchor = multiAnchor.value
         || (selectedId.value && selectedId.value !== rootNodeId.value ? selectedId.value : null)
-      if (anchor) {
-        const range = siblingRangeSelection(anchor, String(node.id))
-        if (range) {
-          multiSelectedKeys.value = range
-          multiAnchor.value = anchor
-          return
-        }
-      }
+      const next = new Set(beginMultiSelection())
+      const range = anchor && anchor !== target ? siblingRangeSelection(anchor, target) : null
+      if (range) range.forEach(id => next.add(id))
+      next.add(target)
+      multiSelectedKeys.value = next
+      // 锚点前进到本次点击的节点，下一次 Shift 从这里继续
+      multiAnchor.value = target
+      return
     }
 
     multiSelectedKeys.value = toggleSelection(beginMultiSelection(), String(node.id))
@@ -1880,11 +1881,10 @@ const visibleParentOf = (id) => {
 }
 
 // Shift 连选口径：同父只取连续兄弟；跨父级只保留两端，避免把无关分支卷进来
+// Shift 连选的兄弟区间：同父才取两端之间的连续兄弟，跨父级交给调用方只追加点击节点
 const siblingRangeSelection = (anchorKey, targetKey) => {
   const anchorParent = visibleParentOf(anchorKey)
-  if (anchorParent !== visibleParentOf(targetKey)) {
-    return new Set([anchorKey, targetKey])
-  }
+  if (anchorParent !== visibleParentOf(targetKey)) return null
 
   const visible = new Set(layout.value.nodes.map((node) => node.id))
   const siblings = [...new Set(nodeIndex.value.childrenOf.get(anchorParent) || [])]
