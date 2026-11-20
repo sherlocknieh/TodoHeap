@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTodoStore } from '@/stores/todos'
 import { useAgentStore } from '@/stores/agent'
@@ -96,22 +96,89 @@ const expandSection = (key) => {
 const AI_SECTION_KEYS = ['sessions', 'mcp', 'skills']
 const SECONDARY_SECTION_HEIGHT = 192
 
+const aiStackEl = ref(null)
+const sessionsHeaderEl = ref(null)
+const mcpHeaderEl = ref(null)
+const skillsHeaderEl = ref(null)
+const skillsResizeEl = ref(null)
+
+// 分区高度写成像素，展开/折叠才有一致的过渡；尚未测量时留空，回退到 flex 布局
+const aiSectionHeights = ref({})
+
 const expandedAiSections = computed(() => AI_SECTION_KEYS.filter((key) => !collapsedSections.value[key]))
 const fillsAiSidebar = (key) => expandedAiSections.value[0] === key
 
-const aiSectionClass = (key) => [
-  'flex flex-col min-h-0',
-  fillsAiSidebar(key) ? 'flex-1' : 'shrink-0'
-]
+// 折叠时分区只剩标题行，标题高度也是展开过渡的起点
+const headerHeightOf = (key) => ({
+  sessions: sessionsHeaderEl,
+  mcp: mcpHeaderEl,
+  skills: skillsHeaderEl
+})[key]?.value?.offsetHeight ?? 0
+
+const openSectionHeight = (key, headerHeight) => Math.max(
+  headerHeight,
+  key === 'skills' ? skillsHeight.value : SECONDARY_SECTION_HEIGHT
+)
+
+// 技能区上缘拖拽条也占布局高度（含负外边距），计算剩余空间时要扣掉
+const resizeHandleSpace = () => {
+  const el = skillsResizeEl.value
+  if (!showSkillsResize.value || !el) return 0
+  return el.offsetHeight + (parseFloat(getComputedStyle(el).marginTop) || 0)
+}
+
+// 计算折叠栈各分区的目标高度：首位展开分区吃掉剩余空间，其余展开分区用统一高度
+const measureAiSectionHeights = () => {
+  const stack = aiStackEl.value
+  if (!stack) return
+  const total = stack.clientHeight
+  if (!total) return
+  const headers = Object.fromEntries(AI_SECTION_KEYS.map((key) => [key, headerHeightOf(key)]))
+  const open = expandedAiSections.value
+  const heights = { ...headers }
+  if (open.length) {
+    const first = open[0]
+    const used = AI_SECTION_KEYS
+      .filter((key) => key !== first)
+      .reduce((sum, key) => sum + (open.includes(key) ? openSectionHeight(key, headers[key]) : headers[key]), 0)
+    heights[first] = Math.max(0, total - used - resizeHandleSpace())
+  }
+  aiSectionHeights.value = heights
+}
+
+// 展开权重变化时按像素高度过渡；拖动技能区分隔条时关掉过渡，保证跟手
+const aiSectionClass = (key) => {
+  const measured = Object.keys(aiSectionHeights.value).length > 0
+  return [
+    'flex flex-col min-h-0 overflow-hidden',
+    measured || !fillsAiSidebar(key) ? 'shrink-0' : 'flex-1',
+    skillsResizing.value ? '' : 'transition-[height] duration-200 ease-out'
+  ]
+}
 
 const aiSectionStyle = (key) => {
-  if (collapsedSections.value[key] || fillsAiSidebar(key)) return null
-  const height = key === 'skills' ? skillsHeight.value : SECONDARY_SECTION_HEIGHT
-  return { height: `${height}px` }
+  const height = aiSectionHeights.value[key]
+  return height === undefined ? null : { height: `${height}px` }
 }
 
 // 技能区排首位展开时已占满剩余高度，拖拽条不再有意义
 const showSkillsResize = computed(() => !collapsedSections.value.skills && !fillsAiSidebar('skills'))
+
+// 侧栏尺寸变化（窗口、拖宽）后重新测量；分区开合与技能高度变化由 watch 触发
+let aiStackObserver = null
+const refreshAiLayout = () => {
+  aiStackObserver?.disconnect()
+  aiStackObserver = null
+  if (!aiStackEl.value) return
+  aiStackObserver = new ResizeObserver(measureAiSectionHeights)
+  aiStackObserver.observe(aiStackEl.value)
+  measureAiSectionHeights()
+}
+
+watch([expandedAiSections, skillsHeight], measureAiSectionHeights, { flush: 'post' })
+watch([() => props.section, () => props.show], refreshAiLayout, { flush: 'post' })
+onMounted(refreshAiLayout)
+onBeforeUnmount(() => aiStackObserver?.disconnect())
 
 // AI 侧栏展示会话列表，进入 AI 入口时确保会话已载入
 const ensureAgent = () => {
@@ -531,9 +598,10 @@ const switchView = (view) => {
       </template>
 
       <template v-else>
+        <div ref="aiStackEl" class="flex-1 min-h-0 flex flex-col overflow-hidden">
         <!-- 对话会话：新建、切换、重命名、删除；首位展开时占满剩余高度 -->
         <section :class="aiSectionClass('sessions')" :style="aiSectionStyle('sessions')">
-          <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
+          <div ref="sessionsHeaderEl" class="shrink-0 flex items-center gap-1 pl-1 pr-2">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.sessions" @click="toggleSection('sessions')">
               <AppIcon :name="collapsedSections.sessions ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
@@ -544,7 +612,7 @@ const switchView = (view) => {
               <AppIcon name="plus" :size="14" />
             </button>
           </div>
-          <div v-show="!collapsedSections.sessions" class="flex-1 min-h-0 overflow-auto space-y-0.5">
+          <div :inert="collapsedSections.sessions || undefined" class="flex-1 min-h-0 overflow-auto space-y-0.5">
             <p v-if="!agent.sessions.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
               还没有会话
             </p>
@@ -586,9 +654,9 @@ const switchView = (view) => {
         </section>
 
         <!-- MCP 服务：非首位展开时使用统一高度，内部独立滚动 -->
-        <section class="flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark"
+        <section class="flex flex-col min-h-0"
           :class="aiSectionClass('mcp')" :style="aiSectionStyle('mcp')">
-          <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
+          <div ref="mcpHeaderEl" class="shrink-0 flex items-center gap-1 border-t border-hairline pl-1 pr-2 pt-2 dark:border-hairline-dark">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.mcp" @click="toggleSection('mcp')">
               <AppIcon :name="collapsedSections.mcp ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
@@ -601,7 +669,7 @@ const switchView = (view) => {
             </button>
           </div>
 
-          <div v-show="!collapsedSections.mcp" class="flex-1 min-h-0 overflow-auto space-y-0.5">
+          <div :inert="collapsedSections.mcp || undefined" class="flex-1 min-h-0 overflow-auto space-y-0.5">
             <form v-if="mcpForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
               @submit.prevent="saveMcp">
               <input v-model="mcpForm.name" class="field w-full px-1.5 py-1 text-xs"
@@ -701,15 +769,15 @@ const switchView = (view) => {
         </section>
 
         <!-- 技能：非首位展开时可拖拽调高；排首位展开时占满剩余高度，不显示拖拽条 -->
-        <div v-show="showSkillsResize" class="shrink-0 -mt-1 h-2 flex items-center justify-center cursor-row-resize touch-none transition-colors"
+        <div v-show="showSkillsResize" ref="skillsResizeEl" class="shrink-0 -mt-1 h-2 flex items-center justify-center cursor-row-resize touch-none transition-colors"
           :class="skillsResizing ? 'text-accent-600 dark:text-accent-400' : 'text-transparent hover:text-accent-400 dark:hover:text-accent-500'"
           role="separator" aria-orientation="horizontal" title="拖拽调整技能区高度"
           @pointerdown="startSkillsResize">
           <div class="h-0.5 w-8 rounded-full bg-current"></div>
         </div>
-        <section class="flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark"
+        <section class="flex flex-col min-h-0"
           :class="aiSectionClass('skills')" :style="aiSectionStyle('skills')">
-          <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
+          <div ref="skillsHeaderEl" class="shrink-0 flex items-center gap-1 border-t border-hairline pl-1 pr-2 pt-2 dark:border-hairline-dark">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.skills" @click="toggleSection('skills')">
               <AppIcon :name="collapsedSections.skills ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
@@ -721,7 +789,7 @@ const switchView = (view) => {
             </button>
           </div>
 
-          <div v-show="!collapsedSections.skills" class="flex-1 min-h-0 overflow-auto space-y-0.5">
+          <div :inert="collapsedSections.skills || undefined" class="flex-1 min-h-0 overflow-auto space-y-0.5">
             <form v-if="skillForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
               @submit.prevent="saveSkill">
               <input v-model="skillForm.name" class="field w-full px-1.5 py-1 text-xs"
@@ -789,6 +857,7 @@ const switchView = (view) => {
             </p>
           </div>
         </section>
+        </div>
       </template>
     </div>
 
