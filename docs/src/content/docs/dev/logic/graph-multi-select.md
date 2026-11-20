@@ -8,7 +8,8 @@ title: "任务图节点多选"
 ## 选择状态
 
 - `multiSelectedKeys` 保存字符串节点 ID，根节点不参与；与详情面板的单选 `selectedTaskId` 相互独立，多选不会切换详情。
-- Ctrl/⌘ 切换单个节点并更新锚点；Shift 从锚点按 `layout.value.nodes` 的可见顺序取区间，锚点不可见时退化为切换。
+- Ctrl/⌘ 切换单个节点并更新锚点；普通点击会清空多选但记住该节点作为锚点，第一次 Shift 也能从当前单选节点开始连选。
+- Shift 从锚点按 `layout.value.nodes` 的可见顺序取区间，锚点不可见时退化为切换。
 - 多选高亮复用节点选中样式：`measureNode` 把多选 ID 也计入 `selected`。
 - 普通点击、点空白或按 Esc 退出多选；外部切换任务（列表、侧栏）时同步清空，避免高亮与详情不一致。
 

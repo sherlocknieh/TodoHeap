@@ -1693,16 +1693,22 @@ const selectNode = (node, event) => {
     selectedEdgeKey.value = null
     container.value?.focus({ preventScroll: true })
 
-    if (event.shiftKey && multiAnchor.value) {
-      const order = layout.value.nodes
-        .filter(item => !item.isPlaceholder && !item.isRoot)
-        .map(item => String(item.id))
-      const start = order.indexOf(multiAnchor.value)
-      const end = order.indexOf(String(node.id))
-      if (start !== -1 && end !== -1) {
-        const [from, to] = start <= end ? [start, end] : [end, start]
-        multiSelectedKeys.value = new Set(order.slice(from, to + 1))
-        return
+    if (event.shiftKey) {
+      // 没有多选锚点时用当前单选节点当起点，第一次 Shift 也能连选
+      const anchor = multiAnchor.value
+        || (selectedId.value && selectedId.value !== rootNodeId.value ? selectedId.value : null)
+      if (anchor) {
+        const order = layout.value.nodes
+          .filter(item => !item.isPlaceholder && !item.isRoot)
+          .map(item => String(item.id))
+        const start = order.indexOf(anchor)
+        const end = order.indexOf(String(node.id))
+        if (start !== -1 && end !== -1) {
+          const [from, to] = start <= end ? [start, end] : [end, start]
+          multiSelectedKeys.value = new Set(order.slice(from, to + 1))
+          multiAnchor.value = anchor
+          return
+        }
       }
     }
 
@@ -1712,6 +1718,8 @@ const selectNode = (node, event) => {
   }
 
   clearMultiSelection()
+  // 普通点击也记住锚点：下一次 Shift 可直接从该节点连选
+  if (!node.isRoot) multiAnchor.value = String(node.id)
   closeNodeMenu()
   selectedEdgeKey.value = null
   container.value?.focus({ preventScroll: true })
