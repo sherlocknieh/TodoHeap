@@ -3,6 +3,7 @@
   <div ref="container" tabindex="0"
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
     :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', darkCanvas && 'mindmap-canvas--dark', dotGrid && 'mindmap-dots']"
+    :style="dotGrid ? dotGridStyle : undefined"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
     @keydown="onKeydown">
@@ -109,7 +110,7 @@
                   : editingId === Number(node.id)
                     ? 'text-neutral-800 dark:text-neutral-100'
                     : node.completed_at
-                      ? 'text-neutral-400 line-through dark:text-neutral-500'
+                      ? 'text-neutral-400 line-through group-hover:text-neutral-800 dark:text-neutral-500 dark:group-hover:text-neutral-100'
                       : 'text-neutral-800 dark:text-neutral-100',
                 editingId === Number(node.id) ? 'pointer-events-auto' : 'pointer-events-none'
               ]"
@@ -153,8 +154,11 @@
             <!-- 透明热区：命中范围略大于可见圆，指针稍偏也能点到，又不至于抢走节点边缘的点击 -->
             <!-- 按钮挂在节点外侧的画布上，配色统一按画布底走，根节点也不跟着节点底色变化 -->
             <circle :r="toggleRadius + 3" class="cursor-pointer fill-transparent" />
-            <circle :r="toggleRadius" stroke-width="1"
-              class="cursor-pointer transition-colors fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800" />
+            <!-- 折叠开关走中性灰；叶子节点是新建子任务入口，绿色实心圆 + 白加号，跟折叠开关区分 -->
+            <circle :r="toggleRadius" stroke-width="1" class="cursor-pointer transition-colors"
+              :class="node.childCount > 0
+                ? 'fill-white stroke-neutral-300 hover:fill-neutral-50 dark:fill-neutral-900 dark:stroke-neutral-600 dark:hover:fill-neutral-800'
+                : 'stroke-none fill-accent-700 hover:fill-accent-800 dark:fill-accent-500 dark:hover:fill-accent-600'" />
             <template v-if="node.childCount > 0">
               <text v-if="node.collapsed" y="0" text-anchor="middle" dominant-baseline="central"
                 class="pointer-events-none text-[10px] tabular-nums fill-neutral-500 dark:fill-neutral-400">{{ node.childCount }}</text>
@@ -164,7 +168,7 @@
             </template>
             <template v-else>
               <path d="M-3 0 H3 M0 -3 V3" fill="none" stroke-width="1.3" stroke-linecap="round"
-                class="pointer-events-none stroke-neutral-500 dark:stroke-neutral-300" />
+                class="pointer-events-none stroke-white" />
               <title>新建子任务，或拖到其它节点建立链接</title>
             </template>
           </g>
@@ -293,9 +297,14 @@
         :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
         <AppIcon :name="currentDirection.icon" :size="14" />
       </button>
-      <button
-        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-        title="适应视图" @click.stop="fitView">
+      <button type="button"
+        class="flex rounded border p-1.5 transition-colors"
+        :class="viewMode === 'root'
+          ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
+          : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
+        :title="viewMode === 'fit' ? '切换到聚焦根节点' : '切换到全景视图'"
+        :aria-label="viewMode === 'fit' ? '切换到聚焦根节点' : '切换到全景视图'"
+        @click.stop="toggleViewMode">
         <AppIcon name="target" :size="14" />
       </button>
       <button type="button" :aria-pressed="darkCanvas" :aria-label="darkCanvas ? '切换浅色背景' : '切换深色背景'"
@@ -422,6 +431,9 @@ const visibleWidth = computed(() => Math.max(160, size.width - detailPanelInset.
 // 聚焦宽度：三栏聚焦把选中节点放在中间栏，中间栏位于整宽中心，不受右侧浮层影响
 const focusWidth = computed(() => Math.max(160, size.width))
 const view = reactive({ x: 0, y: 0, scale: 1 })
+
+// 右下角目标按钮的两档视角：null=自由视角，fit=全景，root=聚焦根节点；点按钮在 fit/root 间来回切
+const viewMode = ref(null)
 const panning = ref(false)
 
 // 根节点是真实任务：它的 id 就是根任务的 id；根任务还没拉到时用合成根 'root' 占位
@@ -440,12 +452,10 @@ const rootSelected = ref(false)
 const editingId = ref(null)
 const editingText = ref('')
 
-// 叶子节点的加号在指针靠近按钮位置时出现，不必先进入节点；离开后短暂保留，
-// 给「从节点移向它外侧的加号」留出余量，不必精准一次命中。
+// 叶子节点的加号在指针靠近按钮位置时出现，不必先进入节点；指针离开节点与邻近半径后立即消失。
 // 从加号拉线期间由 draggingLeafId 保持显示，指针移远也不消失。
 const hoveredLeafId = ref(null)
 const draggingLeafId = ref(null)
-let leafHideTimer = null
 // 邻近判定半径（屏幕像素）：按缩放折算到图内，保持不同缩放下手感一致
 const LEAF_CONTROL_REVEAL = 32
 
@@ -458,22 +468,14 @@ const onNodePointerLeave = () => {
 }
 
 const holdLeafControl = (node) => {
-  clearTimeout(leafHideTimer)
-  leafHideTimer = null
   if (!node.isRoot && node.childCount === 0) hoveredLeafId.value = String(node.id)
 }
 
 const releaseLeafControl = () => {
-  clearTimeout(leafHideTimer)
-  leafHideTimer = setTimeout(() => {
-    leafHideTimer = null
-    hoveredLeafId.value = null
-  }, 260)
+  hoveredLeafId.value = null
 }
 
 const clearLeafControlHover = () => {
-  clearTimeout(leafHideTimer)
-  leafHideTimer = null
   hoveredLeafId.value = null
 }
 
@@ -518,6 +520,21 @@ const darkCanvas = persistedRef('mindmap-dark-canvas', systemPrefersDark, {
 // 坐标网格带世界坐标刻度，和点阵底纹互斥：同时铺两层纹理太花，切换时关掉另一层
 const coordinateGrid = persistedRef('mindmap-coordinate-grid', false, {
   validate: (value) => typeof value === 'boolean'
+})
+
+// 点阵底纹跟随平移与缩放：点距按缩放倍率放大，整层位置跟随视口偏移。
+// 只处理过密：屏幕点距低于阈值时把世界点距按 2 的幂翻倍（抽稀），点仍落在世界坐标整数倍上；
+// 放大导致点距变大时不做任何调整
+const DOT_GRID_GAP = 24
+const DOT_GRID_MIN_SCREEN_GAP = 16
+const dotGridStyle = computed(() => {
+  let level = 1
+  while (DOT_GRID_GAP * view.scale * level < DOT_GRID_MIN_SCREEN_GAP) level *= 2
+  const gap = DOT_GRID_GAP * level * view.scale
+  return {
+    backgroundSize: `${gap}px ${gap}px`,
+    backgroundPosition: `${view.x - gap / 2}px ${view.y - gap / 2}px`
+  }
 })
 
 const toggleDotGrid = () => {
@@ -1433,6 +1450,7 @@ const fitView = () => {
     (size.height - pad * 2) / contentHeight,
     1.25
   ))
+  viewMode.value = 'fit'
   animateView({
     scale,
     // 内容左上角不在原点：按 minX / minY 把包围盒摆到可见区中央
@@ -1453,6 +1471,7 @@ const zoomTo = (nextScale) => {
   const target = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, nextScale))
   if (Math.abs(target - view.scale) < 0.001) return
   columnFocus.value = false
+  viewMode.value = null
   hasInteracted = true
   closeNodeMenu()
   // 锚点下的世界坐标保持不动：按新旧比例反算平移
@@ -1845,6 +1864,27 @@ const focusScale = () => Math.max(0.15, Math.min(
   (focusWidth.value - 96) / nodeWidth
 ))
 
+// 聚焦根节点：把根节点摆到可见区中央，按单节点阅读倍率放大；
+// 与三栏聚焦无关，不依赖当前选中项，只改视口
+const focusRoot = () => {
+  const root = layout.value.nodes.find((node) => node.isRoot)
+  if (!root || !size.width || !size.height) return
+  columnFocus.value = false
+  const scale = focusScale()
+  animateView({
+    scale,
+    x: visibleWidth.value / 2 - (root.x + nodeWidth / 2) * scale,
+    y: size.height / 2 - (root.y + root.height / 2) * scale
+  })
+  viewMode.value = 'root'
+}
+
+// 右下角目标按钮：全景与聚焦根节点来回切；自由视角或停在根节点时先回到全景
+const toggleViewMode = () => {
+  if (viewMode.value === 'fit') focusRoot()
+  else fitView()
+}
+
 // 聚焦固定为三栏视野：父级层、当前层、子级层各占一栏，与真实父子关系无关。
 // 多父、回边或子级落在远处时也不会把画面缩得过小；叶子还没子级时栏位照样留着
 const focusMainSpan = () => nodeWidth * 3 + mainGap * 2
@@ -1881,6 +1921,7 @@ const centerOnNode = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
   if (!node || !size.width || !size.height) return
   columnFocus.value = true
+  viewMode.value = null
   const target = focusTargetFor(node)
   // 位置与缩放都已到位时不再启动动画，重复点击同一节点不会抖动
   const settled = Math.abs(target.x - view.x) < 0.5
@@ -2051,6 +2092,7 @@ const ensureEditScale = (node) => {
   if (view.scale >= target) return
   // 编辑档位与三栏视野不是同一个缩放，先退出跟随，避免尺寸变化把编辑框拉走
   columnFocus.value = false
+  viewMode.value = null
   const centerX = node.x + nodeWidth / 2
   const centerY = node.y + node.height / 2
   animateView({
@@ -2358,6 +2400,7 @@ const onWheel = (event) => {
   hasInteracted = true
   // 手动缩放/平移即离开三栏视野，之后尺寸变化不再跟随
   columnFocus.value = false
+  viewMode.value = null
   // 手动缩放/平移优先，打断正在进行的居中动画
   stopViewAnimation()
 
@@ -2638,6 +2681,7 @@ const onPointerDown = (event, fromRoot = false) => {
   hasInteracted = true
   // 拖拽平移会改变视口，三栏视野不再成立
   columnFocus.value = false
+  viewMode.value = null
   // 拖拽平移优先，打断正在进行的居中动画
   stopViewAnimation()
   panning.value = true
@@ -2703,7 +2747,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onHelpOutside)
   document.removeEventListener('pointerdown', onMenuOutside)
   window.removeEventListener('sync:id-replaced', handleEditIdReplaced)
-  clearTimeout(leafHideTimer)
   stopViewAnimation()
   cancelPendingCenter()
   if (saveViewTimer) clearTimeout(saveViewTimer)
@@ -2728,12 +2771,9 @@ watch(direction, () => nextTick(fitView))
   background-color: var(--color-canvas-dark);
 }
 
-/* 点阵底纹：开关打开后铺一层固定网格点，作为画布上的静态纹理，不随平移与缩放变化 */
+/* 点阵底纹：开关打开后铺一层网格点；点距与位置由 dotGridStyle 按当前平移缩放写入 inline 样式 */
 .mindmap-canvas.mindmap-dots {
   background-image: radial-gradient(circle, rgba(20, 20, 40, 0.10) 1px, transparent 1px);
-  background-size: 24px 24px;
-  /* 点画在每块瓦片中心，回退半个点距 */
-  background-position: -12px -12px;
 }
 
 /* 深色画布上点色反相，否则点阵沉进底色看不出来 */
