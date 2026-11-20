@@ -12,9 +12,9 @@
       </p>
     </Teleport>
 
-    <!-- 快速添加 / 搜索：同一个输入框复用，左侧圆钮切换新建与搜索 -->
+    <!-- 快速添加 / 搜索：同一个输入框复用，左侧圆钮切换新建与搜索；min-h 保持两种模式同高 -->
     <div
-      class="mt-4 ml-[22px] flex items-center gap-2.5 rounded-lg border border-hairline bg-surface py-1.5 pl-2 pr-1.5 shadow-[0_1px_2px_rgb(6_80_48/0.05)] transition-[border-color,box-shadow] focus-within:border-accent-500 focus-within:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:focus-within:border-accent-500/60">
+      class="mt-4 ml-[22px] flex min-h-[42px] items-center gap-2.5 rounded-lg border border-hairline bg-surface py-1.5 pl-2 pr-1.5 shadow-[0_1px_2px_rgb(6_80_48/0.05)] transition-[border-color,box-shadow] focus-within:border-accent-500 focus-within:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:focus-within:border-accent-500/60">
       <!-- 「模式切换」：虚线圈里的 + 表示新建，放大镜表示搜索 -->
       <button type="button"
         class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-dashed transition-colors"
