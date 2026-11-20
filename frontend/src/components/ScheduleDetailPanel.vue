@@ -549,13 +549,13 @@ const remove = async () => {
         <span>删除</span>
       </button>
       <div class="ml-auto flex min-w-0 items-center gap-2">
-        <!-- 「同步状态」：非法草稿在本地提示，网络状态复用底栏同一份指示 -->
+        <!-- 「同步状态」：非法草稿与写入失败在本地提示，其余同步过程只禁用保存按钮 -->
         <span v-if="draftError" class="truncate text-[11px] text-amber-600 dark:text-amber-400">未同步：{{ draftError }}</span>
-        <SyncStatusIndicator v-else-if="scheduleStore.syncStatus !== 'idle'"
-          :status="scheduleStore.syncStatus"
-          :title="scheduleStore.syncStatus === 'error' ? scheduleStore.syncError : '日程写入中'" />
+        <SyncStatusIndicator v-else-if="scheduleStore.syncStatus === 'error'"
+          status="error"
+          :title="scheduleStore.syncError" />
         <button class="btn-primary" :disabled="isSaving" @click="saveAndClose">
-          <span>{{ isSaving ? '同步中…' : '保存' }}</span>
+          <span>保存</span>
         </button>
       </div>
     </footer>

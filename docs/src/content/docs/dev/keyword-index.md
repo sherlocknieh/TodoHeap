@@ -27,7 +27,7 @@ title: 关键词索引
 | 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏；主题与详情面板开关常驻在这一行，不随视图操作让位 |
 | 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图只让适应视图与节点菜单按 `detailPanelInset` 避开面板，三栏聚焦按整宽居中；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
 | 底栏 / 状态栏 / 底部统计 / 进度条 | `pages/Todo.vue`「底栏统计」「底栏：导航开关、统计与同步状态」 | 根任务不计入统计 |
-| 同步状态 / 断线 / 待同步 / 已同步 | `pages/Todo.vue` `syncState`；`components/SyncStatusIndicator.vue`；`stores/schedules.js` `syncStatus` | 底栏与日程右栏共用同一枚徽章；优先级：断线 > 日程写入失败 > 待同步 > 同步中 > 已同步 |
+| 同步状态 / 断线 / 待同步 / 已同步 | `pages/Todo.vue` `syncState`；`components/SyncStatusIndicator.vue`；`stores/schedules.js` `syncStatus` | 底栏常驻；日程右栏只在写入失败时显示，写入期间只置灰「保存」；优先级：断线 > 日程写入失败 > 待同步 > 同步中 > 已同步 |
 | 设置浮窗 / 设置弹窗 / 齿轮 | `pages/todo/Settings.vue`；`pages/Todo.vue`「设置浮窗」 | 地址栏 `tab` 参数控制，刷新可回到同一面板 |
 | 轻提示 / toast / 撤销提示 | `pages/Todo.vue` `const toast = ref`、「轻提示：删除、完成、批量操作后」 | 删除等操作后可从提示里撤销；链接提示额外提供「改为移动」按钮 |
 | 点空白关闭详情 / 点别处收起右栏 / 点画布收起侧栏 | `pages/Todo.vue`「点击中栏区域时关闭详情面板」、`handleCanvasBackgroundClick` | 浮起的侧栏与右栏点外部收起；画布自行阻止冒泡，空白点击由 `background-click` 事件补上，选中节点也会收起浮层导航 |
