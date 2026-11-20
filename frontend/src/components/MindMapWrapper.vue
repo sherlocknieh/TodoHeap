@@ -1969,11 +1969,11 @@ const animateView = (target, duration = 320) => {
   viewAnimation = requestAnimationFrame(step)
 }
 
-// 编辑时的可读档位上限：节点主体约占可见区宽度的 1/5，
-// 窄视口退让到刚好放得下，避免节点被裁切；基准扣掉右栏，避免放大后落在面板下面
-const FOCUS_SCALE = 1.1
+// 编辑时的可读档位：宽视口最多放大到 100%，够看清即可；
+// 窄视口退让到刚好放得下节点，避免被裁切；基准扣掉右栏，避免放大后落在面板下面
+const EDIT_SCALE = 1
 const readableScale = () => Math.max(ZOOM_MIN, Math.min(
-  FOCUS_SCALE,
+  EDIT_SCALE,
   (visibleWidth.value - 96) / nodeWidth
 ))
 

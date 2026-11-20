@@ -36,7 +36,7 @@ title: "视图与交互"
 ### 选中、编辑与右栏
 
 - 选中只保证可见：图内单击不移动视口；从列表/侧栏选中或键盘导航时，节点完整可见就不动，出界才最小平移带回，节点比可见区还大时才缩小并居中（`ensureNodeVisible`、`utils/mindmapView.js` 的 `revealView`），机制见[任务图选中项的可见性修正](../dev/logic/mindmap-selection-visibility.md)。
-- 双击 / F2 进入编辑时会补到可读档位（`readableScale`，宽视口上限 1.1 倍），以节点中心为锚点只放大不移动，见[任务图编辑时的缩放档位](../dev/logic/mindmap-edit-scale.md)。
+- 双击 / F2 进入编辑时会补到可读档位（`readableScale`，宽视口最多放大到 100%），以节点中心为锚点只放大不移动，见[任务图编辑时的缩放档位](../dev/logic/mindmap-edit-scale.md)。
 - 详情右栏是浮层，不挤压画布；适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避让，右下角视图控件随面板左移（`utils/detailPanelContext.js`）。
 
 ## 拖拽与连线
