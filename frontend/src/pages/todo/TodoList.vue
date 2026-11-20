@@ -136,6 +136,12 @@
                 <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
               </button>
             </template>
+            <!-- 「任务添加按钮」：跳到顶部添加栏；搜索态顺便切回新建 -->
+            <button type="button"
+              class="grid h-6 w-6 shrink-0 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              title="添加任务" aria-label="添加任务" @click="focusAddInput">
+              <AppIcon name="plus" :size="13" />
+            </button>
           </div>
         </div>
       </section>
@@ -564,6 +570,15 @@ const handleAddEsc = () => {
 // 清空搜索词后把焦点放回输入框，方便继续输入
 const clearSearch = () => {
   searchQuery.value = ''
+  nextTick(() => addInputRef.value?.focus())
+}
+
+// 「待办」标题栏的添加按钮：回到顶部添加栏；搜索态先切回新建再聚焦
+const focusAddInput = () => {
+  if (addMode.value !== 'add') {
+    addMode.value = 'add'
+    searchQuery.value = ''
+  }
   nextTick(() => addInputRef.value?.focus())
 }
 
