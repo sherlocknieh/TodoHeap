@@ -379,7 +379,7 @@ const handleCanvasBackgroundClick = () => {
 	if (showDetailPanel.value && isDetailPanelFloating.value) closeDetailPanel()
 }
 
-// 日程选中：右栏编辑该日程，窄屏时一并展开面板
+// 日程选中：无条件展开右栏编辑该日程；窄屏时右栏浮在内容之上
 const handleEventSelected = (eventId) => {
 	if (eventId == null) {
 		selectedEventId.value = null
@@ -387,9 +387,7 @@ const handleEventSelected = (eventId) => {
 		return
 	}
 	selectedEventId.value = eventId
-	if (window.innerWidth > 1024) {
-		showDetailPanel.value = true
-	}
+	showDetailPanel.value = true
 }
 
 // 创建新任务
@@ -445,10 +443,12 @@ const handleClickOutside = (event) => {
 		}
 	}
 	// 浮层右栏点击面板外收起；任务图里点画布由导图自己处理选中与关闭
+	// 日程列表项与新建入口会主动展开右栏，同一次点击不能又把它收起
 	if (showDetailPanel.value && isDetailPanelFloating.value) {
 		const insidePanel = event.target.closest?.('[data-detail-panel]')
 		const insideTrigger = event.target.closest?.('[data-detail-panel-trigger]')
-		if (!insidePanel && !insideTrigger) closeDetailPanel()
+		const insideSchedule = event.target.closest?.('[data-keep-detail-panel]')
+		if (!insidePanel && !insideTrigger && !insideSchedule) closeDetailPanel()
 	}
 }
 

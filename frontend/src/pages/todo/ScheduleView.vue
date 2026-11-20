@@ -230,7 +230,7 @@ onMounted(() => {
     <Teleport defer to="#main-topbar-actions">
       <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ dayEvents.length }} 个日程</span>
       <div class="flex shrink-0 items-center gap-1.5">
-        <button class="btn-primary" :disabled="isCreating" @click="createSchedule">
+        <button class="btn-primary" data-keep-detail-panel :disabled="isCreating" @click="createSchedule">
           <AppIcon name="plus" :size="14" />
           <span>{{ isCreating ? '新建中…' : '新建' }}</span>
         </button>
@@ -333,7 +333,7 @@ onMounted(() => {
           <span class="ml-1 font-mono text-neutral-400 dark:text-neutral-600">{{ dayEvents.length }}</span>
         </p>
         <!-- 「新建日程」图标：顶栏操作在窄屏被隐藏时，入口仍留在这里 -->
-        <button type="button"
+        <button type="button" data-keep-detail-panel
           class="rounded p-1 text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-700 dark:hover:bg-accent-500/10 dark:hover:text-accent-300"
           :disabled="isCreating" title="新建日程" aria-label="新建日程" @click="createSchedule">
           <AppIcon name="plus" :size="14" />
@@ -346,7 +346,7 @@ onMounted(() => {
       </div>
 
       <ul v-else-if="dayEvents.length" class="space-y-2">
-        <li v-for="event in dayEvents" :key="event.id"
+        <li v-for="event in dayEvents" :key="event.id" data-keep-detail-panel
           class="group flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors"
           :class="String(event.id) === String(props.selectedEventId)
             ? 'border-accent-400 bg-accent-50/60 dark:border-accent-600 dark:bg-accent-500/[0.08]'
@@ -382,7 +382,7 @@ onMounted(() => {
         <AppIcon name="calendar" :size="18" class="mx-auto text-neutral-300 dark:text-neutral-700" />
         <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{{ isToday ? '今天没有日程' : '这天没有日程' }}</p>
         <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-600">用左右箭头或上面的月历切换日期</p>
-        <button class="btn-outline mt-3" :disabled="isCreating" @click="createSchedule">
+        <button class="btn-outline mt-3" data-keep-detail-panel :disabled="isCreating" @click="createSchedule">
           <AppIcon name="plus" :size="14" />
           <span>新建日程</span>
         </button>
