@@ -1,11 +1,4 @@
-// 清单排序：只重排同级兄弟，引用行固定排在末尾，子树递归排序
-export const LIST_SORT_OPTIONS = [
-  { value: 'manual', label: '手动顺序' },
-  { value: 'deadline', label: '按截止时间' },
-  { value: 'created', label: '按创建时间' },
-  { value: 'duration', label: '按耗时' }
-]
-
+// 清单排序：只重排同级兄弟，引用行固定排在末尾，子树递归排序；手动顺序不经过这里
 const toTimestamp = (value) => {
   // 空值统一视为「无限远」，让无期限任务排在末尾
   if (!value) return Number.POSITIVE_INFINITY
@@ -20,6 +13,16 @@ const compareFinite = (a, b) => {
 }
 
 const compareByDeadline = (a, b) => compareFinite(toTimestamp(a.deadline), toTimestamp(b.deadline))
+
+// 降序也把没有截止时间的任务留在末尾，不能简单反转比较结果
+const compareByDeadlineDesc = (a, b) => {
+  const aTime = toTimestamp(a.deadline)
+  const bTime = toTimestamp(b.deadline)
+  if (aTime === bTime) return 0
+  if (!Number.isFinite(aTime)) return 1
+  if (!Number.isFinite(bTime)) return -1
+  return bTime - aTime
+}
 
 const compareByCreated = (a, b) => {
   const aTime = toTimestamp(a.created_at)
@@ -37,6 +40,7 @@ const compareByDuration = (a, b) => {
 
 const COMPARATORS = {
   deadline: compareByDeadline,
+  'deadline-desc': compareByDeadlineDesc,
   created: compareByCreated,
   duration: compareByDuration
 }

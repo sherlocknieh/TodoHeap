@@ -78,7 +78,7 @@
     </section>
 
     <!-- 空状态 -->
-    <section v-if="!loading && visibleCount === 0 && !completedCount" class="mt-12 mb-8 text-center">
+    <section v-if="!loading && allCount === 0 && !completedCount" class="mt-12 mb-8 text-center">
       <div
         class="mx-auto grid h-10 w-10 place-items-center rounded-full bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-300">
         <AppIcon name="check" :size="18" />
@@ -90,7 +90,7 @@
     <!-- 任务列表 -->
     <template v-else-if="!loading">
       <!-- 待办标题：与已完成同款分组标题，收起后只留标题 -->
-      <section v-if="visibleCount" class="mt-5 border-t border-hairline dark:border-hairline-dark">
+      <section v-if="allCount" class="mt-5 border-t border-hairline dark:border-hairline-dark">
         <div class="flex items-center gap-1 pt-2 pb-1">
           <button type="button"
             class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
@@ -118,16 +118,24 @@
               </button>
             </template>
             <template v-else>
-              <label
-                class="relative flex h-7 items-center rounded-md border border-hairline text-xs text-neutral-600 transition-colors hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300"
-                title="排序方式">
-                <AppIcon name="sliders" :size="13" class="pointer-events-none ml-2 opacity-70" />
-                <select v-model="sortMode"
-                  class="h-full cursor-pointer appearance-none bg-transparent pr-6 pl-1.5 outline-none">
-                  <option v-for="option in LIST_SORT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-                </select>
-                <AppIcon name="chevronDown" :size="12" class="pointer-events-none absolute right-1.5 opacity-60" />
-              </label>
+              <!-- 「筛选」：只看带截止时间的任务；旁边的箭头切换按截止时间的升/降序 -->
+              <button type="button"
+                class="grid h-7 w-7 shrink-0 place-items-center rounded-md border transition-colors"
+                :class="dateOnly
+                  ? 'border-accent-500 bg-accent-50 text-accent-700 dark:border-accent-400/60 dark:bg-accent-500/10 dark:text-accent-200'
+                  : 'border-hairline text-neutral-600 hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300'"
+                :aria-pressed="dateOnly" :title="dateOnly ? '显示全部任务' : '只看有日期的任务'"
+                :aria-label="dateOnly ? '显示全部任务' : '只看有日期的任务'" @click="toggleDateOnly">
+                <AppIcon name="calendar" :size="13" />
+              </button>
+              <button type="button"
+                class="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-hairline text-neutral-600 transition-colors hover:border-accent-500/60 disabled:opacity-40 disabled:hover:border-hairline dark:border-hairline-dark dark:text-neutral-300 dark:disabled:hover:border-hairline-dark"
+                :disabled="!dateOnly"
+                :title="dateOrder === 'asc' ? '截止时间升序，点击改为降序' : '截止时间降序，点击改为升序'"
+                :aria-label="dateOrder === 'asc' ? '切换为截止时间降序' : '切换为截止时间升序'"
+                @click="toggleDateOrder">
+                <AppIcon :name="dateOrder === 'asc' ? 'chevronUp' : 'chevronDown'" :size="13" />
+              </button>
               <button v-if="foldableTasks.length && !isSearching" type="button"
                 class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
                 :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
@@ -167,11 +175,14 @@
           @move-todo="moveTodo"
           @unlink-task="unlinkTask"
         />
-        <p v-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          没有进行中的任务，已完成的收在下方
-        </p>
-        <p v-else-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+        <p v-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
           没有匹配的任务
+        </p>
+        <p v-else-if="dateOnly && visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+          没有带日期的任务
+        </p>
+        <p v-else-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+          没有进行中的任务，已完成的收在下方
         </p>
       </div>
     </template>
@@ -261,11 +272,11 @@ import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
-import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
+import { sortTodoTree } from '@/utils/todoSort'
+import { filterTasksByTitle, filterTaskTree } from '@/utils/taskGraph'
 import { formatCompletionTime, groupCompletedByDay } from '@/utils/completedGroups'
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 import { listTreeOf } from '@/utils/rootTask'
-import { filterTasksByTitle } from '@/utils/taskGraph'
 import { persistedRef } from '@/utils/uiState'
 import { pruneTaskCollapseTree, isTaskCollapsed, setTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
 import { childTitlesOf, nextTaskTitle } from '@/utils/taskTitle'
@@ -318,16 +329,24 @@ onMounted(async () => {
   }
 })
 
-// 排序只影响显示，偏好存在本地，不写数据库
-const SORT_STORAGE_KEY = 'todoheap:list-sort'
-const storedSortMode = localStorage.getItem(SORT_STORAGE_KEY)
-// 旧的「按难度」选项已改名「按耗时」，沿用用户已存的偏好
-const legacySortMode = storedSortMode === 'difficulty' ? 'duration' : storedSortMode
-const sortMode = ref(LIST_SORT_OPTIONS.some(option => option.value === legacySortMode) ? legacySortMode : 'manual')
-watch(sortMode, (value) => localStorage.setItem(SORT_STORAGE_KEY, value))
+// 筛选只影响显示，偏好存在本地，不写数据库
+const DATE_FILTER_STORAGE_KEY = 'todoheap:list-date-only'
+const DATE_ORDER_STORAGE_KEY = 'todoheap:list-date-order'
+const dateOnly = ref(localStorage.getItem(DATE_FILTER_STORAGE_KEY) === '1')
+const dateOrder = ref(localStorage.getItem(DATE_ORDER_STORAGE_KEY) === 'desc' ? 'desc' : 'asc')
+watch(dateOnly, (value) => localStorage.setItem(DATE_FILTER_STORAGE_KEY, value ? '1' : '0'))
+watch(dateOrder, (value) => localStorage.setItem(DATE_ORDER_STORAGE_KEY, value))
+const toggleDateOnly = () => { dateOnly.value = !dateOnly.value }
+const toggleDateOrder = () => { dateOrder.value = dateOrder.value === 'asc' ? 'desc' : 'asc' }
 
 // 根任务是挂载点，不渲染成列表行：列表展示它的子级
-const sortedTree = computed(() => listTreeOf(sortTodoTree(todoStore.treeNodes, sortMode.value)))
+const baseTree = computed(() => listTreeOf(todoStore.treeNodes))
+// 筛选只留下带截止时间的任务，保留祖先链作上下文，并按截止时间升/降序
+const sortedTree = computed(() => {
+  if (!dateOnly.value) return baseTree.value
+  const sorted = sortTodoTree(baseTree.value, dateOrder.value === 'desc' ? 'deadline-desc' : 'deadline')
+  return filterTaskTree(sorted, (node) => Boolean(node.deadline))
+})
 
 // 搜索：命中任务连同祖先链一起显示，父级只作上下文；不改变源顺序
 const matchesSearch = (node) => (node.title || '').toLowerCase().includes(searchQuery.value.trim().toLowerCase())
@@ -356,8 +375,12 @@ watch(() => todoStore.treeNodes, (nodes) => {
   pruneTaskCollapseTree(nodes)
 }, { immediate: true })
 
-const countNodes = (list) => list.reduce((acc, n) => acc + (n._isRef || n.completed_at ? 0 : 1) + countNodes(n.children || []), 0)
-const visibleCount = computed(() => countNodes(sortedTree.value))
+const countNodes = (list, matches = () => true) => list.reduce((acc, n) => acc
+  + (n._isRef || n.completed_at || !matches(n) ? 0 : 1)
+  + countNodes(n.children || [], matches), 0)
+// 全部待办用于空状态与标题栏存在性，可见数只统计通过筛选的任务
+const allCount = computed(() => countNodes(baseTree.value))
+const visibleCount = computed(() => countNodes(sortedTree.value, (node) => !dateOnly.value || Boolean(node.deadline)))
 
 // 带子任务的可见行：快速添加栏的折叠开关按整张列表生效
 const foldableTasks = computed(() => {
@@ -543,12 +566,15 @@ const addTodo = async () => {
   const title = newTaskTitle.value.trim()
   if (!title) return
 
-  const result = await todoStore.addTodo(title, { deadline: newTaskDeadline.value || null })
+  const deadline = newTaskDeadline.value || null
+  const result = await todoStore.addTodo(title, { deadline })
 
   newTaskTitle.value = ''
   newTaskDeadline.value = ''
   // 与新建子任务一致：选中新任务并打开行内编辑，光标直接落在标题上
   if (result.success && result.data?.id != null) {
+    // 只看日期时，没有截止时间的新任务会被筛掉，先回到全部让新行可见
+    if (dateOnly.value && !deadline) dateOnly.value = false
     emit('task-selected', result.data.id)
     pendingEdit.value = { id: result.data.id }
   }

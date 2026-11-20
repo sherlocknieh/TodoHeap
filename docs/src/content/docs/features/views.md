@@ -71,7 +71,7 @@ title: "视图与交互"
 - 折叠开关收在卡片内、占据勾选圈的位置，圆心距卡片左缘 18px，正好与下一层竖线对齐，不再露在卡片外面；顶层行没有连线，圆钮仍按同一列对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
 - 单选待办任务后可用键盘新建：Tab 建子级（追加到同级末尾）、Enter 建兄弟（落在当前行之后）；焦点在输入框、按钮或菜单里时不抢键，多选与已完成行不触发。新建前会展开目标父级（折叠时新行本来就不可见），新任务自动选中并进入行内编辑（`TodoList.vue` `handleListKeydown`、`addSubtask`、`createSibling`、`pendingEdit`；`TodoListItem.vue` `editRequest`）。
 - 行内竖三点「更多」菜单依次是「节点视图 / 添加子任务 / 删除任务」；「节点视图」先选中该任务，再带 `focus` 查询切到任务图并居中到 100%（`TodoListItem.vue` `emitJumpToGraph`、`TodoList.vue` `handleJumpToGraph`、`Todo.vue` `jumpToGraph`）。
-- 「待办」标题栏右侧放整表操作：排序方式下拉与全部展开/折叠圆圈按钮（与任务行开关同尺寸；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`sortMode`、`LIST_SORT_OPTIONS`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
+- 「待办」标题栏右侧放整表操作：日期筛选按钮（只看带截止时间的任务，开启时按截止时间重排同级并保留祖先链）、升/降序箭头（筛选关闭时禁用），以及全部展开/折叠圆圈按钮（与任务行开关同尺寸；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`dateOnly`、`dateOrder`、`filterTaskTree`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
 
 ## 侧栏分组
 

@@ -17,6 +17,10 @@ describe('sortTodoTree', () => {
     expect(sortTodoTree(makeTree(), 'deadline').map(node => node.id)).toEqual([3, 2, 1])
   })
 
+  it('按截止时间降序，无截止时间仍排最后', () => {
+    expect(sortTodoTree(makeTree(), 'deadline-desc').map(node => node.id)).toEqual([2, 3, 1])
+  })
+
   it('多个无截止任务保持原有相对顺序', () => {
     const tree = [
       { id: 1, title: 'A', deadline: null, children: [] },
