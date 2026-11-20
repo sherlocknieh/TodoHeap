@@ -43,25 +43,6 @@
       </button>
     </div>
 
-    <!-- 「多选操作条」：Ctrl/⌘ 切换、Shift 连选后出现，提供批量删除与取消选择 -->
-    <div v-if="selectionSize"
-      class="mt-3 ml-[22px] flex items-center gap-2 rounded-lg border border-accent-500/50 bg-accent-50/70 px-2.5 py-1.5 text-xs text-accent-800 dark:border-accent-500/40 dark:bg-accent-500/10 dark:text-accent-200">
-      <span>已选 <span class="font-mono font-medium">{{ selectionSize }}</span> 项</span>
-      <span class="hidden text-[11px] text-neutral-500 sm:inline dark:text-neutral-400">Ctrl/⌘ 继续选择 · Shift 连选</span>
-      <div class="ml-auto flex items-center gap-1">
-        <button type="button"
-          class="grid h-7 w-7 place-items-center rounded-md text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
-          title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos">
-          <AppIcon name="trash" :size="13" />
-        </button>
-        <button type="button"
-          class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          title="取消选择" aria-label="取消选择" @click="clearSelection">
-          <AppIcon name="close" :size="13" />
-        </button>
-      </div>
-    </div>
-
     <!-- 错误提示 -->
     <section v-if="errorText" class="mt-3 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
       <AppIcon name="alert" :size="14" />
@@ -97,25 +78,42 @@
             <span
               class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ visibleCount }}</span>
           </button>
-          <!-- 整表操作：排序方式 + 全部展开/折叠，右对齐，只作用于这张列表 -->
+          <!-- 「待办/已完成标题栏的多选操作」：有选中时换成该区的选中操作，否则显示排序方式 + 全部展开/折叠 -->
           <div class="ml-auto flex items-center gap-1.5">
-            <label
-              class="relative flex h-7 items-center rounded-md border border-hairline text-xs text-neutral-600 transition-colors hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300"
-              title="排序方式">
-              <AppIcon name="sliders" :size="13" class="pointer-events-none ml-2 opacity-70" />
-              <select v-model="sortMode"
-                class="h-full cursor-pointer appearance-none bg-transparent pr-6 pl-1.5 outline-none">
-                <option v-for="option in LIST_SORT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-              </select>
-              <AppIcon name="chevronDown" :size="12" class="pointer-events-none absolute right-1.5 opacity-60" />
-            </label>
-            <button v-if="foldableTasks.length" type="button"
-              class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
-              :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-              :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-              :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
-              <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
-            </button>
+            <template v-if="activeSelectionCount">
+              <span class="text-[11px] text-neutral-500 dark:text-neutral-400"
+                title="Ctrl/⌘ 继续选择，Shift 连选">已选
+                <span class="font-mono font-medium text-accent-700 dark:text-accent-300">{{ activeSelectionCount }}</span> 项</span>
+              <button type="button"
+                class="grid h-7 w-7 place-items-center rounded-md text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos(activeSelectionKeys)">
+                <AppIcon name="trash" :size="13" />
+              </button>
+              <button type="button"
+                class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                title="取消选择" aria-label="取消选择" @click="removeSelection(activeSelectionKeys)">
+                <AppIcon name="close" :size="13" />
+              </button>
+            </template>
+            <template v-else>
+              <label
+                class="relative flex h-7 items-center rounded-md border border-hairline text-xs text-neutral-600 transition-colors hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300"
+                title="排序方式">
+                <AppIcon name="sliders" :size="13" class="pointer-events-none ml-2 opacity-70" />
+                <select v-model="sortMode"
+                  class="h-full cursor-pointer appearance-none bg-transparent pr-6 pl-1.5 outline-none">
+                  <option v-for="option in LIST_SORT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+                <AppIcon name="chevronDown" :size="12" class="pointer-events-none absolute right-1.5 opacity-60" />
+              </label>
+              <button v-if="foldableTasks.length" type="button"
+                class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+                :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+                :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+                :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
+                <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
+              </button>
+            </template>
           </div>
         </div>
       </section>
@@ -154,7 +152,23 @@
           <span
             class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ completedCount }}</span>
         </button>
-        <button type="button"
+        <!-- 已完成的多选操作就放在本区标题栏：有选择时显示删除/取消，否则保留整区清除 -->
+        <div v-if="completedSelectionCount" class="ml-auto flex items-center gap-1.5">
+          <span class="text-[11px] text-neutral-500 dark:text-neutral-400"
+            title="Ctrl/⌘ 继续选择，Shift 连选">已选
+            <span class="font-mono font-medium text-accent-700 dark:text-accent-300">{{ completedSelectionCount }}</span> 项</span>
+          <button type="button"
+            class="grid h-7 w-7 place-items-center rounded-md text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos(completedSelectionKeys)">
+            <AppIcon name="trash" :size="13" />
+          </button>
+          <button type="button"
+            class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            title="取消选择" aria-label="取消选择" @click="removeSelection(completedSelectionKeys)">
+            <AppIcon name="close" :size="13" />
+          </button>
+        </div>
+        <button v-else type="button"
           class="ml-auto grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
           title="清除已完成任务" @click="clearCompletedTodos">
           <AppIcon name="trash" :size="13" />
@@ -298,12 +312,25 @@ const toggleCompletedDay = (key) => {
 // 多选：保存字符串任务 ID，锚点只用于 Shift 连选，普通点击即清空
 const selection = ref(new Set())
 const selectionAnchor = ref(null)
-const selectionSize = computed(() => selection.value.size)
 const selectionKeys = computed(() => [...selection.value])
+// 操作条按分区显示：已完成键来自已完成列表，其余算待办
+const completedKeySet = computed(() => new Set(completedTodos.value.map(todo => String(todo.id))))
+const completedSelectionKeys = computed(() => selectionKeys.value.filter(key => completedKeySet.value.has(key)))
+const activeSelectionKeys = computed(() => selectionKeys.value.filter(key => !completedKeySet.value.has(key)))
+const completedSelectionCount = computed(() => completedSelectionKeys.value.length)
+const activeSelectionCount = computed(() => activeSelectionKeys.value.length)
 const isCompletedRowSelected = (id) => props.selectedTaskId === id || selection.value.has(String(id))
 const clearSelection = () => {
   selection.value = new Set()
   selectionAnchor.value = null
+}
+// 只移除指定键：另一分区的选择保持不变
+const removeSelection = (keys) => {
+  if (!keys.length) return
+  const next = new Set(selection.value)
+  keys.forEach(key => next.delete(key))
+  selection.value = next
+  if (selectionAnchor.value && keys.includes(selectionAnchor.value)) selectionAnchor.value = null
 }
 
 // Ctrl/⌘ 切换、Shift 按当前可见行连选；普通点击清空选择后照常打开详情
@@ -347,22 +374,22 @@ watch(() => todoStore.tasks, (tasks) => {
   if (selectionAnchor.value && !available.has(selectionAnchor.value)) selectionAnchor.value = null
 })
 
-// 批量删除：逐个软删除；祖先被删后其后代已不在列表里，直接跳过；撤销按回收站 ID 整批恢复
-const deleteSelectedTodos = async () => {
-  const keys = [...selection.value]
-  clearSelection()
+// 批量删除：只处理传入分区的键；祖先被删后其后代已不在列表里，直接跳过；撤销按回收站 ID 整批恢复
+const deleteSelectedTodos = async (keys) => {
+  const targets = [...keys]
+  removeSelection(targets)
 
   const trashedIds = []
-  for (const key of keys) {
+  for (const key of targets) {
     const todo = todoStore.tasks.find(item => String(item.id) === key)
     if (!todo) continue
     const result = await todoStore.deleteTodo(todo.id)
     if (result.success && result.data?.id != null) trashedIds.push(result.data.id)
   }
 
-  if (!keys.length) return
+  if (!targets.length) return
   emit('notify', {
-    message: `已删除 ${keys.length} 项任务`,
+    message: `已删除 ${targets.length} 项任务`,
     undo: trashedIds.length
       ? () => Promise.all(trashedIds.map(id => todoStore.restoreTodo(id)))
       : null
@@ -373,6 +400,14 @@ const deleteSelectedTodos = async () => {
 const showCompletedPanel = persistedRef('list-show-completed', true)
 // 待办区域的收起状态同样本地保留
 const showActivePanel = persistedRef('list-show-active', true)
+
+// 分区收起后操作条不可见，清掉该区选择，避免看不见的选中被误删
+watch(showActivePanel, (open) => {
+  if (!open) removeSelection(activeSelectionKeys.value)
+})
+watch(showCompletedPanel, (open) => {
+  if (!open) removeSelection(completedSelectionKeys.value)
+})
 
 const toggleCompletedTodo = async (todo) => {
   if (!todo?.id) return
