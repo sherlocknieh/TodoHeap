@@ -35,12 +35,17 @@
       </g>
 
       <g :transform="`translate(${view.x} ${view.y}) scale(${view.scale})`">
-        <!-- 未选中的连线铺在节点下层，节点框可以压住线头；选中节点的祖先链用强调色 -->
+        <!-- 连线铺在节点下层，节点框与折叠/展开按钮压住线头；选中节点的祖先链用强调色 -->
         <path v-for="edge in baseEdges" :key="edge.key" :d="edge.d" fill="none" stroke-linecap="round"
           :class="highlightedEdges.has(edge.key)
             ? 'stroke-accent-500 dark:stroke-accent-400'
             : 'stroke-neutral-300 dark:stroke-neutral-600'"
           :stroke-width="highlightedEdges.has(edge.key) ? 1.8 : 1.2"
+          marker-end="url(#mm-arrow)" />
+
+        <!-- 选中连线：与普通连线同层，避免盖住节点外侧的折叠/展开按钮；中点删除按钮在上层单独绘制 -->
+        <path v-if="selectedEdge" :d="selectedEdge.d" fill="none" stroke-linecap="round"
+          class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
           marker-end="url(#mm-arrow)" />
 
         <!-- 连线热区：透明加宽描边，便于点中细线；data-mm-edge 供滚轮判断是否缩放 -->
@@ -202,11 +207,6 @@
           <rect :width="8" :height="dropPlaceholderNode.height" rx="4"
             class="fill-accent-500/60 dark:fill-accent-400/60" />
         </g>
-
-        <!-- 选中连线：压在节点之上高亮，配合中点删除按钮 -->
-        <path v-if="selectedEdge" :d="selectedEdge.d" fill="none" stroke-linecap="round"
-          class="pointer-events-none stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
-          marker-end="url(#mm-arrow)" />
 
         <!-- 选中连线：在连线中点显示删除按钮，置于节点之上以免被遮挡；根任务的边不可删，只高亮 -->
         <g v-if="selectedEdge?.deletable && selectedEdge.midpoint"
@@ -1461,7 +1461,7 @@ const selectedEdgeKey = ref(null)
 const selectedEdge = computed(() =>
   layout.value.edges.find((edge) => edge.key === selectedEdgeKey.value) ?? null)
 
-// 未选中的连线只铺在节点下层，选中的单独画在节点之上
+// 当前选中的连线从普通连线里拆出单独高亮，但仍与它们同层铺在节点下层，避免遮挡折叠/展开按钮
 const baseEdges = computed(() =>
   layout.value.edges.filter((edge) => edge.key !== selectedEdgeKey.value))
 
