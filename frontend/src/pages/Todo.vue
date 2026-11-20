@@ -400,7 +400,7 @@ const handleTaskSelected = (taskId) => {
 	console.log('选中任务ID:', taskId)
 }
 
-// 任务行菜单「跳转到节点视图」：选中该任务并切到任务图。
+// 任务行菜单「节点视图」：选中该任务并切到任务图。
 // 带 focus 查询是为了让图在挂载后定位节点：图挂载时已存在的选中态不会触发可见性修正
 const jumpToGraph = (taskId) => {
 	const id = Number(taskId)

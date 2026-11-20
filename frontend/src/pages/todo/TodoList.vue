@@ -557,7 +557,7 @@ const handleTaskSelected = (taskId) => {
   emit('task-selected', taskId)
 }
 
-// 任务行菜单「跳转到节点视图」：列表只转发目标，切视图与定位由外层工作区负责
+// 任务行菜单「节点视图」：列表只转发目标，切视图与定位由外层工作区负责
 const handleJumpToGraph = (taskId) => {
   emit('jump-to-graph', taskId)
 }

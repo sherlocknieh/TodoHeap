@@ -40,7 +40,7 @@ title: "视图与交互"
 ### 选中、编辑与右栏
 
 - 选中只保证可见：图内单击不移动视口；从列表/侧栏选中或键盘导航时，节点完整可见就不动，出界才最小平移带回，节点比可见区还大时才缩小并居中（`ensureNodeVisible`、`utils/mindmapView.js` 的 `revealView`），机制见[任务图选中项的可见性修正](../dev/logic/mindmap-selection-visibility.md)。
-- 任务行菜单「跳转到节点视图」先选中该任务，再带 `?focus=<id>` 切到任务图；图挂载后按 `focus` 一次性把节点带回可见区（被折叠时先展开祖先链），定位完即清掉目标（`Todo.vue` `jumpToGraph`、`TodoGraph.vue` `focusTaskId`、`MindMapWrapper.vue` `pendingFocusId`）。
+- 任务行菜单「节点视图」先选中该任务，再带 `?focus=<id>` 切到任务图；图挂载后按 `focus` 把节点居中并固定 100% 缩放（被折叠时先展开祖先链），定位完即清掉目标（`Todo.vue` `jumpToGraph`、`TodoGraph.vue` `focusTaskId`、`MindMapWrapper.vue` `pendingFocusId`、`centerNodeAtFullScale`）。
 - 图内删除单个节点后焦点落到最近的兄弟：下一个优先、其次上一个、一个都没有就回到父任务（父级是根任务时取消选中）；批量删除仍清空选中（`TodoGraph.vue` 的 `deleteTask`、`utils/taskGraph.js` 的 `findDeleteFocusId`），机制见[任务图删除后的焦点落点](../dev/logic/graph-delete-focus.md)。
 - 双击 / F2 进入编辑时会补到可读档位（`readableScale`，宽视口最多放大到 100%），以节点中心为锚点只放大不移动，见[任务图编辑时的缩放档位](../dev/logic/mindmap-edit-scale.md)。
 - 详情右栏是浮层，不挤压画布；适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避让，右下角视图控件与右上角缩放器随面板左移（`utils/detailPanelContext.js`）。
@@ -68,7 +68,7 @@ title: "视图与交互"
 - 截止时间入口直接展开自建月历面板：预设今天、明天、一周后与清除都在面板内，支持键盘与快捷时间点，替换了原生 `datetime-local`（`DateTimePicker.vue`，机制见[日期时间选择器](../dev/logic/date-time-picker.md)）。
 - 子任务按层级画树状连线：每层一条竖线，祖先层仍有后续兄弟时竖线贯穿整行，末位兄弟在行中心收成 └ 角并横接到卡片左缘；折叠或完成后连线随可见行重算（`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle`，机制见[任务表树状连线](../dev/logic/task-list-tree-lines.md)）。
 - 有子任务的行在卡片左侧放圆圈 +/− 折叠开关，开关中心正好落在树状连线的交叉点上；顶层行没有连线，开关仍停在卡片前的同一列，快速添加栏与卡片左缘对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
-- 行内竖三点「更多」菜单依次是「跳转到节点视图 / 添加子任务 / 删除任务」；跳转会先选中该任务，再带 `focus` 查询切到任务图（`TodoListItem.vue` `emitJumpToGraph`、`TodoList.vue` `handleJumpToGraph`、`Todo.vue` `jumpToGraph`）。
+- 行内竖三点「更多」菜单依次是「节点视图 / 添加子任务 / 删除任务」；「节点视图」先选中该任务，再带 `focus` 查询切到任务图并居中到 100%（`TodoListItem.vue` `emitJumpToGraph`、`TodoList.vue` `handleJumpToGraph`、`Todo.vue` `jumpToGraph`）。
 - 「待办」标题栏右侧放整表操作：排序方式下拉与全部展开/折叠圆圈按钮（与任务行开关同尺寸；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`sortMode`、`LIST_SORT_OPTIONS`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
 
 ## 侧栏分组

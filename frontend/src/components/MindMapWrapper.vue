@@ -392,7 +392,7 @@ const props = defineProps({
   editTaskId: { type: Number, default: null },
   // 新建立的链接，形如 { parentId, childId }；引用变化即按点击连线选中它
   newEdge: { type: Object, default: null },
-  // 「跳转到节点视图」的目标：挂载后一次性把它带回可见区
+  // 「节点视图」的目标：挂载后一次性把它居中并固定 100% 缩放
   focusTaskId: { type: String, default: null }
 })
 
@@ -1696,6 +1696,21 @@ const ensureNodeVisible = (id) => {
   animateView(target)
 }
 
+// 「节点视图」跳转定位：与选中项的可见性修正不同，这是一次显式导航，
+// 目标节点居中、缩放固定 100%（不因可见区变窄而缩小），可见区扣掉右侧浮层
+const centerNodeAtFullScale = (id) => {
+  const node = layout.value.nodes.find((item) => item.id === String(id))
+  if (!node || !size.width || !size.height) return
+  const scale = 1
+  viewMode.value = null
+  stopViewAnimation()
+  animateView({
+    scale,
+    x: visibleWidth.value / 2 - (node.x + nodeWidth / 2) * scale,
+    y: size.height / 2 - (node.y + node.height / 2) * scale
+  })
+}
+
 // 从别处选中任务时，若它被折叠隐藏，自动展开祖先链，保证选中项可见
 // 图内点击本身就在可见区，由 localSelection 跳过这里的修正
 let localSelection = false
@@ -1722,8 +1737,8 @@ watch(selectedId, (id) => {
   nextTick(() => ensureNodeVisible(id))
 })
 
-// 「跳转到节点视图」的一次性定位：图挂载时已存在的选中态不会触发上面的修正，用 focus 目标补一次。
-// 被折叠隐藏时先展开祖先链；定位后清掉目标，避免后续重排再次把视口拉回去
+// 「节点视图」的一次性定位：图挂载时已存在的选中态不会触发上面的修正，用 focus 目标补一次。
+// 被折叠隐藏时先展开祖先链；居中到 100% 后清掉目标，避免后续重排再次把视口拉回去
 const pendingFocusId = ref(props.focusTaskId == null ? null : String(props.focusTaskId))
 watch([layout, () => size.width, () => size.height], () => {
   const id = pendingFocusId.value
@@ -1746,7 +1761,7 @@ watch([layout, () => size.width, () => size.height], () => {
   }
   if (!size.width || !size.height) return
   pendingFocusId.value = null
-  nextTick(() => ensureNodeVisible(id))
+  nextTick(() => centerNodeAtFullScale(id))
 })
 
 // 主方向键沿层级深入/返回，交叉方向键在同级之间移动

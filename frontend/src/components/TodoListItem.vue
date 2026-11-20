@@ -112,12 +112,12 @@
               </button>
               <div v-if="showMoreMenuId === item.id"
                 class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1 overflow-hidden" ref="moreMenuRef">
-                <!-- 「跳转到节点视图」：切到任务图并定位到这条任务 -->
+                <!-- 「节点视图」：切到任务图，节点居中并 100% 缩放 -->
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                   @click.stop="emitJumpToGraph(item.id); closeMoreMenu()">
                   <AppIcon name="graph" :size="13" />
-                  <span>跳转到节点视图</span>
+                  <span>节点视图</span>
                 </button>
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
@@ -179,7 +179,7 @@ const emitAddSubtask = (parentId) => {
   emit('add-subtask', parentId, startEdit)
 }
 const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
-// 行内菜单「跳转到节点视图」交给外层切视图，行组件不直接操作路由
+// 行内菜单「节点视图」交给外层切视图，行组件不直接操作路由
 const emitJumpToGraph = (id) => emit('jump-to-graph', id)
 const emitTaskSelected = (id) => emit('task-selected', id)
 
