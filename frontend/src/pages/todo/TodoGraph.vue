@@ -4,7 +4,7 @@
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			:new-edge="newEdge"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
-			@delete-task="deleteTask" @toggle-done="toggleDone" @set-deadline="setDeadline"
+			@delete-task="deleteTask" @delete-tasks="deleteTasks" @toggle-done="toggleDone" @set-deadline="setDeadline"
 			@drop-task="dropTask" @unlink-task="unlinkTask"
 			@notify="payload => emit('notify', payload)" @background-click="emit('background-click')" />
 	</div>
@@ -137,6 +137,24 @@ const deleteTask = async (id) => {
 	emit('notify', {
 		message: `已删除「${title}」`,
 		undo: () => todoStore.restoreTodo(trashId)
+	})
+}
+
+// 图内批量删除：逐个软删除，祖先删掉后其后代已被带走；提示里整批撤销
+const deleteTasks = async (ids) => {
+	const trashedIds = []
+	for (const id of [...new Set(ids)]) {
+		if (!todoStore.findTodoById(id)) continue
+		const result = await todoStore.deleteTodo(id)
+		if (!result.success) continue
+		trashedIds.push(result.data?.id ?? id)
+	}
+	if (trashedIds.length === 0) return
+
+	emit('task-selected', null)
+	emit('notify', {
+		message: `已删除 ${trashedIds.length} 项任务`,
+		undo: () => Promise.all(trashedIds.map(id => todoStore.restoreTodo(id)))
 	})
 }
 

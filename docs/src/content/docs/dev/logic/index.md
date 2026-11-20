@@ -19,6 +19,7 @@ title: "逻辑文档"
 | [任务表树状连线](./task-list-tree-lines.md) | 可见行过滤、末位兄弟判定、缩进/连线/折叠开关的共用几何、跨行间距如何接上 |
 | [任务多选](./task-multi-select.md) | Ctrl/⌘ 切换、Shift 连选、选择键与可见行顺序、批量删除与撤销 |
 | [回收站按天分组](./trash-day-groups.md) | 子树根的删除日期、可见行过滤、未知时间与折叠 |
+| [任务图节点多选](./graph-multi-select.md) | Ctrl/⌘ 与 Shift 选择、可见顺序连选、右键批量菜单与批量删除 |
 | [任务图坐标网格](./mindmap-coordinate-grid.md) | 世界坐标与视口换算、原点在根节点出边按钮、1/2/5 自适应刻度、底纹互斥与配色 |
 | [日期时间选择器](./date-time-picker.md) | 自建月历面板、值格式、定位与键盘、截止时间入口的预设与清除 |
 | [日程新建与临时 ID](./schedule-optimistic-create.md) | 新建即开右栏、临时 ID 换算、写入排队与失败回滚 |

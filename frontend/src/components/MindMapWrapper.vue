@@ -60,7 +60,7 @@
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"
           @pointerenter="onNodePointerEnter(node)" @pointerleave="onNodePointerLeave()"
           @contextmenu.stop="openNodeMenuAt(node, $event)"
-          @click.stop="selectNode(node)">
+          @click.stop="selectNode(node, $event)">
           <!-- 悬停与选中用同一个绿色、同样粗细，只靠透明度分强弱：悬停是半透明绿框，选中是实绿框加淡底 -->
           <rect :width="nodeWidth" :height="node.height" rx="8"
             :fill-opacity="node.isRoot ? 0.9 : 0.72"
@@ -242,7 +242,7 @@
       class="absolute z-20 panel cursor-default py-1 shadow-lg overflow-hidden"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px`, width: `${menuWidth}px` }"
       @pointerdown.stop @click.stop @contextmenu.prevent>
-      <button v-for="item in MENU_ITEMS" :key="item.key" type="button"
+      <button v-for="item in menuItems" :key="item.key" type="button"
         class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors"
         :class="item.danger
           ? 'text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40'
@@ -357,6 +357,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
+import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
 import {
   collapsedTaskSet,
@@ -375,7 +376,7 @@ const props = defineProps({
   newEdge: { type: Object, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'set-deadline', 'drop-task', 'unlink-task', 'notify', 'background-click'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'delete-tasks', 'toggle-done', 'set-deadline', 'drop-task', 'unlink-task', 'notify', 'background-click'])
 
 const nodeWidth = 216
 const fontSize = 13
@@ -429,6 +430,15 @@ const toTaskId = (id) => (id != null && Number.isFinite(Number(id)) ? Number(id)
 
 // 根节点选中状态只在图内维护：根任务不进入任务详情面板
 const rootSelected = ref(false)
+
+// 节点多选：Ctrl/⌘ 切换、Shift 按图的可见顺序连选；右键选中的节点时菜单切换为批量操作
+const multiSelectedKeys = ref(new Set())
+const multiAnchor = ref(null)
+const isMultiSelected = (id) => multiSelectedKeys.value.has(String(id))
+const clearMultiSelection = () => {
+  multiSelectedKeys.value = new Set()
+  multiAnchor.value = null
+}
 
 // 正在原地编辑的节点与其输入内容：布局测量要用它撑高节点，因此声明在布局之前
 const editingId = ref(null)
@@ -734,7 +744,9 @@ const measureNode = (raw) => {
   const hasCheckbox = !raw.isRoot
   const completed = Boolean(raw.completed_at)
   // 选中态决定是否显示更多操作按钮：根节点不是真实任务，选中也不给操作菜单
-  const selected = String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
+  const selected = String(raw.id) === String(props.selectedTaskId)
+    || (raw.isRoot && rootSelected.value)
+    || (!raw.isRoot && isMultiSelected(raw.id))
   // 紧急度分级：已完成与根节点（没有勾选框）都不着色，无截止时也为 null
   const urgency = completed || raw.isRoot ? null : deadlineUrgency(raw.deadline)
   // 截止胶囊：有截止就显示（与任务行一致），文案用同一套口语化标签，宽度按胶囊占位算出
@@ -1538,6 +1550,9 @@ const menuNode = computed(() => menuNodeId.value == null
 // 右键唤出时的锚点，存图内坐标，缩放平移时菜单跟着指针位置一起走；为空表示从三点按钮展开
 const menuAnchor = ref(null)
 
+// 菜单模式：选中多个节点后右键其中任一节点，菜单换成批量操作
+const menuBatch = ref(false)
+
 // 菜单项全部复用已有能力，右侧标注对应快捷键，方便用户之后直接用键盘
 const MENU_ITEMS = [
   { key: 'date', label: '设置日期', hint: '', icon: 'calendar' },
@@ -1546,15 +1561,26 @@ const MENU_ITEMS = [
   { key: 'delete', label: '删除任务', hint: 'Del', icon: 'trash', danger: true }
 ]
 
+// 批量菜单只放对多个节点有意义的操作
+const BATCH_MENU_ITEMS = [
+  { key: 'batch-copy', label: '复制选中节点', hint: 'Ctrl+C', icon: 'copy' },
+  { key: 'batch-delete', label: '删除选中任务', hint: 'Del', icon: 'trash', danger: true }
+]
+
+const menuItems = computed(() => (menuBatch.value ? BATCH_MENU_ITEMS : MENU_ITEMS))
+
 const closeNodeMenu = () => {
   menuNodeId.value = null
   menuAnchor.value = null
+  menuBatch.value = false
 }
 
 // 三点按钮开合菜单；锚点清空，菜单回到按钮下方
 const toggleNodeMenu = (node) => {
   const id = String(node.id)
   menuAnchor.value = null
+  // 三点按钮永远打开单节点菜单，不沿用上一次的批量模式
+  menuBatch.value = false
   menuNodeId.value = menuNodeId.value === id ? null : id
 }
 
@@ -1564,6 +1590,12 @@ const openNodeMenuAt = (node, event) => {
   // 原地编辑保留浏览器右键菜单，选词与粘贴要用；根节点没有可操作的菜单，同样放行
   if (editingId.value != null || node.isRoot || !container.value) return
   event.preventDefault()
+
+  // 右键的是已多选节点且不止一个：菜单切到批量操作；否则退出多选，保持菜单与高亮一致
+  const batch = multiSelectedKeys.value.size > 1 && multiSelectedKeys.value.has(String(node.id))
+  if (!batch) clearMultiSelection()
+  menuBatch.value = batch
+
   const rect = container.value.getBoundingClientRect()
   menuAnchor.value = {
     x: (event.clientX - rect.left - view.x) / view.scale,
@@ -1596,9 +1628,15 @@ const menuPosition = computed(() => {
 const runMenuAction = (key) => {
   const id = menuNodeId.value
   const node = menuNode.value
+  const batch = menuBatch.value
   // 菜单收起会清掉定位依据，先把当前位置留给「设置日期」的面板锚点
   const pos = menuPosition.value
   closeNodeMenu()
+  if (batch) {
+    if (key === 'batch-copy') copySelectedAsMarkdown()
+    else if (key === 'batch-delete') deleteSelectedNodes()
+    return
+  }
   if (id == null) return
   if (key === 'date' && node) openMenuDatePicker(node, pos)
   else if (key === 'child') createChild(id)
@@ -1644,9 +1682,36 @@ const URGENCY_CHECK_CLASS = {
 }
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
-const selectNode = (node) => {
+const selectNode = (node, event) => {
   // 拖拽建链接后紧跟的 click 不应改变选中
   if (Date.now() - lastDragEndAt < 250) return
+
+  // 多选：根节点不参与；Shift 从锚点按图的可见顺序连选，Ctrl/⌘ 切换单个节点
+  if (!node.isRoot && event && (event.metaKey || event.ctrlKey || event.shiftKey)) {
+    event.preventDefault()
+    closeNodeMenu()
+    selectedEdgeKey.value = null
+    container.value?.focus({ preventScroll: true })
+
+    if (event.shiftKey && multiAnchor.value) {
+      const order = layout.value.nodes
+        .filter(item => !item.isPlaceholder && !item.isRoot)
+        .map(item => String(item.id))
+      const start = order.indexOf(multiAnchor.value)
+      const end = order.indexOf(String(node.id))
+      if (start !== -1 && end !== -1) {
+        const [from, to] = start <= end ? [start, end] : [end, start]
+        multiSelectedKeys.value = new Set(order.slice(from, to + 1))
+        return
+      }
+    }
+
+    multiSelectedKeys.value = toggleSelection(multiSelectedKeys.value, String(node.id))
+    multiAnchor.value = String(node.id)
+    return
+  }
+
+  clearMultiSelection()
   closeNodeMenu()
   selectedEdgeKey.value = null
   container.value?.focus({ preventScroll: true })
@@ -1807,9 +1872,11 @@ const selectedId = computed(() => {
   return props.selectedTaskId == null ? null : String(props.selectedTaskId)
 })
 
-// 选中项变化时收起更多操作菜单，避免菜单残留在别的节点旁
+// 选中项变化时收起更多操作菜单，避免菜单残留在别的节点旁；
+// 外部切换任务（列表、侧栏）时同步退出多选，避免高亮与详情不一致
 watch(selectedId, () => {
   closeNodeMenu()
+  if (!localSelection) clearMultiSelection()
 })
 
 // 视口动画：居中与适应视图都走同一套缓动，避免画面瞬移
@@ -2256,7 +2323,7 @@ const writeClipboard = async (text) => {
 
 // 复制为 Markdown 树状列表：选中节点连同全部后代，只取标题，不受折叠影响。
 // 多父任务在图里只画一份、以引用节点出现在其它父级下，向下遍历时跳过引用，避免重复与成环
-const copySubtreeAsMarkdown = async (id) => {
+const buildMarkdownLines = (ids) => {
   const byId = new Map()
   const collect = (node) => {
     if (node.isRef) return
@@ -2265,9 +2332,6 @@ const copySubtreeAsMarkdown = async (id) => {
     ;(node.children || []).forEach(collect)
   }
   ;(props.nodes || []).forEach(collect)
-
-  const start = byId.get(String(id))
-  if (!start) return
 
   const lines = []
   const visited = new Set()
@@ -2281,17 +2345,53 @@ const copySubtreeAsMarkdown = async (id) => {
       if (!child.isRef) render(child, depth + 1)
     })
   }
-  render(start, 0)
+
+  ids.forEach((id) => {
+    const start = byId.get(String(id))
+    if (start) render(start, 0)
+  })
+  return lines
+}
+
+const copySubtreeAsMarkdown = async (id) => {
+  const lines = buildMarkdownLines([id])
+  if (!lines.length) return
   const copied = await writeClipboard(lines.join('\n'))
   emit('notify', {
     message: copied ? `已复制 ${lines.length} 个任务为 Markdown` : '复制失败，请检查浏览器剪贴板权限'
   })
 }
 
+// 多选复制：多个子树按选择顺序拼接，重复与父子重叠由 visited 去重
+const copySelectedAsMarkdown = async () => {
+  const lines = buildMarkdownLines([...multiSelectedKeys.value])
+  if (!lines.length) return
+  const copied = await writeClipboard(lines.join('\n'))
+  emit('notify', {
+    message: copied ? `已复制 ${lines.length} 个任务为 Markdown` : '复制失败，请检查浏览器剪贴板权限'
+  })
+}
+
+// 批量删除：交给上层一次性落库并整批撤销；父子同选时上层跳过已被祖先带走的后代
+const deleteSelectedNodes = () => {
+  const ids = [...multiSelectedKeys.value]
+    .map(id => Number(id))
+    .filter(id => Number.isFinite(id))
+  clearMultiSelection()
+  if (ids.length === 0) return
+  emit('delete-tasks', ids)
+}
+
 // 画布快捷键：选中节点后按 Ctrl/Cmd+C 复制子树为 Markdown，其余组合键留给浏览器
 const onKeydown = (event) => {
   const id = selectedId.value
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'c') {
+    // 多选时一次复制所有选中子树；单节点沿用原有复制
+    if (multiSelectedKeys.value.size > 1) {
+      event.preventDefault()
+      copySelectedAsMarkdown()
+      return
+    }
     if (!id) return
     event.preventDefault()
     copySubtreeAsMarkdown(id)
@@ -2320,6 +2420,12 @@ const onKeydown = (event) => {
         deleteSelectedEdge()
         return
       }
+      // 多选时一次删除所有选中任务
+      if (multiSelectedKeys.value.size > 1) {
+        event.preventDefault()
+        deleteSelectedNodes()
+        return
+      }
       if (!id || id === rootNodeId.value) return
       event.preventDefault()
       emitDelete(id)
@@ -2330,6 +2436,10 @@ const onKeydown = (event) => {
       emit('toggle-done', Number(id))
       return
     case 'Escape':
+      if (multiSelectedKeys.value.size > 0) {
+        clearMultiSelection()
+        return
+      }
       if (selectedEdgeKey.value != null) {
         selectedEdgeKey.value = null
         return
@@ -2354,6 +2464,7 @@ const onCanvasClick = () => {
   if (Date.now() - lastPanEndAt < 250) return
   selectedEdgeKey.value = null
   rootSelected.value = false
+  clearMultiSelection()
   closeNodeMenu()
   if (selectedId.value != null) emit('task-selected', null)
   // 画布点击会 stop 冒泡，外部点击收起浮层侧栏需要这个事件来补
