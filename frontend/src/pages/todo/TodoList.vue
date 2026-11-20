@@ -141,22 +141,38 @@
         </button>
       </div>
       <!-- 卡片左缘与待办行对齐：待办行用 22px 左内距给折叠开关留位，已完成行没有开关但保留同一缩进 -->
-      <ul v-if="showCompletedPanel" class="mt-1 space-y-1.5 pb-2 pl-[22px]">
-        <li v-for="t in completedTodos" :key="t.id" data-task-item @click="handleTaskSelected(t.id)" :class="[
-          'group flex cursor-pointer items-center gap-2.5 rounded-lg text-sm transition-[border-color,box-shadow]',
-          props.selectedTaskId === t.id
-            ? 'border border-accent-500 bg-surface px-2.5 py-2 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
-            : 'border border-hairline bg-surface px-2.5 py-2 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
-        ]">
+      <div v-if="showCompletedPanel" class="mt-1 pb-2 pl-[22px]">
+        <!-- [已完成按天分隔]：「日期 + 该天数量 + 分隔线」，最新完成的一天在最上面 -->
+        <section v-for="(group, index) in completedGroups" :key="group.key" :class="index ? 'mt-3' : ''">
+          <!-- 「日期分隔可点」：整行日期与分隔线都是折叠开关，只收起当天任务，标题与数量保留 -->
           <button type="button"
-            class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-accent-600 bg-accent-600 text-white transition-colors hover:bg-accent-700 hover:border-accent-700 dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950"
-            title="标记为未完成" aria-label="标记为未完成" @click.stop="toggleCompletedTodo(t)">
-            <AppIcon name="check" :size="11" />
+            class="mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-md pr-0.5 text-left transition-colors hover:text-neutral-700 dark:hover:text-neutral-200"
+            :title="isCompletedDayCollapsed(group.key) ? `展开「${group.label}」的已完成任务` : `收起「${group.label}」的已完成任务`"
+            :aria-expanded="!isCompletedDayCollapsed(group.key)" @click="toggleCompletedDay(group.key)">
+            <AppIcon :name="isCompletedDayCollapsed(group.key) ? 'chevronRight' : 'chevronDown'" :size="11"
+              class="shrink-0 text-neutral-400 dark:text-neutral-500" />
+            <span class="text-[11px] font-medium text-neutral-400 dark:text-neutral-500">{{ group.label }}</span>
+            <span class="font-mono text-[10px] text-neutral-300 dark:text-neutral-600">{{ group.count }}</span>
+            <span aria-hidden="true" class="h-px flex-1 bg-neutral-200/80 dark:bg-neutral-800"></span>
           </button>
-          <MiddleEllipsis :text="t.title || '未命名任务'"
-            class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
-        </li>
-      </ul>
+          <ul v-if="!isCompletedDayCollapsed(group.key)" class="space-y-1.5">
+            <li v-for="t in group.todos" :key="t.id" data-task-item @click="handleTaskSelected(t.id)" :class="[
+              'group flex cursor-pointer items-center gap-2.5 rounded-lg text-sm transition-[border-color,box-shadow]',
+              props.selectedTaskId === t.id
+                ? 'border border-accent-500 bg-surface px-2.5 py-2 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
+                : 'border border-hairline bg-surface px-2.5 py-2 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
+            ]">
+              <button type="button"
+                class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-accent-600 bg-accent-600 text-white transition-colors hover:bg-accent-700 hover:border-accent-700 dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950"
+                title="标记为未完成" aria-label="标记为未完成" @click.stop="toggleCompletedTodo(t)">
+                <AppIcon name="check" :size="11" />
+              </button>
+              <MiddleEllipsis :text="t.title || '未命名任务'"
+                class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
+            </li>
+          </ul>
+        </section>
+      </div>
     </section>
   </div>
 </template>
@@ -167,6 +183,7 @@ import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
+import { groupCompletedByDay } from '@/utils/completedGroups'
 import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
 import { pruneTaskCollapseTree, isTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
@@ -239,6 +256,17 @@ const toggleAllCollapsed = () => {
 }
 const completedTodos = computed(() => todoStore.tasks.filter(todo => todo.completed_at))
 const completedCount = computed(() => completedTodos.value.length)
+// 已完成按完成日分组：分组与组内顺序见 utils/completedGroups.js
+const completedGroups = computed(() => groupCompletedByDay(completedTodos.value))
+// 日期分隔可点：按天收起当天已完成任务，收起集合只存在于当前会话
+const collapsedCompletedDays = ref(new Set())
+const isCompletedDayCollapsed = (key) => collapsedCompletedDays.value.has(key)
+const toggleCompletedDay = (key) => {
+  const next = new Set(collapsedCompletedDays.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedCompletedDays.value = next
+}
 
 // 已完成区域默认展开，与列表同属一页；展开状态本地保留
 const showCompletedPanel = persistedRef('list-show-completed', true)
