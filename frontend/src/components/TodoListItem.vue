@@ -99,6 +99,13 @@
               </button>
               <div v-if="showMoreMenuId === item.id"
                 class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1 overflow-hidden" ref="moreMenuRef">
+                <!-- 「标记完成」：勾选任务，行随完成状态移出待办区 -->
+                <button
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  @click.stop="cycleStatus(item); closeMoreMenu()">
+                  <AppIcon name="check" :size="13" />
+                  <span>标记完成</span>
+                </button>
                 <!-- 「节点视图」：切到任务图，节点居中并 100% 缩放 -->
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
