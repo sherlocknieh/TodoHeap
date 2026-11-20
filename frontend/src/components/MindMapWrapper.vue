@@ -1942,13 +1942,9 @@ const animateView = (target, duration = 320) => {
   viewAnimation = requestAnimationFrame(step)
 }
 
-// 选中节点时的标准观看档位：节点主体约占视口宽度的 1/5，
-// 窄视口下退让到刚好放得下节点，避免被裁切
+// 三栏聚焦与编辑共用的观看档位上限：宽视口封顶 1.1 倍，
+// 窄视口由各场景按可用宽度缩小，避免节点被裁切
 const FOCUS_SCALE = 1.1
-const focusScale = () => Math.max(0.15, Math.min(
-  FOCUS_SCALE,
-  (focusWidth.value - 96) / nodeWidth
-))
 
 // 聚焦根节点：把根节点摆到可见区中央，缩放固定 100%；
 // 可见区比节点还窄时按可用宽度缩小，避免节点被裁切；与三栏聚焦无关，不依赖当前选中项
@@ -2171,12 +2167,12 @@ const editTextStyle = (node) => ({
   userSelect: editingId.value === Number(node.id) ? 'text' : 'none'
 })
 
-// 编辑前把过小的缩放提到阅读档位，避免原地编辑时字号看不清；
+// 编辑前把过小的缩放提到与三栏聚焦同一档位，避免原地编辑时字号看不清；
 // 以节点中心为锚点只缩放不移动，编辑框仍贴在节点上
 const ensureEditScale = (node) => {
-  const target = focusScale()
+  const target = columnFocusScale()
   if (view.scale >= target) return
-  // 编辑档位与三栏视野不是同一个缩放，先退出跟随，避免尺寸变化把编辑框拉走
+  // 从自由视角补档位属于视图变化，退出三栏跟随，避免尺寸变化把编辑框拉走
   columnFocus.value = false
   viewMode.value = null
   const centerX = node.x + nodeWidth / 2
