@@ -57,7 +57,7 @@ title: "视图与交互"
 - 完成状态为圆形勾选圈，多选使用方形选择框；未设截止时只显示日历按钮，已设时按逾期/今天/以后分别用红/绿/中性色。
 - 子任务按层级画树状连线：每层一条竖线，祖先层仍有后续兄弟时竖线贯穿整行，末位兄弟在行中心收成 └ 角并横接到卡片左缘；折叠或完成后连线随可见行重算（`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle`，机制见[任务表树状连线](../dev/logic/task-list-tree-lines.md)）。
 - 有子任务的行在卡片左侧放圆圈 +/− 折叠开关，开关中心正好落在树状连线的交叉点上；顶层行没有连线，开关仍停在卡片前的同一列，快速添加栏与卡片左缘对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
-- 「待办」标题栏右侧有全部展开/折叠的圆圈按钮，与任务行开关同尺寸，显示 + 表示当前全部收起、− 表示全部展开，一次作用于整张列表（`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
+- 「待办」标题栏右侧放整表操作：排序方式下拉与全部展开/折叠圆圈按钮（与任务行开关同尺寸；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`sortMode`、`LIST_SORT_OPTIONS`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
 
 ## 日程与堆视图
 

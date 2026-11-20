@@ -11,16 +11,6 @@
       </p>
 
       <div class="flex shrink-0 items-center gap-1.5">
-        <label
-          class="relative flex h-8 items-center rounded-md border border-hairline text-xs text-neutral-600 transition-colors hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300"
-          title="排序方式">
-          <AppIcon name="sliders" :size="13" class="pointer-events-none ml-2 opacity-70" />
-          <select v-model="sortMode" class="h-full cursor-pointer appearance-none bg-transparent pr-6 pl-1.5 outline-none">
-            <option v-for="option in LIST_SORT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
-          <AppIcon name="chevronDown" :size="12" class="pointer-events-none absolute right-1.5 opacity-60" />
-        </label>
-
         <button type="button" class="flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors"
           :class="selectionMode
             ? 'border-accent-600 bg-accent-600 text-white dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950'
@@ -115,14 +105,26 @@
             <span
               class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ visibleCount }}</span>
           </button>
-          <!-- 全部展开/折叠：作用范围是整张列表，与任务行开关同尺寸 -->
-          <button v-if="foldableTasks.length" type="button"
-            class="ml-auto grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
-            :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-            :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-            :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
-            <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
-          </button>
+          <!-- 整表操作：排序方式 + 全部展开/折叠，右对齐，只作用于这张列表 -->
+          <div class="ml-auto flex items-center gap-1.5">
+            <label
+              class="relative flex h-7 items-center rounded-md border border-hairline text-xs text-neutral-600 transition-colors hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300"
+              title="排序方式">
+              <AppIcon name="sliders" :size="13" class="pointer-events-none ml-2 opacity-70" />
+              <select v-model="sortMode"
+                class="h-full cursor-pointer appearance-none bg-transparent pr-6 pl-1.5 outline-none">
+                <option v-for="option in LIST_SORT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+              <AppIcon name="chevronDown" :size="12" class="pointer-events-none absolute right-1.5 opacity-60" />
+            </label>
+            <button v-if="foldableTasks.length" type="button"
+              class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+              :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+              :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+              :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
+              <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
+            </button>
+          </div>
         </div>
       </section>
 

@@ -49,7 +49,7 @@ title: 关键词索引
 | 两态完成 / 点了变完成又变灰 | `components/TodoListItem.vue` `statusMap` | 行内先给即时反馈，再落库 |
 | 多选 / 批量操作 / 选择模式 | `pages/todo/TodoList.vue` `toggleSelectionMode`、`batchSetCompleted`；`components/TodoListItem.vue` `selectionMode` | 多选时复选框替换完成状态与行内操作 |
 | 已完成区 / 已完成收在下面 / 清除已完成 / 已完成卡片偏左 / 卡片左边缘没对齐 | `pages/todo/TodoList.vue`「已完成：无内容时不占位」、`clearCompletedTodos` | 已完成列表带 `pl-[22px]`，卡片左缘与待办行同一竖线；整棵已完成子树移入回收站，可整体撤销 |
-| 排序 / 排序方式 / 按截止时间 | `pages/todo/TodoList.vue` `sortMode`、`LIST_SORT_OPTIONS` | 手动顺序仍以父级 `child_ids` 为准 |
+| 排序 / 排序方式 / 按截止时间 | `pages/todo/TodoList.vue` `sortMode`、`LIST_SORT_OPTIONS` | 「待办」标题栏右侧的排序下拉；手动顺序仍以父级 `child_ids` 为准 |
 | 行内菜单 / 三点 / 更多操作 | `components/TodoListItem.vue`「更多菜单相关」/ `currentMenuEl` | 与截止时间菜单互斥，点外部关闭 |
 | 行内删除 / 删除任务 / 移入回收站 | `components/TodoListItem.vue` `emitDeleteTodo`；`pages/todo/TodoList.vue` 删除处理 | 软删除，进回收站 |
 | 拖拽排序 / 拖成子任务 / 插到前后 | `components/TodoListItem.vue` `onDragStart`/`onDragOver`/`onDrop`；`utils/todoDrag.js` | 上四分位插前、下四分位插后、中间成为子任务 |
