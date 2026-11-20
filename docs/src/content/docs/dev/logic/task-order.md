@@ -38,7 +38,7 @@ title: "任务顺序"
 
 - `buildTaskForest`（`utils/taskGraph.js`）完全按 `child_ids` 的顺序深度优先展开；任务首次出现是普通节点，再次出现收缩为回边引用节点。
 - `withLocalChildLinks`（`stores/todos.js`）在构树前把「已有 `parent_id` 但还没写进父级 `child_ids`」的临时任务补到父级末尾；已经存在的 ID 由 Set 去重，不改变原有顺序。
-- 列表视图默认保持 `child_ids` 顺序；打开「只看有日期」筛选时用 `sortTodoTree` 按截止时间升/降序重排同级并保留祖先链（`TodoList.vue` 的 `dateOnly`、`dateOrder`），排序只影响展示，不回写 `child_ids`。
+- 列表视图默认保持 `child_ids` 顺序；打开「只看有日期」筛选时用 `flattenTasksByDeadline` 把带截止时间的任务收成平铺列表并按截止时间升/降序（`TodoList.vue` 的 `dateOnly`、`dateOrder`），此时不显示层级、不接受子任务新建与拖拽；排序只影响展示，不回写 `child_ids`。
 - 节点图的同层顺序同样来自 `child_ids` 的深度优先序；布局只负责把同层节点排开，不重新定义兄弟顺序。
 
 ## 性能

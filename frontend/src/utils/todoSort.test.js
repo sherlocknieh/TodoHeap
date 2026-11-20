@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sortTodoTree } from './todoSort'
+import { flattenTasksByDeadline, sortTodoTree } from './todoSort'
 
 const makeTree = () => ([
   { id: 1, title: '无截止', deadline: null, created_at: '2026-01-01T00:00:00.000Z', duration: 3, children: [] },
@@ -62,5 +62,30 @@ describe('sortTodoTree', () => {
 
     expect(tree.map(node => node.id)).toEqual([1, 2, 3])
     expect(tree[0].children.map(node => node.id)).toEqual([4])
+  })
+})
+
+describe('flattenTasksByDeadline', () => {
+  const tree = () => ([
+    {
+      id: 1, title: '父任务', deadline: null, children: [
+        { id: 2, title: '子任务晚', deadline: '2026-03-02T00:00:00.000Z', children: [] },
+        { id: 3, title: '子任务早', deadline: '2026-03-01T00:00:00.000Z', children: [] }
+      ]
+    },
+    { id: 4, title: '单独任务', deadline: '2026-03-03T00:00:00.000Z', children: [] },
+    { id: 'ref:1:2', _isRef: true, title: '引用', deadline: '2026-03-02T00:00:00.000Z', children: [] },
+    { id: 5, title: '无截止', deadline: null, children: [] }
+  ])
+
+  it('收集带截止时间的任务成平铺列表，按截止时间升序且不带层级', () => {
+    const flat = flattenTasksByDeadline(tree())
+
+    expect(flat.map(node => node.id)).toEqual([3, 2, 4])
+    expect(flat.every(node => node.children.length === 0)).toBe(true)
+  })
+
+  it('降序时整体反转，引用行与无截止任务不参与', () => {
+    expect(flattenTasksByDeadline(tree(), { descending: true }).map(node => node.id)).toEqual([4, 2, 3])
   })
 })

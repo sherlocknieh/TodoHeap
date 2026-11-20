@@ -165,6 +165,8 @@
           :selected-keys="selectionKeys"
           :ignore-collapse="isSearching"
           :highlight-query="isSearching ? searchQuery.trim() : ''"
+          :disable-add-subtask="dateOnly"
+          :disable-drag="dateOnly"
           @toggle-done="toggleDone"
           @delete-todo="deleteTodo"
           @add-subtask="addSubtask"
@@ -272,8 +274,8 @@ import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
-import { sortTodoTree } from '@/utils/todoSort'
-import { filterTasksByTitle, filterTaskTree } from '@/utils/taskGraph'
+import { flattenTasksByDeadline } from '@/utils/todoSort'
+import { filterTasksByTitle } from '@/utils/taskGraph'
 import { formatCompletionTime, groupCompletedByDay } from '@/utils/completedGroups'
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 import { listTreeOf } from '@/utils/rootTask'
@@ -341,11 +343,10 @@ const toggleDateOrder = () => { dateOrder.value = dateOrder.value === 'asc' ? 'd
 
 // 根任务是挂载点，不渲染成列表行：列表展示它的子级
 const baseTree = computed(() => listTreeOf(todoStore.treeNodes))
-// 筛选只留下带截止时间的任务，保留祖先链作上下文，并按截止时间升/降序
+// 筛选把带截止时间的任务收成平铺列表，按截止时间整体升/降序，不按层级展示
 const sortedTree = computed(() => {
   if (!dateOnly.value) return baseTree.value
-  const sorted = sortTodoTree(baseTree.value, dateOrder.value === 'desc' ? 'deadline-desc' : 'deadline')
-  return filterTaskTree(sorted, (node) => Boolean(node.deadline))
+  return flattenTasksByDeadline(baseTree.value, { descending: dateOrder.value === 'desc' })
 })
 
 // 搜索：命中任务连同祖先链一起显示，父级只作上下文；不改变源顺序
@@ -380,7 +381,7 @@ const countNodes = (list, matches = () => true) => list.reduce((acc, n) => acc
   + countNodes(n.children || [], matches), 0)
 // 全部待办用于空状态与标题栏存在性，可见数只统计通过筛选的任务
 const allCount = computed(() => countNodes(baseTree.value))
-const visibleCount = computed(() => countNodes(sortedTree.value, (node) => !dateOnly.value || Boolean(node.deadline)))
+const visibleCount = computed(() => countNodes(sortedTree.value))
 
 // 带子任务的可见行：快速添加栏的折叠开关按整张列表生效
 const foldableTasks = computed(() => {
@@ -679,6 +680,8 @@ const handleListKeydown = (event) => {
   if (event.key !== 'Tab' && event.key !== 'Enter') return
   // 行内编辑、快速添加、详情面板与各种菜单里的键盘操作优先
   if (event.target?.closest?.('input, textarea, select, button, a, label, [contenteditable="true"]')) return
+  // 筛选结果是平铺列表：没有层级上下文，Tab/Enter 新建会立刻被筛掉，不在这里创建
+  if (dateOnly.value) return
   if (!showActivePanel.value || props.selectedTaskId == null || selection.value.size > 0) return
   const node = findListNode(sortedTree.value, props.selectedTaskId)
   // 已完成区里的行也能选中，但它不在待办树里，不用它派生新任务

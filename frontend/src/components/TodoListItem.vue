@@ -114,7 +114,9 @@
                   <span>节点视图</span>
                 </button>
                 <button
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 transition-colors hover:bg-accent-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-neutral-300 dark:hover:bg-accent-500/10 dark:disabled:hover:bg-transparent"
+                  :disabled="disableAddSubtask"
+                  :title="disableAddSubtask ? '筛选结果中不能添加子任务' : null"
                   @click.stop="emitAddSubtask(item); closeMoreMenu()">
                   <AppIcon name="plus" :size="13" />
                   <span>添加子任务</span>
@@ -161,6 +163,9 @@ const props = defineProps({
   ignoreCollapse: { type: Boolean, default: false },
   // 搜索高亮：把命中的搜索词标在标题里
   highlightQuery: { type: String, default: '' },
+  // 筛选结果平铺显示：不允许从这里建子任务或拖拽重排
+  disableAddSubtask: { type: Boolean, default: false },
+  disableDrag: { type: Boolean, default: false },
   // 新建任务后由上层请求打开行内编辑：带着任务 ID，只有包含该行的实例响应
   editRequest: { type: Object, default: null }
 })
@@ -184,6 +189,8 @@ const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
 // 回边行用渲染它的父级解除引用，实体子行用真实父级
 const emitUnlink = (item) => emit('unlink-task', { parentId: item.parent_id, childId: selectableIdOf(item) })
 const emitAddSubtask = (item) => {
+  // 筛选结果是平铺列表，没有层级上下文，不从这里建子任务
+  if (props.disableAddSubtask) return
   // 正在给这一行改名时先提交草稿，再新增子任务，避免切换编辑目标时丢掉刚输入的名字
   if (editingId.value === item.id) finishEdit(item.id, 'enter')
   emit('add-subtask', selectableIdOf(item))
@@ -379,7 +386,7 @@ const applyDeadline = (id, value) => {
 
 // 拖拽：上四分位插到前面，下四分位插到后面，中间成为子任务
 // 编辑中的行禁用拖拽，否则在输入框内拖选文字会被 dragstart 劫持
-const canDrag = (item) => !item._isRef && editingId.value !== item.id
+const canDrag = (item) => !props.disableDrag && !item._isRef && editingId.value !== item.id
 
 const dropStyle = (id) => {
   const indicator = dropIndicator.value

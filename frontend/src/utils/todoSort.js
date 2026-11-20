@@ -45,6 +45,21 @@ const COMPARATORS = {
   duration: compareByDuration
 }
 
+// 日期筛选的展示：把整棵树里带截止时间的任务收集成平铺列表，按截止时间整体排序，不再保留层级。
+// 返回的都是叶子行（children 为空），列表页直接渲染，不参与缩进与树状连线。
+export const flattenTasksByDeadline = (nodes, { descending = false } = {}) => {
+  const compare = descending ? compareByDeadlineDesc : compareByDeadline
+  const collect = (list) => list.reduce((acc, node) => {
+    if (!node._isRef) acc.push(node)
+    return acc.concat(collect(node.children || []))
+  }, [])
+
+  return collect(nodes)
+    .filter((node) => Boolean(node.deadline))
+    .sort(compare)
+    .map((node) => ({ ...node, children: [] }))
+}
+
 export const sortTodoTree = (nodes, mode) => {
   const compare = COMPARATORS[mode]
   if (!compare) return nodes

@@ -64,7 +64,7 @@ export const findDeleteFocusId = (items, id, { parentId = null, preferNext = tru
 
 // 搜索/筛选共用：命中节点连同祖先链一起保留，父级只作上下文；回边行不重复计入结果。
 // 列表页把返回值直接交给 TodoListItem 渲染，源树与折叠状态都不改。
-export const filterTaskTree = (nodes, predicate) => nodes.reduce((acc, node) => {
+const filterTaskTree = (nodes, predicate) => nodes.reduce((acc, node) => {
   if (node._isRef) return acc
   const children = filterTaskTree(node.children || [], predicate)
   if (predicate(node) || children.length) acc.push({ ...node, children })
