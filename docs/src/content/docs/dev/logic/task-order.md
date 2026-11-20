@@ -18,9 +18,12 @@ title: "任务顺序"
 | 列表快速添加、顶部新建、详情面板新建子任务、Agent 工具、列表新建子任务 | 父级 `child_ids` 首位 | `stores/todos.optimistic.js` 的 `addTodo` |
 | 节点图 Enter 建同级 | 当前节点之后 | `TodoGraph.vue` 的 `createTask`，`afterId` 分支 |
 | 节点图 Tab / 出边加号 / 菜单「新建子任务」/ 根节点上新建 | 同级末尾 | `TodoGraph.vue` 的 `createTask`，`afterId == null` 分支 |
+| 任务表 Tab 建子级 | 同级末尾 | `TodoList.vue` 的 `addSubtask`（`append`）+ `moveNewTaskTo` |
+| 任务表 Enter 建同级 | 选中任务之后 | `TodoList.vue` 的 `createSibling` + `moveNewTaskTo` |
 
 - 列表类入口的「最近添加先看到」由两端共同保证：`addTodo` 本地头插临时 ID，服务端 `create_todo` 也头插真实 ID（`supabase/migrations/20261118000200_create_todo_prepend.sql`），刷新或实时回推不会把新任务拉回末尾。
 - `create_todo` 命中 `client_key` 的重试分支同样头插，保证重试与首次创建的位置一致。
+- 任务表键盘新建沿用任务图的位置规则：Tab 建子级与 Enter 建兄弟都在 `addTodo` 头插后调用 `moveNewTaskTo` 重排；任务行菜单「添加子任务」仍按列表规则头插。
 - 节点图不沿用这套头插：`createTask` 在 `addTodo` 之后调用 `moveTodo` 重排。Enter 建同级用 `position: 'after'` 落在当前节点下一位；`afterId == null` 的入口取父级 `child_ids` 中最后一个仍存在的兄弟作为落点，追加到末尾。
 - 父级是合成根或根任务尚未拉到时不强行重排：`addTodo` 把任务挂到根任务，`createTask` 用返回记录的 `parent_id` 找回父级；找不到父级时保持服务端结果。
 

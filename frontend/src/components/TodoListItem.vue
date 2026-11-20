@@ -155,7 +155,9 @@ const props = defineProps({
   // 多选高亮：上层列表维护的字符串 ID 集合，回边行不参与选择
   selectedKeys: { type: Array, default: () => [] },
   // 顶层行在上层视图里的父级：列表里是根任务，缺省时按无父级处理
-  parentId: { type: [Number, String], default: null }
+  parentId: { type: [Number, String], default: null },
+  // 新建任务后由上层请求打开行内编辑：带着任务 ID，只有包含该行的实例响应
+  editRequest: { type: Object, default: null }
 })
 
 const emit = defineEmits([
@@ -178,7 +180,7 @@ const emitAddSubtask = (parentId) => {
   // 正在给这一行改名时先提交草稿，再新增子任务，避免切换编辑目标时丢掉刚输入的名字
   if (editingId.value === parentId) finishEdit(parentId, 'enter')
   setTaskCollapsed(parentId, false)
-  emit('add-subtask', parentId, startEdit)
+  emit('add-subtask', parentId)
 }
 const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
 // 行内菜单「节点视图」交给外层切视图，行组件不直接操作路由
@@ -199,6 +201,14 @@ const flatMap = computed(() => {
   const map = new Map()
   flatList.value.forEach(item => map.set(item.id, item))
   return map
+})
+
+// 上层请求行内编辑（新建任务后）：本实例包含那一行才打开输入框，其余实例忽略
+watch(() => props.editRequest, (request) => {
+  if (!request?.id) return
+  const item = flatMap.value.get(request.id)
+  if (!item) return
+  startEdit(item.id, item.title)
 })
 
 const isItemVisible = (item) => {

@@ -126,6 +126,7 @@
           :node="node"
           :parent-id="todoStore.rootTaskId"
           :selected-task-id="props.selectedTaskId"
+          :edit-request="pendingEdit"
           :selected-keys="selectionKeys"
           @toggle-done="toggleDone"
           @delete-todo="deleteTodo"
@@ -224,7 +225,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
@@ -254,6 +255,8 @@ const emit = defineEmits(['task-selected', 'jump-to-graph', 'notify'])
 const newTaskTitle = ref('')
 // 添加栏可以先选截止时间，创建任务时一并写入
 const newTaskDeadline = ref('')
+// 新建任务后请求行内编辑：带着任务 ID 传给每一行，由包含该行的实例打开输入框
+const pendingEdit = ref(null)
 const loading = computed(() => todoStore.loading)
 const isFetched = computed(() => todoStore.isFetched)
 const errorText = computed(() => todoStore.error)
@@ -477,16 +480,82 @@ const applyAddDeadline = (value) => {
   newTaskDeadline.value = value ? new Date(value).toISOString() : ''
 }
 
-const addSubtask = async (parentId, startEditCb) => {
+// addTodo 默认把新任务头插到父级；这里按落点重排到指定兄弟之后，或同级末尾
+const moveNewTaskTo = async (newId, parentId, afterId = null) => {
+  if (parentId == null) return
+  const parent = todoStore.findTodoById(parentId)
+  if (!parent) return
+  const siblings = (parent.child_ids || []).filter((id) => todoStore.findTodoById(id))
+  const targetId = afterId != null
+    ? afterId
+    : [...siblings].reverse().find((id) => id !== newId)
+  if (targetId == null) return
+  await todoStore.moveTodo(newId, {
+    targetId,
+    position: 'after',
+    sourceParentId: parentId,
+    targetParentId: parentId
+  })
+}
+
+const addSubtask = async (parentId, { append = false, select = false } = {}) => {
   // 连续新建子任务同样自动编号，默认标题与顶栏、任务图一致
   const title = nextTaskTitle(null, childTitlesOf(todoStore.todos, parentId))
-  const result = await todoStore.addTodo(title, {
-    parent_id: parentId
-  })
-  if (result.success && result.data) {
-    startEditCb(result.data.id, result.data.title)
+  const result = await todoStore.addTodo(title, { parent_id: parentId })
+  if (!result.success || !result.data) {
+    if (result.error) emit('notify', { message: result.error })
+    return
   }
+  // 菜单入口沿用列表的头插；键盘 Tab 追加到同级末尾，与任务图一致
+  if (append) await moveNewTaskTo(result.data.id, parentId)
+  if (select) emit('task-selected', result.data.id)
+  pendingEdit.value = { id: result.data.id }
 }
+
+// 在列表展示树里找任务的真实节点：键盘新建要用它所在的那条展示父链
+const findListNode = (nodes, id) => {
+  for (const node of nodes) {
+    if (!node._isRef && node.id === id) return node
+    const hit = findListNode(node.children || [], id)
+    if (hit) return hit
+  }
+  return null
+}
+
+// 键盘 Enter：在选中任务之后建同级，插入位置与任务图 Enter 一致
+const createSibling = async (node) => {
+  const parentId = node.parent_id ?? todoStore.rootTaskId
+  const reference = todoStore.findTodoById(node.id)
+  const title = nextTaskTitle(reference?.title, childTitlesOf(todoStore.todos, parentId))
+  const result = await todoStore.addTodo(title, { parent_id: parentId })
+  if (!result.success || !result.data) {
+    if (result.error) emit('notify', { message: result.error })
+    return
+  }
+  await moveNewTaskTo(result.data.id, parentId, node.id)
+  emit('task-selected', result.data.id)
+  pendingEdit.value = { id: result.data.id }
+}
+
+// 任务表键盘新建：单选任务且焦点不在输入/按钮上时，Tab 建子级、Enter 建兄弟
+const handleListKeydown = (event) => {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
+  if (event.key !== 'Tab' && event.key !== 'Enter') return
+  // 行内编辑、快速添加、详情面板与各种菜单里的键盘操作优先
+  if (event.target?.closest?.('input, textarea, select, button, a, label, [contenteditable="true"]')) return
+  if (!showActivePanel.value || props.selectedTaskId == null || selection.value.size > 0) return
+  const node = findListNode(sortedTree.value, props.selectedTaskId)
+  // 已完成区里的行也能选中，但它不在待办树里，不用它派生新任务
+  if (!node || node.completed_at) return
+  event.preventDefault()
+  if (event.key === 'Tab') addSubtask(node.id, { append: true, select: true })
+  else createSibling(node)
+}
+
+// 键盘新建只在任务表挂载期间监听：其它视图有各自的键盘规则
+onMounted(() => document.addEventListener('keydown', handleListKeydown))
+onBeforeUnmount(() => document.removeEventListener('keydown', handleListKeydown))
 
 const editSubtask = async (id, newTitle) => {
   await todoStore.updateTodo(id, { title: newTitle })
