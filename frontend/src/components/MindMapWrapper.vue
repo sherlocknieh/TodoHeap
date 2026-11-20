@@ -309,10 +309,9 @@
         <AppIcon :name="currentDirection.icon" :size="14" />
       </button>
       <button
-        class="flex items-center gap-1 rounded border border-hairline bg-white px-2 py-1.5 text-[11px] text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+        class="rounded border border-hairline bg-white p-1.5 text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
         :title="`布局模式：${currentLayoutMode.label}（点击切换）`" @click.stop="cycleLayoutMode">
-        <AppIcon :name="currentLayoutMode.icon" :size="13" />
-        <span>{{ currentLayoutMode.short }}</span>
+        <AppIcon :name="currentLayoutMode.icon" :size="14" />
       </button>
       <button type="button"
         class="flex rounded border p-1.5 transition-colors"
@@ -548,9 +547,9 @@ const direction = persistedRef('mindmap-direction', 'right', {
 
 // 布局模式同样属于阅读偏好：紧凑布局按树居中后回收空白，标准布局保留原算法
 const layoutModeOptions = [
-  { value: 'compact', icon: 'layers', label: '紧凑布局', short: '紧凑' },
-  { value: 'standard', icon: 'tree', label: '标准布局', short: '标准' },
-  { value: 'balanced', icon: 'sliders', label: '平衡布局', short: '平衡' }
+  { value: 'compact', icon: 'layers', label: '紧凑布局' },
+  { value: 'standard', icon: 'mindmap', label: '标准布局' },
+  { value: 'balanced', icon: 'sliders', label: '平衡布局' }
 ]
 const layoutMode = persistedRef('mindmap-layout-mode', 'compact', {
   validate: (value) => layoutModeOptions.some((option) => option.value === value)
