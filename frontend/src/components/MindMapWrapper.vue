@@ -106,9 +106,11 @@
               :class="[
                 node.isRoot
                   ? 'text-white'
-                  : node.completed_at
-                    ? 'text-neutral-400 line-through dark:text-neutral-500'
-                    : 'text-neutral-800 dark:text-neutral-100',
+                  : editingId === Number(node.id)
+                    ? 'text-neutral-800 dark:text-neutral-100'
+                    : node.completed_at
+                      ? 'text-neutral-400 line-through dark:text-neutral-500'
+                      : 'text-neutral-800 dark:text-neutral-100',
                 editingId === Number(node.id) ? 'pointer-events-auto' : 'pointer-events-none'
               ]"
               @input="onEditInput($event)"
@@ -2348,8 +2350,10 @@ const dropPositionAt = (node, point) => {
   return 'inside'
 }
 
-// 拖拽中的源节点淡出，视线交给影子节点；拉线建链接时源节点保持原样
+// 拖拽中的源节点淡出，视线交给影子节点；拉线建链接时源节点保持原样。
+// 编辑中的节点不套完成态的变暗，否则输入时读不清文字
 const nodeOpacity = (node) => {
+  if (editingId.value === Number(node.id)) return 1
   if (dragState.active && dragState.moved && !dragState.fromToggle && node.id === dragState.sourceId) return 0.3
   return node.completed_at ? 0.55 : 1
 }

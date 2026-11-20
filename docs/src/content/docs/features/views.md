@@ -27,7 +27,7 @@ title: "视图与交互"
 - 选中后节点右侧出现竖三点按钮，悬停也会露出；右键直接唤出菜单。菜单含重命名、新建子任务、复制为 Markdown、删除任务，靠近边缘自动翻转（`MENU_ITEMS`、`openNodeMenuAt`）。
 - 未完成任务的勾选框描边按紧急度着色：一天内（含逾期）红、三天内橙、一周内黄，一周以外与无截止日期沿用中性灰；已完成仍是绿色实心勾。节点右区（三点按钮左侧）显示简短倒数「今天 / 明天 / 3天 / 逾期」，颜色与描边同色系，为此文字宽度多让出 34px，节点更多菜单不再显示截止信息。根节点没有勾选框，同样不显示提示（`deadlineUrgency`、`formatDeadlineShort`、`URGENCY_CHECK_CLASS`、`URGENCY_LABEL_CLASS`、`deadlineReserve`；节点数据由 `TodoGraph.vue` 的 `mapNode` 透传 `deadline`）。
 - 出边一侧有圆形控件：有子任务时是折叠开关，叶子节点在指针接近时显示加号；按钮中心就是连线起点（`controlPointFor`、`updateLeafControlHover`、`LEAF_CONTROL_REVEAL`）。
-- 原地编辑使用常驻 textarea：Enter 提交、Esc 取消、Shift+Enter 插入硬换行；节点随内容长高，不出现内部滚动条（`onEditKeydown`、`commitEdit`）。
+- 原地编辑使用常驻 textarea：Enter 提交、Esc 取消、Shift+Enter 插入硬换行；节点随内容长高，不出现内部滚动条（`onEditKeydown`、`commitEdit`）。已完成节点编辑时按正常文字显示，不套完成态的变灰、删除线与淡出。
 - 新建节点：Enter 建同级并落在当前节点之后；Tab、出边加号、菜单「新建子任务」建子级并追加到同级末尾，不受任务列表「新建置顶」影响（`TodoGraph.vue` 的 `createTask`，机制见[任务顺序](../dev/logic/task-order.md)）。
 
 ### 聚焦与右栏

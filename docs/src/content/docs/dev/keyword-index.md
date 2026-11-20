@@ -63,7 +63,7 @@ title: 关键词索引
 | 图内删除任务 / 菜单里删除 | `components/MindMapWrapper.vue` `MENU_ITEMS` 的 `delete` 项、`emitDelete` | 菜单项直接删除（软删除进回收站），键盘 Delete 走同一出口 |
 | 连线删除 / 线中点叉号 / 断开父子关系 | `components/MindMapWrapper.vue` `confirmUnlink`、`onUnlinkClick`、`selectEdge` | 只从父任务 `child_ids` 移除引用；最后一个父级被摘掉时回顶层 |
 | 加号 / 出边按钮 / 新建子任务 / 折叠计数 / 靠近就显示加号 / 拉线时加号消失 | `components/MindMapWrapper.vue`「出边按钮」、`onToggleClick`、`holdLeafControl`、`updateLeafControlHover`、`draggingLeafId` | 有子任务时是折叠开关；叶子节点指针靠近按钮位置即显示加号，从加号拉线期间保持可见，拖到别的节点建立链接 |
-| 双击重命名 / F2 改名 / 原地编辑 / Shift+Enter 换行 / 节点里打多行 / 编辑时节点撑高 / 编辑框出现滚动条 | `components/MindMapWrapper.vue` `startEdit`、`commitEdit`、`onEditKeydown`、`measureNode`、`wrapLines` | 节点文字常驻输入框，平时只读；编辑中节点随行数长高、不出现内部滚动条，Shift+Enter 插入手工换行，单回车提交 |
+| 双击重命名 / F2 改名 / 原地编辑 / Shift+Enter 换行 / 节点里打多行 / 编辑时节点撑高 / 编辑框出现滚动条 / 编辑已完成节点变灰 / 编辑时还有删除线 | `components/MindMapWrapper.vue` `startEdit`、`commitEdit`、`onEditKeydown`、`measureNode`、`wrapLines` | 节点文字常驻输入框，平时只读；编辑中节点随行数长高、不出现内部滚动条，Shift+Enter 插入手工换行，单回车提交；编辑态按正常文字显示，不套完成态的变灰与删除线 |
 | 键盘新建 / Enter 同级 / Tab 子级 / 新节点排第几 / Enter 新建插哪 / 新节点在末尾 | `components/MindMapWrapper.vue` `onKeydown`、`createSibling`、`createChild`；`pages/todo/TodoGraph.vue` 的 `createTask` | Enter 建同级落在当前节点之后；Tab、出边加号、菜单「新建子任务」追加到同级末尾，插入规则见[任务顺序](./logic/task-order.md) |
 | 复制节点 / Ctrl+C / 复制成 Markdown | `components/MindMapWrapper.vue` `onKeydown` / `Ctrl+C` 分支 | 复制选中节点及其子节点为 Markdown 列表 |
 | 滚轮缩放 / 拖拽平移 / 画布移动 | `components/MindMapWrapper.vue` `onWheel`、`onPointerDown`/`onPointerMove` | 选中节点或连线后滚轮缩放，空白处平移 |
