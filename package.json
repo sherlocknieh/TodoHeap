@@ -5,7 +5,8 @@
     "dev": "concurrently \"nub run dev:web\" \"nub run dev:docs\"",
     "dev:web": "cd frontend && nub run dev",
     "dev:docs": "cd docs && nub run dev",
-    "db:push": "node --env-file-if-exists=.env.local .scripts/db-push.mjs"
+    "db:push": "node --env-file-if-exists=.env.local .scripts/db-push.mjs",
+    "check:keywords": "node .scripts/check-keyword-index.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"

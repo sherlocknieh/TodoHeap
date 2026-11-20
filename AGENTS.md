@@ -27,6 +27,7 @@ AGENTS.md 是必须遵守的全局规则文档。
 基本命令:
 
 - `nub run dev` | 启动前端+文档开发服务器
+- `nub run check:keywords` | 校验关键词索引里的锚点在代码/文档中是否仍存在
 - `npx supabase login` | 登录 Supabase
 
 其余详细命令见: [待定]
