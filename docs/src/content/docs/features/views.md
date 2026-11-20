@@ -13,7 +13,7 @@ title: "视图与交互"
 - 布局模式在右下角视图控件里轮换：紧凑布局（默认）与标准布局，选择存本地（`layoutModeOptions`、`cycleLayoutMode`、`persistedRef('mindmap-layout-mode')`）。两种模式共用渲染层，算法在 `utils/mindmapLayout.js`，机制见[任务图布局逻辑](../dev/logic/mindmap-layout.md)。
 - `computeGraphLayout` 先按折叠状态求出可见图，再用 Tarjan 缩点与最长路径分层；根节点钉在坐标原点，展开或折叠其它节点时根节点在画布上不动。
 - 紧凑布局分三步：先按树边排版（子树块留位、父节点居中于树子节点带），再把多父节点放到所有父级中心的平均位置（高权重，邻居让位），最后交替收敛、按真实节点边缘回收空白，最长连线与分支间距明显缩短。
-- 标准布局保留原算法：层内按子树块跨度排开，多父节点取前向父级平均，`limitGaps` 压缩同父兄弟之间超过两个 `crossGap` 的空白、`separateLayer` 兜底（`blockSizeOf`、`blockBoundsOf`、`shareParent`）。
+- 标准布局是经典思维导图：子树按真实占地递归排布，父节点严格居中于子节点带；多父节点取所有父级中心平均并整块平移，只有产生重叠时才按真实边缘做层内分离（`blockOf`、`membersOf`、`separateLayer`）。
 - 节点高度由 `measureNode` 按 canvas 实测像素折行算出，显示态与编辑态共用同一套断行（`wrapLines`），编辑中不截断行数。
 
 ### 画布

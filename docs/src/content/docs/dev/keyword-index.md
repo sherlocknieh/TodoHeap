@@ -74,7 +74,7 @@ title: 关键词索引
 | 展开子节点 / 兄弟被推开 / 子树重叠 / 多父展开后空白 / 节点重叠 / 上下节点叠在一起 / 中间大段空白 / 两条分支隔得很远 / 图中间空一块 | `components/MindMapWrapper.vue` `computeGraphLayout` 的 `laneChildren`、`blockSizeOf`、`blockBoundsOf`、`shareParent`、`limitGaps`、`separateLayer` | 同层按子树块跨度推开兄弟；多父节点取全部前向父级平均定位；`limitGaps` 每层独立、自下而上把同父级兄弟超过 `2 × crossGap` 的可见边缘空白压回；`separateLayer` 再按节点真实边缘兜底，重叠时把下方块整体下移，避免压到别的父级分支 |
 | 布局方向 / 左右翻转 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留，只有左右两向 |
 | 紧凑布局 / 标准布局 / 布局模式 / 布局切换 / 排版模式 | `components/MindMapWrapper.vue` `layoutModeOptions`；`utils/mindmapLayout.js`；[任务图布局逻辑](./logic/mindmap-layout.md) | 右下角视图控件轮换两种模式，选择存本地；紧凑布局先按树排版、再多父归中、最后回收空白 |
-| 连线弯绕 / 长线绕远 / 多父节点不居中 / 节点偏心 / 分支空白太大 | [任务图布局逻辑](./logic/mindmap-layout.md) | 紧凑布局按真实节点边缘收敛；层内顺序固定为 DFS，多父节点归中在邻居冲突时会被夹住 |
+| 连线弯绕 / 长线绕远 / 多父节点不居中 / 节点偏心 / 分支空白太大 / 父节点没居中 | [任务图布局逻辑](./logic/mindmap-layout.md) | 标准布局父节点严格居中、多父节点取平均；紧凑布局按真实节点边缘收敛，归中在邻居冲突时会被夹住 |
 | 点阵背景 / 画布底纹 / 背景不动 / 点阵跟着画布走 / 背景太花 / 点太密 / 底纹按钮 / 点阵和坐标合并 | `components/MindMapWrapper.vue` `dotGrid`、`dotGridStyle`、`cycleBackground`、`backgroundLabel`、`mindmap-dots` 样式 | 右下角同一个底纹按钮循环切换 点阵 → 坐标网格 → 关闭，默认点阵开启、状态本地保存；点阵点距按当前缩放倍率放大、整层随视口平移，与内容同步移动缩放；缩到屏幕点距不足 16px 时把世界点距按 2 的幂翻倍抽稀，放大变稀疏则不再调整 |
 | 坐标网格 / 坐标轴 / 刻度标签 / 图上有数字 / 网格跟着画布走 / 底纹按钮 | `components/MindMapWrapper.vue` `coordinateGrid`、`gridLayer`、`cycleBackground`、`mindmap-grid-*` 样式；`utils/canvasGrid.js` | 与点阵共用右下角同一个底纹按钮，循环到坐标网格时显示；默认关闭、状态本地保存；细线与主刻度跟随平移缩放，原点在根节点出边按钮圆心（`gridOrigin`），轴标签显示世界坐标，主刻度按 1/2/5 自适应，屏幕间距不小于 100px |
 | 深色背景 / 暗色画布 / 背景颜色 / 想用深色底 / 画布底色跟随主题 | `components/MindMapWrapper.vue` 画布样式 `html[data-theme='dark'] .mindmap-canvas` | 任务图画布与页面画布同色（`--color-canvas` / `--color-canvas-dark`），深浅完全跟随全局主题，没有独立的画布背景按钮；深色下点阵与网格线条转白 |
