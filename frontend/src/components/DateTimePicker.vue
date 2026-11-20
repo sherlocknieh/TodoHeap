@@ -347,45 +347,45 @@ onBeforeUnmount(() => {
               @click="applyTime(time)">{{ time }}</button>
           </div>
           <div class="mt-1.5 flex items-center gap-1.5">
-            <button type="button"
-              class="grid h-7 w-5 shrink-0 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-              title="重置为 23:59" aria-label="重置为 23:59" @click="resetTime">
-              <AppIcon name="clock" :size="12" />
-            </button>
             <div
-              class="flex items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
-                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
               <input :value="draftHour" type="text" inputmode="numeric" maxlength="2" aria-label="小时"
-                class="h-7 w-6 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
+                class="h-7 min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
                 @input="setHour" @keydown.up.prevent="stepHour(1)" @keydown.down.prevent="stepHour(-1)" />
               <button type="button"
-                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一小时" aria-label="加一小时" @click="stepHour(1)">
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
             <span class="text-xs text-neutral-400">:</span>
             <div
-              class="flex items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
-                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
               <input :value="draftMinute" type="text" inputmode="numeric" maxlength="2" aria-label="分钟"
-                class="h-7 w-6 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
+                class="h-7 min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
                 @input="setMinute" @keydown.up.prevent="stepMinute(1)" @keydown.down.prevent="stepMinute(-1)" />
               <button type="button"
-                class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一分钟" aria-label="加一分钟" @click="stepMinute(1)">
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
-            <div class="ml-auto flex items-center gap-1">
+            <button type="button"
+              class="grid h-7 w-5 shrink-0 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+              title="重置为 23:59" aria-label="重置为 23:59" @click="resetTime">
+              <AppIcon name="clock" :size="12" />
+            </button>
+            <div class="flex items-center gap-1">
               <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 rounded-md px-2 text-xs"
                 @click="clearValue">清除</button>
               <button type="button" class="btn-primary h-7 rounded-md px-3 text-xs" @click="confirm">确定</button>
