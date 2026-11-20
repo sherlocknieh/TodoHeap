@@ -22,7 +22,7 @@ title: 关键词索引
 | 侧栏 / 左栏 / 导航栏 / 抽屉 | `components/LeftSidebar.vue`；`pages/Todo.vue`「宽屏侧栏是常驻栏」「窄屏侧栏是覆盖内容的抽屉」 | 宽屏常驻并可拖宽，窄屏与任务图是浮层抽屉，两套状态互不覆盖；浮层时点外部（含画布空白）收起 |
 | 侧栏拉宽 / 拖宽度 / 拖到收起 | `components/LeftSidebar.vue`「右缘拖拽条」、`useResizablePanel`；`utils/resizablePanel.js` | 拖过最小宽度（200px）继续拖一段即收起 |
 | 技能区高度 / 上下拖动分隔条 / 技能栏太矮 | `components/LeftSidebar.vue`「技能：非首位展开时可拖拽调高」 | 分隔条在技能分组上缘；技能区排首位展开时占满高度，不显示分隔条 |
-| 侧栏分组折叠 / 收起标题 / 视图分组 / 日程概览 / 日程说明 / 全部折叠贴顶 / 单栏展开占满 / 多栏统一高度 / 展开动画 / 展开过渡 | `components/LeftSidebar.vue` `collapsedSections`、`SIDEBAR_SECTIONS`、`sectionClass`、`sectionStyle`、`measureSectionHeights` | 任务、日程、AI 共用一套：全部折叠时标题贴顶；首个展开分区占满剩余高度，其余展开分区统一 192px，技能区沿用可拖拽高度；高度以像素写入并做 200ms 过渡 |
+| 侧栏分组折叠 / 收起标题 / 视图分组 / 日程概览 / 日程说明 / 全部折叠贴顶 / 单栏展开占满 / 多栏统一高度 / 展开动画 / 展开过渡 | `components/LeftSidebar.vue` `collapsedSections`、`SIDEBAR_SECTIONS`、`sectionClass`、`sectionStyle`、`measureSectionHeights`、`openSectionHeight` | 任务、日程、AI 共用一套：全部折叠时标题贴顶；首个展开分区占满剩余高度，其余展开分区统一 192px，技能区沿用可拖拽高度；空间不足时首个分区至少保留标题行；高度以像素写入并做 200ms 过渡 |
 | 顶栏标题 / 主区域标题 / 当前视图名 | `pages/Todo.vue` `activeViewTitle` | 各视图统一在顶栏显示名称 |
 | 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏；主题与详情面板开关常驻在这一行，不随视图操作让位 |
 | 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图让适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避开面板；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |

@@ -156,10 +156,15 @@ const measureSectionHeights = () => {
   const heights = { ...headers }
   if (open.length) {
     const first = open[0]
+    // 非首位展开分区统一高度；首位只能吃掉扣掉这些分区和拖拽条后的剩余空间
+    open.slice(1).forEach((key) => {
+      heights[key] = openSectionHeight(key, headers[key])
+    })
     const used = keys
       .filter((key) => key !== first)
-      .reduce((sum, key) => sum + (open.includes(key) ? openSectionHeight(key, headers[key]) : headers[key]), 0)
-    heights[first] = Math.max(0, total - used - resizeHandleSpace())
+      .reduce((sum, key) => sum + heights[key], 0)
+    // 空间不足时首位分区也至少保留标题行，避免整块被裁掉点不到
+    heights[first] = Math.max(headers[first], total - used - resizeHandleSpace())
   }
   // 合并写入，切换入口再回来时先沿用上次高度，测量后同帧校正
   sectionHeights.value = { ...sectionHeights.value, ...heights }
