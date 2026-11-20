@@ -296,26 +296,30 @@ onBeforeUnmount(() => {
             @click="selectDay(day)">{{ day.day }}</button>
         </div>
 
-        <!-- 时分：仅日期时间模式，常用时间点一键填充 -->
+        <!-- 时分：仅日期时间模式；备选时间在上，输入器与清除/确定同一行 -->
         <div v-if="isDateTime" class="mt-2.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
-          <div class="flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-            <AppIcon name="clock" :size="12" />
-            <span>时间</span>
-            <input :value="draftHour" type="number" min="0" max="23" aria-label="小时"
-              class="field h-7 w-11 px-1 text-center text-xs" @input="setHour" />
-            <span>:</span>
-            <input :value="draftMinute" type="number" min="0" max="59" aria-label="分钟"
-              class="field h-7 w-11 px-1 text-center text-xs" @input="setMinute" />
-          </div>
-          <div class="mt-1.5 flex gap-1">
+          <div class="flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+            <AppIcon name="clock" :size="12" class="shrink-0" />
             <button v-for="time in TIME_PRESETS" :key="time" type="button"
               class="flex-1 rounded-md border border-hairline py-1 text-[11px] text-neutral-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               @click="applyTime(time)">{{ time }}</button>
           </div>
+          <div class="mt-1.5 flex items-center gap-1.5">
+            <input :value="draftHour" type="number" min="0" max="23" aria-label="小时"
+              class="field h-7 w-11 px-1 text-center text-xs" @input="setHour" />
+            <span class="text-xs text-neutral-400">:</span>
+            <input :value="draftMinute" type="number" min="0" max="59" aria-label="分钟"
+              class="field h-7 w-11 px-1 text-center text-xs" @input="setMinute" />
+            <div class="ml-auto flex items-center gap-1">
+              <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 px-2 text-xs"
+                @click="clearValue">清除</button>
+              <button type="button" class="btn-primary h-7 px-3 text-xs" @click="confirm">确定</button>
+            </div>
+          </div>
         </div>
 
-        <!-- 操作：清除只在有值时出现，确定写回 v-model -->
-        <div class="mt-2.5 flex items-center gap-1.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
+        <!-- 仅日期模式没有时间行，操作单独占一行 -->
+        <div v-else class="mt-2.5 flex items-center gap-1.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
           <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 px-2 text-xs"
             @click="clearValue">清除</button>
           <button type="button" class="btn-primary ml-auto h-7 px-3 text-xs" @click="confirm">确定</button>
