@@ -96,10 +96,10 @@
               </span>
             </div>
 
-            <!-- 元信息：删除时间用与列表截止时间同款的 chip -->
+            <!-- 元信息：删除时间用纯文本，不做胶囊 -->
             <div class="flex items-center gap-2 shrink-0">
-              <span class="chip gap-1 text-neutral-500 dark:text-neutral-400">
-                <AppIcon name="clock" :size="10" />{{ formatDate(item.deleted_at) }}
+              <span class="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
+                {{ formatDate(item.deleted_at) }}
               </span>
             </div>
 
