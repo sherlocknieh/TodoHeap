@@ -106,6 +106,32 @@ describe('computeGraphPositions', () => {
     expect(standard.layers.get('T')).toBe(compact.layers.get('T'))
   })
 
+  it('标准布局以多父节点为锚压紧兄弟块，不留空隙', () => {
+    const nodes = [
+      makeNode('R', 52, { isRoot: true }),
+      makeNode('P1'),
+      makeNode('P2'),
+      makeNode('S'),
+      makeNode('M')
+    ]
+    const edges = [
+      treeEdge('R', 'P1'),
+      treeEdge('R', 'P2'),
+      treeEdge('P1', 'S'),
+      treeEdge('P1', 'M'),
+      refEdge('P2', 'M')
+    ]
+    const result = computeGraphPositions({ nodes, edges, mode: 'standard' })
+    const height = (id) => nodes.find((node) => node.id === id).height
+    const center = (id) => centerOf(result.positions, nodes, id)
+    const top = (id) => result.positions.get(id).y
+    const bottom = (id) => top(id) + height(id)
+
+    // 多父节点 M 保持在父级平均位置，普通兄弟 S 让位贴紧
+    expect(Math.abs(center('M') - (center('P1') + center('P2')) / 2)).toBeLessThan(0.5)
+    expect(Math.abs(bottom('S') + CROSS_GAP - top('M'))).toBeLessThan(0.5)
+  })
+
   it('从右到左时主方向翻转，根节点仍在原点', () => {
     const nodes = [makeNode('R', 52, { isRoot: true }), makeNode('A')]
     const edges = [treeEdge('R', 'A')]

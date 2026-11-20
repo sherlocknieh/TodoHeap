@@ -451,14 +451,94 @@ export const computeGraphPositionsStandard = ({ nodes, edges, direction = 'right
     cursor += block.height
   })
 
-  // 子树成员：多父归中时整块平移，块内相对位置不变
+  // 子树成员：多父归中、块压紧、块分离都按整块平移，块内相对位置不变
   const membersOf = (id, out = []) => {
     out.push(id)
     treeChildren.get(id).forEach((kid) => membersOf(kid, out))
     return out
   }
 
-  // 层内最小分离：保留 DFS 顺序与 24 间距，多父节点权重更高
+  // 子树在交叉方向的真实上下边缘
+  const extentCache = new Map()
+  const extentOf = (id) => {
+    const cached = extentCache.get(id)
+    if (cached) return cached
+    let top = Infinity
+    let bottom = -Infinity
+    membersOf(id).forEach((mid) => {
+      const node = byId.get(mid)
+      const center = centerOf(mid)
+      top = Math.min(top, center - node.height / 2)
+      bottom = Math.max(bottom, center + node.height / 2)
+    })
+    const value = { top, bottom }
+    extentCache.set(id, value)
+    return value
+  }
+
+  const shiftBlock = (id, delta) => {
+    if (!delta) return
+    membersOf(id).forEach((mid) => crossCenter.set(mid, centerOf(mid) + delta))
+    extentCache.clear()
+  }
+
+  // 多父节点整块移到所有父级的平均位置
+  const applyMultiTargets = () => {
+    layerKeys.forEach((layer) => {
+      order.get(layer).forEach((node) => {
+        const id = String(node.id)
+        if (!isMultiParent.has(id)) return
+        const target = averageOf(parentsOf.get(id).map(centerOf))
+        if (target === null) return
+        shiftBlock(id, target - centerOf(id))
+      })
+    })
+  }
+
+  // 多父节点被平移到父级平均位置后会离开原来的兄弟块，留下大段空隙。
+  // 以多父节点为锚，把它前后连续的普通兄弟块按 24 间距重新贴紧
+  const repackAroundPinned = (parentId) => {
+    const kids = treeChildren.get(parentId)
+    if (kids.length < 2) return
+    const pinned = kids.map((kid) => isMultiParent.has(kid))
+    if (!pinned.some(Boolean) || pinned.every(Boolean)) return
+
+    const blocks = kids.map((kid) => ({ id: kid, ...extentOf(kid) }))
+    let index = 0
+    while (index < blocks.length) {
+      if (pinned[index]) {
+        index += 1
+        continue
+      }
+      let end = index
+      while (end + 1 < blocks.length && !pinned[end + 1]) end += 1
+
+      const nextPinned = end + 1 < blocks.length ? blocks[end + 1] : null
+      const prevPinned = index > 0 ? blocks[index - 1] : null
+      if (nextPinned) {
+        let bottom = nextPinned.top - CROSS_GAP
+        for (let k = end; k >= index; k -= 1) {
+          const block = blocks[k]
+          const delta = bottom - block.bottom
+          shiftBlock(block.id, delta)
+          bottom = block.top + delta - CROSS_GAP
+        }
+      } else if (prevPinned) {
+        let top = prevPinned.bottom + CROSS_GAP
+        for (let k = index; k <= end; k += 1) {
+          const block = blocks[k]
+          const delta = top - block.top
+          shiftBlock(block.id, delta)
+          top = block.bottom + delta + CROSS_GAP
+        }
+      }
+      index = end + 1
+    }
+  }
+
+  // 兜底：压紧可能把某个块推进邻居。按子树块分离，块内相对位置保持不变
+  // 层内最小分离：保留 DFS 顺序与 24 间距，多父节点权重更高。
+  // 只处理节点真实边缘，不会为了块边界把不相干的分支撑开
   const separateLayer = (layer) => {
     const list = order.get(layer)
     if (list.length === 0) return
@@ -476,21 +556,30 @@ export const computeGraphPositionsStandard = ({ nodes, edges, direction = 'right
     list.forEach((node, index) => crossCenter.set(String(node.id), projected[index]))
   }
 
-  // 多父归中与层内分离交替 3 轮：归中可能把块推进邻居，分离只补足重叠
+  // 先处理深层的父级：内层块压紧后高度会变，外层必须基于新的块边界重排
+  const treeDepth = new Map()
+  const depthOf = (id) => {
+    const cached = treeDepth.get(id)
+    if (cached !== undefined) return cached
+    const parent = treeParentOf.get(id)
+    const value = parent ? depthOf(parent) + 1 : 0
+    treeDepth.set(id, value)
+    return value
+  }
+  const repackOrder = [...ids].sort((a, b) => depthOf(b) - depthOf(a))
+
+  // 多父归中与层内分离交替：归中会把块推进邻居，分离只补足重叠
   for (let round = 0; round < 3; round += 1) {
-    layerKeys.forEach((layer) => {
-      order.get(layer).forEach((node) => {
-        const id = String(node.id)
-        if (!isMultiParent.has(id)) return
-        const target = averageOf(parentsOf.get(id).map(centerOf))
-        if (target === null) return
-        const delta = target - centerOf(id)
-        if (Math.abs(delta) < 1e-6) return
-        membersOf(id).forEach((mid) => crossCenter.set(mid, centerOf(mid) + delta))
-      })
-    })
+    applyMultiTargets()
     layerKeys.forEach(separateLayer)
   }
+
+  // 以多父节点为锚，把普通兄弟块按 24 压紧（由深到浅，外层用新的块边界）
+  repackOrder.forEach(repackAroundPinned)
+  extentCache.clear()
+
+  // 兜底：压紧可能让某个块压到别的分支，只按节点真实边缘补足重叠
+  layerKeys.forEach(separateLayer)
 
   return finalizePositions({ nodes, context, crossCenter, direction })
 }
