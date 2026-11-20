@@ -25,6 +25,8 @@ const props = defineProps({
   placeholder: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
   clearable: { type: Boolean, default: true },
+  // 截止标签（胶囊）把清除放回胶囊本身，面板内不再出「清除」；输入框触发器不用，避免点输入框右侧误清空
+  triggerClear: { type: Boolean, default: false },
   // 截止时间入口把今天/明天/一周后收进面板，不再需要上级菜单
   quickDates: { type: Boolean, default: false }
 })
@@ -315,7 +317,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="relative">
+  <div ref="rootEl" class="group relative">
     <!-- 「时间选择器触发器」：默认外观与 .field 一致；截止时间入口用 slot 换成日历按钮/截止标签 -->
     <slot name="trigger" :open="open" :toggle="togglePicker">
       <button type="button" :disabled="disabled" :aria-expanded="open" aria-haspopup="dialog"
@@ -328,6 +330,13 @@ onBeforeUnmount(() => {
         <AppIcon name="calendar" :size="14" class="shrink-0 text-neutral-400 transition-opacity" />
       </button>
     </slot>
+
+    <!-- 「胶囊上的清除」：胶囊有值时悬停撑开、右侧出现 ×，点击直接清空；不可见时不接收点击 -->
+    <button v-if="clearable && triggerClear && modelValue && !disabled" type="button"
+      class="pointer-events-none absolute top-1/2 right-1 grid h-5 w-5 -translate-y-1/2 place-items-center text-neutral-400 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 hover:text-rose-600 focus-visible:pointer-events-auto focus-visible:opacity-100 dark:text-neutral-400 dark:hover:text-rose-400"
+      title="清除截止时间" aria-label="清除截止时间" @click.stop="clearValue">
+      <AppIcon name="close" :size="11" />
+    </button>
 
     <Teleport to="body">
       <div v-if="open" ref="panelEl" tabindex="-1" role="dialog" aria-label="选择日期时间"
@@ -379,8 +388,8 @@ onBeforeUnmount(() => {
           <div class="flex gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
             <button v-for="time in TIME_PRESETS" :key="time" type="button" :class="CHIP_CLASS"
               @click="applyTime(time)">{{ time }}</button>
-            <!-- 「清除」：有值时清空当前值；触发器上不再放 ×，避免点输入框时误清空 -->
-            <button v-if="clearable && modelValue" type="button"
+            <!-- 「清除」：输入框触发器用；胶囊触发器改在胶囊上清除（triggerClear），避免重复入口 -->
+            <button v-if="clearable && !triggerClear && modelValue" type="button"
               class="h-7 shrink-0 rounded-md border border-hairline px-2 text-[11px] text-neutral-500 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-rose-500/40 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
               @click="clearValue">清除</button>
           </div>
@@ -431,7 +440,7 @@ onBeforeUnmount(() => {
 
         <!-- 仅日期模式没有时间行，操作单独占一行 -->
         <div v-else class="mt-2.5 flex items-center gap-1.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
-          <button v-if="clearable && modelValue" type="button"
+          <button v-if="clearable && !triggerClear && modelValue" type="button"
             class="h-7 rounded-md border border-hairline px-2 text-[11px] text-neutral-500 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-rose-500/40 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
             @click="clearValue">清除</button>
           <button type="button" class="btn-primary ml-auto h-7 rounded-md px-3 text-xs" @click="confirm">确定</button>

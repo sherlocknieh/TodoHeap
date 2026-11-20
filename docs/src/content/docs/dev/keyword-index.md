@@ -53,7 +53,7 @@ title: 关键词索引
 | 行内菜单 / 三点 / 更多操作 | `components/TodoListItem.vue`「更多菜单相关」/ `currentMenuEl` | 点外部关闭，与截止时间选择器互不遮挡 |
 | 行内删除 / 删除任务 / 移入回收站 | `components/TodoListItem.vue` `emitDeleteTodo`；`pages/todo/TodoList.vue` 删除处理 | 软删除，进回收站 |
 | 拖拽排序 / 拖成子任务 / 插到前后 | `components/TodoListItem.vue` `onDragStart`/`onDragOver`/`onDrop`；`utils/todoDrag.js` | 上四分位插前、下四分位插后、中间成为子任务 |
-| 截止时间菜单 / 日期时间 / 时间选择器 / 月历 / 一周后 | `components/DateTimePicker.vue`「时间选择器触发器」；`components/TodoListItem.vue` `applyDeadline`；`utils/datePicker.js` `buildMonthGrid` | 点日历按钮或截止标签直接展开月历面板，今天/明天/一周后与清除都在面板内（触发器上没有 ×），没有上级菜单；机制见[日期时间选择器](./logic/date-time-picker.md) |
+| 截止时间菜单 / 日期时间 / 时间选择器 / 月历 / 一周后 / 截止标签上的 × / 药丸上的叉 / 清除截止时间 | `components/DateTimePicker.vue`「时间选择器触发器」「胶囊上的清除」；`components/TodoListItem.vue` `applyDeadline`；`pages/todo/TodoList.vue` `applyAddDeadline`；`utils/datePicker.js` `buildMonthGrid` | 点日历按钮或截止标签直接展开月历面板，今天/明天/一周后与确定在面板内，没有上级菜单；截止标签有值时悬停撑开右内边距并露出 ×，点击即清除（面板内不再出「清除」），机制见[日期时间选择器](./logic/date-time-picker.md) |
 
 ## 任务图（思维导图）
 

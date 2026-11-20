@@ -68,7 +68,7 @@
             <div v-if="editingId !== item.id && (item.deadline || item.duration != null)"
               class="flex shrink-0 items-center gap-1.5">
               <DateTimePicker v-if="item.deadline" :model-value="toDateTimeLocalValue(item.deadline)"
-                quick-dates @confirm="applyDeadline(item.id, $event)">
+                quick-dates trigger-clear @confirm="applyDeadline(item.id, $event)">
                 <template #trigger="{ open, toggle }">
                   <button type="button" class="chip gap-1 font-medium transition-all duration-150 group-hover:pr-6"
                     :class="deadlineChipClass(item.deadline)" :aria-expanded="open"

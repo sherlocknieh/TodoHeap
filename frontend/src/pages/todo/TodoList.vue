@@ -21,7 +21,7 @@
       <input v-model.trim="newTaskTitle" @keyup.enter="addTodo" placeholder="添加任务，回车保存"
         class="h-5 min-w-0 flex-1 bg-transparent text-sm leading-5 text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-200 dark:placeholder:text-neutral-500" />
       <!-- 截止时间：未设置时是日历按钮，设置后变成任务行同款标签，随任务一起创建 -->
-      <DateTimePicker :model-value="newTaskDeadline ? toDateTimeLocalValue(newTaskDeadline) : ''" quick-dates
+      <DateTimePicker :model-value="newTaskDeadline ? toDateTimeLocalValue(newTaskDeadline) : ''" quick-dates trigger-clear
         @confirm="applyAddDeadline">
         <template #trigger="{ open, toggle }">
           <button v-if="!newTaskDeadline" type="button"
