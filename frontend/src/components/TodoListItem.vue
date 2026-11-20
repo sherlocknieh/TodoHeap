@@ -1,7 +1,8 @@
 <template>
   <ul class="space-y-1.5">
     <template v-for="item in visibleRows" :key="item.id">
-      <li data-task-item :draggable="canDrag(item)"
+      <li data-task-item :data-task-id="item.id" :data-task-selectable="item._isRef ? 'false' : null"
+        :draggable="canDrag(item)"
         class="group relative cursor-pointer" :style="{ paddingLeft: rowPaddingLeft(item._level) + 'px' }"
         @click="handleRowClick(item)" @dragstart="onDragStart(item, $event)" @dragover.prevent="onDragOver(item, $event)"
         @dragleave="onDragLeave(item, $event)" @drop.prevent="onDrop(item, $event)" @dragend="onDragEnd">
@@ -144,6 +145,8 @@ import { isTaskCollapsed, setTaskCollapsed, toggleTaskCollapsed } from '@/utils/
 const props = defineProps({
   node: Object,
   selectedTaskId: Number,
+  // 多选高亮：上层列表维护的字符串 ID 集合，回边行不参与选择
+  selectedKeys: { type: Array, default: () => [] },
   // 顶层行在上层视图里的父级：列表里是根任务，缺省时按无父级处理
   parentId: { type: [Number, String], default: null }
 })
@@ -317,6 +320,9 @@ const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
 
 // 行状态：拖入内部用浅强调色提示；选中只强调边框，边框与底色全部由状态决定，避免基础类覆盖
 const isRowSelected = (item) => props.selectedTaskId === selectableIdOf(item)
+// 多选高亮：待办行与已完成行共用同一套选中样式，回边行不可选
+const selectedKeySet = computed(() => new Set(props.selectedKeys))
+const isMultiSelected = (item) => !item._isRef && selectedKeySet.value.has(String(item.id))
 
 const rowStateClass = (item) => {
   const indicator = dropIndicator.value
@@ -324,7 +330,7 @@ const rowStateClass = (item) => {
     return 'border py-1.5 pl-2 pr-1.5 border-accent-500 bg-accent-50 shadow-[inset_3px_0_0_0_var(--color-accent-500),0_2px_8px_rgb(6_80_48/0.12)] dark:border-accent-500/60 dark:bg-accent-500/10 dark:shadow-[inset_3px_0_0_0_var(--color-accent-500)]'
   }
   // 选中与任务添加栏的聚焦态一致：只换边框色并加投影，盒子尺寸、底色和文字都不动
-  if (isRowSelected(item)) {
+  if (isRowSelected(item) || isMultiSelected(item)) {
     return 'border py-1.5 pl-2 pr-1.5 border-accent-500 bg-surface shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
   }
   // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻

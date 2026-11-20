@@ -49,6 +49,7 @@ title: 关键词索引
 | 两态完成 / 点了变完成又变灰 | `components/TodoListItem.vue` `statusMap` | 行内先给即时反馈，再落库 |
 | 已完成区 / 已完成收在下面 / 清除已完成 / 已完成卡片偏左 / 卡片左边缘没对齐 / 已完成按天分隔 / 完成日期分隔 / 按完成日分组 / 点日期收起 / 折叠某天已完成 / 删除单条已完成 / 已完成条目删除按钮 | `pages/todo/TodoList.vue`「已完成：无内容时不占位」「[已完成按天分隔]」「「日期分隔可点」」「「已完成行删除」」、`clearCompletedTodos`、`completedGroups`、`toggleCompletedDay`、`deleteTodo`；`utils/completedGroups.js` `groupCompletedByDay` | 已完成列表带 `pl-[22px]`，卡片左缘与待办行同一竖线；按 `completed_at` 的本地自然日分组，标题「今天 / 昨天 / M月D日（跨年补年份）+ 当天数量 + 分隔线」，最新的一天在最上面；点整行日期或分隔线收起/展开当天任务，标题与数量始终保留；每条右侧有删除按钮，单条软删除并可撤销；整棵已完成子树也可整体清除并撤销 |
 | 排序 / 排序方式 / 按截止时间 | `pages/todo/TodoList.vue` `sortMode`、`LIST_SORT_OPTIONS` | 「待办」标题栏右侧的排序下拉；手动顺序仍以父级 `child_ids` 为准 |
+| 多选 / Ctrl 多选 / ⌘ 多选 / Shift 连选 / 批量删除任务 / 选中多个任务 | `pages/todo/TodoList.vue`「多选操作条」、`handleRowClickCapture`、`deleteSelectedTodos`；`utils/taskSelection.js` | Ctrl/⌘ 切换单个任务，Shift 在本分区内按可见行连选，普通点击清空选择并打开详情；列表根节点 capture 阶段拦截，机制见[任务多选](./logic/task-multi-select.md) |
 | 行内菜单 / 三点 / 更多操作 | `components/TodoListItem.vue`「更多菜单相关」/ `currentMenuEl` | 点外部关闭，与截止时间选择器互不遮挡 |
 | 行内删除 / 删除任务 / 移入回收站 | `components/TodoListItem.vue` `emitDeleteTodo`；`pages/todo/TodoList.vue` 删除处理 | 软删除，进回收站 |
 | 拖拽排序 / 拖成子任务 / 插到前后 | `components/TodoListItem.vue` `onDragStart`/`onDragOver`/`onDrop`；`utils/todoDrag.js` | 上四分位插前、下四分位插后、中间成为子任务 |

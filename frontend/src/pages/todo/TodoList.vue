@@ -1,5 +1,5 @@
 <template>
-  <div class="text-neutral-900 dark:text-neutral-100">
+  <div class="text-neutral-900 dark:text-neutral-100" @click.capture="handleRowClickCapture">
     <!-- 页面操作：统计放进主区域顶栏 -->
     <Teleport defer to="#main-topbar-actions">
       <p class="min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
@@ -41,6 +41,25 @@
         :disabled="!newTaskTitle.trim()" title="添加任务" aria-label="添加任务" @click="addTodo">
         <AppIcon name="chevronRight" :size="15" />
       </button>
+    </div>
+
+    <!-- 「多选操作条」：Ctrl/⌘ 切换、Shift 连选后出现，提供批量删除与取消选择 -->
+    <div v-if="selectionSize"
+      class="mt-3 ml-[22px] flex items-center gap-2 rounded-lg border border-accent-500/50 bg-accent-50/70 px-2.5 py-1.5 text-xs text-accent-800 dark:border-accent-500/40 dark:bg-accent-500/10 dark:text-accent-200">
+      <span>已选 <span class="font-mono font-medium">{{ selectionSize }}</span> 项</span>
+      <span class="hidden text-[11px] text-neutral-500 sm:inline dark:text-neutral-400">Ctrl/⌘ 继续选择 · Shift 连选</span>
+      <div class="ml-auto flex items-center gap-1">
+        <button type="button"
+          class="grid h-7 w-7 place-items-center rounded-md text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+          title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos">
+          <AppIcon name="trash" :size="13" />
+        </button>
+        <button type="button"
+          class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          title="取消选择" aria-label="取消选择" @click="clearSelection">
+          <AppIcon name="close" :size="13" />
+        </button>
+      </div>
     </div>
 
     <!-- 错误提示 -->
@@ -101,13 +120,14 @@
         </div>
       </section>
 
-      <div v-if="showActivePanel" class="mt-1.5 space-y-1.5">
+      <div v-if="showActivePanel" class="mt-1.5 space-y-1.5" data-task-section="active">
         <TodoListItem
           v-for="node in sortedTree"
           :key="node.id"
           :node="node"
           :parent-id="todoStore.rootTaskId"
           :selected-task-id="props.selectedTaskId"
+          :selected-keys="selectionKeys"
           @toggle-done="toggleDone"
           @delete-todo="deleteTodo"
           @add-subtask="addSubtask"
@@ -141,7 +161,7 @@
         </button>
       </div>
       <!-- 卡片左缘与待办行对齐：待办行用 22px 左内距给折叠开关留位，已完成行没有开关但保留同一缩进 -->
-      <div v-if="showCompletedPanel" class="mt-1 pb-2 pl-[22px]">
+      <div v-if="showCompletedPanel" class="mt-1 pb-2 pl-[22px]" data-task-section="completed">
         <!-- [已完成按天分隔]：「日期 + 该天数量 + 分隔线」，最新完成的一天在最上面 -->
         <section v-for="(group, index) in completedGroups" :key="group.key" :class="index ? 'mt-3' : ''">
           <!-- 「日期分隔可点」：整行日期与分隔线都是折叠开关，只收起当天任务，标题与数量保留 -->
@@ -156,9 +176,9 @@
             <span aria-hidden="true" class="h-px flex-1 bg-neutral-200/80 dark:bg-neutral-800"></span>
           </button>
           <ul v-if="!isCompletedDayCollapsed(group.key)" class="space-y-1.5">
-            <li v-for="t in group.todos" :key="t.id" data-task-item @click="handleTaskSelected(t.id)" :class="[
+            <li v-for="t in group.todos" :key="t.id" data-task-item :data-task-id="t.id" @click="handleTaskSelected(t.id)" :class="[
               'group flex cursor-pointer items-center gap-2.5 rounded-lg text-sm transition-[border-color,box-shadow]',
-              props.selectedTaskId === t.id
+              isCompletedRowSelected(t.id)
                 ? 'border border-accent-500 bg-surface px-2.5 py-2 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
                 : 'border border-hairline bg-surface px-2.5 py-2 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
             ]">
@@ -190,6 +210,7 @@ import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
 import { groupCompletedByDay } from '@/utils/completedGroups'
+import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
 import { pruneTaskCollapseTree, isTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
@@ -272,6 +293,80 @@ const toggleCompletedDay = (key) => {
   if (next.has(key)) next.delete(key)
   else next.add(key)
   collapsedCompletedDays.value = next
+}
+
+// 多选：保存字符串任务 ID，锚点只用于 Shift 连选，普通点击即清空
+const selection = ref(new Set())
+const selectionAnchor = ref(null)
+const selectionSize = computed(() => selection.value.size)
+const selectionKeys = computed(() => [...selection.value])
+const isCompletedRowSelected = (id) => props.selectedTaskId === id || selection.value.has(String(id))
+const clearSelection = () => {
+  selection.value = new Set()
+  selectionAnchor.value = null
+}
+
+// Ctrl/⌘ 切换、Shift 按当前可见行连选；普通点击清空选择后照常打开详情
+const handleRowClickCapture = (event) => {
+  const row = event.target.closest?.('[data-task-item]')
+  if (!row || row.dataset.taskSelectable === 'false') return
+  const key = row.dataset.taskId ? String(row.dataset.taskId) : ''
+  if (!key) return
+  // 行内的按钮、输入等交互优先，不让多选拦截
+  if (event.target.closest('button, input, select, textarea, a, label')) return
+
+  if (event.metaKey || event.ctrlKey) {
+    event.preventDefault()
+    event.stopPropagation()
+    selection.value = toggleSelection(selection.value, key)
+    selectionAnchor.value = key
+    return
+  }
+
+  if (event.shiftKey && selectionAnchor.value) {
+    const section = row.closest('[data-task-section]')
+    const keys = section
+      ? [...section.querySelectorAll('[data-task-item]')].map(el => String(el.dataset.taskId))
+      : []
+    // 锚点已收起或不在同一分区时，按普通点击处理
+    if (keys.includes(selectionAnchor.value)) {
+      event.preventDefault()
+      event.stopPropagation()
+      selection.value = selectRange(selection.value, keys, selectionAnchor.value, key)
+      return
+    }
+  }
+
+  clearSelection()
+}
+
+// 任务被删除或移入回收站后，清掉选择里已经不存在或不可选的任务
+watch(() => todoStore.tasks, (tasks) => {
+  const available = new Set(tasks.map(todo => String(todo.id)))
+  selection.value = pruneSelection(selection.value, available)
+  if (selectionAnchor.value && !available.has(selectionAnchor.value)) selectionAnchor.value = null
+})
+
+// 批量删除：逐个软删除；祖先被删后其后代已不在列表里，直接跳过；撤销按回收站 ID 整批恢复
+const deleteSelectedTodos = async () => {
+  const keys = [...selection.value]
+  clearSelection()
+
+  const trashedIds = []
+  for (const key of keys) {
+    const todo = todoStore.tasks.find(item => String(item.id) === key)
+    if (!todo) continue
+    const result = await todoStore.deleteTodo(todo.id)
+    if (result.success && result.data?.id != null) trashedIds.push(result.data.id)
+  }
+
+  if (!keys.length) return
+  emit('notify', {
+    message: `已删除 ${keys.length} 项任务`,
+    undo: trashedIds.length
+      ? () => Promise.all(trashedIds.map(id => todoStore.restoreTodo(id)))
+      : null
+  })
 }
 
 // 已完成区域默认展开，与列表同属一页；展开状态本地保留
