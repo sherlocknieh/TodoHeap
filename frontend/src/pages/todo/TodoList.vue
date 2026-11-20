@@ -12,37 +12,58 @@
       </p>
     </Teleport>
 
-    <!-- 快速添加：外观对齐任务行，左侧虚线圈表示这是一条待填写的任务，回车即存 -->
+    <!-- 快速添加 / 搜索：同一个输入框复用，左侧圆钮切换新建与搜索 -->
     <div
       class="mt-4 ml-[22px] flex items-center gap-2.5 rounded-lg border border-hairline bg-surface py-1.5 pl-2 pr-1.5 shadow-[0_1px_2px_rgb(6_80_48/0.05)] transition-[border-color,box-shadow] focus-within:border-accent-500 focus-within:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:focus-within:border-accent-500/60">
-      <span aria-hidden="true"
-        class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-dashed border-neutral-300 text-neutral-400 dark:border-neutral-600 dark:text-neutral-500">
-        <AppIcon name="plus" :size="9" />
-      </span>
-      <input v-model.trim="newTaskTitle" @keyup.enter="addTodo" placeholder="添加任务，回车保存"
-        class="h-5 min-w-0 flex-1 bg-transparent text-sm leading-5 text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-200 dark:placeholder:text-neutral-500" />
-      <!-- 截止时间：未设置时是日历按钮，设置后变成任务行同款标签，随任务一起创建 -->
-      <DateTimePicker :model-value="newTaskDeadline ? toDateTimeLocalValue(newTaskDeadline) : ''" quick-dates trigger-clear
-        @confirm="applyAddDeadline">
-        <template #trigger="{ open, toggle }">
-          <button v-if="!newTaskDeadline" type="button"
-            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-            title="设置截止时间" aria-label="设置截止时间" :aria-expanded="open" @click="toggle">
-            <AppIcon name="calendar" :size="14" />
-          </button>
-          <button v-else type="button" class="chip gap-1 font-medium"
-            :class="deadlineChipClass(newTaskDeadline)"
-            :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" :aria-expanded="open" @click="toggle">
-            <AppIcon name="clock" :size="10" class="transition-opacity group-hover/picker:opacity-0 group-has-[:focus-visible]/picker:opacity-0" />{{ formatDeadlineLabel(newTaskDeadline) }}
-          </button>
-        </template>
-      </DateTimePicker>
+      <!-- 「模式切换」：虚线圈里的 + 表示新建，放大镜表示搜索 -->
       <button type="button"
-        class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-30 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-        :disabled="!newTaskTitle.trim()" title="添加任务" aria-label="添加任务" @click="addTodo">
-        <AppIcon name="chevronRight" :size="15" />
+        class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-dashed transition-colors"
+        :class="addMode === 'search'
+          ? 'border-accent-500 text-accent-700 dark:border-accent-400 dark:text-accent-300'
+          : 'border-neutral-300 text-neutral-400 hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-500 dark:hover:border-accent-400 dark:hover:text-accent-200'"
+        :title="addMode === 'search' ? '切回新建任务' : '搜索任务'"
+        :aria-label="addMode === 'search' ? '切回新建任务' : '搜索任务'"
+        :aria-pressed="addMode === 'search'" @click="toggleAddMode">
+        <AppIcon :name="addMode === 'search' ? 'search' : 'plus'" :size="9" />
+      </button>
+      <input ref="addInputRef" v-model="addInputModel" @keyup.enter="handleAddEnter" @keyup.esc="handleAddEsc"
+        :placeholder="addMode === 'search' ? '搜索任务，回车选中' : '添加任务，回车保存'"
+        class="h-5 min-w-0 flex-1 bg-transparent text-sm leading-5 text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-200 dark:placeholder:text-neutral-500" />
+      <!-- 新建模式：截止时间与提交；搜索模式：有内容时给清空 -->
+      <template v-if="addMode === 'add'">
+        <!-- 截止时间：未设置时是日历按钮，设置后变成任务行同款标签，随任务一起创建 -->
+        <DateTimePicker :model-value="newTaskDeadline ? toDateTimeLocalValue(newTaskDeadline) : ''" quick-dates trigger-clear
+          @confirm="applyAddDeadline">
+          <template #trigger="{ open, toggle }">
+            <button v-if="!newTaskDeadline" type="button"
+              class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+              title="设置截止时间" aria-label="设置截止时间" :aria-expanded="open" @click="toggle">
+              <AppIcon name="calendar" :size="14" />
+            </button>
+            <button v-else type="button" class="chip gap-1 font-medium"
+              :class="deadlineChipClass(newTaskDeadline)"
+              :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" :aria-expanded="open" @click="toggle">
+              <AppIcon name="clock" :size="10" class="transition-opacity group-hover/picker:opacity-0 group-has-[:focus-visible]/picker:opacity-0" />{{ formatDeadlineLabel(newTaskDeadline) }}
+            </button>
+          </template>
+        </DateTimePicker>
+        <button type="button"
+          class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-30 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+          :disabled="!newTaskTitle.trim()" title="添加任务" aria-label="添加任务" @click="addTodo">
+          <AppIcon name="chevronRight" :size="15" />
+        </button>
+      </template>
+      <button v-else-if="searchQuery" type="button"
+        class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+        title="清空搜索" aria-label="清空搜索" @click="clearSearch">
+        <AppIcon name="close" :size="14" />
       </button>
     </div>
+
+    <!-- 搜索结果数：只提示命中，不影响上方待办总数 -->
+    <p v-if="isSearching" class="mt-1.5 ml-[22px] text-xs text-neutral-400 dark:text-neutral-500">
+      找到 <span class="font-mono">{{ searchMatchCount }}</span> 项匹配任务
+    </p>
 
     <!-- 错误提示 -->
     <section v-if="errorText" class="mt-3 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
@@ -107,7 +128,7 @@
                 </select>
                 <AppIcon name="chevronDown" :size="12" class="pointer-events-none absolute right-1.5 opacity-60" />
               </label>
-              <button v-if="foldableTasks.length" type="button"
+              <button v-if="foldableTasks.length && !isSearching" type="button"
                 class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
                 :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
                 :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
@@ -121,13 +142,14 @@
 
       <div v-if="showActivePanel" class="mt-1.5 space-y-1.5" data-task-section="active">
         <TodoListItem
-          v-for="node in sortedTree"
+          v-for="node in displayTree"
           :key="node.client_key || node.id"
           :node="node"
           :parent-id="todoStore.rootTaskId"
           :selected-task-id="props.selectedTaskId"
           :edit-request="pendingEdit"
           :selected-keys="selectionKeys"
+          :ignore-collapse="isSearching"
           @toggle-done="toggleDone"
           @delete-todo="deleteTodo"
           @add-subtask="addSubtask"
@@ -140,6 +162,9 @@
         />
         <p v-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
           没有进行中的任务，已完成的收在下方
+        </p>
+        <p v-else-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+          没有匹配的任务
         </p>
       </div>
     </template>
@@ -225,7 +250,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
@@ -233,6 +258,7 @@ import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
 import { formatCompletionTime, groupCompletedByDay } from '@/utils/completedGroups'
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 import { listTreeOf } from '@/utils/rootTask'
+import { filterTasksByTitle } from '@/utils/taskGraph'
 import { persistedRef } from '@/utils/uiState'
 import { pruneTaskCollapseTree, isTaskCollapsed, setTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
 import { childTitlesOf, nextTaskTitle } from '@/utils/taskTitle'
@@ -255,6 +281,24 @@ const emit = defineEmits(['task-selected', 'jump-to-graph', 'notify'])
 const newTaskTitle = ref('')
 // 添加栏可以先选截止时间，创建任务时一并写入
 const newTaskDeadline = ref('')
+// 添加栏兼任搜索栏：模式只在当前会话里切换，不持久化
+const addMode = ref('add')
+const searchQuery = ref('')
+const addInputRef = ref(null)
+const isSearching = computed(() => addMode.value === 'search' && searchQuery.value.trim() !== '')
+// 新建与搜索共用同一个输入框，切换模式后把焦点留在原处
+const addInputModel = computed({
+  get: () => (addMode.value === 'search' ? searchQuery.value : newTaskTitle.value),
+  set: (value) => {
+    if (addMode.value === 'search') searchQuery.value = value
+    else newTaskTitle.value = value
+  }
+})
+const toggleAddMode = () => {
+  addMode.value = addMode.value === 'add' ? 'search' : 'add'
+  if (addMode.value === 'add') searchQuery.value = ''
+  nextTick(() => addInputRef.value?.focus())
+}
 // 新建任务后请求行内编辑：带着任务 ID 传给每一行，由包含该行的实例打开输入框
 const pendingEdit = ref(null)
 const loading = computed(() => todoStore.loading)
@@ -277,6 +321,28 @@ watch(sortMode, (value) => localStorage.setItem(SORT_STORAGE_KEY, value))
 
 // 根任务是挂载点，不渲染成列表行：列表展示它的子级
 const sortedTree = computed(() => listTreeOf(sortTodoTree(todoStore.treeNodes, sortMode.value)))
+
+// 搜索：命中任务连同祖先链一起显示，父级只作上下文；不改变源顺序
+const matchesSearch = (node) => (node.title || '').toLowerCase().includes(searchQuery.value.trim().toLowerCase())
+const displayTree = computed(() => (isSearching.value ? filterTasksByTitle(sortedTree.value, searchQuery.value) : sortedTree.value))
+const searchMatchCount = computed(() => {
+  const count = (nodes) => nodes.reduce((acc, node) => acc
+    + (node._isRef || !matchesSearch(node) ? 0 : 1)
+    + count(node.children || []), 0)
+  return isSearching.value ? count(displayTree.value) : 0
+})
+// 回车选中第一条命中：跳过回边行，落到真实任务
+const firstMatchId = computed(() => {
+  const walk = (nodes) => {
+    for (const node of nodes) {
+      if (!node._isRef && matchesSearch(node)) return node.id
+      const hit = walk(node.children || [])
+      if (hit != null) return hit
+    }
+    return null
+  }
+  return isSearching.value ? walk(displayTree.value) : null
+})
 
 // 任务删除或移入回收站后，清掉共享折叠状态里已经不存在的任务 ID
 watch(() => todoStore.treeNodes, (nodes) => {
@@ -474,6 +540,25 @@ const addTodo = async () => {
 
   newTaskTitle.value = ''
   newTaskDeadline.value = ''
+}
+
+// 回车：新建模式保存任务，搜索模式选中第一条命中
+const handleAddEnter = () => {
+  if (addMode.value === 'add') return addTodo()
+  if (firstMatchId.value != null) emit('task-selected', firstMatchId.value)
+}
+
+// Esc：先清空搜索词，再按一次回到新建
+const handleAddEsc = () => {
+  if (addMode.value !== 'search') return
+  if (searchQuery.value) clearSearch()
+  else addMode.value = 'add'
+}
+
+// 清空搜索词后把焦点放回输入框，方便继续输入
+const clearSearch = () => {
+  searchQuery.value = ''
+  nextTick(() => addInputRef.value?.focus())
 }
 
 // 选择器确认后写入本地时间，随任务一起创建；清空时回到未设置

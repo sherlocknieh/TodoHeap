@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTaskForest, collectCascadeIds, collectDescendantIds, findDeleteFocusId, withoutStaleTempChildIds } from './taskGraph'
+import { buildTaskForest, collectCascadeIds, collectDescendantIds, filterTasksByTitle, findDeleteFocusId, withoutStaleTempChildIds } from './taskGraph'
 
 const sortFn = (a, b) => a.id - b.id
 const mapItem = (item) => ({ id: item.id, title: item.title })
@@ -226,6 +226,58 @@ describe('findDeleteFocusId', () => {
     ]
 
     expect(findDeleteFocusId(items, 2)).toBe(3)
+  })
+})
+
+describe('filterTasksByTitle', () => {
+  const forest = () => [
+    {
+      id: 1, title: '工作', children: [
+        {
+          id: 2, title: '写文档', children: [
+            { id: 3, title: '知乎文章', children: [] }
+          ]
+        },
+        { id: 4, title: '其它', children: [] }
+      ]
+    },
+    { id: 5, title: '生活', children: [] }
+  ]
+
+  it('命中深层任务时保留祖先链，未命中的分支被裁掉', () => {
+    const result = filterTasksByTitle(forest(), '知乎')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe(1)
+    expect(result[0].children.map(node => node.id)).toEqual([2])
+    expect(result[0].children[0].children.map(node => node.id)).toEqual([3])
+  })
+
+  it('父级自身命中时只保留命中任务本身', () => {
+    const result = filterTasksByTitle(forest(), '工作')
+
+    expect(result.map(node => node.id)).toEqual([1])
+    expect(result[0].children).toEqual([])
+  })
+
+  it('忽略大小写与首尾空白，空查询返回原树', () => {
+    const tree = [{ id: 1, title: 'Review PR', children: [] }]
+
+    expect(filterTasksByTitle(tree, '  review ')[0].id).toBe(1)
+    expect(filterTasksByTitle(tree, '   ')).toBe(tree)
+  })
+
+  it('回边行不重复计入搜索结果', () => {
+    const tree = [{
+      id: 1, title: '父', children: [
+        { id: 2, title: '目标', children: [] },
+        { id: 'ref:1:2', title: '目标', _isRef: true, children: [] }
+      ]
+    }]
+
+    const result = filterTasksByTitle(tree, '目标')
+
+    expect(result[0].children.map(node => node.id)).toEqual([2])
   })
 })
 

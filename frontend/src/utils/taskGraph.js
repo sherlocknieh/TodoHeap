@@ -62,6 +62,24 @@ export const findDeleteFocusId = (items, id, { parentId = null, preferNext = tru
   return fallback?.id ?? null
 }
 
+// 搜索任务标题：命中节点连同祖先链一起保留，父级只作上下文；回边行不重复计入结果。
+// 列表页把返回值直接交给 TodoListItem 渲染，源树与折叠状态都不改。
+export const filterTasksByTitle = (nodes, query) => {
+  const keyword = String(query || '').trim().toLowerCase()
+  if (!keyword) return nodes
+
+  const walk = (list) => list.reduce((acc, node) => {
+    if (node._isRef) return acc
+    const children = walk(node.children || [])
+    if ((node.title || '').toLowerCase().includes(keyword) || children.length) {
+      acc.push({ ...node, children })
+    }
+    return acc
+  }, [])
+
+  return walk(nodes)
+}
+
 // 服务端行里的负数子 ID 只可能是历史临时 ID 残留(临时 ID 从不落库), 不指向任何任务:
 // 保留下来会和客户端新生成的临时 ID 撞号, ID 替换时把别的父级改错, 表现为多出一条幽灵链接
 export const withoutStaleTempChildIds = (items) => items.map((item) => (

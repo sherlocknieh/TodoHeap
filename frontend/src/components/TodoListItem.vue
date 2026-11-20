@@ -157,6 +157,8 @@ const props = defineProps({
   selectedKeys: { type: Array, default: () => [] },
   // 顶层行在上层视图里的父级：列表里是根任务，缺省时按无父级处理
   parentId: { type: [Number, String], default: null },
+  // 搜索时忽略折叠，命中行的祖先链始终展开
+  ignoreCollapse: { type: Boolean, default: false },
   // 新建任务后由上层请求打开行内编辑：带着任务 ID，只有包含该行的实例响应
   editRequest: { type: Object, default: null }
 })
@@ -222,6 +224,8 @@ const isItemVisible = (item) => {
   // 隐藏已完成项（优先使用本地状态映射）
   if (isChecked(item) || item.completed_at) return false
   if (!item.parent_id) return true
+  // 搜索时忽略折叠状态，命中行的祖先链始终展开
+  if (props.ignoreCollapse) return true
 
   // 祖先链任一节点折叠时隐藏，避免祖先折叠但后代仍显示
   let currentParentId = item.parent_id
