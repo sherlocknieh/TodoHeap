@@ -16,7 +16,7 @@ title: "视图与交互"
 
 ### 画布
 
-- 两种底纹互斥、各自开关：点阵点距 24px × 当前缩放倍率，整层位置随视口平移；屏幕点距不足 16px 时把世界点距按 2 的幂翻倍（点仍落在世界坐标整数倍上），放大变稀疏则不调整；坐标网格跟随平移缩放，原点取根节点出边按钮的圆心（布局仍以根节点左上角为基准，只平移读数），主刻度按 1/2/5×10ⁿ 自适应（相邻主刻度的屏幕间距不小于 100px），坐标轴与标签显示世界坐标（`mindmap-dot-grid`、`mindmap-coordinate-grid`、`gridOrigin`、`utils/canvasGrid.js`），机制见[任务图坐标网格](../dev/logic/mindmap-coordinate-grid.md)。画布可切浅色/深色，深色下点阵与网格线条转白。底色首次跟随 `prefers-color-scheme`，之后按手动选择保存（`mindmap-dark-canvas`）。
+- 两种底纹互斥，共用一个底纹按钮：循环 点阵 → 坐标网格 → 关闭（`cycleBackground`、`backgroundLabel`）。点阵点距 24px × 当前缩放倍率，整层位置随视口平移；屏幕点距不足 16px 时把世界点距按 2 的幂翻倍（点仍落在世界坐标整数倍上），放大变稀疏则不调整；坐标网格跟随平移缩放，原点取根节点出边按钮的圆心（布局仍以根节点左上角为基准，只平移读数），主刻度按 1/2/5×10ⁿ 自适应（相邻主刻度的屏幕间距不小于 100px），坐标轴与标签显示世界坐标（`mindmap-dot-grid`、`mindmap-coordinate-grid`、`gridOrigin`、`utils/canvasGrid.js`），机制见[任务图坐标网格](../dev/logic/mindmap-coordinate-grid.md)。画布可切浅色/深色，深色下点阵与网格线条转白。底色首次跟随 `prefers-color-scheme`，之后按手动选择保存（`mindmap-dark-canvas`）。
 - 滚轮在选中节点或选中连线上缩放，其余位置上下平移；Ctrl/Cmd + 滚轮在任意位置缩放，触控板双指捏合也走这条分支。画布 `@wheel.prevent`，不会触发浏览器整页缩放（`onWheel`）。
 - 右下角控件行最左侧是 `− 100% +` 缩放胶囊：百分比实时显示当前缩放（`zoomPercent`），± 按 1.2 倍等比、围绕可见区中心缩放（右栏浮层盖住的宽度不算中心），点百分比回到 100%；范围与滚轮一致（0.15–2.5），落点走 `animateView` 缓动并写入 `mindmap-view:v2`（`zoomTo`、`zoomIn`、`zoomOut`、`resetZoom`）。
 - 拖拽空白处或根节点平移；右下角目标按钮在全景与聚焦根节点之间切换（`viewMode`、`toggleViewMode`）。

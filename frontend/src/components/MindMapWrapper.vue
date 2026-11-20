@@ -316,23 +316,14 @@
         @click.stop="darkCanvas = !darkCanvas">
         <AppIcon :name="darkCanvas ? 'moon' : 'sun'" :size="14" />
       </button>
-      <button type="button" :aria-pressed="dotGrid" :aria-label="dotGrid ? '隐藏点阵背景' : '显示点阵背景'"
-        :title="dotGrid ? '隐藏点阵背景' : '显示点阵背景'"
+      <!-- 「底纹按钮」：点阵与坐标网格互斥，合并成一个按钮循环 点阵 → 坐标网格 → 关闭 -->
+      <button type="button" :aria-label="backgroundLabel" :title="backgroundLabel"
         class="flex rounded border p-1.5 transition-colors"
-        :class="dotGrid
+        :class="dotGrid || coordinateGrid
           ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
           : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
-        @click.stop="toggleDotGrid">
-        <AppIcon name="grid" :size="14" />
-      </button>
-      <button type="button" :aria-pressed="coordinateGrid" :aria-label="coordinateGrid ? '隐藏坐标网格' : '显示坐标网格'"
-        :title="coordinateGrid ? '隐藏坐标网格' : '显示坐标网格'"
-        class="flex rounded border p-1.5 transition-colors"
-        :class="coordinateGrid
-          ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
-          : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
-        @click.stop="toggleCoordinateGrid">
-        <AppIcon name="axes" :size="14" />
+        @click.stop="cycleBackground">
+        <AppIcon :name="coordinateGrid ? 'axes' : 'grid'" :size="14" />
       </button>
       <div ref="helpRef" class="relative">
         <button type="button" :aria-expanded="helpOpen" :aria-label="helpOpen ? '收起操作提示' : '操作提示'"
@@ -537,14 +528,23 @@ const dotGridStyle = computed(() => {
   }
 })
 
-const toggleDotGrid = () => {
-  dotGrid.value = !dotGrid.value
-  if (dotGrid.value) coordinateGrid.value = false
-}
+// 底纹按钮：两种底纹互斥，循环 点阵 → 坐标网格 → 关闭 → 点阵；
+// 标题描述下一次点击的动作，图标显示当前底纹（关闭时用点阵图标）
+const backgroundLabel = computed(() => {
+  if (dotGrid.value) return '切换到坐标网格'
+  if (coordinateGrid.value) return '关闭底纹'
+  return '显示点阵背景'
+})
 
-const toggleCoordinateGrid = () => {
-  coordinateGrid.value = !coordinateGrid.value
-  if (coordinateGrid.value) dotGrid.value = false
+const cycleBackground = () => {
+  if (dotGrid.value) {
+    dotGrid.value = false
+    coordinateGrid.value = true
+  } else if (coordinateGrid.value) {
+    coordinateGrid.value = false
+  } else {
+    dotGrid.value = true
+  }
 }
 
 // 坐标原点取根节点出边按钮的圆心：布局仍以根节点左上角为基准，只把网格读数平移到按钮中心

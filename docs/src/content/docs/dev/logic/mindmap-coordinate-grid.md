@@ -30,11 +30,11 @@ title: "任务图坐标网格"
 
 | 键 | 默认 | 行为 |
 | --- | --- | --- |
-| `mindmap-coordinate-grid` | `false` | 右下角坐标按钮切换；打开时关闭点阵 |
-| `mindmap-dot-grid` | `true` | 点阵按钮切换；打开时关闭坐标网格 |
+| `mindmap-coordinate-grid` | `false` | 右下角底纹按钮循环到坐标网格时打开 |
+| `mindmap-dot-grid` | `true` | 右下角底纹按钮循环到点阵时打开 |
 | `mindmap-dark-canvas` | 跟随系统主题 | 画布底色；网格与标签在深色底上反相 |
 
-- 两种底纹互斥：都铺在画布同一层，叠加会互相干扰，切换一个就关掉另一个（`toggleDotGrid`、`toggleCoordinateGrid`）。
+- 两种底纹互斥，共用一个按钮：都铺在画布同一层，叠加会互相干扰，因此 `cycleBackground` 按 点阵 → 坐标网格 → 关闭 循环，任一时刻最多开启一种。
 - 点阵底纹的点距是 `24 × level × view.scale`，整层位置取 `view.x / view.y` 再回退半个点距让点落在世界坐标整数倍上（`dotGridStyle`）；因此平移缩放时点阵与内容同步移动。只处理过密：屏幕点距不足 16px 时 `level` 按 2 的幂翻倍，点仍落在世界坐标整数倍上；放大变稀疏时 `level` 回到 1，不做加密。
 - 配色集中在 `MindMapWrapper.vue` 的 `mindmap-grid-minor / -major / -axis / -label`，深色画布下换用白色透明度的同层次描边与填充。
 - 三个键都走 `persistedRef`，存在 `todoheap:ui:` 前缀下；与任务数据、视图位置、应用主题互不影响。
