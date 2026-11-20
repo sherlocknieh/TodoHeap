@@ -537,10 +537,15 @@ const addTodo = async () => {
   const title = newTaskTitle.value.trim()
   if (!title) return
 
-  await todoStore.addTodo(title, { deadline: newTaskDeadline.value || null })
+  const result = await todoStore.addTodo(title, { deadline: newTaskDeadline.value || null })
 
   newTaskTitle.value = ''
   newTaskDeadline.value = ''
+  // 与新建子任务一致：选中新任务并打开行内编辑，光标直接落在标题上
+  if (result.success && result.data?.id != null) {
+    emit('task-selected', result.data.id)
+    pendingEdit.value = { id: result.data.id }
+  }
 }
 
 // 回车：新建模式保存任务，搜索模式选中第一条命中
