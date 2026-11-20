@@ -43,11 +43,10 @@ title: 关键词索引
 | 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `rowPaddingLeft`、`LEVEL_INDENT` | 层级来自树展开，缩进是纯展示；每层 28px（横线 10 + 勾选圈圆心内距 18） |
 | 折叠按钮 / 圆圈加减号 / 按钮在任务前面 / 开关对准树线交叉点 | `components/TodoListItem.vue` `toggleStyle`、`toggleExpand`；`utils/taskCollapse.js` | 按钮在卡片左侧，圆心落在竖线与横线的交叉点；圆圈内 +/−，折叠状态列表、图、回收站共享 |
 | 复选框 / 打勾 / 完成 / 取消完成 | `components/TodoListItem.vue` `cycleStatus` | 完成判定看 `completed_at` 是否为空 |
-| 圆形勾选圈 / 完成圈变圆 / 方框是选择 | `components/TodoListItem.vue` 模板内完成按钮与 `selectionMode` 分支 | 圆形表示完成状态，方形只在多选模式出现，形状即语义 |
+| 圆形勾选圈 / 完成圈变圆 | `components/TodoListItem.vue` 模板内完成按钮 | 圆形表示完成状态，点击在完成/未完成之间切换 |
 | 缩进引导线 / 层级竖线 / 子任务连到父级 / 树状连线 / 分支线 / 末位收角 / 竖线没对准勾选圈 / 连线应该从勾选圈下来 | `components/TodoListItem.vue`「树状连线」、`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle` | 每层一条竖线，`LEVEL_INDENT = 28`：竖线 x 正好是上一级勾选圈圆心，横线再从竖线接到卡片左缘；祖先有后续兄弟时贯穿整行，末位兄弟在行中心收成 └ 角。只为看清层级，不参与拖拽；机制见[任务表树状连线](./logic/task-list-tree-lines.md) |
 | 截止标签变色 / 逾期红 / 今天绿 | `components/TodoListItem.vue` `deadlineChipClass` | 逾期红、当天绿、以后中性；未设截止时只显示日历图标按钮 |
 | 两态完成 / 点了变完成又变灰 | `components/TodoListItem.vue` `statusMap` | 行内先给即时反馈，再落库 |
-| 多选 / 批量操作 / 选择模式 | `pages/todo/TodoList.vue` `toggleSelectionMode`、`batchSetCompleted`；`components/TodoListItem.vue` `selectionMode` | 多选时复选框替换完成状态与行内操作 |
 | 已完成区 / 已完成收在下面 / 清除已完成 / 已完成卡片偏左 / 卡片左边缘没对齐 | `pages/todo/TodoList.vue`「已完成：无内容时不占位」、`clearCompletedTodos` | 已完成列表带 `pl-[22px]`，卡片左缘与待办行同一竖线；整棵已完成子树移入回收站，可整体撤销 |
 | 排序 / 排序方式 / 按截止时间 | `pages/todo/TodoList.vue` `sortMode`、`LIST_SORT_OPTIONS` | 「待办」标题栏右侧的排序下拉；手动顺序仍以父级 `child_ids` 为准 |
 | 行内菜单 / 三点 / 更多操作 | `components/TodoListItem.vue`「更多菜单相关」/ `currentMenuEl` | 与截止时间菜单互斥，点外部关闭 |

@@ -31,17 +31,8 @@
         <!-- 缩进留在外层，行内容单独成卡片；边框、底色与内边距都由状态类统一给出，选中时不改变盒子尺寸 -->
         <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
-          <!-- 多选模式用方形选择框，日常完成状态用圆形勾选圈：形状即语义，避免两种状态混淆 -->
-          <button v-if="selectionMode" type="button"
-            class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-[5px] border transition-colors"
-            :class="isSelected(item)
-              ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
-              : 'border-neutral-300 text-transparent hover:border-accent-500 hover:bg-accent-50 dark:border-neutral-600 dark:hover:border-accent-400 dark:hover:bg-accent-500/10'"
-            :aria-pressed="isSelected(item)" :aria-label="isSelected(item) ? '取消选择' : '选择任务'"
-            @click.stop="emitToggleSelect(item)">
-            <AppIcon name="check" :size="10" />
-          </button>
-          <button v-else-if="!item._isRef" type="button"
+          <!-- 完成状态用圆形勾选圈 -->
+          <button v-if="!item._isRef" type="button"
             class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-full border-[1.5px] transition-colors"
             :class="statusMap[item.id] === 'checked'
               ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
@@ -61,7 +52,7 @@
                 'text-neutral-800 dark:text-neutral-200',
                 item._level === 0 ? 'font-medium' : '',
                 { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
-              ]" @dblclick.stop="!selectionMode && !item._isRef && startEdit(item.id, item.title)">
+              ]" @dblclick.stop="!item._isRef && startEdit(item.id, item.title)">
                 <AppIcon v-if="item._isRef" name="link" :size="11"
                   class="shrink-0 text-neutral-400 dark:text-neutral-500" />
                 <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
@@ -90,14 +81,14 @@
           </div>
 
           <!-- 行内操作 -->
-          <div v-if="item._isRef && !selectionMode" class="flex shrink-0 items-center gap-0.5">
+          <div v-if="item._isRef" class="flex shrink-0 items-center gap-0.5">
             <button type="button"
               class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 opacity-0 transition-all hover:bg-accent-50 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               title="取消链接" aria-label="取消链接" @click.stop="emitUnlink(item)">
               <AppIcon name="unlink" :size="13" />
             </button>
           </div>
-          <div v-if="!item._isRef && !selectionMode"
+          <div v-if="!item._isRef"
             class="flex shrink-0 items-center gap-0.5">
             <div class="relative">
               <button v-if="!item.deadline" type="button"
@@ -168,10 +159,7 @@ const props = defineProps({
   node: Object,
   selectedTaskId: Number,
   // 顶层行在上层视图里的父级：列表里是根任务，缺省时按无父级处理
-  parentId: { type: [Number, String], default: null },
-  // 多选模式：用勾选框替换完成状态与行内操作
-  selectionMode: { type: Boolean, default: false },
-  selectedIds: { type: Array, default: () => [] }
+  parentId: { type: [Number, String], default: null }
 })
 
 const emit = defineEmits([
@@ -180,7 +168,6 @@ const emit = defineEmits([
   'add-subtask',
   'edit-subtask',
   'task-selected',
-  'toggle-select',
   'set-deadline',
   'move-todo',
   'unlink-task'
@@ -339,10 +326,8 @@ function cycleStatus(item) {
   emitToggleDone(item)
 }
 
-// 多选与拖拽共用真实任务 ID，引用行指向被引用的任务
+// 选中与拖拽共用真实任务 ID，引用行指向被引用的任务
 const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
-const isSelected = (item) => props.selectedIds.includes(selectableIdOf(item))
-const emitToggleSelect = (item) => emit('toggle-select', selectableIdOf(item))
 
 // 行状态：拖入内部用浅强调色提示；选中只强调边框，边框与底色全部由状态决定，避免基础类覆盖
 const isRowSelected = (item) => props.selectedTaskId === selectableIdOf(item)
@@ -368,10 +353,6 @@ const rowStateClass = (item) => {
 let suppressClickUntil = 0
 const handleRowClick = (item) => {
   if (Date.now() < suppressClickUntil) return
-  if (props.selectionMode) {
-    emitToggleSelect(item)
-    return
-  }
   selectTask(item)
 }
 
@@ -388,7 +369,7 @@ const applyDeadlinePreset = (id, preset) => {
 
 // 拖拽：上四分位插到前面，下四分位插到后面，中间成为子任务
 // 编辑中的行禁用拖拽，否则在输入框内拖选文字会被 dragstart 劫持
-const canDrag = (item) => !props.selectionMode && !item._isRef && editingId.value !== item.id
+const canDrag = (item) => !item._isRef && editingId.value !== item.id
 
 const dropStyle = (id) => {
   const indicator = dropIndicator.value

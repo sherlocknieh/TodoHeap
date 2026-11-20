@@ -1,6 +1,6 @@
 <template>
   <div class="text-neutral-900 dark:text-neutral-100">
-    <!-- 页面操作：统计、排序与多选入口放进主区域顶栏 -->
+    <!-- 页面操作：统计放进主区域顶栏 -->
     <Teleport defer to="#main-topbar-actions">
       <p class="min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
         <span class="font-mono">{{ visibleCount }}</span> 项待办
@@ -9,17 +9,6 @@
           <span class="font-mono">{{ completedCount }}</span> 项已完成
         </template>
       </p>
-
-      <div class="flex shrink-0 items-center gap-1.5">
-        <button type="button" class="flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors"
-          :class="selectionMode
-            ? 'border-accent-600 bg-accent-600 text-white dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950'
-            : 'border-hairline text-neutral-600 hover:border-accent-500/60 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-300 dark:hover:text-accent-200'"
-          :title="selectionMode ? '退出多选' : '多选任务'" @click="toggleSelectionMode">
-          <AppIcon name="check" :size="13" />
-          <span>{{ selectionMode ? '完成选择' : '选择' }}</span>
-        </button>
-      </div>
     </Teleport>
 
     <!-- 快速添加：外观对齐任务行，左侧虚线圈表示这是一条待填写的任务，回车即存 -->
@@ -135,14 +124,11 @@
           :node="node"
           :parent-id="todoStore.rootTaskId"
           :selected-task-id="props.selectedTaskId"
-          :selection-mode="selectionMode"
-          :selected-ids="selectedIds"
           @toggle-done="toggleDone"
           @delete-todo="deleteTodo"
           @add-subtask="addSubtask"
           @edit-subtask="editSubtask"
           @task-selected="handleTaskSelected"
-          @toggle-select="toggleSelect"
           @set-deadline="setDeadline"
           @move-todo="moveTodo"
           @unlink-task="unlinkTask"
@@ -188,53 +174,6 @@
         </li>
       </ul>
     </section>
-
-    <!-- 多选操作条 -->
-    <Transition name="fade">
-      <div v-if="selectionMode"
-        class="fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 panel px-3 py-2 shadow-lg">
-        <span class="mr-1 text-xs text-neutral-600 dark:text-neutral-400">
-          已选 <span class="font-mono font-semibold text-neutral-900 dark:text-neutral-100">{{ selectedIds.length }}</span>
-        </span>
-        <button class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          :disabled="!selectedIds.length" title="标为完成" @click="batchSetCompleted(true)">
-          <AppIcon name="check" :size="15" />
-        </button>
-        <button class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          :disabled="!selectedIds.length" title="取消完成" @click="batchSetCompleted(false)">
-          <AppIcon name="undo" :size="15" />
-        </button>
-        <div class="relative">
-          <button class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            :disabled="!selectedIds.length" title="设置截止时间" @click="showBatchDeadline = !showBatchDeadline">
-            <AppIcon name="calendar" :size="15" />
-          </button>
-          <div v-if="showBatchDeadline"
-            class="absolute bottom-full right-0 mb-2 w-40 panel shadow-lg z-50 py-1">
-            <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
-              class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
-              @click="batchSetDeadline(preset.value)">
-              <AppIcon :name="preset.icon" :size="13" />
-              <span>{{ preset.label }}</span>
-            </button>
-            <button type="button"
-              class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-              @click="batchSetDeadline('clear')">
-              <AppIcon name="close" :size="13" />
-              <span>清除截止时间</span>
-            </button>
-          </div>
-        </div>
-        <button class="p-1.5 rounded text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          :disabled="!selectedIds.length" title="删除选中任务" @click="batchDelete">
-          <AppIcon name="trash" :size="15" />
-        </button>
-        <button class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
-          title="退出选择" @click="toggleSelectionMode">
-          <AppIcon name="close" :size="15" />
-        </button>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -242,7 +181,6 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
-import { collectDescendantIds } from '@/utils/taskGraph'
 import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
 import { listTreeOf } from '@/utils/rootTask'
@@ -362,85 +300,6 @@ const clearCompletedTodos = async () => {
       ? () => Promise.all(restoredIds.map(id => todoStore.restoreTodo(id)))
       : null
   })
-}
-
-// 多选模式：选中集合按真实任务 ID 记录
-const selectionMode = ref(false)
-const selectedIds = ref([])
-const showBatchDeadline = ref(false)
-
-const toggleSelectionMode = () => {
-  selectionMode.value = !selectionMode.value
-  selectedIds.value = []
-  showBatchDeadline.value = false
-}
-
-const toggleSelect = (id) => {
-  selectedIds.value = selectedIds.value.includes(id)
-    ? selectedIds.value.filter(item => item !== id)
-    : [...selectedIds.value, id]
-}
-
-// 父子同时选中时只处理父任务，避免重复级联
-const selectedRootIds = computed(() => {
-  const ids = [...selectedIds.value]
-  const covered = new Set()
-  ids.forEach(id => collectDescendantIds(todoStore.todos, id).forEach(childId => covered.add(childId)))
-  return ids.filter(id => !covered.has(id))
-})
-
-// 批量操作结束后退出选择模式，并给出可撤销的提示
-const finishBatch = (message, undo) => {
-  toggleSelectionMode()
-  emit('notify', { message, undo })
-}
-
-const batchSetCompleted = async (completed) => {
-  const snapshots = selectedRootIds.value
-    .map(id => ({ todo: todoStore.findTodoById(id), id }))
-    .filter(({ todo }) => todo && Boolean(todo.completed_at) !== completed)
-    .map(({ todo, id }) => ({ id, completed_at: todo.completed_at ?? null }))
-  if (!snapshots.length) return
-
-  for (const item of snapshots) {
-    await todoStore.updateTodo(item.id, { completed_at: completed ? new Date().toISOString() : null })
-  }
-
-  finishBatch(
-    completed ? `已完成 ${snapshots.length} 项` : `已恢复 ${snapshots.length} 项`,
-    () => Promise.all(snapshots.map(item => todoStore.updateTodo(item.id, { completed_at: item.completed_at })))
-  )
-}
-
-const batchSetDeadline = async (preset) => {
-  const deadline = resolveDeadlinePreset(preset)
-  const snapshots = selectedRootIds.value.map(id => ({
-    id,
-    deadline: todoStore.findTodoById(id)?.deadline ?? null
-  }))
-  if (!snapshots.length) return
-
-  for (const item of snapshots) {
-    await todoStore.updateTodo(item.id, { deadline })
-  }
-
-  finishBatch('已更新截止时间', () =>
-    Promise.all(snapshots.map(item => todoStore.updateTodo(item.id, { deadline: item.deadline }))))
-}
-
-const batchDelete = async () => {
-  const ids = selectedRootIds.value
-  if (!ids.length) return
-  if (!window.confirm(`将选中的 ${ids.length} 个任务及其子任务移入回收站？`)) return
-
-  const removedIds = []
-  for (const id of ids) {
-    const result = await todoStore.deleteTodo(id)
-    if (result.success) removedIds.push(result.data?.id ?? id)
-  }
-
-  finishBatch(`已移入回收站 ${removedIds.length} 项`, () =>
-    Promise.all(removedIds.map(id => todoStore.restoreTodo(id))))
 }
 
 const addTodo = async () => {
