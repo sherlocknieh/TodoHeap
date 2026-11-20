@@ -41,14 +41,6 @@
       </span>
       <input v-model.trim="newTaskTitle" @keyup.enter="addTodo" placeholder="添加任务，回车保存"
         class="h-5 min-w-0 flex-1 bg-transparent text-sm leading-5 text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-200 dark:placeholder:text-neutral-500" />
-      <!-- 与任务行开关同尺寸；这里作用范围是整张列表 -->
-      <button v-if="foldableTasks.length" type="button"
-        class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
-        :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-        :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-        :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
-        <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
-      </button>
       <!-- 截止时间：未设置时是日历按钮，设置后变成任务行同款标签，随任务一起创建 -->
       <div class="relative" data-add-deadline>
         <button v-if="!newTaskDeadline" type="button"
@@ -122,6 +114,14 @@
             <span>待办</span>
             <span
               class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ visibleCount }}</span>
+          </button>
+          <!-- 全部展开/折叠：作用范围是整张列表，与任务行开关同尺寸 -->
+          <button v-if="foldableTasks.length" type="button"
+            class="ml-auto grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+            :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+            :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+            :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
+            <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
           </button>
         </div>
       </section>
