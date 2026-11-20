@@ -79,7 +79,14 @@ const mcpTokenOpen = ref(false)
 
 
 // 侧栏分组默认展开，点击标题折叠；折叠选择本地保留（参考 VSCode 侧栏）
-const collapsedSections = persistedRef('sidebar-sections', { sessions: false, skills: false, mcp: false }, {
+const collapsedSections = persistedRef('sidebar-sections', {
+  views: false,
+  overview: false,
+  info: false,
+  sessions: false,
+  skills: false,
+  mcp: false
+}, {
   validate: (value) => value && typeof value === 'object'
 })
 
@@ -91,29 +98,39 @@ const expandSection = (key) => {
   collapsedSections.value[key] = false
 }
 
-// AI 侧栏分区栈（参考 VSCode）：全部折叠时标题贴顶；首位展开的分区占满剩余高度；
-// 其余展开分区统一高度，技能区沿用可拖拽高度
-const AI_SECTION_KEYS = ['sessions', 'mcp', 'skills']
+// 各侧栏入口的分区顺序；任务、日程、AI 共用同一套折叠栈行为（参考 VSCode）
+const SIDEBAR_SECTIONS = {
+  list: ['views'],
+  schedule: ['overview', 'info'],
+  ai: ['sessions', 'mcp', 'skills']
+}
 const SECONDARY_SECTION_HEIGHT = 192
 
+const listStackEl = ref(null)
+const scheduleStackEl = ref(null)
 const aiStackEl = ref(null)
-const sessionsHeaderEl = ref(null)
-const mcpHeaderEl = ref(null)
-const skillsHeaderEl = ref(null)
+// 分区标题行用函数 ref 收集；不同入口的分区键不重复
+const sectionHeaderEls = {}
+const sectionHeaderRef = Object.fromEntries(
+  Object.values(SIDEBAR_SECTIONS).flat().map((key) => [key, (el) => { sectionHeaderEls[key] = el }])
+)
 const skillsResizeEl = ref(null)
 
 // 分区高度写成像素，展开/折叠才有一致的过渡；尚未测量时留空，回退到 flex 布局
-const aiSectionHeights = ref({})
+const sectionHeights = ref({})
 
-const expandedAiSections = computed(() => AI_SECTION_KEYS.filter((key) => !collapsedSections.value[key]))
-const fillsAiSidebar = (key) => expandedAiSections.value[0] === key
+const activeSectionKeys = computed(() => SIDEBAR_SECTIONS[props.section] ?? [])
+const expandedSections = computed(() => activeSectionKeys.value.filter((key) => !collapsedSections.value[key]))
+const fillsSectionStack = (key) => expandedSections.value[0] === key
+
+const activeStackEl = () => ({
+  list: listStackEl,
+  schedule: scheduleStackEl,
+  ai: aiStackEl
+})[props.section]?.value ?? null
 
 // 折叠时分区只剩标题行，标题高度也是展开过渡的起点
-const headerHeightOf = (key) => ({
-  sessions: sessionsHeaderEl,
-  mcp: mcpHeaderEl,
-  skills: skillsHeaderEl
-})[key]?.value?.offsetHeight ?? 0
+const headerHeightOf = (key) => sectionHeaderEls[key]?.offsetHeight ?? 0
 
 const openSectionHeight = (key, headerHeight) => Math.max(
   headerHeight,
@@ -128,57 +145,60 @@ const resizeHandleSpace = () => {
 }
 
 // 计算折叠栈各分区的目标高度：首位展开分区吃掉剩余空间，其余展开分区用统一高度
-const measureAiSectionHeights = () => {
-  const stack = aiStackEl.value
+const measureSectionHeights = () => {
+  const stack = activeStackEl()
   if (!stack) return
   const total = stack.clientHeight
   if (!total) return
-  const headers = Object.fromEntries(AI_SECTION_KEYS.map((key) => [key, headerHeightOf(key)]))
-  const open = expandedAiSections.value
+  const keys = activeSectionKeys.value
+  const headers = Object.fromEntries(keys.map((key) => [key, headerHeightOf(key)]))
+  const open = expandedSections.value
   const heights = { ...headers }
   if (open.length) {
     const first = open[0]
-    const used = AI_SECTION_KEYS
+    const used = keys
       .filter((key) => key !== first)
       .reduce((sum, key) => sum + (open.includes(key) ? openSectionHeight(key, headers[key]) : headers[key]), 0)
     heights[first] = Math.max(0, total - used - resizeHandleSpace())
   }
-  aiSectionHeights.value = heights
+  // 合并写入，切换入口再回来时先沿用上次高度，测量后同帧校正
+  sectionHeights.value = { ...sectionHeights.value, ...heights }
 }
 
 // 展开权重变化时按像素高度过渡；拖动技能区分隔条时关掉过渡，保证跟手
-const aiSectionClass = (key) => {
-  const measured = Object.keys(aiSectionHeights.value).length > 0
+const sectionClass = (key) => {
+  const measured = activeSectionKeys.value.every((item) => sectionHeights.value[item] !== undefined)
   return [
     'flex flex-col min-h-0 overflow-hidden',
-    measured || !fillsAiSidebar(key) ? 'shrink-0' : 'flex-1',
+    measured || !fillsSectionStack(key) ? 'shrink-0' : 'flex-1',
     skillsResizing.value ? '' : 'transition-[height] duration-200 ease-out'
   ]
 }
 
-const aiSectionStyle = (key) => {
-  const height = aiSectionHeights.value[key]
+const sectionStyle = (key) => {
+  const height = sectionHeights.value[key]
   return height === undefined ? null : { height: `${height}px` }
 }
 
 // 技能区排首位展开时已占满剩余高度，拖拽条不再有意义
-const showSkillsResize = computed(() => !collapsedSections.value.skills && !fillsAiSidebar('skills'))
+const showSkillsResize = computed(() => props.section === 'ai' && !collapsedSections.value.skills && !fillsSectionStack('skills'))
 
 // 侧栏尺寸变化（窗口、拖宽）后重新测量；分区开合与技能高度变化由 watch 触发
-let aiStackObserver = null
-const refreshAiLayout = () => {
-  aiStackObserver?.disconnect()
-  aiStackObserver = null
-  if (!aiStackEl.value) return
-  aiStackObserver = new ResizeObserver(measureAiSectionHeights)
-  aiStackObserver.observe(aiStackEl.value)
-  measureAiSectionHeights()
+let stackObserver = null
+const refreshSectionLayout = () => {
+  stackObserver?.disconnect()
+  stackObserver = null
+  const stack = activeStackEl()
+  if (!stack) return
+  stackObserver = new ResizeObserver(measureSectionHeights)
+  stackObserver.observe(stack)
+  measureSectionHeights()
 }
 
-watch([expandedAiSections, skillsHeight], measureAiSectionHeights, { flush: 'post' })
-watch([() => props.section, () => props.show], refreshAiLayout, { flush: 'post' })
-onMounted(refreshAiLayout)
-onBeforeUnmount(() => aiStackObserver?.disconnect())
+watch([expandedSections, skillsHeight], measureSectionHeights, { flush: 'post' })
+watch([() => props.section, () => props.show], refreshSectionLayout, { flush: 'post' })
+onMounted(refreshSectionLayout)
+onBeforeUnmount(() => stackObserver?.disconnect())
 
 // AI 侧栏展示会话列表，进入 AI 入口时确保会话已载入
 const ensureAgent = () => {
@@ -545,63 +565,88 @@ const switchView = (view) => {
     </header>
 
     <!-- 内容：按活动栏入口切换 -->
-    <!-- AI 侧栏是折叠分区栈：分区尺寸由 aiSectionClass / aiSectionStyle 决定 -->
-    <div :class="section === 'ai'
-      ? 'flex-1 min-h-0 flex flex-col overflow-hidden px-2 py-3'
-      : 'flex-1 min-h-0 overflow-auto px-2 py-3 space-y-6'">
+    <!-- 三个入口都是折叠分区栈：分区尺寸由 sectionClass / sectionStyle 决定 -->
+    <div class="flex-1 min-h-0 flex flex-col overflow-hidden px-2 py-3">
       <template v-if="section === 'list'">
-        <!-- 视图 -->
-        <nav class="space-y-0.5">
-          <p class="eyebrow px-2 pb-1.5">视图</p>
-          <button
-            v-for="view in views"
-            :key="view.id"
-            @click="switchView(view.id)"
-            :class="[
-              'w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors flex items-center gap-2.5 border-l-2',
-              activeView === view.id
-                ? 'bg-accent-100/80 text-accent-900 dark:bg-accent-500/20 dark:text-accent-100 font-semibold border-accent-600 dark:border-accent-400'
-                : 'border-transparent text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200'
-            ]"
-          >
-            <AppIcon :name="view.icon" :size="15" class="opacity-70" />
-            <span class="flex-1">{{ view.label }}</span>
-            <span v-if="view.count !== undefined" class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ view.count }}</span>
-          </button>
-        </nav>
+        <!-- 视图：任务侧栏与 AI 共用同一套折叠栈 -->
+        <div ref="listStackEl" class="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <section :class="sectionClass('views')" :style="sectionStyle('views')">
+            <div :ref="sectionHeaderRef.views" class="shrink-0 flex items-center gap-1 pl-1 pr-2">
+              <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+                :aria-expanded="!collapsedSections.views" @click="toggleSection('views')">
+                <AppIcon :name="collapsedSections.views ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
+                <span class="eyebrow">视图</span>
+              </button>
+            </div>
+            <div :inert="collapsedSections.views || undefined" class="flex-1 min-h-0 overflow-auto space-y-0.5">
+              <button
+                v-for="view in views"
+                :key="view.id"
+                @click="switchView(view.id)"
+                :class="[
+                  'w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors flex items-center gap-2.5 border-l-2',
+                  activeView === view.id
+                    ? 'bg-accent-100/80 text-accent-900 dark:bg-accent-500/20 dark:text-accent-100 font-semibold border-accent-600 dark:border-accent-400'
+                    : 'border-transparent text-neutral-700 dark:text-neutral-300 hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] hover:text-accent-800 dark:hover:text-accent-200'
+                ]"
+              >
+                <AppIcon :name="view.icon" :size="15" class="opacity-70" />
+                <span class="flex-1">{{ view.label }}</span>
+                <span v-if="view.count !== undefined" class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ view.count }}</span>
+              </button>
+            </div>
+          </section>
+        </div>
       </template>
 
       <template v-else-if="section === 'schedule'">
-        <!-- 日程概览：点击跳到对应范围内的日程 -->
-        <section class="space-y-0.5">
-          <p class="eyebrow px-2 pb-1.5">概览</p>
-          <div class="px-1 space-y-0.5">
-            <button v-for="item in scheduleRangeItems" :key="item.id" type="button"
-              class="flex w-full items-baseline justify-between rounded px-2 py-1 text-sm transition-colors"
-              :class="activeScheduleRange === item.id
-                ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
-                : 'text-neutral-600 hover:bg-accent-50/70 dark:text-neutral-400 dark:hover:bg-accent-500/[0.06]'"
-              :title="item.id === 'all' ? '回到今天' : undefined"
-              @click="openScheduleRange(item.id)">
-              <span>{{ item.label }}</span>
-              <span class="font-mono">{{ item.count }}</span>
-            </button>
-          </div>
-        </section>
+        <!-- 概览 / 说明：与任务、AI 共用同一套折叠栈 -->
+        <div ref="scheduleStackEl" class="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <section :class="sectionClass('overview')" :style="sectionStyle('overview')">
+            <div :ref="sectionHeaderRef.overview" class="shrink-0 flex items-center gap-1 pl-1 pr-2">
+              <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+                :aria-expanded="!collapsedSections.overview" @click="toggleSection('overview')">
+                <AppIcon :name="collapsedSections.overview ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
+                <span class="eyebrow">概览</span>
+              </button>
+            </div>
+            <div :inert="collapsedSections.overview || undefined" class="flex-1 min-h-0 overflow-auto px-1 space-y-0.5">
+              <!-- 日程概览：点击跳到对应范围内的日程 -->
+              <button v-for="item in scheduleRangeItems" :key="item.id" type="button"
+                class="flex w-full items-baseline justify-between rounded px-2 py-1 text-sm transition-colors"
+                :class="activeScheduleRange === item.id
+                  ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
+                  : 'text-neutral-600 hover:bg-accent-50/70 dark:text-neutral-400 dark:hover:bg-accent-500/[0.06]'"
+                :title="item.id === 'all' ? '回到今天' : undefined"
+                @click="openScheduleRange(item.id)">
+                <span>{{ item.label }}</span>
+                <span class="font-mono">{{ item.count }}</span>
+              </button>
+            </div>
+          </section>
 
-        <section class="space-y-0.5">
-          <p class="eyebrow px-2 pb-1.5">说明</p>
-          <p class="px-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-            导入 .ics 日历文件后，事件会按日期出现在这里；订阅链接供外部日历读取这些事件。
-          </p>
-        </section>
+          <section class="flex flex-col min-h-0" :class="sectionClass('info')" :style="sectionStyle('info')">
+            <div :ref="sectionHeaderRef.info" class="shrink-0 flex items-center gap-1 border-t border-hairline pl-1 pr-2 pt-2 dark:border-hairline-dark">
+              <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+                :aria-expanded="!collapsedSections.info" @click="toggleSection('info')">
+                <AppIcon :name="collapsedSections.info ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
+                <span class="eyebrow">说明</span>
+              </button>
+            </div>
+            <div :inert="collapsedSections.info || undefined" class="flex-1 min-h-0 overflow-auto">
+              <p class="px-2 pt-1 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
+                导入 .ics 日历文件后，事件会按日期出现在这里；订阅链接供外部日历读取这些事件。
+              </p>
+            </div>
+          </section>
+        </div>
       </template>
 
       <template v-else>
         <div ref="aiStackEl" class="flex-1 min-h-0 flex flex-col overflow-hidden">
         <!-- 对话会话：新建、切换、重命名、删除；首位展开时占满剩余高度 -->
-        <section :class="aiSectionClass('sessions')" :style="aiSectionStyle('sessions')">
-          <div ref="sessionsHeaderEl" class="shrink-0 flex items-center gap-1 pl-1 pr-2">
+        <section :class="sectionClass('sessions')" :style="sectionStyle('sessions')">
+          <div :ref="sectionHeaderRef.sessions" class="shrink-0 flex items-center gap-1 pl-1 pr-2">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.sessions" @click="toggleSection('sessions')">
               <AppIcon :name="collapsedSections.sessions ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
@@ -655,8 +700,8 @@ const switchView = (view) => {
 
         <!-- MCP 服务：非首位展开时使用统一高度，内部独立滚动 -->
         <section class="flex flex-col min-h-0"
-          :class="aiSectionClass('mcp')" :style="aiSectionStyle('mcp')">
-          <div ref="mcpHeaderEl" class="shrink-0 flex items-center gap-1 border-t border-hairline pl-1 pr-2 pt-2 dark:border-hairline-dark">
+          :class="sectionClass('mcp')" :style="sectionStyle('mcp')">
+          <div :ref="sectionHeaderRef.mcp" class="shrink-0 flex items-center gap-1 border-t border-hairline pl-1 pr-2 pt-2 dark:border-hairline-dark">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.mcp" @click="toggleSection('mcp')">
               <AppIcon :name="collapsedSections.mcp ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
@@ -776,8 +821,8 @@ const switchView = (view) => {
           <div class="h-0.5 w-8 rounded-full bg-current"></div>
         </div>
         <section class="flex flex-col min-h-0"
-          :class="aiSectionClass('skills')" :style="aiSectionStyle('skills')">
-          <div ref="skillsHeaderEl" class="shrink-0 flex items-center gap-1 border-t border-hairline pl-1 pr-2 pt-2 dark:border-hairline-dark">
+          :class="sectionClass('skills')" :style="sectionStyle('skills')">
+          <div :ref="sectionHeaderRef.skills" class="shrink-0 flex items-center gap-1 border-t border-hairline pl-1 pr-2 pt-2 dark:border-hairline-dark">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.skills" @click="toggleSection('skills')">
               <AppIcon :name="collapsedSections.skills ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />

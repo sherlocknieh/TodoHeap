@@ -7,7 +7,7 @@ title: "AI 能力"
 
 ## AI 侧栏分区栈
 
-AI 入口的左侧栏按「对话 / MCP 服务 / 技能」三段折叠栈排列，交互与 VSCode 视图栈一致：
+AI 入口的左侧栏按「对话 / MCP 服务 / 技能」三段折叠栈排列，与任务、日程侧栏共用同一套折叠逻辑（机制见 [侧栏开合与窗口宽度](../dev/logic/layout-sidebar.md)）：
 
 - 全部折叠时三行标题贴顶显示，下方留白；
 - 只有一个分区展开时占满侧栏剩余高度；
@@ -16,4 +16,4 @@ AI 入口的左侧栏按「对话 / MCP 服务 / 技能」三段折叠栈排列�
 - 展开与折叠有约 200ms 的高度过渡，相邻分区同步让位；拖动分隔条时关闭过渡以保持跟手；
 - 折叠状态保存在本地 `sidebar-sections`，刷新后保持。
 
-关键落点：`components/LeftSidebar.vue` 的 `collapsedSections`、`aiSectionClass`、`aiSectionStyle`、`showSkillsResize`；布局机制见 [侧栏开合与窗口宽度](../dev/logic/layout-sidebar.md)。
+关键落点：`components/LeftSidebar.vue` 的 `SIDEBAR_SECTIONS`、`collapsedSections`、`sectionClass`、`sectionStyle`、`measureSectionHeights`、`showSkillsResize`。
