@@ -1218,28 +1218,28 @@ const computeGraphLayout = (forest) => {
     return (parentsOf.get(a) || []).some((id) => parents.has(id))
   }
 
-  const shiftBlock = (id, shift, moved) => {
+  const shiftBlock = (id, shift) => {
     ;(blockNodes.get(id) || [id]).forEach((member) => {
-      if (moved.has(member)) return
-      moved.add(member)
       crossCenter.set(member, crossCenter.get(member) + shift)
     })
   }
 
-  const limitGaps = (layer, moved) => {
+  // 逐层自下而上扫描同父兄弟：直接按当前可见边缘把空白压回 maxGap。
+  // 每层独立处理，浅层的一次整体下移不会阻止深层继续回收（大空白常在被移动过的块内部）。
+  const limitGaps = (layer) => {
     const list = order.get(layer)
     // 兄弟分支之间保留两个间隔，既有展开后的呼吸空间，又不会留下异常大的空白
     const maxGap = crossGap * 2
     for (let i = list.length - 1; i > 0; i -= 1) {
       const prev = list[i - 1]
       const cur = list[i]
-      if (moved.has(prev.id) || moved.has(cur.id)) continue
       if (!shareParent(prev.id, cur.id)) continue
       blockBoundsCache.clear()
       const gap = blockBoundsOf(cur.id).top - blockBoundsOf(prev.id).bottom
       if (gap <= maxGap) continue
       const shift = gap - maxGap
-      for (let j = 0; j < i; j += 1) shiftBlock(list[j].id, shift, moved)
+      // 只下移当前对之前的块，保持顺序与块内相对位置；cur 及其下方不动
+      for (let j = 0; j < i; j += 1) shiftBlock(list[j].id, shift)
       blockBoundsCache.clear()
     }
   }
@@ -1262,9 +1262,8 @@ const computeGraphLayout = (forest) => {
   for (let round = 0; round < 3; round += 1) {
     ;[...layerKeys].reverse().forEach((layer) => relaxLayer(layer, 'up'))
     layerKeys.forEach((layer) => relaxLayer(layer, 'down'))
-    // 自浅向深回收间距：上层块先整体下移，下层成员跟随块移动，不再单独压缩
-    const moved = new Set()
-    layerKeys.forEach((layer) => limitGaps(layer, moved))
+    // 层间互不阻塞：每层都按当前坐标重新测量，浅层的下移不跳过深层内部的大空白
+    layerKeys.forEach((layer) => limitGaps(layer))
   }
 
   let minCross = Infinity
