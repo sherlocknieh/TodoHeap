@@ -4,7 +4,8 @@
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			:new-edge="newEdge"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
-			@delete-task="deleteTask" @toggle-done="toggleDone" @drop-task="dropTask" @unlink-task="unlinkTask"
+			@delete-task="deleteTask" @toggle-done="toggleDone" @set-deadline="setDeadline"
+			@drop-task="dropTask" @unlink-task="unlinkTask"
 			@notify="payload => emit('notify', payload)" @background-click="emit('background-click')" />
 	</div>
 </template>
@@ -150,6 +151,21 @@ const toggleDone = async (id) => {
 	emit('notify', {
 		message: previousCompletedAt ? `已恢复「${title}」` : `已完成「${title}」`,
 		undo: () => todoStore.updateTodo(id, { completed_at: previousCompletedAt })
+	})
+}
+
+// 节点截止胶囊的确定与清除：按真实 ID 落库，提示里可撤销
+const setDeadline = async ({ id, deadline }) => {
+	const previousDeadline = todoStore.findTodoById(id)?.deadline ?? null
+	const result = await todoStore.updateTodo(id, { deadline })
+	if (!result.success) {
+		if (result.error) emit('notify', { message: result.error })
+		return
+	}
+
+	emit('notify', {
+		message: deadline ? '已设置截止时间' : '已清除截止时间',
+		undo: () => todoStore.updateTodo(id, { deadline: previousDeadline })
 	})
 }
 

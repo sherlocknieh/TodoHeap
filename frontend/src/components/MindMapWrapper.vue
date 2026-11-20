@@ -123,12 +123,24 @@
             :class="node.isRoot ? 'fill-white/70' : 'fill-neutral-500 dark:fill-neutral-400'">
             {{ node.subtitle }}
           </text>
-          <!-- 「截止标签」：节点右区、三点按钮左侧的简短倒数（今天/明天/3天/逾期），颜色随紧急度 -->
-          <text v-if="node.deadlineLabel"
-            :x="nodeWidth - paddingX - moreSize - 4" :y="node.height / 2"
-            text-anchor="end" dominant-baseline="central"
-            class="pointer-events-none text-[10px] tabular-nums"
-            :class="URGENCY_LABEL_CLASS[node.urgency]">{{ node.deadlineLabel }}</text>
+          <!-- 「截止胶囊」：与任务行同款 chip，贴在三点按钮左侧；点开日期面板，悬停露出 × 直接清除 -->
+          <foreignObject v-if="node.deadlineLabel" :x="node.deadlineX"
+            :y="(node.height - chipHeight) / 2" :width="node.deadlineWidth" :height="chipHeight"
+            class="overflow-visible" @pointerdown.stop @click.stop @dblclick.stop>
+            <div xmlns="http://www.w3.org/1999/xhtml"
+              class="pointer-events-none flex h-full items-center justify-end">
+              <DateTimePicker :model-value="toDateTimeLocalValue(node.deadline)" quick-dates trigger-clear
+                @confirm="applyNodeDeadline(node, $event)">
+                <template #trigger="{ open, toggle }">
+                  <button type="button" class="chip pointer-events-auto gap-1 pr-6 font-medium"
+                    :class="deadlineChipClass(node.deadline)" :aria-expanded="open"
+                    :title="`修改截止时间（${formatDeadlineLabel(node.deadline)}）`" @click.stop="toggle">
+                    <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(node.deadline) }}
+                  </button>
+                </template>
+              </DateTimePicker>
+            </div>
+          </foreignObject>
 
           <!-- 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号）；
                叶子节点悬停或选中时显示加号，离开后短暂保留，指针移向按钮时不会消失。
@@ -338,11 +350,12 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
-import { deadlineUrgency, formatDeadlineShort } from '@/utils/deadline'
+import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
 import {
   collapsedTaskSet,
   isTaskCollapsed,
@@ -360,7 +373,7 @@ const props = defineProps({
   newEdge: { type: Object, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'drop-task', 'unlink-task', 'notify', 'background-click'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'toggle-done', 'set-deadline', 'drop-task', 'unlink-task', 'notify', 'background-click'])
 
 const nodeWidth = 216
 const fontSize = 13
@@ -598,11 +611,14 @@ const controlPointFor = (height, selected) => {
     : { x: nodeWidth + gap, y: height / 2 }
 }
 
-// 文字可用宽度（像素）：右侧让出更多操作按钮与紧急度文字标签，折叠按钮挂在节点外不占正文
-const deadlineReserve = 34
-const textWidthFor = (hasCheckbox, hasDeadlineLabel) => Math.max(fontSize * 4,
-  nodeWidth - paddingX * 2 - (hasCheckbox ? checkboxReserve : 0) - moreReserve
-  - (hasDeadlineLabel ? deadlineReserve : 0))
+// 截止胶囊的固定占位：1px 描边 ×2、左内边距 6、右内边距 24（悬停时给 × 让位）、时钟图标 10 与图标间距 4；
+// 文案宽度按 chip 的 11px 字号另行量出，节点正文据此让位
+const chipHeight = 22
+const chipChrome = 2 + 6 + 24 + 10 + 4
+const textWidthFor = (hasCheckbox, deadlineWidth) => Math.max(fontSize * 4,
+  nodeWidth - paddingX * 2 - (hasCheckbox ? checkboxReserve : 0) - moreReserve - deadlineWidth)
+// 胶囊右缘贴着三点按钮，与原先文字标签的位置一致
+const chipRight = nodeWidth - paddingX - moreSize - 4
 
 // 量宽用的 canvas：显示态由这里折行、编辑态由浏览器折行，两边必须用同一套字体与宽度，
 // 断行位置才会一致。字体取容器（未挂载时退回 body）的计算值，与输入框的 font-medium 对应
@@ -631,6 +647,20 @@ const widthOf = (text) => {
   const width = measureContext().measureText(text).width
   if (widthCache.size > 4000) widthCache.clear()
   widthCache.set(text, width)
+  return width
+}
+
+// 胶囊文案的宽度缓存：按 .chip 的 11px 字号量，量完把 canvas 字体还原成正文的 13px
+const chipTextCache = new Map()
+const chipTextWidth = (text) => {
+  const cached = chipTextCache.get(text)
+  if (cached !== undefined) return cached
+  const ctx = measureContext()
+  const bodyFont = ctx.font
+  ctx.font = `500 11px ${measureFont}`
+  const width = ctx.measureText(text).width
+  ctx.font = bodyFont
+  chipTextCache.set(text, width)
   return width
 }
 
@@ -696,11 +726,13 @@ const measureNode = (raw) => {
   const completed = Boolean(raw.completed_at)
   // 选中态决定是否显示更多操作按钮：根节点不是真实任务，选中也不给操作菜单
   const selected = String(raw.id) === String(props.selectedTaskId) || (raw.isRoot && rootSelected.value)
-  // 紧急度分级与右区简短倒数：已完成与根节点（没有勾选框）都不提示截止
+  // 紧急度分级：已完成与根节点（没有勾选框）都不着色，无截止时也为 null
   const urgency = completed || raw.isRoot ? null : deadlineUrgency(raw.deadline)
-  const deadlineLabel = urgency ? formatDeadlineShort(raw.deadline) : ''
-  // 文字可用宽度：右侧让出更多操作按钮与截止标签，选中时不再重排
-  const textWidth = textWidthFor(hasCheckbox, Boolean(deadlineLabel))
+  // 截止胶囊：有截止就显示（与任务行一致），文案用同一套口语化标签，宽度按胶囊占位算出
+  const deadlineLabel = raw.isRoot ? '' : formatDeadlineLabel(raw.deadline)
+  const deadlineWidth = deadlineLabel ? Math.ceil(chipChrome + chipTextWidth(deadlineLabel)) : 0
+  // 文字可用宽度：右侧让出更多操作按钮与截止胶囊，选中时不再重排
+  const textWidth = textWidthFor(hasCheckbox, deadlineWidth)
   const lines = editingId.value === Number(raw.id)
     ? wrapLines(editingText.value, textWidth, Infinity)
     : wrapLines(raw.title, textWidth)
@@ -713,9 +745,12 @@ const measureNode = (raw) => {
     subtitle,
     hasCheckbox,
     completed,
-    // 勾选框描边与右区标签共用的紧急度分级，无截止日期为 null
+    // 勾选框描边与截止胶囊共用的紧急度分级，无截止日期为 null
     urgency,
     deadlineLabel,
+    // 胶囊在节点内的左上角与宽度：右缘固定，宽度随文案变化
+    deadlineX: chipRight - deadlineWidth,
+    deadlineWidth,
     // 勾选框占位后文字整体右移，根节点保持原位
     textX: paddingX + (hasCheckbox ? checkboxReserve : 0),
     textWidth,
@@ -1470,6 +1505,14 @@ const toggleDone = (node) => {
   emit('toggle-done', Number(node.id))
 }
 
+// 截止胶囊：确定与清除都走同一条出口，转 ISO 与落库交给父级
+const applyNodeDeadline = (node, value) => {
+  emit('set-deadline', {
+    id: Number(node.id),
+    deadline: value ? new Date(value).toISOString() : null
+  })
+}
+
 // 图内删除的统一出口：菜单项与快捷键共用
 const emitDelete = (id) => {
   emit('delete-task', Number(id))
@@ -1564,12 +1607,6 @@ const URGENCY_CHECK_CLASS = {
   critical: 'stroke-rose-500 hover:stroke-rose-600 dark:stroke-rose-400 dark:hover:stroke-rose-300',
   urgent: 'stroke-amber-500 hover:stroke-amber-600 dark:stroke-amber-400 dark:hover:stroke-amber-300',
   soon: 'stroke-yellow-500 hover:stroke-yellow-600 dark:stroke-yellow-400 dark:hover:stroke-yellow-300'
-}
-// 节点右区截止标签的文字色，与勾选框描边同色系
-const URGENCY_LABEL_CLASS = {
-  critical: 'fill-rose-600 dark:fill-rose-400',
-  urgent: 'fill-amber-600 dark:fill-amber-400',
-  soon: 'fill-yellow-600 dark:fill-yellow-400'
 }
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护

@@ -9,7 +9,7 @@ title: "日期时间选择器"
 
 - `frontend/src/components/DateTimePicker.vue`：面板渲染、定位、键盘与草稿状态；`trigger` slot 允许使用方自定义入口外观。
 - `frontend/src/utils/datePicker.js`：纯计算，月历网格、字符串互转、时分限幅、触发器文案。
-- 使用方：`TodoListItem.vue` 与 `TodoList.vue` 的截止时间入口（slot 触发器，直接展开面板）、`TodoDetailEditor.vue`、`ScheduleDetailPanel.vue`（默认字段触发器）。
+- 使用方：`TodoListItem.vue` 与 `TodoList.vue` 的截止时间入口（slot 触发器，直接展开面板）、`MindMapWrapper.vue` 节点上的截止胶囊、`TodoDetailEditor.vue`、`ScheduleDetailPanel.vue`（默认字段触发器）。
 
 ## 值格式
 
