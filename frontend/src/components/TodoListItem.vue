@@ -98,9 +98,9 @@
                 <AppIcon name="calendar" :size="14" />
               </button>
               <div v-if="showDeadlineMenuId === item.id" data-deadline-menu
-                class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 py-1">
+                class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 p-1">
                 <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  class="w-full rounded-lg px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                   @click.stop="applyDeadlinePreset(item.id, preset.value)">
                   <AppIcon :name="preset.icon" :size="13" />
                   <span>{{ preset.label }}</span>
@@ -111,7 +111,7 @@
                     @change="applyDeadlinePreset(item.id, 'custom')" />
                 </label>
                 <button v-if="item.deadline" type="button"
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  class="w-full rounded-lg px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                   @click.stop="applyDeadlinePreset(item.id, 'clear')">
                   <AppIcon name="close" :size="13" />
                   <span>清除截止时间</span>
@@ -125,15 +125,15 @@
                 <AppIcon name="more" :size="14" />
               </button>
               <div v-if="showMoreMenuId === item.id"
-                class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1" ref="moreMenuRef">
+                class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 p-1" ref="moreMenuRef">
                 <button
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  class="w-full rounded-lg px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                   @click.stop="emitAddSubtask(item.id); closeMoreMenu()">
                   <AppIcon name="plus" :size="13" />
                   <span>添加子任务</span>
                 </button>
                 <button
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  class="w-full rounded-lg px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                   @click.stop="emitDeleteTodo(item.id); closeMoreMenu()">
                   <AppIcon name="trash" :size="13" />
                   <span>删除任务</span>

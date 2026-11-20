@@ -148,5 +148,6 @@ title: 关键词索引
 | 危险色 / 红色 / 删除红 / danger | `frontend/src/style.css` `--color-danger-*` | 只用于删除等不可逆确认态 |
 | 暗色模式 / 深色 / 跟随系统 / 主题切换 | `frontend/src/utils/theme.js`、`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 设置 → 外观可切跟随系统/浅色/深色，偏好存 `theme`，auto 时随系统解析成 light/dark |
 | 圆角 / 阴影 / 卡片 / 输入框样式 | `frontend/src/style.css` `@layer components` 的 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` | 优先复用基元类，不另造样式 |
+| 菜单 / 下拉面板 / 选中项背景戳出卡片 / 高亮方角超出圆角 | `components/TodoListItem.vue`（截止时间、更多菜单）、`pages/todo/TodoList.vue`（添加栏截止菜单）、`components/MindMapWrapper.vue`（节点菜单） | 面板用 `panel p-1`、菜单项 `rounded-lg`：高亮内缩 5px 并自带 8px 圆角，方角不会越过面板的 12px 圆角 |
 | 图标 / 加号 / 垃圾桶图标 / 改图标 | `components/AppIcon.vue` | 全站唯一图标来源，用 `name` + `size`；不要用 emoji |
 | 字体 / 等宽数字 | `frontend/src/style.css` `--font-sans`、`--font-mono` | 统计数字用 `font-mono tabular-nums` |
