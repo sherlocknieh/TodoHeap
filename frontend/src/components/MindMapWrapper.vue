@@ -1566,7 +1566,7 @@ const menuBatch = ref(false)
 const MENU_ITEMS = [
   { key: 'date', label: '设置日期', hint: '', icon: 'calendar' },
   { key: 'child', label: '新建子任务', hint: 'Tab', icon: 'plus' },
-  { key: 'copy', label: '复制节点', hint: 'Ctrl+C', icon: 'copy' },
+  { key: 'copy', label: '复制节点树', hint: 'Ctrl+C', icon: 'copy' },
   { key: 'delete', label: '删除任务', hint: 'Del', icon: 'trash', danger: true }
 ]
 
