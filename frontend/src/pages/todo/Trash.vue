@@ -36,17 +36,11 @@
             <span>永久删除</span>
           </button>
         </template>
-        <!-- 否则为全局操作 -->
-        <template v-else>
-          <button v-if="trashTodos.length > 0" class="btn-secondary" @click="handleRestoreAll">
-            <AppIcon name="undo" :size="14" />
-            <span>恢复全部</span>
-          </button>
-          <button v-if="trashTodos.length > 0" class="btn-danger" @click="handleEmptyTrash">
-            <AppIcon name="trash" :size="14" />
-            <span>清空</span>
-          </button>
-        </template>
+        <!-- 否则为全局操作：恢复只通过多选批量执行，这里只保留清空 -->
+        <button v-else-if="trashTodos.length > 0" class="btn-danger" @click="handleEmptyTrash">
+          <AppIcon name="trash" :size="14" />
+          <span>清空</span>
+        </button>
       </div>
     </Teleport>
 
@@ -654,22 +648,6 @@ function handlePermanentDelete(id) {
     const result = await todoStore.permanentDeleteTodo(id)
     if (!result.success) {
       alert('删除失败：' + result.error)
-    }
-  }
-  showConfirmModal.value = true
-}
-
-// 恢复全部
-function handleRestoreAll() {
-  confirmTitle.value = '恢复全部'
-  confirmMessage.value = `确定要恢复垃圾箱中的 ${trashTodos.value.length} 个任务吗？`
-  confirmSubMessage.value = ''
-  confirmButtonText.value = '恢复全部'
-  confirmButtonClass.value = 'btn-primary'
-  pendingAction.value = async () => {
-    const result = await todoStore.restoreAllTrash()
-    if (!result.success) {
-      alert('恢复失败：' + result.error)
     }
   }
   showConfirmModal.value = true
