@@ -24,10 +24,6 @@ describe('nextTaskTitle', () => {
   it('默认标题跳过已占用的编号', () => {
     expect(nextTaskTitle(null, ['新任务 1', '新任务 3'])).toBe('新任务 2')
   })
-
-  it('支持自定义默认标题', () => {
-    expect(nextTaskTitle(null, ['(新任务) 1'], { baseTitle: '(新任务)' })).toBe('(新任务) 2')
-  })
 })
 
 describe('childTitlesOf', () => {

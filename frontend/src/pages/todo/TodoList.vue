@@ -478,8 +478,8 @@ const applyAddDeadline = (value) => {
 }
 
 const addSubtask = async (parentId, startEditCb) => {
-  // 连续新建子任务同样自动编号；(新任务) 是列表内的占位标题，编号沿用这层外壳
-  const title = nextTaskTitle(null, childTitlesOf(todoStore.todos, parentId), { baseTitle: '(新任务)' })
+  // 连续新建子任务同样自动编号，默认标题与顶栏、任务图一致
+  const title = nextTaskTitle(null, childTitlesOf(todoStore.todos, parentId))
   const result = await todoStore.addTodo(title, {
     parent_id: parentId
   })

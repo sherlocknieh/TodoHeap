@@ -3,8 +3,11 @@
 // 被哪些地方依赖: TodoGraph.createTask、TodoList.addSubtask、Todo.vue.createNewTask。
 // 机制见 docs/src/content/docs/dev/logic/task-create.md「连续新建时的标题编号」
 
+// 没有同级参考时的默认标题，所有入口共用，保证新建结果一致
+const DEFAULT_TITLE = '新任务'
+
 // 已占用的同级标题从候选序列里跳过，避免连续新建出现重名
-export const nextTaskTitle = (referenceTitle, siblingTitles = [], { baseTitle = '新任务' } = {}) => {
+export const nextTaskTitle = (referenceTitle, siblingTitles = []) => {
   const used = new Set(siblingTitles.map((title) => (title || '').trim()))
   const reference = (referenceTitle || '').trim()
   const match = /^(.*?)(\d+)$/.exec(reference)
@@ -21,8 +24,8 @@ export const nextTaskTitle = (referenceTitle, siblingTitles = [], { baseTitle = 
   }
 
   let value = 1
-  while (used.has(`${baseTitle} ${value}`)) value += 1
-  return `${baseTitle} ${value}`
+  while (used.has(`${DEFAULT_TITLE} ${value}`)) value += 1
+  return `${DEFAULT_TITLE} ${value}`
 }
 
 // 同级标题按父级 child_ids 的顺序取, 已删除/不存在的 ID 跳过

@@ -212,7 +212,7 @@ if (error && clientKey && isMissingClientKeySupport(error)) {
 | 入口 | 说明 |
 | --- | --- |
 | `TodoList.vue` 快速添加 | `addTodo(title, { deadline })`，可在添加栏先选截止时间；默认挂根任务 |
-| `TodoList.vue` 新建子任务 | `addTodo(nextTaskTitle(...), { parent_id })`，默认标题 `(新任务)` 同样参与编号，随后进入行内编辑 |
+| `TodoList.vue` 新建子任务 | `addTodo(nextTaskTitle(...), { parent_id })`，默认标题与其它入口一致（`新任务 1`），随后进入行内编辑 |
 | `TodoGraph.vue` / `MindMapWrapper.vue` | Enter 建同级、Tab 建子级；同级创建后调 `moveTodo` 调整到落点之后，子级/顶层创建追加到同级末尾（不受列表的新建置顶影响）；标题按下面的编号规则生成 |
 | `Todo.vue` 顶部新建 | `addTodo(nextTaskTitle(...), { details: '' })`，连续点击得到 `新任务 1`、`新任务 2` |
 | `TodoDetailEditor.vue` | 在详情面板里新建子任务，标题由用户输入，不参与自动编号 |
@@ -229,13 +229,13 @@ if (error && clientKey && isMissingClientKeySupport(error)) {
 | --- | --- | --- |
 | 参考标题末尾有数字 | 数字 +1，保留分隔符与数字位数，跳过已占用的同级标题 | `步骤 2` → `步骤 3`、`步骤 09` → `步骤 10` |
 | 参考标题末尾没有数字 | 默认标题从 1 开始取最小未占用编号 | `新任务 1`、`新任务 2` |
-| 没有参考标题（建子级、顶栏新建、列表新建子任务） | 同上，默认标题编号 | 子级为 `新任务 1`；列表子任务沿用占位外壳 `(新任务) 1` |
+| 没有参考标题（建子级、顶栏新建、列表新建子任务） | 同上，默认标题编号 | 均为 `新任务 1`、`新任务 2` |
 
 - 参考标题就是「在哪个节点上按 Enter」：Task 图同级新建取 `afterId` 对应任务的标题。因此 `新任务 1` 再按 Enter 会续成 `新任务 2`。
 - 子级入口没有同级参考，只在目标父级的现有子任务里取编号；同一父级下连续 Tab 会得到 `新任务 1`、`新任务 2`。
 - 已占用的编号会跳过，例如同级已有 `步骤 3` 时，`步骤 2` 之后创建得到 `步骤 4`。
 - 编号依赖 `addTodo` 同步把临时 ID 头插进父级 `child_ids`：连续快速新建时下一次计算已经能看到上一条，不会重号。
-- 实现集中在 `utils/taskTitle.js`：`nextTaskTitle(referenceTitle, siblingTitles, { baseTitle })` 生成标题，`childTitlesOf(items, parentId)` 按 `child_ids` 顺序取同级标题并跳过不存在的 ID。调用点只有 `TodoGraph.createTask`、`TodoList.addSubtask`、`Todo.createNewTask`。
+- 实现集中在 `utils/taskTitle.js`：`nextTaskTitle(referenceTitle, siblingTitles)` 生成标题（默认标题统一为 `新任务`），`childTitlesOf(items, parentId)` 按 `child_ids` 顺序取同级标题并跳过不存在的 ID。调用点只有 `TodoGraph.createTask`、`TodoList.addSubtask`、`Todo.createNewTask`。
 
 ---
 
