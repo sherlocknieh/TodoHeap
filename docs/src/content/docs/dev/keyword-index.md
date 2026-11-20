@@ -21,8 +21,8 @@ title: 关键词索引
 | 活动栏 / 左侧图标条 / 最左边一竖条 | `pages/Todo.vue`「左侧活动栏」注释；`activeSection`、`activeView` | 清单、日程、AI、回收站的入口；收起后由底栏按钮开回 |
 | 侧栏 / 左栏 / 导航栏 / 抽屉 | `components/LeftSidebar.vue`；`pages/Todo.vue`「宽屏侧栏是常驻栏」「窄屏侧栏是覆盖内容的抽屉」 | 宽屏常驻并可拖宽，窄屏与任务图是浮层抽屉，两套状态互不覆盖；浮层时点外部（含画布空白）收起 |
 | 侧栏拉宽 / 拖宽度 / 拖到收起 | `components/LeftSidebar.vue`「右缘拖拽条」、`useResizablePanel`；`utils/resizablePanel.js` | 拖过最小宽度（200px）继续拖一段即收起 |
-| 技能区高度 / 上下拖动分隔条 | `components/LeftSidebar.vue`「技能区高度可拖拽调整」 | 分隔条在技能分组上缘 |
-| 侧栏分组折叠 / 收起标题 | `components/LeftSidebar.vue` `collapsedSections` | 折叠选择本地保留 |
+| 技能区高度 / 上下拖动分隔条 / 技能栏太矮 | `components/LeftSidebar.vue`「技能：非首位展开时可拖拽调高」 | 分隔条在技能分组上缘；技能区排首位展开时占满高度，不显示分隔条 |
+| 侧栏分组折叠 / 收起标题 / 全部折叠贴顶 / 单栏展开占满 / 多栏统一高度 | `components/LeftSidebar.vue` `collapsedSections`、`aiSectionClass`、`aiSectionStyle` | 参考 VSCode：全部折叠时标题贴顶；首个展开分区占满剩余高度，其余展开分区统一 192px，技能区沿用可拖拽高度 |
 | 顶栏标题 / 主区域标题 / 当前视图名 | `pages/Todo.vue` `activeViewTitle` | 各视图统一在顶栏显示名称 |
 | 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏；主题与详情面板开关常驻在这一行，不随视图操作让位 |
 | 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图只让适应视图与节点菜单按 `detailPanelInset` 避开面板，三栏聚焦按整宽居中；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
@@ -87,9 +87,9 @@ title: 关键词索引
 | --- | --- | --- |
 | 会话列表 / 对话历史 / 新会话 | `components/LeftSidebar.vue`「对话会话：新建、切换、重命名、删除」 | 只显示时间与消息数 |
 | 重命名会话 / 删除会话 | `components/LeftSidebar.vue` `startSessionRename`、`deleteSession` | 行内图标按钮 |
-| 技能 / skill / 自定义指令 | `components/LeftSidebar.vue`「技能：常驻底部分组」、`startNewSkill`；`stores/agent.js` | 技能存 `user_settings.settings.skills`，只绑定工作模式 |
+| 技能 / skill / 自定义指令 | `components/LeftSidebar.vue`「技能：非首位展开时可拖拽调高」、`startNewSkill`；`stores/agent.js` | 技能存 `user_settings.settings.skills`，只绑定工作模式 |
 | 技能挂载 / 切模式 | `components/LeftSidebar.vue` `attachSkill`、`modeLabel`；`lib/agentModes.js` | 点技能会切到它绑定的模式，指令随该轮消息下发 |
-| MCP 服务 / 外部工具 / 滴答清单连接 | `components/LeftSidebar.vue`「MCP 服务：常驻底部分组」、`startNewMcp`；`lib/mcpServers.js` | 令牌只在请求内使用，不落库 |
+| MCP 服务 / 外部工具 / 滴答清单连接 | `components/LeftSidebar.vue`「MCP 服务：非首位展开时使用统一高度」、`startNewMcp`；`lib/mcpServers.js` | 令牌只在请求内使用，不落库 |
 | 消息气泡 / 工具执行记录 / 请求详情 | `components/AgentChat.vue` `toolLabel`、`callSummary` | 请求详情保留系统提示与工具结果原文 |
 | 破坏性操作确认 / 弹确认框 | `components/AgentChat.vue` `pending` 与确认文案计算属性 | 删任务、删日程、切模式、外部 MCP 写入都先确认 |
 | 上下文构成 / 占比 / 这一轮用了什么 | `components/AgentContextPanel.vue` | AI 视图右栏复用详情面板位置 |

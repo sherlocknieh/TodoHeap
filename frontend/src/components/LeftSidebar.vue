@@ -91,6 +91,28 @@ const expandSection = (key) => {
   collapsedSections.value[key] = false
 }
 
+// AI 侧栏分区栈（参考 VSCode）：全部折叠时标题贴顶；首位展开的分区占满剩余高度；
+// 其余展开分区统一高度，技能区沿用可拖拽高度
+const AI_SECTION_KEYS = ['sessions', 'mcp', 'skills']
+const SECONDARY_SECTION_HEIGHT = 192
+
+const expandedAiSections = computed(() => AI_SECTION_KEYS.filter((key) => !collapsedSections.value[key]))
+const fillsAiSidebar = (key) => expandedAiSections.value[0] === key
+
+const aiSectionClass = (key) => [
+  'flex flex-col min-h-0',
+  fillsAiSidebar(key) ? 'flex-1' : 'shrink-0'
+]
+
+const aiSectionStyle = (key) => {
+  if (collapsedSections.value[key] || fillsAiSidebar(key)) return null
+  const height = key === 'skills' ? skillsHeight.value : SECONDARY_SECTION_HEIGHT
+  return { height: `${height}px` }
+}
+
+// 技能区排首位展开时已占满剩余高度，拖拽条不再有意义
+const showSkillsResize = computed(() => !collapsedSections.value.skills && !fillsAiSidebar('skills'))
+
 // AI 侧栏展示会话列表，进入 AI 入口时确保会话已载入
 const ensureAgent = () => {
   if (props.section === 'ai') agent.init(authStore.user?.id)
@@ -456,9 +478,9 @@ const switchView = (view) => {
     </header>
 
     <!-- 内容：按活动栏入口切换 -->
-    <!-- AI 侧栏把技能钉在底部，其余分组在上方独立滚动 -->
+    <!-- AI 侧栏是折叠分区栈：分区尺寸由 aiSectionClass / aiSectionStyle 决定 -->
     <div :class="section === 'ai'
-      ? 'flex-1 min-h-0 flex flex-col px-2 py-3'
+      ? 'flex-1 min-h-0 flex flex-col overflow-hidden px-2 py-3'
       : 'flex-1 min-h-0 overflow-auto px-2 py-3 space-y-6'">
       <template v-if="section === 'list'">
         <!-- 视图 -->
@@ -509,10 +531,9 @@ const switchView = (view) => {
       </template>
 
       <template v-else>
-        <div class="flex-1 min-h-0 overflow-auto space-y-6">
-        <!-- 对话会话：新建、切换、重命名、删除 -->
-        <section>
-          <div class="flex items-center gap-1 pl-1 pr-2">
+        <!-- 对话会话：新建、切换、重命名、删除；首位展开时占满剩余高度 -->
+        <section :class="aiSectionClass('sessions')" :style="aiSectionStyle('sessions')">
+          <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.sessions" @click="toggleSection('sessions')">
               <AppIcon :name="collapsedSections.sessions ? 'chevronRight' : 'chevronDown'" :size="12" class="opacity-70" />
@@ -523,7 +544,7 @@ const switchView = (view) => {
               <AppIcon name="plus" :size="14" />
             </button>
           </div>
-          <div v-show="!collapsedSections.sessions" class="space-y-0.5">
+          <div v-show="!collapsedSections.sessions" class="flex-1 min-h-0 overflow-auto space-y-0.5">
             <p v-if="!agent.sessions.length" class="px-2 text-xs text-neutral-500 dark:text-neutral-400">
               还没有会话
             </p>
@@ -564,10 +585,9 @@ const switchView = (view) => {
           </div>
         </section>
 
-        </div>
-
-        <!-- MCP 服务：常驻底部分组，上方是会话列表的滚动区 -->
-        <section class="shrink-0 flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark">
+        <!-- MCP 服务：非首位展开时使用统一高度，内部独立滚动 -->
+        <section class="flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark"
+          :class="aiSectionClass('mcp')" :style="aiSectionStyle('mcp')">
           <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.mcp" @click="toggleSection('mcp')">
@@ -581,7 +601,7 @@ const switchView = (view) => {
             </button>
           </div>
 
-          <div v-show="!collapsedSections.mcp" class="max-h-60 min-h-0 overflow-auto space-y-0.5">
+          <div v-show="!collapsedSections.mcp" class="flex-1 min-h-0 overflow-auto space-y-0.5">
             <form v-if="mcpForm" class="mx-2 mb-1.5 space-y-1.5 rounded-lg border border-hairline p-2 dark:border-hairline-dark"
               @submit.prevent="saveMcp">
               <input v-model="mcpForm.name" class="field w-full px-1.5 py-1 text-xs"
@@ -680,15 +700,15 @@ const switchView = (view) => {
           </div>
         </section>
 
-        <!-- 技能：常驻底部分组，上缘可拖拽调高，折叠后只保留标题行 -->
-        <div v-show="!collapsedSections.skills" class="shrink-0 -mt-1 h-2 flex items-center justify-center cursor-row-resize touch-none transition-colors"
+        <!-- 技能：非首位展开时可拖拽调高；排首位展开时占满剩余高度，不显示拖拽条 -->
+        <div v-show="showSkillsResize" class="shrink-0 -mt-1 h-2 flex items-center justify-center cursor-row-resize touch-none transition-colors"
           :class="skillsResizing ? 'text-accent-600 dark:text-accent-400' : 'text-transparent hover:text-accent-400 dark:hover:text-accent-500'"
           role="separator" aria-orientation="horizontal" title="拖拽调整技能区高度"
           @pointerdown="startSkillsResize">
           <div class="h-0.5 w-8 rounded-full bg-current"></div>
         </div>
-        <section class="shrink-0 flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark"
-          :style="collapsedSections.skills ? null : { height: skillsHeight + 'px' }">
+        <section class="flex flex-col min-h-0 border-t border-hairline pt-2 dark:border-hairline-dark"
+          :class="aiSectionClass('skills')" :style="aiSectionStyle('skills')">
           <div class="shrink-0 flex items-center gap-1 pl-1 pr-2">
             <button class="flex-1 flex items-center gap-1 py-1 rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
               :aria-expanded="!collapsedSections.skills" @click="toggleSection('skills')">
