@@ -31,18 +31,17 @@
             :aria-expanded="isItemExpanded(item)" @click.stop="toggleExpand(item)">
             <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="9" />
           </button>
-          <!-- 完成状态用圆形勾选圈 -->
-          <button v-else-if="!item._isRef" type="button"
+          <!-- 完成状态用圆形勾选圈；回边行与实体行共用真实任务的完成状态 -->
+          <button v-else type="button"
             class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-full border-[1.5px] transition-colors"
-            :class="statusMap[item.id] === 'checked'
+            :class="isChecked(item)
               ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
               : 'border-neutral-300 text-transparent hover:border-accent-500 hover:bg-accent-50 dark:border-neutral-600 dark:hover:border-accent-400 dark:hover:bg-accent-500/10'"
-            :aria-pressed="statusMap[item.id] === 'checked'"
-            :aria-label="statusMap[item.id] === 'checked' ? '标记为未完成' : '标记为完成'"
+            :aria-pressed="isChecked(item)"
+            :aria-label="isChecked(item) ? '标记为未完成' : '标记为完成'"
             @click.stop="cycleStatus(item)">
             <AppIcon name="check" :size="11" />
           </button>
-          <span v-else class="w-[18px] shrink-0"></span>
 
           <!-- 标题与元信息：标签跟标题同一行，长标题换行时不挤掉标签 -->
           <div class="flex min-w-0 flex-1 items-center gap-2">
@@ -51,12 +50,9 @@
                 'flex min-w-0 items-center gap-1 overflow-hidden text-sm leading-5',
                 'text-neutral-800 dark:text-neutral-200',
                 item._level === 0 ? 'font-medium' : '',
-                { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at && !item._isRef }
-              ]" @dblclick.stop="!item._isRef && startEdit(item.id, item.title)">
-                <AppIcon v-if="item._isRef" name="link" :size="11"
-                  class="shrink-0 text-neutral-400 dark:text-neutral-500" />
-                <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1"
-                  :class="{ 'text-neutral-400 dark:text-neutral-500': item._isRef }" />
+                { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at }
+              ]" @dblclick.stop="startEdit(item.id, item.title)">
+                <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1" />
               </span>
               <input v-else :id="'edit-input-' + item.id" v-model="editingText"
                 class="w-full bg-transparent text-sm leading-5 text-neutral-900 dark:text-neutral-100 outline-none"
@@ -67,7 +63,7 @@
             <div v-if="editingId !== item.id && (item.deadline || item.duration != null)"
               class="flex shrink-0 items-center gap-1.5">
               <DateTimePicker v-if="item.deadline" :model-value="toDateTimeLocalValue(item.deadline)"
-                quick-dates trigger-clear @confirm="applyDeadline(item.id, $event)">
+                quick-dates trigger-clear @confirm="applyDeadline(selectableIdOf(item), $event)">
                 <template #trigger="{ open, toggle }">
                   <button type="button" class="chip gap-1 font-medium"
                     :class="deadlineChipClass(item.deadline)" :aria-expanded="open"
@@ -83,18 +79,10 @@
             </div>
           </div>
 
-          <!-- 行内操作 -->
-          <div v-if="item._isRef" class="flex shrink-0 items-center gap-0.5">
-            <button type="button"
-              class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 opacity-0 transition-all hover:bg-accent-50 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-              title="取消链接" aria-label="取消链接" @click.stop="emitUnlink(item)">
-              <AppIcon name="unlink" :size="13" />
-            </button>
-          </div>
-          <div v-if="!item._isRef"
-            class="flex shrink-0 items-center gap-0.5">
+          <!-- 行内操作：回边行与实体行一致，写操作都落到真实任务 ID 上 -->
+          <div class="flex shrink-0 items-center gap-0.5">
             <DateTimePicker v-if="!item.deadline" :model-value="''" quick-dates
-              @confirm="applyDeadline(item.id, $event)">
+              @confirm="applyDeadline(selectableIdOf(item), $event)">
               <template #trigger="{ open, toggle }">
                 <button type="button"
                   class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
@@ -114,19 +102,26 @@
                 <!-- 「节点视图」：切到任务图，节点居中并 100% 缩放 -->
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
-                  @click.stop="emitJumpToGraph(item.id); closeMoreMenu()">
+                  @click.stop="emitJumpToGraph(selectableIdOf(item)); closeMoreMenu()">
                   <AppIcon name="graph" :size="13" />
                   <span>节点视图</span>
                 </button>
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
-                  @click.stop="emitAddSubtask(item.id); closeMoreMenu()">
+                  @click.stop="emitAddSubtask(item); closeMoreMenu()">
                   <AppIcon name="plus" :size="13" />
                   <span>添加子任务</span>
                 </button>
+                <!-- 「取消链接」：断开本行所在的父链接；最后一个父级被断开时任务回到顶层 -->
+                <button v-if="item._level > 0"
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  @click.stop="emitUnlink(item); closeMoreMenu()">
+                  <AppIcon name="unlink" :size="13" />
+                  <span>取消链接</span>
+                </button>
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                  @click.stop="emitDeleteTodo(item.id); closeMoreMenu()">
+                  @click.stop="emitDeleteTodo(selectableIdOf(item)); closeMoreMenu()">
                   <AppIcon name="trash" :size="13" />
                   <span>删除任务</span>
                 </button>
@@ -171,14 +166,16 @@ const emit = defineEmits([
   'unlink-task'
 ])
 
-const emitToggleDone = (item) => emit('toggle-done', item)
+const emitToggleDone = (item) => emit('toggle-done', { ...item, id: selectableIdOf(item) })
 const emitDeleteTodo = (id) => emit('delete-todo', id)
-// 回边行没有真实父节点，用渲染它的节点作为父级解除引用
-const emitUnlink = (item) => emit('unlink-task', { parentId: item.parent_id, childId: item._refTargetId })
-const emitAddSubtask = (parentId) => {
+// 选中与写操作共用真实任务 ID：回边行指向被引用的任务
+const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
+// 回边行用渲染它的父级解除引用，实体子行用真实父级
+const emitUnlink = (item) => emit('unlink-task', { parentId: item.parent_id, childId: selectableIdOf(item) })
+const emitAddSubtask = (item) => {
   // 正在给这一行改名时先提交草稿，再新增子任务，避免切换编辑目标时丢掉刚输入的名字
-  if (editingId.value === parentId) finishEdit(parentId, 'enter')
-  emit('add-subtask', parentId)
+  if (editingId.value === item.id) finishEdit(item.id, 'enter')
+  emit('add-subtask', selectableIdOf(item))
 }
 const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
 // 行内菜单「节点视图」交给外层切视图，行组件不直接操作路由
@@ -210,12 +207,13 @@ watch(() => props.editRequest, (request) => {
 })
 
 // 有未完成子任务才显示折叠开关：子任务全部完成时按叶子任务处理，开关消失
-const isTaskDone = (item) => statusMap.value[item.id] === 'checked' || Boolean(item.completed_at)
+const isChecked = (item) => statusMap.value[selectableIdOf(item)] === 'checked'
+const isTaskDone = (item) => isChecked(item) || Boolean(item.completed_at)
 const hasActiveChildren = (item) => (item.children || []).some((child) => !isTaskDone(child))
 
 const isItemVisible = (item) => {
   // 隐藏已完成项（优先使用本地状态映射）
-  if (statusMap.value[item.id] === 'checked' || item.completed_at) return false
+  if (isChecked(item) || item.completed_at) return false
   if (!item.parent_id) return true
 
   // 祖先链任一节点折叠时隐藏，避免祖先折叠但后代仍显示
@@ -302,22 +300,18 @@ const statusMap = ref({})
 
 function initStatusMap() {
   flatList.value.forEach(item => {
-    if (item._isRef) return
-    if (item.completed_at) statusMap.value[item.id] = 'checked'
-    else statusMap.value[item.id] = 'unchecked'
+    statusMap.value[selectableIdOf(item)] = item.completed_at ? 'checked' : 'unchecked'
   })
 }
 
 initStatusMap()
 
 watch(flatList, (newList) => {
-  const idSet = new Set(newList.map(item => item.id))
+  const idSet = new Set(newList.map(item => selectableIdOf(item)))
 
   // 同步已有节点状态，避免远程更新后 UI 状态滞后
   newList.forEach(item => {
-    if (item._isRef) return
-    if (item.completed_at) statusMap.value[item.id] = 'checked'
-    else statusMap.value[item.id] = 'unchecked'
+    statusMap.value[selectableIdOf(item)] = item.completed_at ? 'checked' : 'unchecked'
   })
 
   // 清理已不存在节点，避免状态对象无限增长
@@ -329,14 +323,12 @@ watch(flatList, (newList) => {
 })
 
 function cycleStatus(item) {
-  const cur = statusMap.value[item.id] || (item.completed_at ? 'checked' : 'unchecked')
+  const id = selectableIdOf(item)
+  const cur = statusMap.value[id] || (item.completed_at ? 'checked' : 'unchecked')
   const next = cur === 'checked' ? 'unchecked' : 'checked'
-  statusMap.value[item.id] = next
+  statusMap.value[id] = next
   emitToggleDone(item)
 }
-
-// 选中与拖拽共用真实任务 ID，引用行指向被引用的任务
-const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)
 
 // 行状态：拖入内部用浅强调色提示；选中只强调边框，边框与底色全部由状态决定，避免基础类覆盖
 const isRowSelected = (item) => props.selectedTaskId === selectableIdOf(item)
@@ -353,11 +345,10 @@ const rowStateClass = (item) => {
   if (isRowSelected(item) || isMultiSelected(item)) {
     return 'border py-1.5 pl-2 pr-1.5 border-accent-500 bg-surface shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
   }
-  // 回边行只是指向已存在任务的引用，虚线边框让它在实体任务之间显得更轻
+  // 所有行同一套卡片外观，选中只换边框与投影
   return [
     'border py-1.5 pl-2 pr-1.5 border-hairline bg-surface shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)]',
-    'dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40',
-    item._isRef ? 'border-dashed' : ''
+    'dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
   ].join(' ')
 }
 
@@ -539,13 +530,13 @@ function finishEdit(id, source = 'enter') {
     return
   }
 
-  emitEditSubtask(id, nextTitle)
+  emitEditSubtask(selectableIdOf(current ?? { id }), nextTitle)
   editingId.value = null
   editingText.value = ''
 }
 
 function selectTask(item) {
-  emitTaskSelected(item._isRef ? item._refTargetId : item.id)
+  emitTaskSelected(selectableIdOf(item))
 }
 
 function formatDuration(value) {
