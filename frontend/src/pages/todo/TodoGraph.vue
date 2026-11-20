@@ -14,7 +14,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import MindMapWrapper from '@/components/MindMapWrapper.vue'
-import { collectDescendantIds, findParentIds } from '@/utils/taskGraph'
+import { collectDescendantIds, findDeleteFocusId, findParentIds } from '@/utils/taskGraph'
 import { isTaskCollapsed, setTaskCollapsed } from '@/utils/taskCollapse'
 import { ROOT_TODO_TITLE } from '@/utils/rootTask'
 
@@ -125,15 +125,30 @@ const renameTask = async ({ id, title }) => {
 	if (!result.success && result.error) emit('notify', { message: result.error })
 }
 
+// 导图里同一个任务可能挂在多条父链下，焦点兄弟按当前展示的那条父链取
+const findDisplayedParentId = (id) => {
+	const stack = [...(todoStore.treeNodes || [])]
+	while (stack.length) {
+		const node = stack.shift()
+		if (String(node.id) === String(id)) return node.parent_id ?? null
+		stack.push(...(node.children || []))
+	}
+	return null
+}
+
 const deleteTask = async (id) => {
 	const title = todoStore.findTodoById(id)?.title || '任务'
+	// 删除后焦点落到最近兄弟：下一个优先、其次上一个、都没有回到父任务；机制见 docs/src/content/docs/dev/logic/graph-delete-focus.md
+	const focusId = findDeleteFocusId(todoStore.todos, id, {
+		parentId: findDisplayedParentId(id)
+	})
 	const result = await todoStore.deleteTodo(id)
 	if (!result.success) {
 		if (result.error) emit('notify', { message: result.error })
 		return
 	}
 
-	emit('task-selected', null)
+	emit('task-selected', focusId)
 	// 回收站记录的是真实 ID，撤销时按它恢复
 	const trashId = result.data?.id ?? id
 	emit('notify', {

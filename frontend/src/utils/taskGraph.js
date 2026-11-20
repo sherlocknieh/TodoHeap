@@ -31,6 +31,37 @@ export const findParentIds = (items, childId) => items
   .filter((item) => childIdsOf(item).includes(childId))
   .map((item) => item.id)
 
+// 删除后的焦点落点: 兄弟顺序只看父级 child_ids, 先取下一个兄弟, 没有就上一个, 再没有回到父任务;
+// 多父任务优先用 parentId 指定的展示父链, 根任务只作父级兜底、不返回为焦点。机制见 docs/src/content/docs/dev/logic/graph-delete-focus.md
+export const findDeleteFocusId = (items, id, { parentId = null, preferNext = true } = {}) => {
+  const byId = new Map(items.map((item) => [item.id, item]))
+  if (!byId.has(id)) return null
+
+  // 展示父链在前, 其它父级按发现顺序兜底; 已不存在的兄弟 ID(删除残留) 跳过
+  const parents = findParentIds(items, id)
+  const orderedParents = parentId != null && parents.includes(parentId)
+    ? [parentId, ...parents.filter((pid) => pid !== parentId)]
+    : parents
+
+  for (const pid of orderedParents) {
+    const parent = byId.get(pid)
+    if (!parent) continue
+    const siblings = childIdsOf(parent).filter((childId) => byId.has(childId))
+    const index = siblings.indexOf(id)
+    if (index === -1) continue
+    const next = siblings[index + 1] ?? null
+    const previous = siblings[index - 1] ?? null
+    const sibling = preferNext ? (next ?? previous) : (previous ?? next)
+    if (sibling != null) return sibling
+  }
+
+  // 兄弟都没了才落到父任务; 根任务不是真实任务, 返回 null 让详情面板收起
+  const fallback = orderedParents
+    .map((pid) => byId.get(pid))
+    .find((parent) => parent && !parent.is_root)
+  return fallback?.id ?? null
+}
+
 // 服务端行里的负数子 ID 只可能是历史临时 ID 残留(临时 ID 从不落库), 不指向任何任务:
 // 保留下来会和客户端新生成的临时 ID 撞号, ID 替换时把别的父级改错, 表现为多出一条幽灵链接
 export const withoutStaleTempChildIds = (items) => items.map((item) => (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTaskForest, collectCascadeIds, collectDescendantIds, withoutStaleTempChildIds } from './taskGraph'
+import { buildTaskForest, collectCascadeIds, collectDescendantIds, findDeleteFocusId, withoutStaleTempChildIds } from './taskGraph'
 
 const sortFn = (a, b) => a.id - b.id
 const mapItem = (item) => ({ id: item.id, title: item.title })
@@ -167,6 +167,65 @@ describe('collectDescendantIds', () => {
     ], 1)
 
     expect(ids.sort()).toEqual([2, 3])
+  })
+})
+
+describe('findDeleteFocusId', () => {
+  const siblings = [
+    { id: 1, child_ids: [2, 3, 4] },
+    { id: 2, child_ids: [] },
+    { id: 3, child_ids: [] },
+    { id: 4, child_ids: [] }
+  ]
+
+  it('优先下一个兄弟', () => {
+    expect(findDeleteFocusId(siblings, 3)).toBe(4)
+  })
+
+  it('没有下一个时回到上一个兄弟', () => {
+    expect(findDeleteFocusId(siblings, 4)).toBe(3)
+  })
+
+  it('没有兄弟时落到父任务', () => {
+    const items = [
+      { id: 1, child_ids: [2] },
+      { id: 2, child_ids: [] }
+    ]
+
+    expect(findDeleteFocusId(items, 2)).toBe(1)
+  })
+
+  it('父级是根任务时返回 null', () => {
+    const items = [
+      { id: 99, is_root: true, child_ids: [1] },
+      { id: 1, child_ids: [] }
+    ]
+
+    expect(findDeleteFocusId(items, 1)).toBeNull()
+  })
+
+  it('多父任务按指定展示父链取兄弟', () => {
+    const items = [
+      { id: 1, child_ids: [9, 2] },
+      { id: 3, child_ids: [4, 9] },
+      { id: 2, child_ids: [] },
+      { id: 4, child_ids: [] },
+      { id: 9, child_ids: [] }
+    ]
+
+    // 父级 3 下 9 没有下一个兄弟，回到上一个 4；没有 parentId 时按发现顺序取父级 1，下一个是 2
+    expect(findDeleteFocusId(items, 9, { parentId: 3 })).toBe(4)
+    expect(findDeleteFocusId(items, 9)).toBe(2)
+  })
+
+  it('跳过已不存在的兄弟 ID', () => {
+    const items = [
+      { id: 1, child_ids: [2, 999, 3] },
+      { id: 2, child_ids: [] },
+      { id: 3, child_ids: [] }
+    ]
+
+    expect(findDeleteFocusId(items, 2)).toBe(3)
   })
 })
 
