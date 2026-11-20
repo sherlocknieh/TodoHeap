@@ -250,6 +250,16 @@
       </button>
     </div>
 
+    <!-- 「菜单设置日期」：节点菜单里的「设置日期」复用同一枚日期面板，锚点落在菜单原位置，
+         触发器是 0 尺寸占位，面板即从菜单处展开 -->
+    <div v-if="dateAnchor" class="absolute z-30"
+      :style="{ left: `${dateAnchor.left}px`, top: `${dateAnchor.top}px` }"
+      @pointerdown.stop @click.stop>
+      <DateTimePicker ref="datePickerRef" :model-value="dateValue" quick-dates @confirm="applyMenuDate">
+        <template #trigger><span class="block h-0 w-0"></span></template>
+      </DateTimePicker>
+    </div>
+
     <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布；
          右栏浮起时按面板宽度左移，避免盖住按钮 -->
     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" @pointerdown.stop
@@ -1522,9 +1532,9 @@ const menuAnchor = ref(null)
 
 // 菜单项全部复用已有能力，右侧标注对应快捷键，方便用户之后直接用键盘
 const MENU_ITEMS = [
-  { key: 'rename', label: '重命名', hint: 'F2', icon: 'edit' },
+  { key: 'date', label: '设置日期', hint: '', icon: 'calendar' },
   { key: 'child', label: '新建子任务', hint: 'Tab', icon: 'plus' },
-  { key: 'copy', label: '复制为 Markdown', hint: 'Ctrl+C', icon: 'copy' },
+  { key: 'copy', label: '复制节点', hint: 'Ctrl+C', icon: 'copy' },
   { key: 'delete', label: '删除任务', hint: 'Del', icon: 'trash', danger: true }
 ]
 
@@ -1577,9 +1587,12 @@ const menuPosition = computed(() => {
 
 const runMenuAction = (key) => {
   const id = menuNodeId.value
+  const node = menuNode.value
+  // 菜单收起会清掉定位依据，先把当前位置留给「设置日期」的面板锚点
+  const pos = menuPosition.value
   closeNodeMenu()
   if (id == null) return
-  if (key === 'rename') startEditById(id)
+  if (key === 'date' && node) openMenuDatePicker(node, pos)
   else if (key === 'child') createChild(id)
   else if (key === 'copy') copySubtreeAsMarkdown(id)
   else if (key === 'delete') emitDelete(id)
@@ -1588,6 +1601,26 @@ const runMenuAction = (key) => {
 // 点菜单外任意位置收起；菜单与触发器自身的按下都不冒泡到文档，所以这里只处理外部点击
 const onMenuOutside = () => {
   closeNodeMenu()
+}
+
+// 菜单「设置日期」：把共用面板挂到菜单原位置，有截止时带出当前值，确定/清除都写回该任务
+const dateAnchor = ref(null)
+const dateTargetId = ref(null)
+const dateValue = ref('')
+const datePickerRef = ref(null)
+
+const openMenuDatePicker = async (node, pos) => {
+  dateTargetId.value = Number(node.id)
+  dateValue.value = toDateTimeLocalValue(node.deadline)
+  dateAnchor.value = { left: pos.left + menuWidth / 2, top: pos.top + 8 }
+  await nextTick()
+  datePickerRef.value?.open()
+}
+
+const applyMenuDate = (value) => {
+  if (dateTargetId.value == null) return
+  applyNodeDeadline({ id: dateTargetId.value }, value)
+  dateTargetId.value = null
 }
 
 watch(menuNodeId, (id) => {

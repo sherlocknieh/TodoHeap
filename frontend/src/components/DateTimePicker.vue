@@ -135,6 +135,9 @@ const togglePicker = () => {
   else openPicker()
 }
 
+// 供外部（如任务图节点菜单）按需直接展开面板，锚点取触发器所在位置
+defineExpose({ open: openPicker })
+
 // 确定：把草稿写回 v-model，父组件可在 confirm 里落库或收起自己的菜单
 const confirm = () => {
   const value = draftValue.value
