@@ -59,12 +59,11 @@ const selectTheme = (mode) => {
 	themeMode.value = mode
 	closeThemeMenu()
 }
-// 点击按钮直接换主题：浅色 → 深色 → 自动，菜单同步收起
+// 点击按钮直接换主题：浅色 → 深色 → 自动，面板保持展开显示当前档位
 const cycleTheme = () => {
 	themeMode.value = nextThemeMode(themeMode.value)
-	closeThemeMenu()
 }
-// 有精确指针时点击即循环；触屏与键盘激活改为展开菜单，保证三档都能选
+// 有精确指针时点击循环并保持面板；触屏与键盘激活只展开面板，保证三档都能选
 const handleThemeToggleClick = (event) => {
 	const hoverCapable = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches !== false
 	if (event.detail === 0 || !hoverCapable) {
@@ -72,6 +71,7 @@ const handleThemeToggleClick = (event) => {
 		return
 	}
 	cycleTheme()
+	openThemeMenu()
 }
 
 // 根据路由名称同步当前视图
@@ -651,7 +651,7 @@ const runToastAction = async () => {
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
-							<!-- 「顶栏主题按钮」：悬停即展开菜单，点击按 浅色→深色→自动 循环；触屏与键盘点击展开菜单（图标是当前模式） -->
+							<!-- 「顶栏主题按钮」：悬停即展开菜单，点击循环 浅色→深色→自动 并保持面板展开；触屏与键盘点击只展开菜单（图标是当前模式） -->
 							<div class="relative" @mouseenter="openThemeMenu" @mouseleave="closeThemeMenu">
 								<button type="button" data-theme-toggle aria-haspopup="menu"
 									:aria-expanded="showThemeMenu"
