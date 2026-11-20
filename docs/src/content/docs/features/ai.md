@@ -17,3 +17,11 @@ AI 入口的左侧栏按「对话 / MCP 服务 / 技能」三段折叠栈排列�
 - 折叠状态保存在本地 `sidebar-sections`，刷新后保持。
 
 关键落点：`components/LeftSidebar.vue` 的 `SIDEBAR_SECTIONS`、`collapsedSections`、`sectionClass`、`sectionStyle`、`measureSectionHeights`、`showSkillsResize`。
+
+## 对话上下文面板
+
+AI 视图右栏的上下文面板按真实请求快照展示参数、上下文构成、工具定义、原始消息与完整请求体。
+
+- 面板头部的换行图标切换所有 JSON 源码块的自动换行，默认关闭：`codeWrap` 为真时给 `pre` 追加 `whitespace-pre-wrap break-words`，长行按面板宽度折行。
+- 该偏好用 `persistedRef('ai-context-wrap', false)` 保存在本地，与面板宽度一样刷新后沿用。
+- 源码块排版统一走 `style.css` 的 `.code-block` / `.code-block-flush`，开关只改空白处理，不改字号与最大高度。

@@ -92,7 +92,7 @@ title: 关键词索引
 | MCP 服务 / 外部工具 / 滴答清单连接 | `components/LeftSidebar.vue`「MCP 服务：非首位展开时使用统一高度」、`startNewMcp`；`lib/mcpServers.js` | 令牌只在请求内使用，不落库 |
 | 消息气泡 / 工具执行记录 / 请求详情 | `components/AgentChat.vue` `toolLabel`、`callSummary` | 请求详情保留系统提示与工具结果原文 |
 | 破坏性操作确认 / 弹确认框 | `components/AgentChat.vue` `pending` 与确认文案计算属性 | 删任务、删日程、切模式、外部 MCP 写入都先确认 |
-| 上下文构成 / 占比 / 这一轮用了什么 | `components/AgentContextPanel.vue` | AI 视图右栏复用详情面板位置 |
+| 上下文构成 / 占比 / 这一轮用了什么 / JSON 自动换行 / 字段太长看不到 | `components/AgentContextPanel.vue` | AI 视图右栏复用详情面板位置；头部换行图标切换源码块折行，偏好存 `ai-context-wrap` |
 | 模型接入 / API Key / 测试连接 | `components/ProviderSettings.vue`；`stores/llm.js`；`lib/llmProvider.js` | 密钥只存浏览器本地 |
 | ask_user / 让用户选一个 | `lib/agentTools.js` `ask_user` | Agent 工具内的选择面板 |
 

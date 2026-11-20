@@ -5,6 +5,7 @@ import { useLlmStore } from '@/stores/llm'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
 import { isMcpToolName, mcpToolLabel } from '@/lib/mcpServers'
 import { useResizablePanel } from '@/utils/resizablePanel'
+import { persistedRef } from '@/utils/uiState'
 import { summarizeRequest } from '@/utils/contextStats'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -26,6 +27,11 @@ const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapse
   min: 240,
   side: 'right',
   onCollapse: () => emit('close')
+})
+
+// [自动换行开关]: JSON 源码块的长行是否折行，偏好本地保存，刷新后沿用
+const codeWrap = persistedRef('ai-context-wrap', false, {
+  validate: (value) => typeof value === 'boolean'
 })
 
 // 取最近一条带请求快照的用户消息，面板展示的始终是真实发出去的内容
@@ -296,11 +302,22 @@ const exportSession = () => {
 
     <div class="shrink-0 h-12 flex items-center justify-between px-3 border-b border-hairline dark:border-hairline-dark">
       <span class="eyebrow">上下文</span>
-      <button type="button"
-        class="p-1.5 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
-        title="关闭" @click="emit('close')">
-        <AppIcon name="close" :size="15" />
-      </button>
+      <div class="flex items-center gap-1">
+        <!-- [自动换行开关]: 切换下方 JSON 源码块是否折行 -->
+        <button type="button" :aria-pressed="codeWrap"
+          class="p-1.5 rounded transition-colors"
+          :class="codeWrap
+            ? 'bg-accent-50 text-accent-800 dark:bg-accent-500/15 dark:text-accent-200'
+            : 'text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200'"
+          :title="codeWrap ? '关闭自动换行' : '自动换行'" @click="codeWrap = !codeWrap">
+          <AppIcon name="wrap" :size="15" />
+        </button>
+        <button type="button"
+          class="p-1.5 -mr-1 rounded text-neutral-400 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors"
+          title="关闭" @click="emit('close')">
+          <AppIcon name="close" :size="15" />
+        </button>
+      </div>
     </div>
 
     <div class="flex-1 min-h-0 overflow-auto px-4 py-3 space-y-3">
@@ -320,7 +337,7 @@ const exportSession = () => {
             <dd class="truncate text-neutral-800 dark:text-neutral-200" :title="row.text">{{ row.text }}</dd>
           </div>
         </dl>
-        <pre v-if="paramsOpen" class="code-block">{{ requestParamsJson }}</pre>
+        <pre v-if="paramsOpen" class="code-block" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ requestParamsJson }}</pre>
       </section>
 
       <!-- 上下文构成：占比条 + 明细，顶部先给最关心的用量 -->
@@ -370,7 +387,7 @@ const exportSession = () => {
               <AppIcon name="chevronDown" :size="12"
                 class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
             </summary>
-            <pre class="code-block-flush">{{ section.kind === 'tool' ? item.json : requestMessageJson(item) }}</pre>
+            <pre class="code-block-flush" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ section.kind === 'tool' ? item.json : requestMessageJson(item) }}</pre>
           </details>
         </div>
         <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
@@ -398,7 +415,7 @@ const exportSession = () => {
             <AppIcon name="chevronDown" :size="12"
               class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
           </summary>
-          <pre class="code-block-flush">{{ requestBodyJson }}</pre>
+          <pre class="code-block-flush" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ requestBodyJson }}</pre>
         </details>
       </section>
 
