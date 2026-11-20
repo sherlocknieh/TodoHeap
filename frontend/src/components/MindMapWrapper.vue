@@ -55,7 +55,7 @@
           stroke-linecap="round" marker-end="url(#mm-arrow)" />
 
         <!-- 节点 -->
-        <g v-for="node in renderNodes" :key="node.id" :transform="`translate(${node.x} ${node.y})`"
+        <g v-for="node in renderNodes" :key="node.renderKey || node.id" :transform="`translate(${node.x} ${node.y})`"
           :opacity="nodeOpacity(node)" :data-mm-node="node.id"
           class="group cursor-pointer"
           @pointerdown.stop="onNodePointerDown($event, node)" @dblclick.stop="startEdit(node)"

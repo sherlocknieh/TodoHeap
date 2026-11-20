@@ -122,7 +122,7 @@
       <div v-if="showActivePanel" class="mt-1.5 space-y-1.5" data-task-section="active">
         <TodoListItem
           v-for="node in sortedTree"
-          :key="node.id"
+          :key="node.client_key || node.id"
           :node="node"
           :parent-id="todoStore.rootTaskId"
           :selected-task-id="props.selectedTaskId"

@@ -94,6 +94,15 @@ RPC 响应与 Realtime 推送谁先到不确定，两者都通过 `client_key` �
 - `fetchTodos` 用 `withoutStaleTempChildIds` 剔除服务端行 `child_ids` 里的负数残留，本地不再保留幽灵引用；
 - 迁移 `20261121000000_strip_temp_child_ids.sql` 清理库里已经存在的负数引用。
 
+### 换号时保持编辑态
+
+新建后立刻进入行内编辑时，临时 ID 换成真实 ID 会触发重新渲染。要让打字不被打断，需要两件事：
+
+- 导图的节点与任务表的行都用 `client_key` 作渲染 key（`TodoGraph` 的 `renderKey`、`TodoListItem` 的 `:key`）：换号前后是同一个 DOM 元素，输入框不被卸载，焦点与已输入内容都保留。
+- `sync:id-replaced` 到达时把编辑中的 ID 迁到真实 ID，并恢复换号前的选区；任务表不能再用 `select()` 全选，否则下一次按键会覆盖已输入的文字。
+
+没有稳定 key 时，换号会重建整棵节点/行子树，表现为输入框闪断、丢字。
+
 ---
 
 ## 三、幂等键 `client_key`

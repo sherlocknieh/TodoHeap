@@ -53,6 +53,8 @@ onBeforeUnmount(() => {
 // 回边节点只是引用，点击时回到被引用的真实任务
 const mapNode = (todo) => ({
 	id: String(todo.id),
+	// 临时 ID 换成真实 ID 时渲染节点不重建: 否则正在编辑的输入框会被卸载, 打字被打断
+	renderKey: todo._isRef ? String(todo.id) : (todo.client_key || String(todo.id)),
 	title: todo._isRef ? `\u21A9\uFE0E ${todo.title || '未命名任务'}` : (todo.title || '未命名任务'),
 	completed_at: todo.completed_at || null,
 	// 任务图右上角的紧急圆点与浮层要读截止时间

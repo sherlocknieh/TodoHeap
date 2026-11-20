@@ -306,6 +306,8 @@ export const useTodoStore = defineStore('todos', () => {
         duration: item.duration ?? null,
         created_at: item.created_at || null,
         is_root: Boolean(item.is_root),
+        // 换号前后保持同一个 client_key, 供列表与导图用它作稳定渲染键
+        client_key: item.client_key || null,
         // 标记是否是临时ID (用于UI显示同步状态)
         _isSyncing: syncQueue.isTempId(item.id)
       })

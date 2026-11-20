@@ -1,6 +1,6 @@
 <template>
   <ul class="space-y-1.5">
-    <template v-for="item in visibleRows" :key="item.id">
+    <template v-for="item in visibleRows" :key="item.client_key || item.id">
       <li data-task-item :data-task-id="item.id" :data-task-selectable="item._isRef ? 'false' : null"
         :draggable="canDrag(item)"
         class="group relative cursor-pointer" :style="{ paddingLeft: rowPaddingLeft(item._level) + 'px' }"
@@ -464,14 +464,18 @@ const handleIdReplaced = (event) => {
 
   // 新建任务同步后，保持编辑态随 ID 迁移
   if (editingId.value == tempId) {
+    // 记下换号前的位置, 换号后原位恢复; 不能全选, 否则下一次按键会把已输入内容覆盖掉
+    const current = document.getElementById('edit-input-' + tempId)
+    const selection = current ? [current.selectionStart, current.selectionEnd] : null
     suppressBlurOnceForId.value = realId
     editingId.value = realId
     nextTick(() => {
       const input = document.getElementById('edit-input-' + realId)
-      if (input) {
-        input.focus()
-        input.select()
-      }
+      if (!input) return
+      input.focus()
+      const end = input.value.length
+      const [start, stop] = selection ?? [end, end]
+      input.setSelectionRange(Math.min(start, end), Math.min(stop, end))
     })
   }
 }
