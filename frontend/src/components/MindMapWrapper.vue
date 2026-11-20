@@ -2,7 +2,7 @@
   <!-- 自研思维导图：SVG 渲染，支持滚轮缩放、拖拽平移与键盘增删改 -->
   <div ref="container" tabindex="0"
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
-    :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', darkCanvas && 'mindmap-canvas--dark', dotGrid && 'mindmap-dots']"
+    :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', dotGrid && 'mindmap-dots']"
     :style="dotGrid ? dotGridStyle : undefined"
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
     @pointerup="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
@@ -307,15 +307,6 @@
         @click.stop="toggleViewMode">
         <AppIcon name="target" :size="14" />
       </button>
-      <button type="button" :aria-pressed="darkCanvas" :aria-label="darkCanvas ? '切换浅色背景' : '切换深色背景'"
-        :title="darkCanvas ? '浅色背景' : '深色背景'"
-        class="flex rounded border p-1.5 transition-colors"
-        :class="darkCanvas
-          ? 'bg-accent-50 border-accent-300 text-accent-800 dark:bg-accent-500/15 dark:border-accent-500/40 dark:text-accent-200'
-          : 'bg-white dark:bg-neutral-900 border-hairline dark:border-hairline-dark text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
-        @click.stop="darkCanvas = !darkCanvas">
-        <AppIcon :name="darkCanvas ? 'moon' : 'sun'" :size="14" />
-      </button>
       <!-- 「底纹按钮」：点阵与坐标网格互斥，合并成一个按钮循环 点阵 → 坐标网格 → 关闭 -->
       <button type="button" :aria-label="backgroundLabel" :title="backgroundLabel"
         class="flex rounded border p-1.5 transition-colors"
@@ -498,13 +489,6 @@ const direction = persistedRef('mindmap-direction', 'right', {
 
 // 点阵底纹同属阅读偏好：开关状态本地保存，默认开启
 const dotGrid = persistedRef('mindmap-dot-grid', true, {
-  validate: (value) => typeof value === 'boolean'
-})
-
-// 画布底色：首次进入跟随系统主题，之后按用户手动选择固定，点阵点色随底色切换
-const systemPrefersDark = typeof window !== 'undefined'
-  && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
-const darkCanvas = persistedRef('mindmap-dark-canvas', systemPrefersDark, {
   validate: (value) => typeof value === 'boolean'
 })
 
@@ -2767,12 +2751,12 @@ watch(direction, () => nextTick(fitView))
 </script>
 
 <style scoped>
-/* 画布底色：默认亮色，与点阵一样由开关决定；深色沿用应用的画布深色令牌 */
+/* 画布底色跟随全局主题：与页面画布同色，深浅模式由根元素的 data-theme 决定 */
 .mindmap-canvas {
-  background-color: #fafafa;
+  background-color: var(--color-canvas);
 }
 
-.mindmap-canvas.mindmap-canvas--dark {
+html[data-theme='dark'] .mindmap-canvas {
   background-color: var(--color-canvas-dark);
 }
 
@@ -2781,8 +2765,8 @@ watch(direction, () => nextTick(fitView))
   background-image: radial-gradient(circle, rgba(20, 20, 40, 0.10) 1px, transparent 1px);
 }
 
-/* 深色画布上点色反相，否则点阵沉进底色看不出来 */
-.mindmap-canvas.mindmap-canvas--dark.mindmap-dots {
+/* 深色主题下点色反相，否则点阵沉进底色看不出来 */
+html[data-theme='dark'] .mindmap-canvas.mindmap-dots {
   background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
 }
 
@@ -2805,20 +2789,20 @@ watch(direction, () => nextTick(fitView))
   font-variant-numeric: tabular-nums;
 }
 
-/* 深色画布上线条与标签反相，保持同样的层次 */
-.mindmap-canvas--dark .mindmap-grid-minor {
+/* 深色主题下线条与标签反相，保持同样的层次 */
+html[data-theme='dark'] .mindmap-grid-minor {
   stroke: rgba(255, 255, 255, 0.07);
 }
 
-.mindmap-canvas--dark .mindmap-grid-major {
+html[data-theme='dark'] .mindmap-grid-major {
   stroke: rgba(255, 255, 255, 0.13);
 }
 
-.mindmap-canvas--dark .mindmap-grid-axis {
+html[data-theme='dark'] .mindmap-grid-axis {
   stroke: rgba(255, 255, 255, 0.35);
 }
 
-.mindmap-canvas--dark .mindmap-grid-label {
+html[data-theme='dark'] .mindmap-grid-label {
   fill: rgba(255, 255, 255, 0.5);
 }
 </style>

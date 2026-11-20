@@ -73,7 +73,7 @@ title: 关键词索引
 | 布局方向 / 左右翻转 | `components/MindMapWrapper.vue` `cycleDirection` | 阅读偏好本地保留，只有左右两向 |
 | 点阵背景 / 画布底纹 / 背景不动 / 点阵跟着画布走 / 背景太花 / 点太密 / 底纹按钮 / 点阵和坐标合并 | `components/MindMapWrapper.vue` `dotGrid`、`dotGridStyle`、`cycleBackground`、`backgroundLabel`、`mindmap-dots` 样式 | 右下角同一个底纹按钮循环切换 点阵 → 坐标网格 → 关闭，默认点阵开启、状态本地保存；点阵点距按当前缩放倍率放大、整层随视口平移，与内容同步移动缩放；缩到屏幕点距不足 16px 时把世界点距按 2 的幂翻倍抽稀，放大变稀疏则不再调整 |
 | 坐标网格 / 坐标轴 / 刻度标签 / 图上有数字 / 网格跟着画布走 / 底纹按钮 | `components/MindMapWrapper.vue` `coordinateGrid`、`gridLayer`、`cycleBackground`、`mindmap-grid-*` 样式；`utils/canvasGrid.js` | 与点阵共用右下角同一个底纹按钮，循环到坐标网格时显示；默认关闭、状态本地保存；细线与主刻度跟随平移缩放，原点在根节点出边按钮圆心（`gridOrigin`），轴标签显示世界坐标，主刻度按 1/2/5 自适应，屏幕间距不小于 100px |
-| 深色背景 / 暗色画布 / 背景颜色 / 想用深色底 | `components/MindMapWrapper.vue` `darkCanvas`、`mindmap-canvas--dark` | 右下角视图控件的日/月按钮切换画布底色，点阵点色跟着切换；首次按系统主题取值，之后按手动选择保存 |
+| 深色背景 / 暗色画布 / 背景颜色 / 想用深色底 / 画布底色跟随主题 | `components/MindMapWrapper.vue` 画布样式 `html[data-theme='dark'] .mindmap-canvas` | 任务图画布与页面画布同色（`--color-canvas` / `--color-canvas-dark`），深浅完全跟随全局主题，没有独立的画布背景按钮；深色下点阵与网格线条转白 |
 | 适应视图 / 缩放到刚好 / 全景视图 / 聚焦根节点 / 目标按钮 / 右下角圆点按钮 | `components/MindMapWrapper.vue` `fitView`、`focusRoot`、`toggleViewMode`、`viewMode`、`helpOpen`、`controlsStyle`；`utils/detailPanelContext.js` 的 `detailPanelInset` | 右下角目标按钮在两档间切换：全景（`fitView`，整图 48px 内边距、最大 1.25 倍）与聚焦根节点（`focusRoot`，根节点居中、按单节点阅读倍率放大）；停在根节点时按钮转绿，点一次回全景；视图控件在右下角，提示收进按钮浮层；右栏浮起时按共享宽度左移，面板拖宽时跟随 |
 | 全部展开 / 收起全部 / 四箭头图标 / 展开后全景 / 收起后只剩根节点 / 收起后聚焦根节点 | `components/MindMapWrapper.vue` `toggleAllCollapse`、`allExpanded`；`components/AppIcon.vue` `expandArrows`、`collapseArrows` | 工具栏的展开/收起全部按钮：展开全部用四箭头向外的图标，收起全部用四箭头向内；展开后 `nextTick` 里调 `fitView` 回到全景，收起后只剩根节点并调 `focusRoot` 聚焦它 |
 | 选中高亮 / 祖先链 / 连线变色 | `components/MindMapWrapper.vue`「未选中的连线铺在节点下层」 | 选中节点的祖先链用强调色 |
