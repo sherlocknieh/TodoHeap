@@ -16,7 +16,8 @@ const SETTLE_ROUNDS = 24
 const BOUNDED_STEP = 120
 const BOUNDED_ROUNDS = 3
 // 块压紧比例：吃掉多父平移留下的多余空隙的比例。0 = 不压紧，保留空隙，父级居中更稳
-const REPACK_RATIO = 0
+const REPACK_RATIO_STANDARD = 0
+const REPACK_RATIO_BALANCED = 1
 
 const averageOf = (values) => (values.length
   ? values.reduce((sum, value) => sum + value, 0) / values.length
@@ -399,7 +400,7 @@ const computeGraphPositionsCompact = ({ nodes, edges, direction = 'right' }) => 
 
 // 标准布局：经典思维导图。子树按自身真实占地递归排布，父节点居中于子节点带；
 // 多父节点取所有父级中心平均，只有产生重叠时才做层内最小分离
-const computeStandardLayout = ({ nodes, edges, direction = 'right', bounded = false }) => {
+const computeStandardLayout = ({ nodes, edges, direction = 'right', bounded = false, repackRatio = REPACK_RATIO_STANDARD }) => {
   if (!nodes || nodes.length === 0) return emptyResult()
 
   const context = buildGraphContext({ nodes, edges })
@@ -522,7 +523,7 @@ const computeStandardLayout = ({ nodes, edges, direction = 'right', bounded = fa
       const prevPinned = index > 0 ? blocks[index - 1] : null
       if (nextPinned) {
         const excess = nextPinned.top - blocks[end].bottom - CROSS_GAP
-        let bottom = nextPinned.top - CROSS_GAP - excess * (1 - REPACK_RATIO)
+        let bottom = nextPinned.top - CROSS_GAP - excess * (1 - repackRatio)
         for (let k = end; k >= index; k -= 1) {
           const block = blocks[k]
           const delta = bottom - block.bottom
@@ -531,7 +532,7 @@ const computeStandardLayout = ({ nodes, edges, direction = 'right', bounded = fa
         }
       } else if (prevPinned) {
         const excess = blocks[index].top - prevPinned.bottom - CROSS_GAP
-        let top = prevPinned.bottom + CROSS_GAP + excess * (1 - REPACK_RATIO)
+        let top = prevPinned.bottom + CROSS_GAP + excess * (1 - repackRatio)
         for (let k = index; k <= end; k += 1) {
           const block = blocks[k]
           const delta = top - block.top
@@ -639,7 +640,7 @@ export const computeGraphPositionsStandard = (options) => (
 
 // 平衡布局：标准布局打底，再做有界父子吸引，高度下降但父子居中略松
 export const computeGraphPositionsBalanced = (options) => (
-  computeStandardLayout({ ...options, bounded: true })
+  computeStandardLayout({ ...options, bounded: true, repackRatio: REPACK_RATIO_BALANCED })
 )
 
 // 布局模式：紧凑布局（三步定位）与标准布局（经典树布局）；未知值退回紧凑布局
