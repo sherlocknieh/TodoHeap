@@ -2380,8 +2380,22 @@ const copySubtreeAsMarkdown = async (id) => {
 }
 
 // 多选复制：多个子树按选择顺序拼接，重复与父子重叠由 visited 去重
+// 多选复制：只复制选中的节点本身，不展开子节点；顺序按选择顺序，重复 ID 自动去重
 const copySelectedAsMarkdown = async () => {
-  const lines = buildMarkdownLines([...multiSelectedKeys.value])
+  const byId = new Map()
+  const collect = (node) => {
+    if (node.isRef) return
+    const nodeId = String(node.id)
+    if (!byId.has(nodeId)) byId.set(nodeId, node)
+    ;(node.children || []).forEach(collect)
+  }
+  ;(props.nodes || []).forEach(collect)
+
+  const lines = [...multiSelectedKeys.value]
+    .map(id => byId.get(String(id)))
+    .filter(Boolean)
+    .map(node => `- ${(node.title || '未命名任务').replace(/\s*\n\s*/g, ' ')}`)
+
   if (!lines.length) return
   const copied = await writeClipboard(lines.join('\n'))
   emit('notify', {

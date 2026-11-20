@@ -18,7 +18,7 @@ title: "任务图节点多选"
 
 - `openNodeMenuAt` 判断右键节点是否属于多选且数量大于 1；是则 `menuBatch=true`，菜单项换成 `BATCH_MENU_ITEMS`，否则清空多选并走单节点菜单。
 - 批量删除通过 `delete-tasks` 一次性交给 `TodoGraph.deleteTasks`：逐个软删除，父子重叠时跳过已被祖先带走的后代，提示里整批撤销。
-- 批量复制把每个选中节点的子树拼成一份 Markdown，`visited` 去重父子重叠，只写一次剪贴板。
+- 批量复制只复制选中的节点本身（标题压成一行），不展开子节点；按选择顺序输出，只写一次剪贴板。单节点复制仍会连同子树。
 - 快捷键：Delete/Backspace 在多选时批量删除，Ctrl/⌘+C 复制全部选中节点。
 
 ## 验证
