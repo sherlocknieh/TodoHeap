@@ -100,8 +100,11 @@ describe('computeGraphPositions', () => {
     const standard = computeGraphPositions({ nodes, edges, mode: 'standard' })
     const standardDirect = computeGraphPositionsStandard({ nodes, edges })
 
+    const balanced = computeGraphPositions({ nodes, edges, mode: 'balanced' })
+
     expect(compact.positions.size).toBe(nodes.length)
     expect(standard.positions.size).toBe(nodes.length)
+    expect(balanced.positions.size).toBe(nodes.length)
     expect([...standard.positions.entries()]).toEqual([...standardDirect.positions.entries()])
     expect(standard.layers.get('T')).toBe(compact.layers.get('T'))
   })

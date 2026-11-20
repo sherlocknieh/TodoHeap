@@ -12,6 +12,9 @@ const MULTI_PARENT_WEIGHT = 200
 // 收敛阈值与轮数上限：轮数只用于兜底，正常几轮内就会收敛
 const SETTLE_EPSILON = 0.5
 const SETTLE_ROUNDS = 24
+// 有界父子吸引：单轮位移上限与轮数，限制压缩程度，避免把父子居中彻底拉散
+const BOUNDED_STEP = 120
+const BOUNDED_ROUNDS = 3
 
 const averageOf = (values) => (values.length
   ? values.reduce((sum, value) => sum + value, 0) / values.length
@@ -394,7 +397,7 @@ const computeGraphPositionsCompact = ({ nodes, edges, direction = 'right' }) => 
 
 // 标准布局：经典思维导图。子树按自身真实占地递归排布，父节点居中于子节点带；
 // 多父节点取所有父级中心平均，只有产生重叠时才做层内最小分离
-export const computeGraphPositionsStandard = ({ nodes, edges, direction = 'right' }) => {
+const computeStandardLayout = ({ nodes, edges, direction = 'right', bounded = false }) => {
   if (!nodes || nodes.length === 0) return emptyResult()
 
   const context = buildGraphContext({ nodes, edges })
@@ -581,12 +584,63 @@ export const computeGraphPositionsStandard = ({ nodes, edges, direction = 'right
   // 兜底：压紧可能让某个块压到别的分支，只按节点真实边缘补足重叠
   layerKeys.forEach(separateLayer)
 
+  // 有界父子吸引：每轮最多移动 BOUNDED_STEP，把过长的父子连线拉近；
+  // 移动后仍按真实边缘分离，所以居中只会「略松」，不会推倒重来
+  if (bounded) {
+    const pullCloser = (id, target) => {
+      if (target === null) return
+      const delta = target - centerOf(id)
+      if (Math.abs(delta) < 0.5) return
+      const step = Math.sign(delta) * Math.min(BOUNDED_STEP, Math.abs(delta))
+      crossCenter.set(id, centerOf(id) + step)
+    }
+
+    for (let round = 0; round < BOUNDED_ROUNDS; round += 1) {
+      for (let i = layerKeys.length - 1; i >= 0; i -= 1) {
+        const layer = layerKeys[i]
+        order.get(layer).forEach((node) => {
+          const id = String(node.id)
+          const kids = treeChildren.get(id)
+          if (kids.length === 0) return
+          pullCloser(id, averageOf(kids.map(centerOf)))
+        })
+        separateLayer(layer)
+      }
+
+      layerKeys.forEach((layer) => {
+        order.get(layer).forEach((node) => {
+          if (node.isRoot) return
+          const id = String(node.id)
+          pullCloser(id, averageOf(parentsOf.get(id).map(centerOf)))
+        })
+        separateLayer(layer)
+      })
+
+      repackOrder.forEach(repackAroundPinned)
+    }
+
+    // 多父节点的平均位置仍是硬目标，最后再落位并压紧
+    applyMultiTargets()
+    repackOrder.forEach(repackAroundPinned)
+    extentCache.clear()
+    layerKeys.forEach(separateLayer)
+  }
+
   return finalizePositions({ nodes, context, crossCenter, direction })
 }
 
-// 布局模式：紧凑布局（三步定位）与标准布局（经典树布局）；未知值退回紧凑布局
-export const computeGraphPositions = ({ nodes, edges, direction = 'right', mode = 'compact' }) => (
-  mode === 'standard'
-    ? computeGraphPositionsStandard({ nodes, edges, direction })
-    : computeGraphPositionsCompact({ nodes, edges, direction })
+export const computeGraphPositionsStandard = (options) => (
+  computeStandardLayout({ ...options, bounded: false })
 )
+
+// 平衡布局：标准布局打底，再做有界父子吸引，高度下降但父子居中略松
+export const computeGraphPositionsBalanced = (options) => (
+  computeStandardLayout({ ...options, bounded: true })
+)
+
+// 布局模式：紧凑布局（三步定位）与标准布局（经典树布局）；未知值退回紧凑布局
+export const computeGraphPositions = ({ nodes, edges, direction = 'right', mode = 'compact' }) => {
+  if (mode === 'standard') return computeGraphPositionsStandard({ nodes, edges, direction })
+  if (mode === 'balanced') return computeGraphPositionsBalanced({ nodes, edges, direction })
+  return computeGraphPositionsCompact({ nodes, edges, direction })
+}

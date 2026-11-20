@@ -548,7 +548,8 @@ const direction = persistedRef('mindmap-direction', 'right', {
 // 布局模式同样属于阅读偏好：紧凑布局按树居中后回收空白，标准布局保留原算法
 const layoutModeOptions = [
   { value: 'compact', icon: 'layers', label: '紧凑布局' },
-  { value: 'standard', icon: 'tree', label: '标准布局' }
+  { value: 'standard', icon: 'tree', label: '标准布局' },
+  { value: 'balanced', icon: 'sliders', label: '平衡布局' }
 ]
 const layoutMode = persistedRef('mindmap-layout-mode', 'compact', {
   validate: (value) => layoutModeOptions.some((option) => option.value === value)
