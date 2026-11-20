@@ -332,6 +332,7 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div v-if="open" ref="panelEl" tabindex="-1" role="dialog" aria-label="选择日期时间"
         class="date-picker-panel panel fixed z-50 w-72 p-3 outline-none"
+        data-date-picker-panel
         :style="{ top: `${position.top}px`, left: `${position.left}px`, visibility: panelReady ? 'visible' : 'hidden' }"
         @keydown="onPanelKeydown">
         <!-- 月份切换：标题居中，今天跳回当月 -->

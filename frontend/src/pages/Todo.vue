@@ -442,13 +442,25 @@ const handleClickOutside = (event) => {
 			showLeftSidebar.value = false
 		}
 	}
+	// 日程视图：点非日程区域清掉选中并收起右栏，宽屏停靠时同样生效
+	if (activeView.value === 'schedule' && selectedEventId.value != null) {
+		const insidePanel = event.target.closest?.('[data-detail-panel]')
+		const insideSchedule = event.target.closest?.('[data-keep-detail-panel]')
+		const insideTrigger = event.target.closest?.('[data-detail-panel-trigger]')
+		const insidePicker = event.target.closest?.('[data-date-picker-panel]')
+		if (!insidePanel && !insideSchedule && !insideTrigger && !insidePicker) {
+			selectedEventId.value = null
+			closeDetailPanel()
+		}
+	}
 	// 浮层右栏点击面板外收起；任务图里点画布由导图自己处理选中与关闭
 	// 日程列表项与新建入口会主动展开右栏，同一次点击不能又把它收起
 	if (showDetailPanel.value && isDetailPanelFloating.value) {
 		const insidePanel = event.target.closest?.('[data-detail-panel]')
 		const insideTrigger = event.target.closest?.('[data-detail-panel-trigger]')
 		const insideSchedule = event.target.closest?.('[data-keep-detail-panel]')
-		if (!insidePanel && !insideTrigger && !insideSchedule) closeDetailPanel()
+		const insidePicker = event.target.closest?.('[data-date-picker-panel]')
+		if (!insidePanel && !insideTrigger && !insideSchedule && !insidePicker) closeDetailPanel()
 	}
 }
 
