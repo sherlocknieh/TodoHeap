@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from './auth'
 
@@ -51,6 +51,23 @@ export const useScheduleStore = defineStore('schedules', () => {
   const loading = ref(false)
   const error = ref(null)
   const isFetched = ref(false)
+  // 写入状态：底栏与日程右栏共用同一份同步指示
+  const syncPending = ref(0)
+  const syncError = ref('')
+  const syncStatus = computed(() => {
+    if (syncError.value) return 'error'
+    return syncPending.value > 0 ? 'saving' : 'idle'
+  })
+
+  const beginWrite = () => {
+    syncPending.value += 1
+  }
+
+  // 传空字符串表示本次写入成功，顺带清掉上一次的失败提示
+  const endWrite = (message = '') => {
+    syncPending.value = Math.max(0, syncPending.value - 1)
+    syncError.value = message
+  }
 
   const requireUserId = () => {
     const authStore = useAuthStore()
@@ -107,6 +124,8 @@ export const useScheduleStore = defineStore('schedules', () => {
     const auth = requireUserId()
     if (!auth.ok) return { success: false, error: auth.error }
 
+    beginWrite()
+    let message = ''
     try {
       const rows = events.map((event) => toRow(event, auth.userId))
       const { data, error: insertError } = await supabase
@@ -119,7 +138,10 @@ export const useScheduleStore = defineStore('schedules', () => {
         .sort((a, b) => a.start_at.localeCompare(b.start_at))
       return { success: true, data: data || [] }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : '写入日程失败' }
+      message = err instanceof Error ? err.message : '写入日程失败'
+      return { success: false, error: message }
+    } finally {
+      endWrite(message)
     }
   }
 
@@ -134,6 +156,8 @@ export const useScheduleStore = defineStore('schedules', () => {
     const snapshot = { ...schedules.value[index] }
     schedules.value[index] = { ...snapshot, ...updates }
 
+    beginWrite()
+    let message = ''
     try {
       const { data, error: updateError } = await supabase
         .from('schedules')
@@ -149,7 +173,10 @@ export const useScheduleStore = defineStore('schedules', () => {
       return { success: true, data }
     } catch (err) {
       schedules.value[index] = snapshot
-      return { success: false, error: err instanceof Error ? err.message : '更新日程失败' }
+      message = err instanceof Error ? err.message : '更新日程失败'
+      return { success: false, error: message }
+    } finally {
+      endWrite(message)
     }
   }
 
@@ -160,6 +187,8 @@ export const useScheduleStore = defineStore('schedules', () => {
 
     const snapshot = schedules.value
     schedules.value = schedules.value.filter((item) => item.id !== id)
+    beginWrite()
+    let message = ''
     try {
       const { error: deleteError } = await supabase
         .from('schedules')
@@ -171,7 +200,10 @@ export const useScheduleStore = defineStore('schedules', () => {
       return { success: true }
     } catch (err) {
       schedules.value = snapshot
-      return { success: false, error: err instanceof Error ? err.message : '删除日程失败' }
+      message = err instanceof Error ? err.message : '删除日程失败'
+      return { success: false, error: message }
+    } finally {
+      endWrite(message)
     }
   }
 
@@ -180,6 +212,8 @@ export const useScheduleStore = defineStore('schedules', () => {
     loading,
     error,
     isFetched,
+    syncStatus,
+    syncError,
     fetchSchedules,
     createSchedules,
     updateSchedule,

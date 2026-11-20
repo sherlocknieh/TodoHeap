@@ -27,7 +27,7 @@ title: 关键词索引
 | 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏；主题与详情面板开关常驻在这一行，不随视图操作让位 |
 | 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图只让适应视图与节点菜单按 `detailPanelInset` 避开面板，三栏聚焦按整宽居中；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
 | 底栏 / 状态栏 / 底部统计 / 进度条 | `pages/Todo.vue`「底栏统计」「底栏：导航开关、统计与同步状态」 | 根任务不计入统计 |
-| 同步状态 / 断线 / 待同步 | `pages/Todo.vue` `syncStatus`；`stores/syncQueue.js` | 优先级：断线 > 待同步 > 连接中 > 已同步 |
+| 同步状态 / 断线 / 待同步 / 已同步 | `pages/Todo.vue` `syncState`；`components/SyncStatusIndicator.vue`；`stores/schedules.js` `syncStatus` | 底栏与日程右栏共用同一枚徽章；优先级：断线 > 日程写入失败 > 待同步 > 同步中 > 已同步 |
 | 设置浮窗 / 设置弹窗 / 齿轮 | `pages/todo/Settings.vue`；`pages/Todo.vue`「设置浮窗」 | 地址栏 `tab` 参数控制，刷新可回到同一面板 |
 | 轻提示 / toast / 撤销提示 | `pages/Todo.vue` `const toast = ref`、「轻提示：删除、完成、批量操作后」 | 删除等操作后可从提示里撤销；链接提示额外提供「改为移动」按钮 |
 | 点空白关闭详情 / 点别处收起右栏 / 点画布收起侧栏 | `pages/Todo.vue`「点击中栏区域时关闭详情面板」、`handleCanvasBackgroundClick` | 浮起的侧栏与右栏点外部收起；画布自行阻止冒泡，空白点击由 `background-click` 事件补上，选中节点也会收起浮层导航 |
@@ -107,7 +107,7 @@ title: 关键词索引
 | 日程右栏 / 标题备注地点 / 编辑日程 | `components/ScheduleDetailPanel.vue` | 与任务选中互不干扰 |
 | 时长 / 持续时间 / 结束时间 | `components/ScheduleDetailPanel.vue` `applyDuration` | 改时长按开始时间算出结束，快捷项 30 分钟 / 1 / 2 / 3 小时 |
 | 更多选项 / 折叠字段 / 链接和提醒在哪 | `components/ScheduleDetailPanel.vue`「更多选项」 | 链接、状态、颜色、提醒默认收起，字段有值时自动展开 |
-| 自动同步 / 默默同步 / 改完就存 | `components/ScheduleDetailPanel.vue`「自动同步：字段改动防抖写入」 | 改动 500ms 后静默写入，底部显示同步中 / 已同步 / 同步失败 |
+| 自动同步 / 默默同步 / 改完就存 | `components/ScheduleDetailPanel.vue`「自动同步：字段改动防抖写入」 | 改动 500ms 后静默写入；网络状态复用底栏同一枚徽章，非法草稿在本地提示 |
 | 保存日程 / 保存后收起 / 关闭面板 | `components/ScheduleDetailPanel.vue`「立即同步当前草稿」 | 立即冲刷并收起右栏、清掉选中；同步失败留在面板显示原因 |
 | 点击日程 / 展开右栏 / 日程详情 | `pages/Todo.vue`「浮层右栏点击面板外收起」`data-keep-detail-panel` | 选中即展开右栏，窄屏浮在内容上；同一次点击不会把它收起 |
 | 点击空白 / 非日程区域 / 清除选中 / 收起日程详情 | `pages/Todo.vue`「日程视图：点非日程区域」`data-date-picker-panel` | 宽屏停靠时也清掉选中并收起右栏；面板、日程项、新建入口与日期选择器除外 |
@@ -153,7 +153,7 @@ title: 关键词索引
 | --- | --- | --- |
 | 主题色 / 绿色 / 强调色 / accent | `frontend/src/style.css` `@theme` 的 `--color-accent-*` | 绿色是唯一强调色，只出现在交互与状态上 |
 | 危险色 / 红色 / 删除红 / danger | `frontend/src/style.css` `--color-danger-*` | 只用于删除等不可逆确认态 |
-| 暗色模式 / 深色 / 跟随系统 / 主题切换 / 顶栏主题按钮 / 顶栏主题菜单 / 右上角日/月图标 | `pages/Todo.vue`「顶栏主题按钮」`selectTheme`；`frontend/src/utils/theme.js`；`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 顶栏右侧图标按钮显示当前模式，点开下拉菜单选跟随系统/浅色/深色，点外部或 Esc 收起；偏好存 `theme`，auto 时随系统解析成 light/dark，Agent 也可改同一个键 |
+| 暗色模式 / 深色 / 跟随系统 / 主题切换 / 顶栏主题按钮 / 顶栏主题菜单 / 右上角日/月图标 | `pages/Todo.vue`「顶栏主题按钮」`selectTheme`；`frontend/src/utils/theme.js`；`frontend/src/style.css` 的 `data-theme`；组件里的 `dark:` 类 | 顶栏右侧图标按钮显示当前模式，悬停或点击展开下拉菜单选跟随系统/浅色/深色，鼠标移出/点外部/Esc 收起；偏好存 `theme`，auto 时随系统解析成 light/dark，Agent 也可改同一个键 |
 | 圆角 / 阴影 / 卡片 / 输入框样式 | `frontend/src/style.css` `@layer components` 的 `.panel` / `.field` / `.btn-*` / `.chip` / `.eyebrow` | 优先复用基元类，不另造样式 |
 | 菜单 / 下拉面板 / 选中项背景戳出卡片 / 高亮方角超出圆角 | `components/TodoListItem.vue`（截止时间、更多菜单）、`pages/todo/TodoList.vue`（添加栏截止菜单）、`components/MindMapWrapper.vue`（节点菜单） | 面板用 `panel py-1 overflow-hidden`、菜单项通栏矩形不加圆角：高亮左右顶到边框，尖角由面板的 12px 圆角自然裁掉 |
 | 图标 / 加号 / 垃圾桶图标 / 改图标 | `components/AppIcon.vue` | 全站唯一图标来源，用 `name` + `size`；不要用 emoji |

@@ -85,7 +85,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `ScheduleDetailPanel.vue` | 日程视图右栏：选中日程的标题、起止时间、时长与备注编辑，改动自动同步 |
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `MiddleEllipsis.vue` | 按容器宽度截断成「头…尾」，宽度变化时重算 |
-| `SyncStatusIndicator.vue` | 同步状态徽章（当前未被引用） |
+| `SyncStatusIndicator.vue` | 同步状态徽章（圆点 + 文案）：底栏与日程右栏共用，状态由调用方传入 |
 
 ### 库 `lib/`
 
@@ -137,7 +137,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `stores/todos.rollback.js` | 失败回滚 |
 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
 | `stores/syncQueue.js` | 离线队列（localforage 持久化）、临时 id 替换与重放 |
-| `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除 |
+| `stores/schedules.js` | 日程事件拉取、批量写入、更新与删除，并暴露写入同步状态（`syncStatus` / `syncError`） |
 | `stores/agent.js` | 对话 Agent：多会话、技能管理、系统提示、工具循环、确认与本地持久化 |
 | `stores/llm.js` | 模型配置（仅浏览器本地）与聊天入口 |
 | `stores/auth.ts` | Supabase Auth 会话 |

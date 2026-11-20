@@ -5,12 +5,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todos'
 import { useSyncQueueStore } from '@/stores/syncQueue'
+import { useScheduleStore } from '@/stores/schedules'
 import { storeToRefs } from 'pinia'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import TodoDetailEditor from '@/components/TodoDetailEditor.vue'
 import AgentContextPanel from '@/components/AgentContextPanel.vue'
 import ScheduleDetailPanel from '@/components/ScheduleDetailPanel.vue'
+import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import {
 	TODO_DETAIL_PANEL_CONTEXT,
 	detailPanelWidth,
@@ -30,13 +32,14 @@ const route = useRoute()
 const authStore = useAuthStore()
 const todoStore = useTodoStore()
 const syncQueueStore = useSyncQueueStore()
+const scheduleStore = useScheduleStore()
 
 // 获取同步队列状态
 const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
 
 const userMenuRef = ref(null)
 
-// 顶栏主题按钮：与 Agent 共用同一个界面偏好，点开下拉菜单选 跟随系统/浅色/深色
+// 顶栏主题按钮：与 Agent 共用同一个界面偏好，悬停展开下拉菜单选 跟随系统/浅色/深色
 const themeMode = persistedRef(THEME_KEY, 'auto', {
 	validate: (value) => THEME_MODES.includes(value)
 })
@@ -46,12 +49,15 @@ const currentThemeOption = computed(
 	() => THEME_OPTIONS.find((option) => option.value === themeMode.value) || THEME_OPTIONS[0]
 )
 const themeToggleLabel = computed(() => `主题：${currentThemeOption.value.label}`)
-const toggleThemeMenu = () => {
-	showThemeMenu.value = !showThemeMenu.value
+const openThemeMenu = () => {
+	showThemeMenu.value = true
+}
+const closeThemeMenu = () => {
+	showThemeMenu.value = false
 }
 const selectTheme = (mode) => {
 	themeMode.value = mode
-	showThemeMenu.value = false
+	closeThemeMenu()
 }
 
 // 根据路由名称同步当前视图
@@ -177,8 +183,6 @@ const openNavEntry = (entry) => {
 	showLeftSidebar.value = !isNarrowScreen.value
 }
 
-const syncStatusLabel = computed(() => hasUnsyncedChanges.value ? '有待同步更改' : '已同步')
-
 const realtimeStatusLabel = computed(() => {
 	const status = String(todoStore.realtimeStatus || 'UNKNOWN').toUpperCase()
 	if (status === 'SUBSCRIBED') return '已连接'
@@ -191,22 +195,30 @@ const realtimeStatusLabel = computed(() => {
 	return '未连接'
 })
 
-// 底栏只呈现一条最要紧的同步状态：断线 > 待同步 > 连接中 > 已同步
+// 底栏只呈现一条最要紧的同步状态：断线 > 日程写入失败 > 待同步 > 同步中 > 已同步
 const syncState = computed(() => {
 	const status = String(todoStore.realtimeStatus || 'UNKNOWN').toUpperCase()
 	if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-		return { label: '连接异常', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' }
+		return { status: 'error', label: '连接异常' }
 	}
-	if (hasUnsyncedChanges.value) {
-		return { label: '待同步', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' }
+	if (scheduleStore.syncStatus === 'error') {
+		return { status: 'error', label: '同步失败' }
 	}
+	if (hasUnsyncedChanges.value) return { status: 'pending' }
+	if (scheduleStore.syncStatus === 'saving') return { status: 'saving' }
 	if (status === 'CONNECTING' || status === 'RECONNECTING') {
-		return { label: '连接中', dot: 'bg-amber-500', text: 'text-neutral-500 dark:text-neutral-400' }
+		return { status: 'saving', label: '连接中' }
 	}
-	if (status === 'SUBSCRIBED') {
-		return { label: '已同步', dot: 'bg-emerald-600 dark:bg-emerald-400', text: 'text-neutral-500 dark:text-neutral-400' }
-	}
-	return { label: '未连接', dot: 'bg-neutral-300 dark:bg-neutral-600', text: 'text-neutral-500 dark:text-neutral-400' }
+	if (status === 'SUBSCRIBED') return { status: 'idle' }
+	return { status: 'offline' }
+})
+
+const syncStatusTitle = computed(() => {
+	const parts = [`实时连接：${realtimeStatusLabel.value}`]
+	if (hasUnsyncedChanges.value) parts.push('有待同步的任务更改')
+	if (scheduleStore.syncStatus === 'error') parts.push(`日程同步失败：${scheduleStore.syncError}`)
+	if (scheduleStore.syncStatus === 'saving') parts.push('日程同步中')
+	return parts.join(' · ')
 })
 
 const viewProps = computed(() => {
@@ -625,28 +637,30 @@ const runToastAction = async () => {
 						<div class="ml-auto flex min-w-0 items-center gap-2">
 							<div id="main-topbar-actions"
 								class="flex min-w-0 items-center gap-2 @max-[440px]:hidden"></div>
-							<!-- 「顶栏主题按钮」：图标是当前模式，点开下拉菜单选择 -->
-							<div class="relative">
+							<!-- 「顶栏主题按钮」：悬停即展开，点击也展开（触屏与键盘）；图标是当前模式 -->
+							<div class="relative" @mouseenter="openThemeMenu" @mouseleave="closeThemeMenu">
 								<button type="button" data-theme-toggle aria-haspopup="menu"
 									:aria-expanded="showThemeMenu"
 									class="h-7 w-7 shrink-0 rounded-md flex items-center justify-center transition-colors text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-									:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="toggleThemeMenu">
+									:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="openThemeMenu">
 									<AppIcon :name="currentThemeOption.icon" :size="15" />
 								</button>
-								<!-- 下拉菜单：三项一次可见，当前项用强调色与对勾标出 -->
-								<div v-if="showThemeMenu" ref="themeMenuRef" role="radiogroup" aria-label="主题"
-									class="absolute right-0 top-full mt-1 w-36 panel shadow-lg z-40 py-1 overflow-hidden">
-									<button v-for="option in THEME_OPTIONS" :key="option.value" type="button"
-										role="radio" :aria-checked="themeMode === option.value"
-										class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm transition-colors"
-										:class="themeMode === option.value
-											? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
-											: 'text-neutral-700 hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10'"
-										@click="selectTheme(option.value)">
-										<AppIcon :name="option.icon" :size="13" />
-										<span>{{ option.label }}</span>
-										<AppIcon v-if="themeMode === option.value" name="check" :size="13" class="ml-auto" />
-									</button>
+								<!-- 下拉菜单：外层 pt-1 当间距，鼠标从按钮移到面板不会离开悬停区 -->
+								<div v-if="showThemeMenu" class="absolute right-0 top-full pt-1 w-36 z-40">
+									<div ref="themeMenuRef" role="radiogroup" aria-label="主题"
+										class="panel shadow-lg py-1 overflow-hidden">
+										<button v-for="option in THEME_OPTIONS" :key="option.value" type="button"
+											role="radio" :aria-checked="themeMode === option.value"
+											class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm transition-colors"
+											:class="themeMode === option.value
+												? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
+												: 'text-neutral-700 hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10'"
+											@click="selectTheme(option.value)">
+											<AppIcon :name="option.icon" :size="13" />
+											<span>{{ option.label }}</span>
+											<AppIcon v-if="themeMode === option.value" name="check" :size="13" class="ml-auto" />
+										</button>
+									</div>
 								</div>
 							</div>
 							<button type="button" data-detail-panel-trigger
@@ -754,11 +768,7 @@ const runToastAction = async () => {
 					</span>
 				</template>
 			</div>
-			<span class="flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-1" :class="syncState.text"
-				:title="'实时连接：' + realtimeStatusLabel + ' · ' + syncStatusLabel">
-				<span class="h-1.5 w-1.5 rounded-full" :class="syncState.dot"></span>
-				{{ syncState.label }}
-			</span>
+			<SyncStatusIndicator :status="syncState.status" :label="syncState.label" :title="syncStatusTitle" />
 		</footer>
 
 		<!-- 设置浮窗：覆盖在当前视图之上，不打断任务操作 -->

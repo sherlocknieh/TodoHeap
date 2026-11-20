@@ -5,6 +5,7 @@ import { toDateTimeLocalValue } from '@/utils/deadline'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import AppIcon from '@/components/AppIcon.vue'
 import DateTimePicker from '@/components/DateTimePicker.vue'
+import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -96,9 +97,8 @@ const form = ref({
 })
 const errorMessage = ref('')
 // 自动同步状态：idle 无提示 / saving / saved / error / invalid
-const syncStatus = ref('idle')
-const syncError = ref('')
-const isSaving = computed(() => syncStatus.value === 'saving')
+const isSaving = ref(false)
+const draftError = ref('')
 
 // 常用时长：点一下按开始时间算出结束时间
 const DURATION_PRESETS = [
@@ -233,8 +233,7 @@ const queuePayload = () => {
   if (!activeEventId.value) return false
   const built = buildPayload()
   if (!built.payload) {
-    syncStatus.value = 'invalid'
-    syncError.value = built.error
+    draftError.value = built.error
     return false
   }
   queuedSync = { eventId: activeEventId.value, payload: built.payload }
@@ -245,22 +244,18 @@ const queuePayload = () => {
 const drainSync = async () => {
   if (syncing) return
   syncing = true
+  isSaving.value = true
   try {
     while (queuedSync) {
       const { eventId, payload } = queuedSync
       queuedSync = null
-      syncStatus.value = 'saving'
-      syncError.value = ''
+      draftError.value = ''
       const result = await scheduleStore.updateSchedule(eventId, payload)
-      if (!result.success) {
-        syncStatus.value = 'error'
-        syncError.value = result.error || '同步失败'
-        return
-      }
-      syncStatus.value = 'saved'
+      if (!result.success) return
     }
   } finally {
     syncing = false
+    isSaving.value = false
     if (!queuedSync) markIdle()
   }
 }
@@ -293,22 +288,8 @@ const flushSync = async () => {
   const idle = whenIdle()
   drainSync()
   await idle
-  return syncStatus.value === 'saved'
+  return scheduleStore.syncStatus !== 'error'
 }
-
-const syncLabel = computed(() => {
-  if (syncStatus.value === 'saving') return '同步中…'
-  if (syncStatus.value === 'error') return syncError.value || '同步失败'
-  if (syncStatus.value === 'invalid') return `未同步：${syncError.value}`
-  if (syncStatus.value === 'saved') return '已同步'
-  return ''
-})
-
-const syncLabelClass = computed(() => {
-  if (syncStatus.value === 'error') return 'text-rose-600 dark:text-rose-400'
-  if (syncStatus.value === 'invalid') return 'text-amber-600 dark:text-amber-400'
-  return 'text-neutral-400 dark:text-neutral-500'
-})
 
 // 面板卸载（切走视图或整页离开）前把待写入的草稿落盘
 onBeforeUnmount(() => {
@@ -322,10 +303,9 @@ onBeforeUnmount(() => {
 // 切换选中日程时重置草稿，未保存的编辑不会带到另一条日程
 const resetForm = (item) => {
   errorMessage.value = ''
+  draftError.value = ''
   suppressAutoSync = true
   activeEventId.value = item?.id ?? null
-  syncStatus.value = 'idle'
-  syncError.value = ''
   nextTick(() => {
     suppressAutoSync = false
   })
@@ -570,8 +550,11 @@ const remove = async () => {
         <span>删除</span>
       </button>
       <div class="ml-auto flex min-w-0 items-center gap-2">
-        <!-- 「同步状态」：自动同步结果，失败或草稿不合法时说明原因 -->
-        <span v-if="syncLabel" class="truncate text-[11px]" :class="syncLabelClass">{{ syncLabel }}</span>
+        <!-- 「同步状态」：非法草稿在本地提示，网络状态复用底栏同一份指示 -->
+        <span v-if="draftError" class="truncate text-[11px] text-amber-600 dark:text-amber-400">未同步：{{ draftError }}</span>
+        <SyncStatusIndicator v-else-if="scheduleStore.syncStatus !== 'idle'"
+          :status="scheduleStore.syncStatus"
+          :title="scheduleStore.syncStatus === 'error' ? scheduleStore.syncError : '日程写入中'" />
         <button class="btn-primary" :disabled="isSaving" @click="saveAndClose">
           <span>{{ isSaving ? '同步中…' : '保存' }}</span>
         </button>
