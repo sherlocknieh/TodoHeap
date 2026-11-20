@@ -17,8 +17,8 @@ title: "视图与交互"
 ### 画布
 
 - 两种底纹互斥，共用一个底纹按钮：循环 点阵 → 坐标网格 → 关闭（`cycleBackground`、`backgroundLabel`）。点阵点距 24px × 当前缩放倍率，整层位置随视口平移；屏幕点距不足 16px 时把世界点距按 2 的幂翻倍（点仍落在世界坐标整数倍上），放大变稀疏则不调整；坐标网格跟随平移缩放，原点取根节点出边按钮的圆心（布局仍以根节点左上角为基准，只平移读数），主刻度按 1/2/5×10ⁿ 自适应（相邻主刻度的屏幕间距不小于 100px），坐标轴与标签显示世界坐标（`mindmap-dot-grid`、`mindmap-coordinate-grid`、`gridOrigin`、`utils/canvasGrid.js`），机制见[任务图坐标网格](../dev/logic/mindmap-coordinate-grid.md)。画布底色与页面画布同色、深浅跟随全局主题，深色下点阵与网格线条转白，没有独立按钮。
-- 滚轮在选中节点或选中连线上缩放，其余位置上下平移；指针停在右下角视图控件上时滚轮也缩放（围绕可见区中心，与 ± 按钮一致）；Ctrl/Cmd + 滚轮在任意位置缩放，触控板双指捏合也走这条分支。画布 `@wheel.prevent`，不会触发浏览器整页缩放（`onWheel`、`data-mm-view-controls`）。
-- 右下角控件行最左侧是 `− 100% +` 缩放胶囊：百分比实时显示当前缩放（`zoomPercent`），± 按 1.2 倍等比、围绕可见区中心缩放（右栏浮层盖住的宽度不算中心），点百分比回到 100%；范围与滚轮一致（0.15–2.5），落点走 `animateView` 缓动并写入 `mindmap-view:v2`（`zoomTo`、`zoomIn`、`zoomOut`、`resetZoom`）。
+- 滚轮在选中节点或选中连线上缩放，其余位置上下平移；指针停在右上角缩放器或右下角视图控件上时滚轮也缩放（围绕可见区中心，与 ± 按钮一致）；Ctrl/Cmd + 滚轮在任意位置缩放，触控板双指捏合也走这条分支。画布 `@wheel.prevent`，不会触发浏览器整页缩放（`onWheel`、`data-mm-view-controls`）。
+- 画布右上角是 `− 100% +` 缩放胶囊：百分比实时显示当前缩放（`zoomPercent`），± 按 1.2 倍等比、围绕可见区中心缩放（右栏浮层盖住的宽度不算中心），点百分比回到 100%；范围与滚轮一致（0.15–2.5），落点走 `animateView` 缓动并写入 `mindmap-view:v2`（`zoomTo`、`zoomIn`、`zoomOut`、`resetZoom`）。
 - 拖拽空白处或根节点平移；右下角目标按钮在全景与聚焦根节点之间切换（`viewMode`、`toggleViewMode`）。
 - 全景与聚焦根节点是右下角同一个目标按钮的两档：全景整图带 48px 内边距、最大放大 1.25 倍（`fitView`）；聚焦根节点把根节点摆到可见区中央、缩放固定 100%，可见区更窄时按可用宽度缩小（`focusRoot`）。停在根节点档时按钮转绿，手动缩放/平移后回到自由视角，再点一次先回全景。
 - 同一行最左侧的展开/收起全部按钮按四箭头图标区分方向：展开全部（四箭头向外）后自动回到全景，收起全部（四箭头向内）后只剩根节点并聚焦它（`expandArrows`、`collapseArrows`、`toggleAllCollapse`）。
@@ -37,7 +37,7 @@ title: "视图与交互"
 
 - 选中只保证可见：图内单击不移动视口；从列表/侧栏选中或键盘导航时，节点完整可见就不动，出界才最小平移带回，节点比可见区还大时才缩小并居中（`ensureNodeVisible`、`utils/mindmapView.js` 的 `revealView`），机制见[任务图选中项的可见性修正](../dev/logic/mindmap-selection-visibility.md)。
 - 双击 / F2 进入编辑时会补到可读档位（`readableScale`，宽视口最多放大到 100%），以节点中心为锚点只放大不移动，见[任务图编辑时的缩放档位](../dev/logic/mindmap-edit-scale.md)。
-- 详情右栏是浮层，不挤压画布；适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避让，右下角视图控件随面板左移（`utils/detailPanelContext.js`）。
+- 详情右栏是浮层，不挤压画布；适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避让，右下角视图控件与右上角缩放器随面板左移（`utils/detailPanelContext.js`）。
 
 ## 拖拽与连线
 

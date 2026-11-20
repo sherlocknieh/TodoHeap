@@ -270,11 +270,10 @@
       </DateTimePicker>
     </div>
 
-    <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布；
-         右栏浮起时按面板宽度左移，避免盖住按钮 -->
-    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" data-mm-view-controls
-      @pointerdown.stop @keydown.stop @keydown.escape.stop="helpOpen = false">
-      <!-- 「缩放控件/百分比」：− | 100% | + 分段胶囊，百分比实时读 view.scale，点数字回到 100% -->
+    <!-- 「缩放控件/百分比」：画布右上角的 − | 100% | + 分段胶囊，百分比实时读 view.scale，点数字回到 100%；
+         右栏浮起时同样按面板宽度左移避让 -->
+    <div class="absolute top-3 right-3 z-10 flex items-center" :style="controlsStyle"
+      data-mm-view-controls @pointerdown.stop>
       <div
         class="flex items-stretch overflow-hidden rounded border border-hairline bg-white text-neutral-500 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-400">
         <button type="button" title="缩小" aria-label="缩小"
@@ -293,6 +292,12 @@
           <AppIcon name="plus" :size="14" />
         </button>
       </div>
+    </div>
+
+    <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布；
+         右栏浮起时按面板宽度左移，避免盖住按钮 -->
+    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" data-mm-view-controls
+      @pointerdown.stop @keydown.stop @keydown.escape.stop="helpOpen = false">
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         :title="allExpanded ? '收起全部' : '展开全部'" @click.stop="toggleAllCollapse">
