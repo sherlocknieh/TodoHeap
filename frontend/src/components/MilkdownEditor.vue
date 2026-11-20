@@ -1,6 +1,9 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx } from '@milkdown/kit/core'
+import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx, prosePluginsCtx } from '@milkdown/kit/core'
+import { keymap } from '@milkdown/kit/prose/keymap'
+import { lift } from '@milkdown/kit/prose/commands'
+import { TextSelection } from '@milkdown/kit/prose/state'
 import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
@@ -20,6 +23,30 @@ const emit = defineEmits(['update:modelValue', 'blur', 'focus'])
 const editorRef = ref(null)
 let editor = null
 let isInternalUpdate = false
+
+// 空引用块的退出：ProseMirror 默认 Backspace/Delete 在引用块内没有可合并的前后块时什么也不做，
+// 导致只剩空段落的引用块删不掉。这里把该空段落抬出引用块，引用块空了会一并消失。
+// 机制见 docs/src/content/docs/dev/logic/milkdown-empty-blockquote.md
+const liftEmptyBlockquote = (state, dispatch) => {
+  const { selection } = state
+  if (!(selection instanceof TextSelection) || !selection.empty) return false
+  const { $from } = selection
+  if ($from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0) return false
+
+  // 光标所在的最近一层引用块
+  let blockquoteDepth = -1
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'blockquote') {
+      blockquoteDepth = depth
+      break
+    }
+  }
+  if (blockquoteDepth < 0) return false
+  // 只接管引用块的第一个空段落；后面的空段落交给默认 Backspace 与前段合并
+  if ($from.index(blockquoteDepth) !== 0) return false
+
+  return lift(state, dispatch)
+}
 
 // 创建编辑器
 const createEditor = async () => {
@@ -48,6 +75,11 @@ const createEditor = async () => {
         .blur(() => {
           emit('blur')
         })
+      // 放在其它 keymap 之前，确保空引用块优先由这里退出
+      ctx.update(prosePluginsCtx, (plugins) => [
+        keymap({ Backspace: liftEmptyBlockquote, Delete: liftEmptyBlockquote }),
+        ...plugins
+      ])
     })
     .config(nord)
     .use(commonmark)

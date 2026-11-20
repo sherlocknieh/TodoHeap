@@ -77,7 +77,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `LeftSidebar.vue` | 视图切换、AI 会话列表、技能与 MCP 服务管理 |
 | `TodoListItem.vue` | 单条任务行：缩进、折叠、两态复选、行内菜单 |
 | `TodoDetailEditor.vue` | 右栏详情：标题、起止时间、耗时、Markdown 描述 |
-| `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装 |
+| `MilkdownEditor.vue` | Milkdown Markdown 编辑器封装；自定义 keymap 让空引用块可以用 Backspace/Delete 退出 |
 | `MindMapWrapper.vue` | 自研 SVG 思维导图：布局、缩放平移、键盘导航与内联重命名 |
 | `AgentChat.vue` | 对话 Agent：消息流、工具执行记录、破坏性操作确认、请求详情 |
 | `AgentContextPanel.vue` | AI 视图右栏：会话、模型、上下文构成与本轮工具 |
