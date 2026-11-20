@@ -203,6 +203,12 @@ const applyTime = (time) => {
   draftMinute.value = minute
 }
 
+// 点时钟图标把时分重置为默认的 23:59
+const resetTime = () => {
+  draftHour.value = 23
+  draftMinute.value = 59
+}
+
 // 方向键逐日/逐周移动草稿，PgUp/PgDn 翻月，Enter 确定，Esc 关闭
 const moveDraft = (deltaDays) => {
   if (!draftDate.value) return
@@ -339,7 +345,11 @@ onBeforeUnmount(() => {
               @click="applyTime(time)">{{ time }}</button>
           </div>
           <div class="mt-1.5 flex items-center gap-1.5">
-            <AppIcon name="clock" :size="12" class="shrink-0 text-neutral-500 dark:text-neutral-400" />
+            <button type="button"
+              class="grid h-7 w-4 shrink-0 place-items-center text-neutral-500 transition-colors hover:text-accent-800 dark:text-neutral-400 dark:hover:text-accent-200"
+              title="重置为 23:59" aria-label="重置为 23:59" @click="resetTime">
+              <AppIcon name="clock" :size="12" />
+            </button>
             <div
               class="flex items-center rounded-md border border-input-border bg-input dark:border-input-border-dark dark:bg-input-dark">
               <button type="button"
