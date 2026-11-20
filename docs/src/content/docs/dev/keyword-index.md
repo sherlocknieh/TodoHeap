@@ -52,7 +52,7 @@ title: 关键词索引
 | 行内菜单 / 三点 / 更多操作 | `components/TodoListItem.vue`「更多菜单相关」/ `currentMenuEl` | 与截止时间菜单互斥，点外部关闭 |
 | 行内删除 / 删除任务 / 移入回收站 | `components/TodoListItem.vue` `emitDeleteTodo`；`pages/todo/TodoList.vue` 删除处理 | 软删除，进回收站 |
 | 拖拽排序 / 拖成子任务 / 插到前后 | `components/TodoListItem.vue` `onDragStart`/`onDragOver`/`onDrop`；`utils/todoDrag.js` | 上四分位插前、下四分位插后、中间成为子任务 |
-| 截止时间菜单 / 日期时间 | `components/TodoListItem.vue`「截止时间菜单与更多菜单互斥」 | 与更多菜单同一时间只开一个 |
+| 截止时间菜单 / 日期时间 / 时间选择器 / 一周后 | `components/TodoListItem.vue`「截止时间菜单与更多菜单互斥」；`utils/deadline.js` `DEADLINE_PRESETS` | 与更多菜单同一时间只开一个；预设为今天、明天、一周后（下周同一天 23:59）与自定义时间 |
 
 ## 任务图（思维导图）
 

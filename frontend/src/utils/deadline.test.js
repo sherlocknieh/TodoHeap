@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { deadlineCountdown, deadlineUrgency, formatDeadlineShort } from './deadline'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { deadlineCountdown, deadlineUrgency, formatDeadlineShort, resolveDeadlinePreset } from './deadline'
 
 const now = new Date('2026-11-20T14:34:00')
 const at = (value) => new Date(value).toISOString()
@@ -52,5 +52,17 @@ describe('formatDeadlineShort', () => {
 
   it('无截止日期返回空串', () => {
     expect(formatDeadlineShort(null, now)).toBe('')
+  })
+})
+
+describe('resolveDeadlinePreset', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('一周后落在下周同一天的结束时刻', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(now)
+    expect(resolveDeadlinePreset('week')).toBe(at('2026-11-27T23:59:00'))
   })
 })

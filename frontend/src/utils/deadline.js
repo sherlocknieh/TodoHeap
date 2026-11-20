@@ -2,7 +2,7 @@
 export const DEADLINE_PRESETS = [
   { value: 'today', label: '今天', icon: 'clock' },
   { value: 'tomorrow', label: '明天', icon: 'calendar' },
-  { value: 'weekend', label: '本周末', icon: 'calendar' }
+  { value: 'week', label: '一周后', icon: 'calendar' }
 ]
 
 // 截止时间落到当天结束，符合「今天做完」的直觉
@@ -21,10 +21,10 @@ export const resolveDeadlinePreset = (preset) => {
     tomorrow.setDate(tomorrow.getDate() + 1)
     return endOfDay(tomorrow).toISOString()
   }
-  if (preset === 'weekend') {
-    const sunday = new Date(now)
-    sunday.setDate(sunday.getDate() + ((7 - now.getDay()) % 7))
-    return endOfDay(sunday).toISOString()
+  if (preset === 'week') {
+    const nextWeek = new Date(now)
+    nextWeek.setDate(nextWeek.getDate() + 7)
+    return endOfDay(nextWeek).toISOString()
   }
   return null
 }
