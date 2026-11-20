@@ -317,6 +317,11 @@ onBeforeUnmount(() => {
           <button v-if="!quickDates" type="button"
             class="ml-1 h-7 shrink-0 rounded-md px-2 text-[11px] text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             @click="goToday">今天</button>
+          <button v-if="clearable && modelValue" type="button"
+            class="grid h-7 w-6 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:text-neutral-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+            title="清除" aria-label="清除" @click="clearValue">
+            <AppIcon name="close" :size="13" />
+          </button>
         </div>
 
         <!-- 日期快捷项：截止时间入口用，点选只改草稿 -->
@@ -380,16 +385,11 @@ onBeforeUnmount(() => {
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
-            <div class="flex items-center justify-end gap-1">
-            <button type="button"
-              class="grid h-7 w-5 shrink-0 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-              title="重置为 23:59" aria-label="重置为 23:59" @click="resetTime">
-              <AppIcon name="clock" :size="12" />
-            </button>
-              <button v-if="clearable && modelValue" type="button"
-                class="grid h-7 w-4 place-items-center rounded-md text-neutral-400 transition-colors hover:text-rose-600 dark:text-neutral-500 dark:hover:text-rose-400"
-                title="清除" aria-label="清除" @click="clearValue">
-                <AppIcon name="close" :size="11" />
+            <div class="grid grid-cols-2 gap-1">
+              <button type="button"
+                class="grid h-7 place-items-center rounded-md border border-hairline text-neutral-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+                title="重置为 23:59" aria-label="重置为 23:59" @click="resetTime">
+                <AppIcon name="refresh" :size="12" />
               </button>
               <button type="button" class="btn-primary h-7 rounded-md px-2 text-xs" @click="confirm">确定</button>
             </div>
@@ -398,8 +398,6 @@ onBeforeUnmount(() => {
 
         <!-- 仅日期模式没有时间行，操作单独占一行 -->
         <div v-else class="mt-2.5 flex items-center gap-1.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
-          <button v-if="clearable && modelValue" type="button" class="btn-ghost h-7 rounded-md px-2 text-xs"
-            @click="clearValue">清除</button>
           <button type="button" class="btn-primary ml-auto h-7 rounded-md px-3 text-xs" @click="confirm">确定</button>
         </div>
       </div>
