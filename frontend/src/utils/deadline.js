@@ -37,7 +37,7 @@ const calendarDaysUntil = (value, now) => {
   return Math.round((due - today) / (1000 * 60 * 60 * 24))
 }
 
-// 截止标签按剩余天数分级着色：逾期红、3 天内橙、7 天内黄、更远中性，与任务图紧急度同色系
+// 截止标签按剩余天数分级着色：逾期红、3 天内橙、7 天内黄、更远或有日期但未到期用蓝，与任务图紧急度同色系
 export const deadlineChipClass = (value, now = new Date()) => {
   if (!value) return ''
   const due = new Date(value)
@@ -54,7 +54,7 @@ export const deadlineChipClass = (value, now = new Date()) => {
   if (days <= 7) {
     return 'border-yellow-200 bg-yellow-50 text-yellow-700 hover:border-yellow-300 dark:border-yellow-500/30 dark:bg-yellow-950/40 dark:text-yellow-300 dark:hover:border-yellow-500/50'
   }
-  return 'border-hairline text-neutral-500 hover:border-accent-300 hover:text-neutral-700 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:text-neutral-200'
+  return 'border-blue-200 bg-blue-50 text-blue-700 hover:border-blue-300 dark:border-blue-500/30 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:border-blue-500/50'
 }
 
 // 任务图紧急圆点的分级：一天内 critical、三天内 urgent、一周内 soon；

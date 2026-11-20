@@ -56,12 +56,12 @@ describe('formatDeadlineShort', () => {
 })
 
 describe('deadlineChipClass', () => {
-  it('按剩余天数分色：逾期红、3 天内橙、7 天内黄、更远中性', () => {
+  it('按剩余天数分色：逾期红、3 天内橙、7 天内黄、更远蓝色', () => {
     expect(deadlineChipClass(at('2026-11-18T09:00:00'), now)).toContain('rose')
     expect(deadlineChipClass(at('2026-11-20T23:59:00'), now)).toContain('amber')
     expect(deadlineChipClass(at('2026-11-23T09:00:00'), now)).toContain('amber')
     expect(deadlineChipClass(at('2026-11-24T09:00:00'), now)).toContain('yellow')
     expect(deadlineChipClass(at('2026-11-27T23:59:00'), now)).toContain('yellow')
-    expect(deadlineChipClass(at('2026-11-28T09:00:00'), now)).toContain('neutral')
+    expect(deadlineChipClass(at('2026-11-28T09:00:00'), now)).toContain('blue')
   })
 })
