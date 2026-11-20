@@ -67,6 +67,23 @@ RPC 响应与 Realtime 推送谁先到不确定，两者都通过 `client_key` �
 
 判断「已经发出」用 `syncQueue.isOperationActive(operationId)`。这一步不能省：请求发出后再改 payload 不会影响服务端，改名会丢。
 
+### 父级 child_ids 更新的顺序约束
+
+任务图的同级/子级新建除了 `ADD`，还会立刻入队一条父级 `UPDATE`，把新任务重排到落点；这条 payload 的 `child_ids` 里通常还是临时 ID。
+
+`processQueue` 按 `targetId` 并行（不同 target 最多 5 条）。父级 `UPDATE` 若与 `ADD` 同时发出会有两个后果：
+
+- 负数临时 ID 直接写进父级的 `child_ids`；
+- `UPDATE` 返回的是发出时的快照，缺少 `create_todo` 刚补上的真实 ID，`sync:update-success` 又用它整条覆盖本地父级。
+
+父级一旦丢掉新任务，导图会把这条没有父链接的任务当成森林根挂到根节点（`TodoGraph` 的 `orphans`），表现为「新建后多出一条根链接，刷新后恢复正常」。
+
+因此 `selectExecutableItems` 把 `payload.child_ids` / `payload.ids` 里的未映射临时 ID 也当作依赖：
+
+- 对应 `ADD` 还在队列（含执行中）时等下一轮；
+- `ADD` 已回滚、临时 ID 不会再落地时，把死引用从 payload 剔除，避免队列一直等待；
+- 落地后 `updateQueueTargetIds` 会先把 payload 换成真实 ID 再发出。
+
 ---
 
 ## 三、幂等键 `client_key`
@@ -210,6 +227,7 @@ cd frontend && nub run build
 
 - `todos.optimistic.test.js`：`addTodo` 生成并下发 `client_key`、复用调用方传入的键；
 - `todos.realtime.test.js`：`INSERT` 命中本地 `client_key` 时走 ID 替换而非新增；无匹配时正常追加；
-- `syncQueue.clientKey.test.js`：缺 `client_key` 支持时退回旧签名、之后不再重复试错、支持时只调一次。
+- `syncQueue.clientKey.test.js`：缺 `client_key` 支持时退回旧签名、之后不再重复试错、支持时只调一次；
+- `syncQueue.idmap.test.js`：`child_ids` 里的临时 ID 未落地时父级 `UPDATE` 不发送、落地后按真实 ID 发送；临时任务已回滚时剔除死引用。
 
 数据库：远程推送用 `npx supabase db push --yes --db-url "<pooler 连接串>"`；本机无 Postgres 时可用 PGlite 按时间戳顺序校验迁移。

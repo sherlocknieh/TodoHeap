@@ -150,6 +150,7 @@ title: 关键词索引
 | 失败回滚 / 操作失败恢复原样 | `stores/todos.rollback.js` | 与乐观更新成对出现 |
 | 离线队列 / 断网后重试 / 待同步 | `stores/syncQueue.js` | localforage 持久化，带退避重试 |
 | 临时 ID / id 替换 / 新建任务 ID | `stores/syncQueue.js` `generateTempId`、`id-replaced` 事件 | `client_key` 保证同一用户下创建幂等 |
+| 新建后多出一条根链接 / 新任务先连到根节点 / 刷新后正常 | [任务创建逻辑](./logic/task-create.md)「父级 child_ids 更新的顺序约束」 | 父级 `UPDATE` 若与 `ADD` 并行，会写入负数临时 ID 并用旧快照覆盖父级；任务失去父链接后导图把孤儿挂到根节点 |
 | 实时同步 / 多端刷新 | `stores/todos.realtime.js` | Supabase Realtime 订阅与重连 |
 | 递归删除 / 删父删子 | `stores/todos.optimistic.js`；`utils/taskGraph.js` `collectDescendantIds` | 级联范围由任务树决定 |
 

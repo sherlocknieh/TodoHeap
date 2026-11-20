@@ -237,6 +237,24 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
     isProcessing.value = false
   }
 
+  // 子列表/批量 ID 里还没落地的临时任务: 与 ADD 并行发出会把负数 ID 写进父级 child_ids,
+  // 且 UPDATE 返回的旧快照缺少新任务, 新任务会瞬间失去父链接(导图里挂到根节点)
+  const collectUnmappedTempRefs = (payload) => {
+    if (!payload) return []
+    const refs = [
+      ...(Array.isArray(payload.child_ids) ? payload.child_ids : []),
+      ...(Array.isArray(payload.ids) ? payload.ids : [])
+    ]
+    return refs.filter(id => isTempId(id) && isTempId(getRealId(id)))
+  }
+
+  // 临时任务已回滚、不会再有 ADD 时负数 ID 永远映射不到真实 ID, 剔除掉避免队列一直等待
+  const stripTempRefs = (payload, tempIds) => {
+    const dead = new Set(tempIds.map(Number))
+    if (Array.isArray(payload.child_ids)) payload.child_ids = payload.child_ids.filter(id => !dead.has(Number(id)))
+    if (Array.isArray(payload.ids)) payload.ids = payload.ids.filter(id => !dead.has(Number(id)))
+  }
+
   // 选择可以并行执行的操作
   const selectExecutableItems = () => {
     const items = []
@@ -259,6 +277,16 @@ export const useSyncQueueStore = defineStore('syncQueue', () => {
           // 父任务还没有真实ID，跳过
           continue
         }
+      }
+
+      // child_ids / 批量 ids 引用的临时任务同样必须先落地; 落地后 updateQueueTargetIds 会先改好 payload
+      const tempRefs = collectUnmappedTempRefs(item.payload)
+      if (tempRefs.length > 0) {
+        const waitingAdd = tempRefs.some(tempId => queue.value.some(
+          queued => queued.type === OperationType.ADD && Number(queued.targetId) === Number(tempId)
+        ))
+        if (waitingAdd) continue
+        stripTempRefs(item.payload, tempRefs)
       }
 
       items.push(item)
