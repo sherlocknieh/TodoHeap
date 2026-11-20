@@ -59,7 +59,7 @@ title: 关键词索引
 
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
-| 节点三点 / 图上更多操作 / 节点操作菜单 / 三点按钮被右侧面板挡住 / 更多操作点不开 / 右键菜单 | `components/MindMapWrapper.vue`「节点更多操作按钮」+ `MENU_ITEMS`、`toggleNodeMenu`、`openNodeMenuAt`、`menuAnchor`、`menuPosition`、`visibleWidth` | 竖三点在选中、悬停（`hoveredNodeId`）或菜单打开时出现（根节点没有，拖拽中不显示），悬停只把图标加深、打开菜单时图标转绿；点按钮菜单在按钮正下方居中，右键节点则从指针处展开，空间不足翻到上方、右侧夹进可见宽度，项为「重命名 / 新建子任务 / 复制为 Markdown / 删除任务」 |
+| 节点三点 / 图上更多操作 / 节点操作菜单 / 三点按钮被右侧面板挡住 / 更多操作点不开 / 右键菜单 | `components/MindMapWrapper.vue`「节点更多操作按钮」+ `MENU_ITEMS`、`toggleNodeMenu`、`openNodeMenuAt`、`menuAnchor`、`menuPosition`、`visibleWidth` | 竖三点常驻在节点右侧（根节点没有），悬停只把图标加深、打开菜单时图标转绿；点按钮菜单在按钮正下方居中，右键节点则从指针处展开，空间不足翻到上方、右侧夹进可见宽度，项为「重命名 / 新建子任务 / 复制为 Markdown / 删除任务」 |
 | 图内删除任务 / 菜单里删除 | `components/MindMapWrapper.vue` `MENU_ITEMS` 的 `delete` 项、`emitDelete` | 菜单项直接删除（软删除进回收站），键盘 Delete 走同一出口 |
 | 连线删除 / 线中点叉号 / 断开父子关系 | `components/MindMapWrapper.vue` `confirmUnlink`、`onUnlinkClick`、`selectEdge` | 只从父任务 `child_ids` 移除引用；最后一个父级被摘掉时回顶层 |
 | 加号 / 出边按钮 / 新建子任务 / 折叠计数 / 靠近就显示加号 / 拉线时加号消失 | `components/MindMapWrapper.vue`「出边按钮」、`onToggleClick`、`holdLeafControl`、`updateLeafControlHover`、`draggingLeafId` | 有子任务时是折叠开关；叶子节点指针靠近按钮位置即显示加号，从加号拉线期间保持可见，拖到别的节点建立链接 |

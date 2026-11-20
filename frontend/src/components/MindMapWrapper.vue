@@ -168,9 +168,9 @@
             </template>
           </g>
 
-          <!-- 节点更多操作按钮：竖三点，指针停在节点上即显示，选中或菜单打开时保持显示；
-               透明热区承担点击与悬停判定，菜单打开时图标转绿表示激活 -->
-          <g v-if="!node.isRoot && (node.selected || isNodeHovered(node) || menuNodeId === String(node.id))"
+          <!-- 节点更多操作按钮：竖三点常驻在节点右侧（根节点没有），悬停只把图标加深、菜单打开时转绿；
+               透明热区承担点击与悬停判定 -->
+          <g v-if="!node.isRoot"
             data-mm-more-trigger
             :transform="`translate(${nodeWidth - paddingX - moreSize / 2} ${node.height / 2})`"
             class="cursor-pointer transition-colors"
@@ -438,21 +438,13 @@ let leafHideTimer = null
 // 邻近判定半径（屏幕像素）：按缩放折算到图内，保持不同缩放下手感一致
 const LEAF_CONTROL_REVEAL = 32
 
-// 指针真正停在节点上（含节点内的加号/三点按钮）时显示更多操作按钮；
-// 与叶子加号的邻近判定分开，后者在指针靠近按钮位置时就提前亮出
-const hoveredNodeId = ref(null)
-
 const onNodePointerEnter = (node) => {
   holdLeafControl(node)
-  if (!node.isRoot) hoveredNodeId.value = String(node.id)
 }
 
 const onNodePointerLeave = () => {
   releaseLeafControl()
-  hoveredNodeId.value = null
 }
-
-const isNodeHovered = (node) => !dragState.active && hoveredNodeId.value === String(node.id)
 
 const holdLeafControl = (node) => {
   clearTimeout(leafHideTimer)
