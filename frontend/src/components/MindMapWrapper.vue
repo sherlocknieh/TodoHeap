@@ -455,14 +455,17 @@ const beginMultiSelection = () => {
   return new Set()
 }
 
-// Ctrl/⌘ + 拖拽框选：矩形只做视觉提示，松手时把碰到的节点追加进选择
+// Ctrl/⌘ + 拖拽框选：边画边选，矩形只做视觉提示
 const marquee = reactive({
   active: false,
   startX: 0,
   startY: 0,
   currentX: 0,
   currentY: 0,
-  startNodeKey: null
+  startNodeKey: null,
+  // 开始框选时的选择，缩框时回退到它，只保留本次仍命中的节点
+  baseKeys: null,
+  lastHitKey: null
 })
 
 const marqueeStyle = computed(() => {
@@ -2800,12 +2803,15 @@ const onPointerDown = (event, fromRoot = false) => {
 
 const onPointerMove = (event) => {
   updateLeafControlHover(event)
-  // 框选期间只更新矩形，不触发画布平移
+  // 框选期间只更新矩形与命中，不触发画布平移
   if (marquee.active) {
     const rect = container.value?.getBoundingClientRect()
     if (rect) {
       marquee.currentX = event.clientX - rect.left
       marquee.currentY = event.clientY - rect.top
+      if (Math.hypot(marquee.currentX - marquee.startX, marquee.currentY - marquee.startY) >= 4) {
+        updateMarqueeSelection()
+      }
     }
     return
   }
@@ -2840,21 +2846,55 @@ const onMarqueePointerDown = (event) => {
   marquee.currentX = marquee.startX
   marquee.currentY = marquee.startY
   marquee.startNodeKey = event.target.closest('[data-mm-node]')?.dataset.mmNode ?? null
+  marquee.baseKeys = new Set(beginMultiSelection())
+  marquee.lastHitKey = null
   container.value.setPointerCapture(event.pointerId)
 }
 
-// 框选结束：拖动过就把矩形碰到的节点并入现有选择；未拖动则按 Ctrl 点击处理
+// 框选实时命中：以开始框选时的选择为底，节点框与矩形有交集就加入
+const updateMarqueeSelection = () => {
+  if (!container.value) return
+  // 屏幕坐标换回图内坐标
+  const toWorld = (x, y) => ({ x: (x - view.x) / view.scale, y: (y - view.y) / view.scale })
+  const a = toWorld(marquee.startX, marquee.startY)
+  const b = toWorld(marquee.currentX, marquee.currentY)
+  const left = Math.min(a.x, b.x)
+  const right = Math.max(a.x, b.x)
+  const top = Math.min(a.y, b.y)
+  const bottom = Math.max(a.y, b.y)
+
+  const next = new Set(marquee.baseKeys || [])
+  let lastHitKey = null
+  layout.value.nodes.forEach((node) => {
+    if (node.isPlaceholder || node.isRoot) return
+    const overlaps = node.x < right && node.x + nodeWidth > left && node.y < bottom && node.y + node.height > top
+    if (!overlaps) return
+    const key = String(node.id)
+    next.add(key)
+    lastHitKey = key
+  })
+  multiSelectedKeys.value = next
+  marquee.lastHitKey = lastHitKey
+}
+
+// 框选结束：拖动过就保留实时命中结果；未拖动则按 Ctrl 点击处理
 const finishMarquee = () => {
   const moved = Math.hypot(marquee.currentX - marquee.startX, marquee.currentY - marquee.startY) >= 4
-  const { startX, startY, currentX, currentY, startNodeKey: nodeKey } = marquee
+  const { startNodeKey: nodeKey } = marquee
   marquee.active = false
   marquee.startNodeKey = null
   // 松手后浏览器补发的 click 不再参与选择
   lastPanEndAt = Date.now()
   lastMarqueeEndAt = Date.now()
-  if (!container.value) return
+  if (!container.value) {
+    marquee.baseKeys = null
+    marquee.lastHitKey = null
+    return
+  }
 
   if (!moved) {
+    marquee.baseKeys = null
+    marquee.lastHitKey = null
     if (!nodeKey || nodeKey === rootNodeId.value) return
     multiSelectedKeys.value = toggleSelection(beginMultiSelection(), nodeKey)
     multiAnchor.value = nodeKey
@@ -2862,24 +2902,11 @@ const finishMarquee = () => {
     return
   }
 
-  // 屏幕坐标换回图内坐标，节点框与矩形有交集就算命中
-  const toWorld = (x, y) => ({ x: (x - view.x) / view.scale, y: (y - view.y) / view.scale })
-  const a = toWorld(startX, startY)
-  const b = toWorld(currentX, currentY)
-  const left = Math.min(a.x, b.x)
-  const right = Math.max(a.x, b.x)
-  const top = Math.min(a.y, b.y)
-  const bottom = Math.max(a.y, b.y)
-
-  const next = new Set(beginMultiSelection())
-  layout.value.nodes.forEach((node) => {
-    if (node.isPlaceholder || node.isRoot) return
-    const overlaps = node.x < right && node.x + nodeWidth > left && node.y < bottom && node.y + node.height > top
-    if (overlaps) next.add(String(node.id))
-  })
-  multiSelectedKeys.value = next
-  const lastKey = [...next].pop()
-  if (lastKey) multiAnchor.value = lastKey
+  // 补齐最后一次指针位置，锚点落到最后一个命中的节点
+  updateMarqueeSelection()
+  if (marquee.lastHitKey) multiAnchor.value = marquee.lastHitKey
+  marquee.baseKeys = null
+  marquee.lastHitKey = null
   container.value.focus({ preventScroll: true })
 }
 
