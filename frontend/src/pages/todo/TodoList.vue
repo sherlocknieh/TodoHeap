@@ -168,7 +168,8 @@
           <AppIcon name="trash" :size="13" />
         </button>
       </div>
-      <ul v-if="showCompletedPanel" class="mt-1 space-y-1.5 pb-2">
+      <!-- 卡片左缘与待办行对齐：待办行用 22px 左内距给折叠开关留位，已完成行没有开关但保留同一缩进 -->
+      <ul v-if="showCompletedPanel" class="mt-1 space-y-1.5 pb-2 pl-[22px]">
         <li v-for="t in completedTodos" :key="t.id" data-task-item @click="handleTaskSelected(t.id)" :class="[
           'group flex cursor-pointer items-center gap-2.5 rounded-lg text-sm transition-[border-color,box-shadow]',
           props.selectedTaskId === t.id

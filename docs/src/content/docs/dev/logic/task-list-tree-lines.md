@@ -21,7 +21,7 @@ title: "任务表树状连线"
 
 - 缩进、连线与折叠开关共用一套尺寸：每层 `LEVEL_INDENT = 22`，竖线 `guideLeft(level) = level * 22 + GUIDE_OFFSET`（`GUIDE_OFFSET = 12`），卡片 `rowPaddingLeft(level) = guideLeft(level) + ELBOW_WIDTH`（横线 10px）。因此横线正好从竖线顶到卡片左缘，不需要读卡片的实际宽度。
 - 折叠开关（`toggleStyle`）绝对定位在 `left: guideLeft(level)`、`top: 50%`，再用 `-translate-x-1/2 -translate-y-1/2` 把自身居中：圆心就是竖线与横线的交叉点。开关用 `bg-canvas dark:bg-canvas-dark` 盖住穿过圆心的 1px 连线，看起来像一个挂在分支点上的节点。
-- 顶层（`_level === 0`）没有连线，但缩进位仍从 22px 起算；开关中心落在卡片左侧 10px，列位置与所有层级保持同一套公式。快速添加栏的 `ml-[22px]` 与之对齐。
+- 顶层（`_level === 0`）没有连线，但缩进位仍从 22px 起算；开关中心落在卡片左侧 10px，列位置与所有层级保持同一套公式。快速添加栏的 `ml-[22px]`、已完成列表的 `pl-[22px]` 都与之对齐：已完成行没有折叠开关，仍保留同一左内距，两类卡片左缘才落在同一条竖线上。
 - 行高由行内按钮决定，稳定在 42px，`top: 50%` 就是分叉点；列表间距是 6px，竖线用 `-top-1.5` / `-bottom-1.5`（即上下各探出 6px）跨过间距接上相邻行。
 - 末位的竖线用 `height: calc(50% + 6px)` 从间距顶端连到行中心；非末位用 `top/bottom: -6px` 贯穿整行。连线都是 `pointer-events-none` 的 1px 绝对定位块（`itemGuideStyle`、`elbowStyle`），不占布局，也不会挡住行点击、悬停与拖拽。
 - 颜色沿用 `hairline` 令牌（`bg-hairline/70 dark:bg-hairline-dark/70`），与卡片描边同族，深浅主题都不需要单独开关。
