@@ -229,6 +229,25 @@
          右栏浮起时按面板宽度左移，避免盖住按钮 -->
     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" @pointerdown.stop
       @keydown.stop @keydown.escape.stop="helpOpen = false">
+      <!-- 「缩放控件/百分比」：− | 100% | + 分段胶囊，百分比实时读 view.scale，点数字回到 100% -->
+      <div
+        class="flex items-stretch overflow-hidden rounded border border-hairline bg-white text-neutral-500 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-400">
+        <button type="button" title="缩小" aria-label="缩小"
+          class="flex items-center px-2 transition-colors hover:bg-neutral-50 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+          @click.stop="zoomOut">
+          <AppIcon name="minus" :size="14" />
+        </button>
+        <button type="button" title="重置为 100%" aria-label="重置为 100%"
+          class="flex min-w-[3.25rem] items-center justify-center border-x border-hairline px-2 py-1.5 text-xs tabular-nums transition-colors hover:bg-neutral-50 hover:text-neutral-900 dark:border-hairline-dark dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+          @click.stop="resetZoom">
+          {{ zoomPercent }}%
+        </button>
+        <button type="button" title="放大" aria-label="放大"
+          class="flex items-center px-2 transition-colors hover:bg-neutral-50 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+          @click.stop="zoomIn">
+          <AppIcon name="plus" :size="14" />
+        </button>
+      </div>
       <button
         class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         :title="allExpanded ? '收起全部' : '展开全部'" @click.stop="toggleAllCollapse">
@@ -1343,6 +1362,35 @@ const fitView = () => {
     y: (size.height - contentHeight * scale) / 2 - minY * scale
   })
 }
+
+// 缩放控件：加减按 1.2 倍等比，围绕画布可见区中心缩放，右栏盖住的部分不作中心；
+// 范围与滚轮一致（0.15~2.5），手动缩放即离开三栏视野，并记住新视口
+const ZOOM_STEP = 1.2
+const ZOOM_MIN = 0.15
+const ZOOM_MAX = 2.5
+const zoomPercent = computed(() => Math.round(view.scale * 100))
+
+const zoomTo = (nextScale) => {
+  if (!size.width || !size.height) return
+  const target = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, nextScale))
+  if (Math.abs(target - view.scale) < 0.001) return
+  columnFocus.value = false
+  hasInteracted = true
+  closeNodeMenu()
+  // 锚点下的世界坐标保持不动：按新旧比例反算平移
+  const anchorX = visibleWidth.value / 2
+  const anchorY = size.height / 2
+  const ratio = target / view.scale
+  animateView({
+    x: anchorX - (anchorX - view.x) * ratio,
+    y: anchorY - (anchorY - view.y) * ratio,
+    scale: target
+  }, 180)
+}
+
+const zoomIn = () => zoomTo(view.scale * ZOOM_STEP)
+const zoomOut = () => zoomTo(view.scale / ZOOM_STEP)
+const resetZoom = () => zoomTo(1)
 
 // 折叠开关：只切换该节点的展开状态，子任务数据不受影响
 const toggleCollapse = (node) => {
