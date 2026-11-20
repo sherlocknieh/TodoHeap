@@ -368,7 +368,9 @@ const handleRowClickCapture = (event) => {
     }
   }
 
-  clearSelection()
+  // 普通点击清空选择，但记住这一行作为锚点，下一次 Shift 可直接从它连选
+  selection.value = new Set()
+  selectionAnchor.value = key
 }
 
 // 任务被删除或移入回收站后，清掉选择里已经不存在或不可选的任务

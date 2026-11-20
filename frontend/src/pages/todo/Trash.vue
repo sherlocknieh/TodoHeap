@@ -464,7 +464,9 @@ function handleRowClickCapture(event) {
     }
   }
 
-  clearSelection()
+  // 普通点击清空选择，但记住这一行作为锚点，下一次 Shift 可直接从它连选
+  selection.value = new Set()
+  selectionAnchor.value = key
 }
 
 // 回收站条目变化后清掉已恢复或已删除的选择键
