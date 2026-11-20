@@ -298,13 +298,13 @@ onBeforeUnmount(() => {
 
         <!-- 时分：仅日期时间模式；备选时间在上，输入器与清除/确定同一行 -->
         <div v-if="isDateTime" class="mt-2.5 border-t border-hairline pt-2.5 dark:border-hairline-dark">
-          <div class="flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            <AppIcon name="clock" :size="12" class="shrink-0" />
+          <div class="flex gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
             <button v-for="time in TIME_PRESETS" :key="time" type="button"
               class="flex-1 rounded-md border border-hairline py-1 text-[11px] text-neutral-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
               @click="applyTime(time)">{{ time }}</button>
           </div>
           <div class="mt-1.5 flex items-center gap-1.5">
+            <AppIcon name="clock" :size="12" class="shrink-0 text-neutral-500 dark:text-neutral-400" />
             <input :value="draftHour" type="number" min="0" max="23" aria-label="小时"
               class="field h-7 w-11 px-1 text-center text-xs" @input="setHour" />
             <span class="text-xs text-neutral-400">:</span>
