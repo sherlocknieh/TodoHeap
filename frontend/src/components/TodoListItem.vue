@@ -52,7 +52,7 @@
                 item._level === 0 ? 'font-medium' : '',
                 { 'line-through text-neutral-400 dark:text-neutral-600': item.completed_at }
               ]" @dblclick.stop="startEdit(item.id, item.title)">
-                <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1" />
+                <MiddleEllipsis :text="item.title || '未命名任务'" class="min-w-0 flex-1" :highlight="highlightQuery" />
               </span>
               <input v-else :id="'edit-input-' + item.id" v-model="editingText"
                 class="w-full bg-transparent text-sm leading-5 text-neutral-900 dark:text-neutral-100 outline-none"
@@ -159,6 +159,8 @@ const props = defineProps({
   parentId: { type: [Number, String], default: null },
   // 搜索时忽略折叠，命中行的祖先链始终展开
   ignoreCollapse: { type: Boolean, default: false },
+  // 搜索高亮：把命中的搜索词标在标题里
+  highlightQuery: { type: String, default: '' },
   // 新建任务后由上层请求打开行内编辑：带着任务 ID，只有包含该行的实例响应
   editRequest: { type: Object, default: null }
 })

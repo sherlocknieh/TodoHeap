@@ -1,8 +1,10 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
-  text: { type: String, default: '' }
+  text: { type: String, default: '' },
+  // 搜索高亮：命中片段用强调色标出；只作用于截断后仍可见的部分
+  highlight: { type: String, default: '' }
 })
 
 const root = ref(null)
@@ -70,9 +72,36 @@ onBeforeUnmount(() => {
 })
 
 watch(() => props.text, fit)
+
+// 把截断后的文本按命中词切成片段，供模板逐段标色
+const segments = computed(() => {
+  const keyword = String(props.highlight || '').trim()
+  const value = display.value
+  if (!keyword) return [{ text: value, hit: false }]
+
+  const lowerValue = value.toLowerCase()
+  const lowerKeyword = keyword.toLowerCase()
+  const parts = []
+  let from = 0
+  let index = lowerValue.indexOf(lowerKeyword)
+  while (index !== -1) {
+    if (index > from) parts.push({ text: value.slice(from, index), hit: false })
+    parts.push({ text: value.slice(index, index + keyword.length), hit: true })
+    from = index + keyword.length
+    index = lowerValue.indexOf(lowerKeyword, from)
+  }
+  if (from < value.length) parts.push({ text: value.slice(from), hit: false })
+  return parts
+})
 </script>
 
 <template>
-  <!-- 单行展示，超宽时保留头尾、中间省略 -->
-  <span ref="root" class="block min-w-0 truncate">{{ display }}</span>
+  <!-- 单行展示，超宽时保留头尾、中间省略；搜索命中片段加底色 -->
+  <span ref="root" class="block min-w-0 truncate">
+    <template v-for="(part, index) in segments" :key="index">
+      <span v-if="part.hit"
+        class="rounded-sm bg-accent-100 text-accent-800 dark:bg-accent-500/25 dark:text-accent-100">{{ part.text }}</span>
+      <template v-else>{{ part.text }}</template>
+    </template>
+  </span>
 </template>

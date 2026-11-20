@@ -150,6 +150,7 @@
           :edit-request="pendingEdit"
           :selected-keys="selectionKeys"
           :ignore-collapse="isSearching"
+          :highlight-query="isSearching ? searchQuery.trim() : ''"
           @toggle-done="toggleDone"
           @delete-todo="deleteTodo"
           @add-subtask="addSubtask"

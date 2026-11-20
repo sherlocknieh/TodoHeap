@@ -36,7 +36,7 @@ title: 关键词索引
 
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
-| 快速添加 / 顶部输入框 / 回车添加 / 搜索任务 / 列表搜索 / 添加框搜索 / 模式切换 / 圆钮切搜索 / 放大镜 | `pages/todo/TodoList.vue`「快速添加 / 搜索：同一个输入框复用」「模式切换」「搜索结果数」、`addMode`、`isSearching`、`displayTree`、`toggleAddMode`、`handleAddEnter`、`handleAddEsc`；`utils/taskGraph.js` `filterTasksByTitle` | 外观是一行任务：左侧圆钮在新建（+）与搜索（放大镜）之间切换，右侧新建时是日历与提交按钮；新建模式回车即存，任务挂根任务首位；搜索模式按标题过滤，命中任务连同祖先链显示、忽略折叠、不重复列回边行，回车选中第一条命中，Esc 先清空再退出搜索 |
+| 快速添加 / 顶部输入框 / 回车添加 / 搜索任务 / 列表搜索 / 添加框搜索 / 模式切换 / 圆钮切搜索 / 放大镜 / 搜索高亮 / 命中文字标色 | `pages/todo/TodoList.vue`「快速添加 / 搜索：同一个输入框复用」「模式切换」「搜索结果数」、`addMode`、`isSearching`、`displayTree`、`toggleAddMode`、`handleAddEnter`、`handleAddEsc`；`utils/taskGraph.js` `filterTasksByTitle`；`components/MiddleEllipsis.vue` `highlight`、`segments` | 外观是一行任务：左侧圆钮在新建（+）与搜索（放大镜）之间切换，右侧新建时是日历与提交按钮；新建模式回车即存，任务挂根任务首位；搜索模式按标题过滤，命中任务连同祖先链显示、忽略折叠、不重复列回边行，标题里的命中片段加底色，回车选中第一条命中，Esc 先清空再退出搜索 |
 | 新建任务排最上面 / 新任务在首位 / 最近添加先看到 | `stores/todos.optimistic.js` 的 `addTodo`；`supabase/migrations/20261118000200_create_todo_prepend.sql` | 列表入口本地与服务端都头插到父级 `child_ids`，机制与成本见[任务顺序](./logic/task-order.md) |
 | 连续添加 / 标题自动编号 / 新任务 1 / 新任务重名 / 步骤 2 变步骤 3 / (新任务) 1 / 新建子任务标题 | `pages/todo/TodoGraph.vue` `createTask`；`pages/todo/TodoList.vue` `addSubtask`；`pages/Todo.vue` `createNewTask`；`utils/taskTitle.js` `nextTaskTitle`、`childTitlesOf` | 连续新建同级任务时续参考标题末尾数字；没有数字或没有同级参考时统一用默认标题 `新任务 N`（列表子任务、任务图子级、顶栏新建一致）；机制见[任务创建逻辑](./logic/task-create.md)「连续新建时的标题编号」 |
 | 一键展开 / 一键折叠 / 全部展开全部折叠 / 没有可折叠的子任务 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 「待办」标题栏右侧的圆圈按钮，折叠的是整张列表；只统计还有未完成子任务的行，子任务全完成的任务按叶子处理，不参与整表展开/折叠 |
