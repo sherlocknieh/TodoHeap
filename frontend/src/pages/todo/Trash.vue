@@ -1,13 +1,31 @@
 <template>
-  <div class="h-full flex flex-col min-h-0" ref="trashContainerRef">
+  <div class="h-full flex flex-col min-h-0" ref="trashContainerRef" @click.capture="handleRowClickCapture">
     <!-- 页面操作：已删除数量与恢复、清空入口放进主区域顶栏 -->
     <Teleport defer to="#main-topbar-actions">
       <p class="min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
         <span class="font-mono">{{ trashTodos.length }}</span> 个已删除任务
       </p>
       <div class="flex shrink-0 items-center gap-2">
+        <!-- 「回收站多选操作」：选中多条时顶栏换成批量恢复/永久删除，优先于单条与全局操作 -->
+        <template v-if="selectionSize">
+          <span class="text-xs text-neutral-500 dark:text-neutral-400"
+            title="Ctrl/⌘ 继续选择，Shift 连选">已选
+            <span class="font-mono font-medium text-accent-700 dark:text-accent-300">{{ selectionSize }}</span> 项</span>
+          <button class="btn-secondary" @click="restoreSelectedTodos">
+            <AppIcon name="undo" :size="14" />
+            <span>恢复</span>
+          </button>
+          <button class="btn-danger" @click="handlePermanentDeleteSelected">
+            <AppIcon name="trash" :size="14" />
+            <span>永久删除</span>
+          </button>
+          <button class="btn-secondary" @click="clearSelection">
+            <AppIcon name="close" :size="14" />
+            <span>取消</span>
+          </button>
+        </template>
         <!-- 选中任务时只针对该任务操作 -->
-        <template v-if="props.selectedTaskId != null">
+        <template v-else-if="props.selectedTaskId != null">
           <button class="btn-secondary" @click="handleRestoreWithCheck(props.selectedTaskId)">
             <AppIcon name="undo" :size="14" />
             <span>恢复</span>
@@ -51,7 +69,7 @@
           class="group cursor-pointer" :style="{ paddingLeft: (4 + item._level * 22) + 'px' }" @click="selectTask(item.id)">
           <!-- 缩进留在外层，行内容单独成块；选中与任务添加栏一样只换边框色和投影 -->
           <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]" :class="[
-            selectedTaskId === item.id
+            isRowSelected(item.id)
               ? 'border border-accent-500 bg-surface py-2.5 pl-2 pr-3 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
               : 'border border-hairline bg-surface py-2.5 pl-2 pr-3 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
           ]">
@@ -249,6 +267,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import { useTodoStore } from '@/stores/todos'
 import { useScrollMemory } from '@/utils/uiState'
 import { isTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
+import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 
 const props = defineProps({
   selectedTaskId: {
@@ -390,6 +409,133 @@ onMounted(async () => {
 // 选择任务
 function selectTask(id) {
   emit('task-selected', id)
+}
+
+// 多选：与任务表共用一套键与连选规则；选中后顶栏换成批量操作
+const selection = ref(new Set())
+const selectionAnchor = ref(null)
+const selectionSize = computed(() => selection.value.size)
+const isRowSelected = (id) => props.selectedTaskId === id || selection.value.has(String(id))
+const clearSelection = () => {
+  selection.value = new Set()
+  selectionAnchor.value = null
+}
+
+// 只移除指定键，批量操作后保留其余选择
+function removeSelection(keys) {
+  if (!keys.length) return
+  const next = new Set(selection.value)
+  keys.forEach(key => next.delete(key))
+  selection.value = next
+  if (selectionAnchor.value && keys.includes(selectionAnchor.value)) selectionAnchor.value = null
+}
+
+// Ctrl/⌘ 切换、Shift 按可见行连选；普通点击清空选择后照常选中任务
+function handleRowClickCapture(event) {
+  const row = event.target.closest?.('[data-task-item]')
+  if (!row) return
+  const key = row.dataset.taskId ? String(row.dataset.taskId) : ''
+  if (!key) return
+  // 行内的恢复/删除按钮优先，不让多选拦截
+  if (event.target.closest('button, input, select, textarea, a, label')) return
+
+  if (event.metaKey || event.ctrlKey) {
+    event.preventDefault()
+    event.stopPropagation()
+    selection.value = toggleSelection(selection.value, key)
+    selectionAnchor.value = key
+    return
+  }
+
+  if (event.shiftKey && selectionAnchor.value) {
+    const container = trashContainerRef.value
+    const keys = container
+      ? [...container.querySelectorAll('[data-task-item]')].map(el => String(el.dataset.taskId))
+      : []
+    // 锚点被折叠隐藏时按普通点击处理
+    if (keys.includes(selectionAnchor.value)) {
+      event.preventDefault()
+      event.stopPropagation()
+      selection.value = selectRange(selection.value, keys, selectionAnchor.value, key)
+      return
+    }
+  }
+
+  clearSelection()
+}
+
+// 回收站条目变化后清掉已恢复或已删除的选择键
+watch(trashTodos, (items) => {
+  const available = new Set(items.map(todo => String(todo.id)))
+  selection.value = pruneSelection(selection.value, available)
+  if (selectionAnchor.value && !available.has(selectionAnchor.value)) selectionAnchor.value = null
+})
+
+// 批量恢复按树的从上到下顺序：父任务先恢复，子任务随后就能正常恢复
+function selectedInTreeOrder() {
+  const seen = new Set()
+  return flatTrashList.value
+    .filter(item => !item._isRef && selection.value.has(String(item.id)))
+    .map(item => item.id)
+    .filter((id) => {
+      const key = String(id)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
+// 批量恢复：父级仍在回收站的任务恢复到根节点，其余按常规恢复
+async function restoreSelectedTodos() {
+  const ids = selectedInTreeOrder()
+  clearSelection()
+  const failures = []
+
+  for (const id of ids) {
+    if (!trashTodos.value.some(todo => todo.id === id)) continue
+    const check = todoStore.canRestoreTodo(id)
+    let result
+    if (check.canRestore) {
+      result = await todoStore.restoreTodo(id)
+    } else if (check.parentId != null) {
+      result = await todoStore.restoreTodoToRoot(id)
+    } else {
+      result = { success: false, error: check.reason }
+    }
+    if (!result.success) failures.push(result.error)
+  }
+
+  if (failures.length) alert(`部分任务恢复失败：${failures[0]}`)
+}
+
+// 批量永久删除：先确认，再逐棵删除；已被祖先带走的任务自动跳过
+function handlePermanentDeleteSelected() {
+  const ids = selectedInTreeOrder()
+  if (!ids.length) return
+
+  // 父子同时选中时子任务只算一次，避免重复计数
+  const allIds = new Set(ids.map(String))
+  ids.forEach((id) => {
+    todoStore.findTrashDescendantIds(id).forEach(childId => allIds.add(String(childId)))
+  })
+  const extraCount = allIds.size - ids.length
+
+  confirmTitle.value = '永久删除'
+  confirmMessage.value = `此操作不可恢复，确定要永久删除选中的 ${ids.length} 个任务吗？`
+  confirmSubMessage.value = extraCount > 0 ? `将同时删除 ${extraCount} 个子任务` : ''
+  confirmButtonText.value = '删除'
+  confirmButtonClass.value = 'btn-danger'
+  pendingAction.value = async () => {
+    const failures = []
+    for (const id of ids) {
+      if (!trashTodos.value.some(todo => todo.id === id)) continue
+      const result = await todoStore.permanentDeleteTodo(id)
+      if (!result.success) failures.push(result.error)
+    }
+    clearSelection()
+    if (failures.length) alert(`部分任务删除失败：${failures[0]}`)
+  }
+  showConfirmModal.value = true
 }
 
 // 恢复任务（带检查）

@@ -481,6 +481,46 @@ export const createTodoOptimisticActions = ({
     return { success: true, data: restoredTodo }
   }
 
+  // 恢复到根节点：父任务还在回收站时，先断开这些父链接，再把任务挂到根任务下
+  // 回收站批量恢复使用；正常恢复仍走 restoreTodo
+  const restoreTodoToRoot = async (id) => {
+    const syncQueue = getSyncQueue()
+    const todo = trashTodosRef.value.find(t => t.id === id)
+    if (!todo) return { success: false, error: '任务不存在' }
+
+    // 1. 断开仍在回收站的父级，整数组重写父级 child_ids
+    const trashedParentIds = findParentIds(trashTodosRef.value, id)
+    for (const parentId of trashedParentIds) {
+      const parent = trashTodosRef.value.find(t => t.id === parentId)
+      if (!parent) continue
+      const nextChildIds = (parent.child_ids || []).filter(childId => childId !== id)
+      parent.child_ids = nextChildIds
+      await syncQueue.enqueue({
+        type: OperationType.UPDATE,
+        targetId: parentId,
+        payload: { child_ids: nextChildIds }
+      })
+    }
+
+    // 2. 没有活动父级时补挂到根任务，确保恢复后能在任务表里找到
+    const rootTaskId = todosRef.value.find(t => t.is_root)?.id ?? null
+    const hasLiveParent = findParentIds(todosRef.value, id).length > 0
+    if (!hasLiveParent && rootTaskId != null) {
+      const root = todosRef.value.find(t => t.id === rootTaskId)
+      const rootChildIds = [...(root?.child_ids || [])]
+      if (!rootChildIds.includes(id)) {
+        if (root) root.child_ids = [...rootChildIds, id]
+        await syncQueue.enqueue({
+          type: OperationType.UPDATE,
+          targetId: rootTaskId,
+          payload: { child_ids: [...rootChildIds, id] }
+        })
+      }
+    }
+
+    return restoreTodo(id)
+  }
+
   const permanentDeleteTodo = async (id) => {
     const syncQueue = getSyncQueue()
 
@@ -591,6 +631,7 @@ export const createTodoOptimisticActions = ({
     deleteTodo,
     deleteCompletedTodos,
     restoreTodo,
+    restoreTodoToRoot,
     permanentDeleteTodo,
     emptyTrash,
     restoreAllTrash,

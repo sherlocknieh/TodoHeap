@@ -121,7 +121,8 @@ title: 关键词索引
 | --- | --- | --- |
 | 恢复 / 恢复全部 / 撤销删除 | `pages/todo/Trash.vue` `handleRestoreWithCheck`、`restoreAllTrash` | 单条恢复会连带子任务 |
 | 永久删除 / 彻底删除 / 清空回收站 | `pages/todo/Trash.vue` `handlePermanentDelete`；`stores/todos.js` | 不可恢复，操作前二次确认 |
-| 无法恢复 / 父任务限制 / 越级删除 | `pages/todo/Trash.vue`「恢复限制提示」、`blockedParentId` | 父任务也在回收站时，先恢复父任务 |
+| 无法恢复 / 父任务限制 / 越级删除 / 恢复到根节点 | `pages/todo/Trash.vue`「恢复限制提示」、`blockedParentId`；`stores/todos.optimistic.js` `restoreTodoToRoot` | 单条恢复遇到父任务也在回收站时先提示恢复父任务；批量恢复则自动把该任务恢复到根节点 |
+| 回收站多选 / 批量恢复 / 批量永久删除 / 回收站 Ctrl 选择 | `pages/todo/Trash.vue`「回收站多选操作」、`handleRowClickCapture`、`restoreSelectedTodos`、`handlePermanentDeleteSelected`；`utils/taskSelection.js` | Ctrl/⌘ 切换、Shift 按可见行连选，操作出现在顶栏；批量恢复按树的从上到下顺序，父任务先恢复；批量永久删除先二次确认，机制见[任务多选](./logic/task-multi-select.md) |
 | 已删除任务的详情 / 灰掉只读 | `components/TodoDetailEditor.vue`「已删除任务时整个面板显示禁用光标」 | 已删除内容不可编辑 |
 
 ## 设置

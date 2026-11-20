@@ -356,6 +356,53 @@ describe('createTodoOptimisticActions', () => {
     }))
   })
 
+  it('restoreTodoToRoot 父任务仍在回收站时断开父链接并挂到根任务', async () => {
+    todosRef.value = [
+      { id: 1, title: '根任务', is_root: true, child_ids: [], deleted_at: null }
+    ]
+    trashTodosRef.value = [
+      { id: 5, title: '回收站父任务', child_ids: [10], deleted_at: '2026-01-01T00:00:00.000Z' },
+      { id: 10, title: '待恢复任务', child_ids: [], deleted_at: '2026-01-01T00:00:00.000Z' }
+    ]
+
+    const result = await actions.restoreTodoToRoot(10)
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value.map(item => item.id).sort()).toEqual([1, 10])
+    expect(todosRef.value.find(item => item.id === 10).deleted_at).toBe(null)
+    expect(todosRef.value.find(item => item.id === 1).child_ids).toEqual([10])
+    expect(trashTodosRef.value.find(item => item.id === 5).child_ids).toEqual([])
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.UPDATE,
+      targetId: 5,
+      payload: { child_ids: [] }
+    }))
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.RESTORE,
+      targetId: 10
+    }))
+  })
+
+  it('restoreTodoToRoot 有活动父级时保持原父级，不重复挂到根任务', async () => {
+    todosRef.value = [
+      { id: 1, title: '根任务', is_root: true, child_ids: [], deleted_at: null },
+      { id: 5, title: '活动父任务', child_ids: [10], deleted_at: null }
+    ]
+    trashTodosRef.value = [
+      { id: 10, title: '待恢复任务', child_ids: [], deleted_at: '2026-01-01T00:00:00.000Z' }
+    ]
+
+    const result = await actions.restoreTodoToRoot(10)
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value.find(item => item.id === 1).child_ids).toEqual([])
+    expect(syncQueue.enqueue).not.toHaveBeenCalledWith(expect.objectContaining({ targetId: 1 }))
+    expect(syncQueue.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      type: OperationType.RESTORE,
+      targetId: 10
+    }))
+  })
+
   it('permanentDeleteTodo 多父共享子任务应保留在回收站', async () => {
     todosRef.value = [
       { id: 2, title: '活动父', child_ids: [3], deleted_at: null }
