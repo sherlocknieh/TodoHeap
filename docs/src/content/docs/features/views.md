@@ -10,7 +10,7 @@ title: "视图与交互"
 ### 布局
 
 - 只有两种横向布局：从左到右、从右到左。工具栏方向按钮在两者间轮换，选择存本地（`directionOptions`、`cycleDirection`、`persistedRef('mindmap-direction')`）。
-- 布局模式在右下角视图控件里轮换：紧凑布局（默认）、标准布局、平衡布局，选择存本地（`layoutModeOptions`、`cycleLayoutMode`、`persistedRef('mindmap-layout-mode')`）。三种模式共用渲染层，算法在 `utils/mindmapLayout.js`，机制见[任务图布局逻辑](../dev/logic/mindmap-layout.md)。
+- 布局模式在右下角视图控件里轮换：紧凑布局（默认）、标准布局、平衡布局，按钮同时显示图标与模式名（紧凑 / 标准 / 平衡），选择存本地（`layoutModeOptions`、`cycleLayoutMode`、`persistedRef('mindmap-layout-mode')`）。三种模式共用渲染层，算法在 `utils/mindmapLayout.js`，机制见[任务图布局逻辑](../dev/logic/mindmap-layout.md)。
 - `computeGraphLayout` 先按折叠状态求出可见图，再用 Tarjan 缩点与最长路径分层；根节点钉在坐标原点，展开或折叠其它节点时根节点在画布上不动。
 - 紧凑布局分三步：先按树边排版（子树块留位、父节点居中于树子节点带），再把多父节点放到所有父级中心的平均位置（高权重，邻居让位），最后交替收敛、按真实节点边缘回收空白，最长连线与分支间距明显缩短。
 - 平衡布局以标准布局（兄弟块完全压紧）打底，再做 3 轮有界父子吸引（单轮 ≤120px），高度约降 25%、父节点居中略松，适合长分支较多时使用。
