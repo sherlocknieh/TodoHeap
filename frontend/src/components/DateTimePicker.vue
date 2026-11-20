@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
               <AppIcon name="clock" :size="12" />
             </button>
             <div
-              class="flex items-center rounded-md border border-hairline bg-input dark:border-hairline-dark dark:bg-input-dark">
+              class="flex items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
                 class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
@@ -370,7 +370,7 @@ onBeforeUnmount(() => {
             </div>
             <span class="text-xs text-neutral-400">:</span>
             <div
-              class="flex items-center rounded-md border border-hairline bg-input dark:border-hairline-dark dark:bg-input-dark">
+              class="flex items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
                 class="grid h-7 w-4 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
