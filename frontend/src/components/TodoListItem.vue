@@ -175,6 +175,8 @@ const emitDeleteTodo = (id) => emit('delete-todo', id)
 // 回边行没有真实父节点，用渲染它的节点作为父级解除引用
 const emitUnlink = (item) => emit('unlink-task', { parentId: item.parent_id, childId: item._refTargetId })
 const emitAddSubtask = (parentId) => {
+  // 正在给这一行改名时先提交草稿，再新增子任务，避免切换编辑目标时丢掉刚输入的名字
+  if (editingId.value === parentId) finishEdit(parentId, 'enter')
   setTaskCollapsed(parentId, false)
   emit('add-subtask', parentId, startEdit)
 }
@@ -285,7 +287,6 @@ const toggleExpand = (item) => {
 
 const editingId = ref(null)
 const editingText = ref('')
-const suppressBlurOnceForId = ref(null)
 
 // 两状态复选框状态映射：'unchecked' | 'checked'
 const statusMap = ref({})
@@ -477,7 +478,6 @@ const handleIdReplaced = (event) => {
     // 记下换号前的位置, 换号后原位恢复; 不能全选, 否则下一次按键会把已输入内容覆盖掉
     const current = document.getElementById('edit-input-' + tempId)
     const selection = current ? [current.selectionStart, current.selectionEnd] : null
-    suppressBlurOnceForId.value = realId
     editingId.value = realId
     nextTick(() => {
       const input = document.getElementById('edit-input-' + realId)
@@ -506,12 +506,6 @@ function startEdit(id, title) {
 function finishEdit(id, source = 'enter') {
   // 忽略过期输入框触发的 blur（例如 tempId -> realId 切换后）
   if (editingId.value != id) {
-    return
-  }
-
-  // 仅忽略一次由 ID 替换引发的 blur，回车提交不应被吞掉
-  if (source === 'blur' && suppressBlurOnceForId.value == id) {
-    suppressBlurOnceForId.value = null
     return
   }
 
