@@ -21,7 +21,7 @@ import {
 import Settings from '@/pages/todo/Settings.vue'
 import { settingsPanelOpen, isValidSettingsTab } from '@/utils/settingsPanel'
 import { persistedRef, useScrollMemory, SIDEBAR_FLOAT_BREAKPOINT } from '@/utils/uiState'
-import { THEME_KEY, THEME_MODES, THEME_OPTIONS } from '@/utils/theme'
+import { THEME_KEY, THEME_MODES, THEME_OPTIONS, normalizeThemeMode } from '@/utils/theme'
 import logoSrc from '@/assets/logo.svg'
 
 // 应用挂在 /TodoHeap/app/，站点首页在去掉 app/ 后的根路径
@@ -46,7 +46,7 @@ const themeMode = persistedRef(THEME_KEY, 'auto', {
 const themeMenuRef = ref(null)
 const showThemeMenu = ref(false)
 const currentThemeOption = computed(
-	() => THEME_OPTIONS.find((option) => option.value === themeMode.value) || THEME_OPTIONS[0]
+	() => THEME_OPTIONS.find((option) => option.value === normalizeThemeMode(themeMode.value)) || THEME_OPTIONS[0]
 )
 const themeToggleLabel = computed(() => `主题：${currentThemeOption.value.label}`)
 const openThemeMenu = () => {
@@ -652,7 +652,7 @@ const runToastAction = async () => {
 										class="panel shadow-lg py-1 overflow-hidden">
 										<button v-for="option in THEME_OPTIONS" :key="option.value" type="button"
 											role="radio" :aria-checked="themeMode === option.value"
-											class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm transition-colors"
+											class="w-full px-2.5 py-1.5 flex items-center justify-center gap-2 text-sm transition-colors"
 											:class="themeMode === option.value
 												? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
 												: 'text-neutral-700 hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10'"

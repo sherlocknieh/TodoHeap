@@ -3,10 +3,11 @@ import { readUiState, UI_STATE_CHANGE_EVENT } from '@/utils/uiState'
 
 export const THEME_KEY = 'theme'
 export const THEME_MODES = ['auto', 'light', 'dark']
+// 菜单顺序：具体主题在前，自动（跟随系统）排最后
 export const THEME_OPTIONS = [
-  { value: 'auto', label: '自动', icon: 'sunMoon' },
   { value: 'light', label: '浅色', icon: 'sun' },
-  { value: 'dark', label: '深色', icon: 'moon' }
+  { value: 'dark', label: '深色', icon: 'moon' },
+  { value: 'auto', label: '自动', icon: 'sunMoon' }
 ]
 
 export const normalizeThemeMode = (value) => (THEME_MODES.includes(value) ? value : 'auto')
