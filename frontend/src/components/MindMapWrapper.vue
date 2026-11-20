@@ -266,8 +266,8 @@
 
     <!-- 视图控件：布局方向切换、适应视图与操作提示，提示收进按钮浮层以免遮挡画布；
          右栏浮起时按面板宽度左移，避免盖住按钮 -->
-    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" @pointerdown.stop
-      @keydown.stop @keydown.escape.stop="helpOpen = false">
+    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1" :style="controlsStyle" data-mm-view-controls
+      @pointerdown.stop @keydown.stop @keydown.escape.stop="helpOpen = false">
       <!-- 「缩放控件/百分比」：− | 100% | + 分段胶囊，百分比实时读 view.scale，点数字回到 100% -->
       <div
         class="flex items-stretch overflow-hidden rounded border border-hairline bg-white text-neutral-500 dark:border-hairline-dark dark:bg-neutral-900 dark:text-neutral-400">
@@ -2396,9 +2396,12 @@ const onWheel = (event) => {
   // 行模式滚轮（部分鼠标/触控板）的 delta 单位是行，换算成像素
   const unit = event.deltaMode === 1 ? 16 : 1
 
+  // 指针停在右下角视图控件上时按缩放处理（与 ± 按钮一致，围绕可见区中心）；
   // Ctrl/Cmd + 滚轮在任意位置缩放（触控板双指捏合也会带上 ctrlKey），
   // 其余位置沿用「选中项上缩放、空白处平移」的既有手势
-  if (event.ctrlKey || event.metaKey) {
+  const onControls = event.target instanceof Element
+    && !!event.target.closest('[data-mm-view-controls]')
+  if (event.ctrlKey || event.metaKey || onControls) {
     wheelMode = 'zoom'
   } else if (wheelMode === null) {
     wheelMode = isOnSelection(event.target) ? 'zoom' : 'pan'
@@ -2414,10 +2417,10 @@ const onWheel = (event) => {
     return
   }
 
-  // 以指针位置为中心缩放，避免缩放后视线漂移
+  // 以指针位置为中心缩放，避免缩放后视线漂移；在视图控件上则围绕可见区中心缩放
   const rect = el.getBoundingClientRect()
-  const pointerX = event.clientX - rect.left
-  const pointerY = event.clientY - rect.top
+  const pointerX = onControls ? visibleWidth.value / 2 : event.clientX - rect.left
+  const pointerY = onControls ? size.height / 2 : event.clientY - rect.top
   const nextScale = Math.min(2.5, Math.max(0.15, view.scale * Math.exp(-event.deltaY * unit * 0.0015)))
   const ratio = nextScale / view.scale
 
