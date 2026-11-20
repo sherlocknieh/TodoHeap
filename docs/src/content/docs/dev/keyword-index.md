@@ -40,11 +40,11 @@ title: 关键词索引
 | 新建任务排最上面 / 新任务在首位 / 最近添加先看到 | `stores/todos.optimistic.js` 的 `addTodo`；`supabase/migrations/20261118000200_create_todo_prepend.sql` | 列表入口本地与服务端都头插到父级 `child_ids`，机制与成本见[任务顺序](./logic/task-order.md) |
 | 一键展开 / 一键折叠 / 全部展开全部折叠 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 快速添加栏上的圆圈按钮，折叠的是整张列表 |
 | 添加时设截止时间 / 先选日期再添加 | `pages/todo/TodoList.vue` `newTaskDeadline`、`toggleAddDeadlineMenu` | 选中后变成任务行同款截止标签，随任务一起创建 |
-| 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `rowPaddingLeft`、`LEVEL_INDENT` | 层级来自树展开，缩进是纯展示 |
+| 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `rowPaddingLeft`、`LEVEL_INDENT` | 层级来自树展开，缩进是纯展示；每层 28px（横线 10 + 勾选圈圆心内距 18） |
 | 折叠按钮 / 圆圈加减号 / 按钮在任务前面 / 开关对准树线交叉点 | `components/TodoListItem.vue` `toggleStyle`、`toggleExpand`；`utils/taskCollapse.js` | 按钮在卡片左侧，圆心落在竖线与横线的交叉点；圆圈内 +/−，折叠状态列表、图、回收站共享 |
 | 复选框 / 打勾 / 完成 / 取消完成 | `components/TodoListItem.vue` `cycleStatus` | 完成判定看 `completed_at` 是否为空 |
 | 圆形勾选圈 / 完成圈变圆 / 方框是选择 | `components/TodoListItem.vue` 模板内完成按钮与 `selectionMode` 分支 | 圆形表示完成状态，方形只在多选模式出现，形状即语义 |
-| 缩进引导线 / 层级竖线 / 子任务连到父级 / 树状连线 / 分支线 / 末位收角 | `components/TodoListItem.vue`「树状连线」、`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle` | 每层一条竖线，祖先有后续兄弟时贯穿整行；末位兄弟在行中心收成 └ 角并横接到卡片左缘。只为看清层级，不参与拖拽；机制见[任务表树状连线](./logic/task-list-tree-lines.md) |
+| 缩进引导线 / 层级竖线 / 子任务连到父级 / 树状连线 / 分支线 / 末位收角 / 竖线没对准勾选圈 / 连线应该从勾选圈下来 | `components/TodoListItem.vue`「树状连线」、`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle` | 每层一条竖线，`LEVEL_INDENT = 28`：竖线 x 正好是上一级勾选圈圆心，横线再从竖线接到卡片左缘；祖先有后续兄弟时贯穿整行，末位兄弟在行中心收成 └ 角。只为看清层级，不参与拖拽；机制见[任务表树状连线](./logic/task-list-tree-lines.md) |
 | 截止标签变色 / 逾期红 / 今天绿 | `components/TodoListItem.vue` `deadlineChipClass` | 逾期红、当天绿、以后中性；未设截止时只显示日历图标按钮 |
 | 两态完成 / 点了变完成又变灰 | `components/TodoListItem.vue` `statusMap` | 行内先给即时反馈，再落库 |
 | 多选 / 批量操作 / 选择模式 | `pages/todo/TodoList.vue` `toggleSelectionMode`、`batchSetCompleted`；`components/TodoListItem.vue` `selectionMode` | 多选时复选框替换完成状态与行内操作 |

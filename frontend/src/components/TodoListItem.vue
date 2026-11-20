@@ -230,12 +230,13 @@ const isItemVisible = (item) => {
   return true
 }
 
-// 缩进、树状连线与折叠开关共用同一套几何：每层 22px。
-// 竖线（也是折叠开关中心）比缩进位右移 12px，卡片再从竖线右移 10px，
-// 于是开关正好落在竖线与横线的交叉点上，且不压住卡片。
-const LEVEL_INDENT = 22
-const GUIDE_OFFSET = 12
+// 缩进、树状连线与折叠开关共用同一套几何。
+// 竖线落在「上一级勾选圈圆心」：卡片在竖线右侧 ELBOW_WIDTH(10px)，卡片左缘到勾选圈圆心 18px
+// （边框 1 + 左内距 8 + 半径 9），所以每层缩进 = 10 + 18 = 28。横线因此总能从竖线顶到卡片左缘。
 const ELBOW_WIDTH = 10
+const CHECKBOX_CENTER_INSET = 18
+const LEVEL_INDENT = ELBOW_WIDTH + CHECKBOX_CENTER_INSET
+const GUIDE_OFFSET = 12
 const guideLeft = (level) => level * LEVEL_INDENT + GUIDE_OFFSET
 const rowPaddingLeft = (level) => guideLeft(level) + ELBOW_WIDTH
 
