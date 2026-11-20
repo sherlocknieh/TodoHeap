@@ -66,6 +66,7 @@ title: "视图与交互"
 - 行卡片使用 `rounded-lg` 与较轻阴影；选中行沿用侧栏激活样式：绿色浅底、绿色文字、左缘 2px 实线，选中态与普通行共用同一组阴影值，切换时不跳动。
 - 完成状态为圆形勾选圈；未设截止时只显示日历按钮，已设时按剩余天数分级着色：逾期红、3 天内橙、7 天内黄、更远蓝色，与任务图紧急度同一色系（`deadlineChipClass`）。
 - 截止时间入口直接展开自建月历面板：预设今天、明天、一周后与清除都在面板内，支持键盘与快捷时间点，替换了原生 `datetime-local`（`DateTimePicker.vue`，机制见[日期时间选择器](../dev/logic/date-time-picker.md)）。
+- 行卡片左侧的圆形 +/− 只在存在未完成子任务时显示：子任务全部完成时该行按叶子任务处理，开关消失；整表展开/折叠按钮同样只统计还有未完成子任务的行（`TodoListItem.vue` `hasActiveChildren`、`TodoList.vue` `foldableTasks`）。
 - 子任务按层级画树状连线：每层一条竖线，祖先层仍有后续兄弟时竖线贯穿整行，末位兄弟在行中心收成 └ 角并横接到卡片左缘；折叠或完成后连线随可见行重算（`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle`，机制见[任务表树状连线](../dev/logic/task-list-tree-lines.md)）。
 - 有子任务的行在卡片左侧放圆圈 +/− 折叠开关，开关中心正好落在树状连线的交叉点上；顶层行没有连线，开关仍停在卡片前的同一列，快速添加栏与卡片左缘对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
 - 单选待办任务后可用键盘新建：Tab 建子级（追加到同级末尾）、Enter 建兄弟（落在当前行之后）；焦点在输入框、按钮或菜单里时不抢键，多选与已完成行不触发。新任务自动选中并进入行内编辑（`TodoList.vue` `handleListKeydown`、`addSubtask`、`createSibling`、`pendingEdit`；`TodoListItem.vue` `editRequest`）。

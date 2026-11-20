@@ -291,7 +291,8 @@ const foldableTasks = computed(() => {
   const list = []
   const walk = (nodes, level) => nodes.forEach((node) => {
     if (node._isRef) return
-    if (node.children && node.children.length) list.push({ id: node.id, level })
+    // 子任务全部完成时按叶子处理，不计入「展开/折叠全部」
+    if (node.children?.some((child) => !child.completed_at)) list.push({ id: node.id, level })
     walk(node.children || [], level + 1)
   })
   walk(sortedTree.value, 0)

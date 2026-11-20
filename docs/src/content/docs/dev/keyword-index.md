@@ -39,7 +39,8 @@ title: 关键词索引
 | 快速添加 / 顶部输入框 / 回车添加 | `pages/todo/TodoList.vue`「快速添加：外观对齐任务行」 | 外观是一行任务：左侧虚线圈、右侧折叠开关与日历按钮；整行可聚焦，回车即存，新任务挂根任务首位 |
 | 新建任务排最上面 / 新任务在首位 / 最近添加先看到 | `stores/todos.optimistic.js` 的 `addTodo`；`supabase/migrations/20261118000200_create_todo_prepend.sql` | 列表入口本地与服务端都头插到父级 `child_ids`，机制与成本见[任务顺序](./logic/task-order.md) |
 | 连续添加 / 标题自动编号 / 新任务 1 / 新任务重名 / 步骤 2 变步骤 3 / (新任务) 1 / 新建子任务标题 | `pages/todo/TodoGraph.vue` `createTask`；`pages/todo/TodoList.vue` `addSubtask`；`pages/Todo.vue` `createNewTask`；`utils/taskTitle.js` `nextTaskTitle`、`childTitlesOf` | 连续新建同级任务时续参考标题末尾数字；没有数字或没有同级参考时统一用默认标题 `新任务 N`（列表子任务、任务图子级、顶栏新建一致）；机制见[任务创建逻辑](./logic/task-create.md)「连续新建时的标题编号」 |
-| 一键展开 / 一键折叠 / 全部展开全部折叠 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 「待办」标题栏右侧的圆圈按钮，折叠的是整张列表 |
+| 一键展开 / 一键折叠 / 全部展开全部折叠 / 没有可折叠的子任务 | `pages/todo/TodoList.vue` `foldableTasks`、`allCollapsed`、`toggleAllCollapsed` | 「待办」标题栏右侧的圆圈按钮，折叠的是整张列表；只统计还有未完成子任务的行，子任务全完成的任务按叶子处理，不参与整表展开/折叠 |
+| 折叠开关 / 加号减号 / 展开按钮消失 / 子任务都完成 / 没有可展开的子任务 / 叶子任务 | `components/TodoListItem.vue` `hasActiveChildren`、`isTaskDone` | 任务行左侧的圆形 +/− 只在存在未完成子任务时出现；子任务全部完成时按叶子任务处理，开关消失 |
 | 添加时设截止时间 / 先选日期再添加 | `pages/todo/TodoList.vue` `newTaskDeadline`、`toggleAddDeadlineMenu` | 选中后变成任务行同款截止标签，随任务一起创建 |
 | 缩进 / 层级 / 子任务往里缩 | `components/TodoListItem.vue` `rowPaddingLeft`、`LEVEL_INDENT` | 层级来自树展开，缩进是纯展示；每层 28px（横线 10 + 勾选圈圆心内距 18） |
 | 折叠按钮 / 圆圈加减号 / 按钮在任务前面 / 开关对准树线交叉点 | `components/TodoListItem.vue` `toggleStyle`、`toggleExpand`；`utils/taskCollapse.js` | 按钮在卡片左侧，圆心落在竖线与横线的交叉点；圆圈内 +/−，折叠状态列表、图、回收站共享 |

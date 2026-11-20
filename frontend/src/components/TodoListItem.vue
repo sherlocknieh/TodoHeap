@@ -21,7 +21,7 @@
           class="pointer-events-none absolute h-px bg-hairline/70 dark:bg-hairline-dark/70"
           :style="elbowStyle(item)"></span>
         <!-- 折叠开关：中心落在连线交叉点上，位于任务卡片之前；底色盖住穿过圆心的连线 -->
-        <button v-if="item.children && item.children.length" type="button"
+        <button v-if="hasActiveChildren(item)" type="button"
           class="absolute z-10 grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-neutral-300 bg-canvas text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:bg-canvas-dark dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
           :style="toggleStyle(item)"
           :title="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
@@ -210,6 +210,10 @@ watch(() => props.editRequest, (request) => {
   if (!item) return
   startEdit(item.id, item.title)
 })
+
+// 有未完成子任务才显示折叠开关：子任务全部完成时按叶子任务处理，开关消失
+const isTaskDone = (item) => statusMap.value[item.id] === 'checked' || Boolean(item.completed_at)
+const hasActiveChildren = (item) => (item.children || []).some((child) => !isTaskDone(child))
 
 const isItemVisible = (item) => {
   // 隐藏已完成项（优先使用本地状态映射）
