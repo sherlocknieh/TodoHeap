@@ -353,34 +353,34 @@ onBeforeUnmount(() => {
           </div>
           <div class="relative mt-1.5 grid grid-cols-3 items-center gap-1">
             <div
-              class="flex min-w-0 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex h-7 min-w-0 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-full w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
               <input :value="draftHour" type="text" inputmode="numeric" maxlength="2" aria-label="小时"
-                class="h-7 min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
+                class="h-full min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
                 @input="setHour" @keydown.up.prevent="stepHour(1)" @keydown.down.prevent="stepHour(-1)" />
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-full w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一小时" aria-label="加一小时" @click="stepHour(1)">
                 <AppIcon name="plus" :size="9" />
               </button>
             </div>
             <span class="pointer-events-none absolute top-1/2 left-[calc((100%-8px)/3+2px)] -translate-x-1/2 -translate-y-1/2 text-xs text-neutral-400 dark:text-neutral-500">:</span>
             <div
-              class="flex min-w-0 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex h-7 min-w-0 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-full w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
                 <AppIcon name="minus" :size="9" />
               </button>
               <input :value="draftMinute" type="text" inputmode="numeric" maxlength="2" aria-label="分钟"
-                class="h-7 min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
+                class="h-full min-w-0 flex-1 bg-transparent text-center text-xs text-neutral-800 outline-none dark:text-neutral-100"
                 @input="setMinute" @keydown.up.prevent="stepMinute(1)" @keydown.down.prevent="stepMinute(-1)" />
               <button type="button"
-                class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
+                class="grid h-full w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="加一分钟" aria-label="加一分钟" @click="stepMinute(1)">
                 <AppIcon name="plus" :size="9" />
               </button>
