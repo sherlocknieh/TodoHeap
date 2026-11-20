@@ -159,6 +159,20 @@ const selectQuickDate = (offset) => {
   viewMonth.value = base.getMonth()
 }
 
+// 在月历上滚动滚轮翻月；累计到一定幅度才翻，并加冷却，避免触控板惯性强连翻
+let wheelDelta = 0
+let wheelAt = 0
+const onGridWheel = (event) => {
+  if (!event.deltaY) return
+  const now = Date.now()
+  if (now - wheelAt < 180) return
+  wheelDelta += event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
+  if (Math.abs(wheelDelta) < 40) return
+  shiftView(wheelDelta > 0 ? 1 : -1)
+  wheelDelta = 0
+  wheelAt = now
+}
+
 const setHour = (event) => {
   draftHour.value = clampHour(event.target.value)
 }
@@ -296,8 +310,8 @@ onBeforeUnmount(() => {
             @click="selectQuickDate(item.offset)">{{ item.label }}</button>
         </div>
 
-        <!-- 星期表头 + 日期网格（周一起始，固定 6 行） -->
-        <div class="mt-2 grid grid-cols-7 gap-0.5 text-center">
+        <!-- 星期表头 + 日期网格（周一起始，固定 6 行；滚轮翻月） -->
+        <div class="mt-2 grid grid-cols-7 gap-0.5 text-center" @wheel.prevent="onGridWheel">
           <span v-for="label in WEEKDAY_LABELS" :key="label"
             class="py-1 text-[10px] text-neutral-400 dark:text-neutral-500">{{ label }}</span>
           <button v-for="day in days" :key="day.key" type="button"
