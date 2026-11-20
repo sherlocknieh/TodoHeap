@@ -66,13 +66,16 @@
 
             <div v-if="editingId !== item.id && (item.deadline || item.duration != null)"
               class="flex shrink-0 items-center gap-1.5">
-              <button v-if="item.deadline" type="button"
-                class="chip gap-1 font-medium transition-colors"
-                :class="deadlineChipClass(item.deadline)"
-                data-deadline-trigger :title="`修改截止时间（${formatDeadlineLabel(item.deadline)}）`"
-                @click.stop="toggleDeadlineMenu(item)">
-                <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(item.deadline) }}
-              </button>
+              <DateTimePicker v-if="item.deadline" :model-value="toDateTimeLocalValue(item.deadline)"
+                quick-dates @confirm="applyDeadline(item.id, $event)">
+                <template #trigger="{ open, toggle }">
+                  <button type="button" class="chip gap-1 font-medium transition-colors"
+                    :class="deadlineChipClass(item.deadline)" :aria-expanded="open"
+                    :title="`修改截止时间（${formatDeadlineLabel(item.deadline)}）`" @click.stop="toggle">
+                    <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(item.deadline) }}
+                  </button>
+                </template>
+              </DateTimePicker>
               <span v-if="item.duration != null" title="预计耗时"
                 class="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
                 {{ formatDuration(item.duration) }}h
@@ -90,34 +93,16 @@
           </div>
           <div v-if="!item._isRef"
             class="flex shrink-0 items-center gap-0.5">
-            <div class="relative">
-              <button v-if="!item.deadline" type="button"
-                class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-                data-deadline-trigger title="设置截止时间" aria-label="设置截止时间"
-                @click.stop="toggleDeadlineMenu(item)">
-                <AppIcon name="calendar" :size="14" />
-              </button>
-              <div v-if="showDeadlineMenuId === item.id" data-deadline-menu
-                class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 py-1 overflow-hidden">
-                <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
-                  @click.stop="applyDeadlinePreset(item.id, preset.value)">
-                  <AppIcon :name="preset.icon" :size="13" />
-                  <span>{{ preset.label }}</span>
+            <DateTimePicker v-if="!item.deadline" :model-value="''" quick-dates
+              @confirm="applyDeadline(item.id, $event)">
+              <template #trigger="{ open, toggle }">
+                <button type="button"
+                  class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+                  title="设置截止时间" aria-label="设置截止时间" :aria-expanded="open" @click.stop="toggle">
+                  <AppIcon name="calendar" :size="14" />
                 </button>
-                <div class="px-2.5 py-1.5 text-xs text-neutral-500">
-                  自定义时间
-                  <DateTimePicker v-model="customDeadline" dense :clearable="false" class="mt-1" placeholder="选择日期时间"
-                    @confirm="applyCustomDeadline(item.id)" />
-                </div>
-                <button v-if="item.deadline" type="button"
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                  @click.stop="applyDeadlinePreset(item.id, 'clear')">
-                  <AppIcon name="close" :size="13" />
-                  <span>清除截止时间</span>
-                </button>
-              </div>
-            </div>
+              </template>
+            </DateTimePicker>
             <div class="relative">
               <button
                 class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
@@ -152,7 +137,7 @@ import { computed, ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import DateTimePicker from '@/components/DateTimePicker.vue'
 import MiddleEllipsis from '@/components/MiddleEllipsis.vue'
-import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
+import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { draggingTodoId as draggingId, draggingParentTodoId, dropIndicator, resetDragState } from '@/utils/todoDrag'
 import { isTaskCollapsed, setTaskCollapsed, toggleTaskCollapsed } from '@/utils/taskCollapse'
 
@@ -357,17 +342,9 @@ const handleRowClick = (item) => {
   selectTask(item)
 }
 
-// 截止时间快捷预设由共享工具换算，自定义与实际选择统一转 ISO
-const applyDeadlinePreset = (id, preset) => {
-  emit('set-deadline', { id, deadline: resolveDeadlinePreset(preset) })
-  closeDeadlineMenu()
-}
-
-// 选择器确认后把本地时间转 ISO 落库，并收起菜单
-const applyCustomDeadline = (id) => {
-  if (!customDeadline.value) return
-  emit('set-deadline', { id, deadline: new Date(customDeadline.value).toISOString() })
-  closeDeadlineMenu()
+// 选择器确认后把本地时间转 ISO 落库；清空时写 null 表示移除截止时间
+const applyDeadline = (id, value) => {
+  emit('set-deadline', { id, deadline: value ? new Date(value).toISOString() : null })
 }
 
 // 拖拽：上四分位插到前面，下四分位插到后面，中间成为子任务
@@ -444,7 +421,6 @@ const toggleMoreMenu = (id, ev) => {
     showMoreMenuId.value = null
     currentMenuEl.value = null
   } else {
-    closeDeadlineMenu()
     showMoreMenuId.value = id
     nextTick(() => {
       // 按钮的下一个兄弟节点为菜单容器（template 中结构保证）
@@ -457,24 +433,6 @@ const closeMoreMenu = () => {
   currentMenuEl.value = null
 }
 
-// 截止时间菜单与更多菜单互斥，同一时间只展开一个
-const showDeadlineMenuId = ref(null)
-const customDeadline = ref('')
-
-const closeDeadlineMenu = () => {
-  showDeadlineMenuId.value = null
-  customDeadline.value = ''
-}
-
-const toggleDeadlineMenu = (item) => {
-  if (showDeadlineMenuId.value === item.id) {
-    closeDeadlineMenu()
-    return
-  }
-  closeMoreMenu()
-  customDeadline.value = item.deadline ? toDateTimeLocalValue(item.deadline) : ''
-  showDeadlineMenuId.value = item.id
-}
 // 点击菜单外自动关闭（基于 currentMenuEl）
 function handleClickOutside(event) {
   if (showMoreMenuId.value) {
@@ -482,16 +440,6 @@ function handleClickOutside(event) {
     const onTrigger = event.target.closest?.('[data-more-trigger]')
     if (el && !el.contains(event.target) && !onTrigger) {
       closeMoreMenu()
-    }
-  }
-  if (showDeadlineMenuId.value) {
-    const target = event.target
-    const insideMenu = target.closest?.('[data-deadline-menu]')
-    const onTrigger = target.closest?.('[data-deadline-trigger]')
-    // 选择器面板挂在 body 上，点它不算点外部
-    const insidePicker = target.closest?.('.date-picker-panel')
-    if (!insideMenu && !onTrigger && !insidePicker) {
-      closeDeadlineMenu()
     }
   }
 }

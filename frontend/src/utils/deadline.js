@@ -1,35 +1,4 @@
-// 截止时间快捷预设：行内设置与批量设置共用同一套换算规则
-export const DEADLINE_PRESETS = [
-  { value: 'today', label: '今天', icon: 'clock' },
-  { value: 'tomorrow', label: '明天', icon: 'calendar' },
-  { value: 'week', label: '一周后', icon: 'calendar' }
-]
-
-// 截止时间落到当天结束，符合「今天做完」的直觉
-const endOfDay = (date) => {
-  const result = new Date(date)
-  result.setHours(23, 59, 0, 0)
-  return result
-}
-
-// 把预设换算成 ISO 时间；clear 与未知预设返回 null
-export const resolveDeadlinePreset = (preset) => {
-  const now = new Date()
-  if (preset === 'today') return endOfDay(now).toISOString()
-  if (preset === 'tomorrow') {
-    const tomorrow = new Date(now)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    return endOfDay(tomorrow).toISOString()
-  }
-  if (preset === 'week') {
-    const nextWeek = new Date(now)
-    nextWeek.setDate(nextWeek.getDate() + 7)
-    return endOfDay(nextWeek).toISOString()
-  }
-  return null
-}
-
-// 时间值转 datetime-local 输入框需要的格式
+// 时间值转选择器与原生 datetime-local 共用的本地格式
 export const toDateTimeLocalValue = (value) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''

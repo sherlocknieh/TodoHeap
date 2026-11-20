@@ -25,7 +25,8 @@ const props = defineProps({
   placeholder: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
   clearable: { type: Boolean, default: true },
-  dense: { type: Boolean, default: false }
+  // 截止时间入口把今天/明天/一周后收进面板，不再需要上级菜单
+  quickDates: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:modelValue', 'confirm'])
@@ -33,9 +34,16 @@ const emit = defineEmits(['update:modelValue', 'confirm'])
 // 常用时间点，省去逐位输入
 const TIME_PRESETS = ['09:00', '12:00', '18:00', '23:59']
 
+// 面板内的日期快捷项，只给截止时间入口启用
+const QUICK_DATES = [
+  { label: '今天', offset: 0 },
+  { label: '明天', offset: 1 },
+  { label: '一周后', offset: 7 }
+]
+
 const open = ref(false)
 const panelReady = ref(false)
-const triggerEl = ref(null)
+const rootEl = ref(null)
 const panelEl = ref(null)
 const position = ref({ top: 0, left: 0 })
 
@@ -72,8 +80,8 @@ const initDraft = () => {
 
 // 面板锚在触发器下方，空间不足翻到上方，水平方向夹进视口
 const updatePosition = () => {
-  if (!open.value || !triggerEl.value || !panelEl.value) return
-  const triggerRect = triggerEl.value.getBoundingClientRect()
+  if (!open.value || !rootEl.value || !panelEl.value) return
+  const triggerRect = rootEl.value.getBoundingClientRect()
   const panelRect = panelEl.value.getBoundingClientRect()
   const margin = 8
   let top = triggerRect.bottom + 4
@@ -99,7 +107,7 @@ const openPicker = async () => {
 const closePicker = () => {
   if (!open.value) return
   open.value = false
-  triggerEl.value?.focus()
+  rootEl.value?.querySelector('button')?.focus()
 }
 
 const togglePicker = () => {
@@ -138,10 +146,16 @@ const shiftView = (delta) => {
 }
 
 const goToday = () => {
-  const today = new Date()
-  draftDate.value = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  viewYear.value = today.getFullYear()
-  viewMonth.value = today.getMonth()
+  selectQuickDate(0)
+}
+
+// 快捷日期只改草稿，日期与时分一起由「确定」写回
+const selectQuickDate = (offset) => {
+  const base = new Date()
+  base.setDate(base.getDate() + offset)
+  draftDate.value = new Date(base.getFullYear(), base.getMonth(), base.getDate())
+  viewYear.value = base.getFullYear()
+  viewMonth.value = base.getMonth()
 }
 
 const setHour = (event) => {
@@ -210,7 +224,7 @@ const dayClass = (day) => {
 // 点面板外收起；面板经 Teleport 挂在 body 上，需同时判断触发器与面板
 const onDocumentPointerDown = (event) => {
   if (!open.value) return
-  if (triggerEl.value?.contains(event.target) || panelEl.value?.contains(event.target)) return
+  if (rootEl.value?.contains(event.target) || panelEl.value?.contains(event.target)) return
   open.value = false
 }
 
@@ -228,17 +242,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="relative">
-    <!-- 「时间选择器触发器」：外观与 .field 一致，dense 用于截止时间下拉 -->
-    <button ref="triggerEl" type="button" :disabled="disabled" :aria-expanded="open" aria-haspopup="dialog"
-      class="flex w-full items-center justify-between gap-2 rounded-lg border border-input-border bg-input text-left outline-none transition-colors hover:border-accent-300 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-input-border-dark dark:bg-input-dark dark:hover:border-accent-500/40"
-      :class="dense ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'" @click.stop="togglePicker">
-      <span class="min-w-0 truncate"
-        :class="displayText ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400'">
-        {{ displayText || placeholderText }}
-      </span>
-      <AppIcon name="calendar" :size="dense ? 12 : 14" class="shrink-0 text-neutral-400" />
-    </button>
+  <div ref="rootEl" class="relative">
+    <!-- 「时间选择器触发器」：默认外观与 .field 一致；截止时间入口用 slot 换成日历按钮/截止标签 -->
+    <slot name="trigger" :open="open" :toggle="togglePicker">
+      <button type="button" :disabled="disabled" :aria-expanded="open" aria-haspopup="dialog"
+        class="flex w-full items-center justify-between gap-2 rounded-lg border border-input-border bg-input px-3 py-1.5 text-left text-sm outline-none transition-colors hover:border-accent-300 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-input-border-dark dark:bg-input-dark dark:hover:border-accent-500/40"
+        @click.stop="togglePicker">
+        <span class="min-w-0 truncate"
+          :class="displayText ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400'">
+          {{ displayText || placeholderText }}
+        </span>
+        <AppIcon name="calendar" :size="14" class="shrink-0 text-neutral-400" />
+      </button>
+    </slot>
 
     <Teleport to="body">
       <div v-if="open" ref="panelEl" tabindex="-1" role="dialog" aria-label="选择日期时间"
@@ -258,9 +274,16 @@ onBeforeUnmount(() => {
             title="下个月" aria-label="下个月" @click="shiftView(1)">
             <AppIcon name="chevronRight" :size="14" />
           </button>
-          <button type="button"
+          <button v-if="!quickDates" type="button"
             class="ml-1 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] text-neutral-500 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-400 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
             @click="goToday">今天</button>
+        </div>
+
+        <!-- 日期快捷项：截止时间入口用，点选只改草稿 -->
+        <div v-if="quickDates" class="mt-1.5 flex gap-1">
+          <button v-for="item in QUICK_DATES" :key="item.label" type="button"
+            class="flex-1 rounded-md border border-hairline py-1 text-[11px] text-neutral-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-800 dark:border-hairline-dark dark:text-neutral-400 dark:hover:border-accent-500/40 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            @click="selectQuickDate(item.offset)">{{ item.label }}</button>
         </div>
 
         <!-- 星期表头 + 日期网格（周一起始，固定 6 行） -->

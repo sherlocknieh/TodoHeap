@@ -21,37 +21,21 @@
       <input v-model.trim="newTaskTitle" @keyup.enter="addTodo" placeholder="添加任务，回车保存"
         class="h-5 min-w-0 flex-1 bg-transparent text-sm leading-5 text-neutral-800 outline-none placeholder:text-neutral-400 dark:text-neutral-200 dark:placeholder:text-neutral-500" />
       <!-- 截止时间：未设置时是日历按钮，设置后变成任务行同款标签，随任务一起创建 -->
-      <div class="relative" data-add-deadline>
-        <button v-if="!newTaskDeadline" type="button"
-          class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-          title="设置截止时间" aria-label="设置截止时间" @click="toggleAddDeadlineMenu">
-          <AppIcon name="calendar" :size="14" />
-        </button>
-        <button v-else type="button" class="chip gap-1 font-medium transition-colors"
-          :class="deadlineChipClass(newTaskDeadline)"
-          :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" @click="toggleAddDeadlineMenu">
-          <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(newTaskDeadline) }}
-        </button>
-        <div v-if="showAddDeadline" class="absolute right-0 top-full z-30 mt-1 w-48 panel py-1 shadow-lg overflow-hidden">
-          <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
-            class="flex w-full items-center gap-2 px-2.5 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
-            @click="applyAddDeadline(preset.value)">
-            <AppIcon :name="preset.icon" :size="13" />
-            <span>{{ preset.label }}</span>
+      <DateTimePicker :model-value="newTaskDeadline ? toDateTimeLocalValue(newTaskDeadline) : ''" quick-dates
+        @confirm="applyAddDeadline">
+        <template #trigger="{ open, toggle }">
+          <button v-if="!newTaskDeadline" type="button"
+            class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:text-neutral-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+            title="设置截止时间" aria-label="设置截止时间" :aria-expanded="open" @click="toggle">
+            <AppIcon name="calendar" :size="14" />
           </button>
-          <div class="px-2.5 py-1.5 text-xs text-neutral-500">
-            自定义时间
-            <DateTimePicker v-model="addCustomDeadline" dense :clearable="false" class="mt-1" placeholder="选择日期时间"
-              @confirm="applyAddCustomDeadline" />
-          </div>
-          <button v-if="newTaskDeadline" type="button"
-            class="flex w-full items-center gap-2 px-2.5 py-1.5 text-sm text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
-            @click="applyAddDeadline('clear')">
-            <AppIcon name="close" :size="13" />
-            <span>清除截止时间</span>
+          <button v-else type="button" class="chip gap-1 font-medium transition-colors"
+            :class="deadlineChipClass(newTaskDeadline)"
+            :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" :aria-expanded="open" @click="toggle">
+            <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(newTaskDeadline) }}
           </button>
-        </div>
-      </div>
+        </template>
+      </DateTimePicker>
       <button type="button"
         class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 disabled:opacity-30 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
         :disabled="!newTaskTitle.trim()" title="添加任务" aria-label="添加任务" @click="addTodo">
@@ -178,10 +162,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
-import { DEADLINE_PRESETS, resolveDeadlinePreset, toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
+import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
 import { LIST_SORT_OPTIONS, sortTodoTree } from '@/utils/todoSort'
 import { listTreeOf } from '@/utils/rootTask'
 import { persistedRef } from '@/utils/uiState'
@@ -205,8 +189,6 @@ const emit = defineEmits(['task-selected', 'notify'])
 const newTaskTitle = ref('')
 // 添加栏可以先选截止时间，创建任务时一并写入
 const newTaskDeadline = ref('')
-const showAddDeadline = ref(false)
-const addCustomDeadline = ref('')
 const loading = computed(() => todoStore.loading)
 const isFetched = computed(() => todoStore.isFetched)
 const errorText = computed(() => todoStore.error)
@@ -215,11 +197,6 @@ onMounted(async () => {
   if (authStore.isAuthenticated && !todoStore.isFetched) {
     await todoStore.fetchTodos()
   }
-  document.addEventListener('pointerdown', closeAddDeadlineOnOutside)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', closeAddDeadlineOnOutside)
 })
 
 // 排序只影响显示，偏好存在本地，不写数据库
@@ -313,30 +290,9 @@ const addTodo = async () => {
   newTaskDeadline.value = ''
 }
 
-const toggleAddDeadlineMenu = () => {
-  if (!showAddDeadline.value) {
-    addCustomDeadline.value = newTaskDeadline.value ? toDateTimeLocalValue(newTaskDeadline.value) : ''
-  }
-  showAddDeadline.value = !showAddDeadline.value
-}
-
-const applyAddDeadline = (preset) => {
-  newTaskDeadline.value = resolveDeadlinePreset(preset) || ''
-  showAddDeadline.value = false
-}
-
-// 选择器确认后把本地时间转 ISO，随下一次添加写入任务
-const applyAddCustomDeadline = () => {
-  if (!addCustomDeadline.value) return
-  newTaskDeadline.value = new Date(addCustomDeadline.value).toISOString()
-  showAddDeadline.value = false
-}
-
-// 点菜单外收起，与任务行的截止菜单行为一致；选择器面板挂在 body 上，不算外部
-const closeAddDeadlineOnOutside = (event) => {
-  if (!showAddDeadline.value) return
-  if (event.target.closest?.('[data-add-deadline]') || event.target.closest?.('.date-picker-panel')) return
-  showAddDeadline.value = false
+// 选择器确认后写入本地时间，随任务一起创建；清空时回到未设置
+const applyAddDeadline = (value) => {
+  newTaskDeadline.value = value ? new Date(value).toISOString() : ''
 }
 
 const addSubtask = async (parentId, startEditCb) => {

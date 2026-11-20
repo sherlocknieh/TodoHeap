@@ -49,10 +49,10 @@ title: 关键词索引
 | 两态完成 / 点了变完成又变灰 | `components/TodoListItem.vue` `statusMap` | 行内先给即时反馈，再落库 |
 | 已完成区 / 已完成收在下面 / 清除已完成 / 已完成卡片偏左 / 卡片左边缘没对齐 | `pages/todo/TodoList.vue`「已完成：无内容时不占位」、`clearCompletedTodos` | 已完成列表带 `pl-[22px]`，卡片左缘与待办行同一竖线；整棵已完成子树移入回收站，可整体撤销 |
 | 排序 / 排序方式 / 按截止时间 | `pages/todo/TodoList.vue` `sortMode`、`LIST_SORT_OPTIONS` | 「待办」标题栏右侧的排序下拉；手动顺序仍以父级 `child_ids` 为准 |
-| 行内菜单 / 三点 / 更多操作 | `components/TodoListItem.vue`「更多菜单相关」/ `currentMenuEl` | 与截止时间菜单互斥，点外部关闭 |
+| 行内菜单 / 三点 / 更多操作 | `components/TodoListItem.vue`「更多菜单相关」/ `currentMenuEl` | 点外部关闭，与截止时间选择器互不遮挡 |
 | 行内删除 / 删除任务 / 移入回收站 | `components/TodoListItem.vue` `emitDeleteTodo`；`pages/todo/TodoList.vue` 删除处理 | 软删除，进回收站 |
 | 拖拽排序 / 拖成子任务 / 插到前后 | `components/TodoListItem.vue` `onDragStart`/`onDragOver`/`onDrop`；`utils/todoDrag.js` | 上四分位插前、下四分位插后、中间成为子任务 |
-| 截止时间菜单 / 日期时间 / 时间选择器 / 月历 / 一周后 | `components/TodoListItem.vue`「截止时间菜单与更多菜单互斥」；`components/DateTimePicker.vue`「时间选择器触发器」；`utils/deadline.js` `DEADLINE_PRESETS` | 与更多菜单同一时间只开一个；自定义时间用自建月历面板，预设为今天、明天、一周后（下周同一天 23:59）；机制见[日期时间选择器](./logic/date-time-picker.md) |
+| 截止时间菜单 / 日期时间 / 时间选择器 / 月历 / 一周后 | `components/DateTimePicker.vue`「时间选择器触发器」；`components/TodoListItem.vue` `applyDeadline`；`utils/datePicker.js` `buildMonthGrid` | 点日历按钮或截止标签直接展开月历面板，今天/明天/一周后与清除都在面板内，没有上级菜单；机制见[日期时间选择器](./logic/date-time-picker.md) |
 
 ## 任务图（思维导图）
 
