@@ -222,11 +222,11 @@
     <!-- 节点更多操作菜单：点三点按钮时贴在按钮下方，右键时从指针处展开，都按屏幕位置定位并随缩放平移跟随；
          菜单内点击不再冒泡到画布，避免刚打开就被当成点空白取消 -->
     <div v-if="menuNode" data-mm-more-menu
-      class="absolute z-20 panel cursor-default p-1 shadow-lg"
+      class="absolute z-20 panel cursor-default py-1 shadow-lg overflow-hidden"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px`, width: `${menuWidth}px` }"
       @pointerdown.stop @click.stop @contextmenu.prevent>
       <button v-for="item in MENU_ITEMS" :key="item.key" type="button"
-        class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors"
+        class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors"
         :class="item.danger
           ? 'text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40'
           : 'text-neutral-700 hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10'"

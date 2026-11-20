@@ -32,9 +32,9 @@
           :title="`修改截止时间（${formatDeadlineLabel(newTaskDeadline)}）`" @click="toggleAddDeadlineMenu">
           <AppIcon name="clock" :size="10" />{{ formatDeadlineLabel(newTaskDeadline) }}
         </button>
-        <div v-if="showAddDeadline" class="absolute right-0 top-full z-30 mt-1 w-48 panel p-1 shadow-lg">
+        <div v-if="showAddDeadline" class="absolute right-0 top-full z-30 mt-1 w-48 panel py-1 shadow-lg overflow-hidden">
           <button v-for="preset in DEADLINE_PRESETS" :key="preset.value" type="button"
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+            class="flex w-full items-center gap-2 px-2.5 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
             @click="applyAddDeadline(preset.value)">
             <AppIcon :name="preset.icon" :size="13" />
             <span>{{ preset.label }}</span>
@@ -45,7 +45,7 @@
               @change="applyAddDeadline('custom')" />
           </label>
           <button v-if="newTaskDeadline" type="button"
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            class="flex w-full items-center gap-2 px-2.5 py-1.5 text-sm text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
             @click="applyAddDeadline('clear')">
             <AppIcon name="close" :size="13" />
             <span>清除截止时间</span>
