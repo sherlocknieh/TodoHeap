@@ -20,20 +20,19 @@
         <span v-if="item._level > 0" aria-hidden="true"
           class="pointer-events-none absolute h-px bg-hairline/70 dark:bg-hairline-dark/70"
           :style="elbowStyle(item)"></span>
-        <!-- 折叠开关：中心落在连线交叉点上，位于任务卡片之前；底色盖住穿过圆心的连线 -->
-        <button v-if="hasActiveChildren(item)" type="button"
-          class="absolute z-10 grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-neutral-300 bg-canvas text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:bg-canvas-dark dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
-          :style="toggleStyle(item)"
-          :title="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
-          :aria-label="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
-          :aria-expanded="isItemExpanded(item)" @click.stop="toggleExpand(item)">
-          <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="8" />
-        </button>
         <!-- 缩进留在外层，行内容单独成卡片；边框、底色与内边距都由状态类统一给出，选中时不改变盒子尺寸 -->
         <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]"
           :class="rowStateClass(item)" :style="dropStyle(item.id)">
+          <!-- 「展开/折叠开关」：收进卡片，占据勾选圈的位置；叶子任务仍显示圆形勾选圈 -->
+          <button v-if="hasActiveChildren(item)" type="button"
+            class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-full border-[1.5px] border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+            :title="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
+            :aria-label="isItemExpanded(item) ? '折叠子任务' : '展开子任务'"
+            :aria-expanded="isItemExpanded(item)" @click.stop="toggleExpand(item)">
+            <AppIcon :name="isItemExpanded(item) ? 'minus' : 'plus'" :size="9" />
+          </button>
           <!-- 完成状态用圆形勾选圈 -->
-          <button v-if="!item._isRef" type="button"
+          <button v-else-if="!item._isRef" type="button"
             class="shrink-0 grid place-items-center h-[18px] w-[18px] rounded-full border-[1.5px] transition-colors"
             :class="statusMap[item.id] === 'checked'
               ? 'bg-accent-600 border-accent-600 text-white dark:bg-accent-400 dark:border-accent-400 dark:text-accent-950'
@@ -287,9 +286,6 @@ const elbowStyle = (item) => ({
   top: '50%',
   width: ELBOW_WIDTH + 'px'
 })
-
-// 折叠开关中心即交叉点；translate 在模板类里把按钮自身居中
-const toggleStyle = (item) => ({ left: guideLeft(item._level) + 'px', top: '50%' })
 
 // 折叠状态与图、回收站共享；未记录的任务默认展开前两层，更深的任务默认收起
 const isItemExpanded = (item) => !isTaskCollapsed(item.id, (item._level || 0) > 1)
