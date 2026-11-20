@@ -49,6 +49,7 @@ const position = ref({ top: 0, left: 0 })
 
 const viewYear = ref(new Date().getFullYear())
 const viewMonth = ref(new Date().getMonth())
+const slideDirection = ref('next')
 const draftDate = ref(null)
 const draftHour = ref(23)
 const draftMinute = ref(59)
@@ -131,19 +132,26 @@ const clearValue = () => {
   closePicker()
 }
 
+// 切换视图月份：按目标与当前月份的先后决定滑入方向
+const setView = (year, month) => {
+  if (year === viewYear.value && month === viewMonth.value) return
+  const current = viewYear.value * 12 + viewMonth.value
+  slideDirection.value = year * 12 + month > current ? 'next' : 'prev'
+  viewYear.value = year
+  viewMonth.value = month
+}
+
 // 选中日期；点到跨月日期时把视图切到该月
 const selectDay = (day) => {
   draftDate.value = new Date(day.date)
   if (day.date.getMonth() !== viewMonth.value) {
-    viewYear.value = day.date.getFullYear()
-    viewMonth.value = day.date.getMonth()
+    setView(day.date.getFullYear(), day.date.getMonth())
   }
 }
 
 const shiftView = (delta) => {
   const next = shiftMonth(viewYear.value, viewMonth.value, delta)
-  viewYear.value = next.year
-  viewMonth.value = next.month
+  setView(next.year, next.month)
 }
 
 const goToday = () => {
@@ -155,8 +163,7 @@ const selectQuickDate = (offset) => {
   const base = new Date()
   base.setDate(base.getDate() + offset)
   draftDate.value = new Date(base.getFullYear(), base.getMonth(), base.getDate())
-  viewYear.value = base.getFullYear()
-  viewMonth.value = base.getMonth()
+  setView(base.getFullYear(), base.getMonth())
 }
 
 // 在月历上滚动滚轮翻月；累计到一定幅度才翻，并加冷却，避免触控板惯性强连翻
@@ -203,8 +210,7 @@ const moveDraft = (deltaDays) => {
   next.setDate(next.getDate() + deltaDays)
   draftDate.value = next
   if (next.getMonth() !== viewMonth.value) {
-    viewYear.value = next.getFullYear()
-    viewMonth.value = next.getMonth()
+    setView(next.getFullYear(), next.getMonth())
   }
 }
 
@@ -310,13 +316,19 @@ onBeforeUnmount(() => {
             @click="selectQuickDate(item.offset)">{{ item.label }}</button>
         </div>
 
-        <!-- 星期表头 + 日期网格（周一起始，固定 6 行；滚轮翻月） -->
-        <div class="mt-2 grid grid-cols-7 gap-0.5 text-center" @wheel.prevent="onGridWheel">
+        <!-- 星期表头固定；日期网格翻月时左右平移 -->
+        <div class="mt-2 grid grid-cols-7 gap-0.5 text-center">
           <span v-for="label in WEEKDAY_LABELS" :key="label"
             class="py-1 text-[10px] text-neutral-400 dark:text-neutral-500">{{ label }}</span>
-          <button v-for="day in days" :key="day.key" type="button"
-            class="grid h-7 place-items-center rounded-md text-xs transition-colors" :class="dayClass(day)"
-            @click="selectDay(day)">{{ day.day }}</button>
+        </div>
+        <div class="relative mt-0.5 h-[178px] overflow-hidden" @wheel.prevent="onGridWheel">
+          <Transition :name="slideDirection === 'next' ? 'month-next' : 'month-prev'">
+            <div :key="monthLabel" class="absolute inset-0 grid grid-cols-7 gap-0.5 text-center">
+              <button v-for="day in days" :key="day.key" type="button"
+                class="grid h-7 place-items-center rounded-md text-xs transition-colors" :class="dayClass(day)"
+                @click="selectDay(day)">{{ day.day }}</button>
+            </div>
+          </Transition>
         </div>
 
         <!-- 时分：仅日期时间模式；备选时间在上，输入器与清除/确定同一行 -->
@@ -379,3 +391,47 @@ onBeforeUnmount(() => {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* 翻月平移：新月份从滚动方向滑入，旧月份向反方向滑出 */
+.month-next-enter-active,
+.month-next-leave-active,
+.month-prev-enter-active,
+.month-prev-leave-active {
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.month-next-leave-active,
+.month-prev-leave-active {
+  pointer-events: none;
+}
+
+.month-next-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.month-next-leave-to {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.month-prev-enter-from {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.month-prev-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .month-next-enter-active,
+  .month-next-leave-active,
+  .month-prev-enter-active,
+  .month-prev-leave-active {
+    transition: none;
+  }
+}
+</style>
