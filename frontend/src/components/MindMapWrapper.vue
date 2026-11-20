@@ -1536,17 +1536,17 @@ watch(menuNodeId, (id) => {
   else document.addEventListener('pointerdown', onMenuOutside)
 })
 
-// 勾选框的紧急度描边：红=一天内（含逾期）、橙=三天内、蓝=一周内，深色下同色系提亮
+// 勾选框的紧急度描边：红=一天内（含逾期）、橙=三天内、黄=一周内，深色下同色系提亮
 const URGENCY_CHECK_CLASS = {
   critical: 'stroke-rose-500 hover:stroke-rose-600 dark:stroke-rose-400 dark:hover:stroke-rose-300',
   urgent: 'stroke-amber-500 hover:stroke-amber-600 dark:stroke-amber-400 dark:hover:stroke-amber-300',
-  soon: 'stroke-sky-500 hover:stroke-sky-600 dark:stroke-sky-400 dark:hover:stroke-sky-300'
+  soon: 'stroke-yellow-500 hover:stroke-yellow-600 dark:stroke-yellow-400 dark:hover:stroke-yellow-300'
 }
 // 菜单里倒数日的文字色，与勾选框描边同色系
 const URGENCY_TEXT_CLASS = {
   critical: 'text-rose-600 dark:text-rose-400',
   urgent: 'text-amber-600 dark:text-amber-400',
-  soon: 'text-sky-600 dark:text-sky-400'
+  soon: 'text-yellow-600 dark:text-yellow-400'
 }
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
