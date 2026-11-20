@@ -108,7 +108,7 @@
               <button
                 class="grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
                 title="更多操作" data-more-trigger @click.stop="toggleMoreMenu(item.id, $event)">
-                <AppIcon name="more" :size="14" />
+                <AppIcon name="moreVertical" :size="14" />
               </button>
               <div v-if="showMoreMenuId === item.id"
                 class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1 overflow-hidden" ref="moreMenuRef">
