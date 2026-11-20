@@ -31,8 +31,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'confirm'])
 
-// 常用时间点，省去逐位输入
-const TIME_PRESETS = ['09:00', '12:00', '18:00', '23:59']
+// 常用时间点，省去逐位输入；23:59 是空值默认时分，不重复列出
+const TIME_PRESETS = ['09:00', '12:00', '18:00']
 
 // 面板内的日期快捷项，只给截止时间入口启用
 const QUICK_DATES = [
