@@ -1,5 +1,6 @@
 <template>
-  <div class="text-neutral-900 dark:text-neutral-100" @click.capture="handleRowClickCapture">
+  <div class="text-neutral-900 dark:text-neutral-100" @click.capture="handleRowClickCapture"
+    @mousedown.capture="handleRowMouseDownCapture">
     <!-- 页面操作：统计放进主区域顶栏 -->
     <Teleport defer to="#main-topbar-actions">
       <p class="min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
@@ -371,6 +372,15 @@ const handleRowClickCapture = (event) => {
   // 普通点击清空选择，但记住这一行作为锚点，下一次 Shift 可直接从它连选
   selection.value = new Set()
   selectionAnchor.value = key
+}
+
+// 多选组合键下阻止浏览器从行内开始选文字；click 阶段再 preventDefault 已经太晚
+const handleRowMouseDownCapture = (event) => {
+  if (!(event.shiftKey || event.metaKey || event.ctrlKey)) return
+  const row = event.target.closest?.('[data-task-item]')
+  if (!row || row.dataset.taskSelectable === 'false') return
+  if (event.target.closest('button, input, select, textarea, a, label')) return
+  event.preventDefault()
 }
 
 // 任务被删除或移入回收站后，清掉选择里已经不存在或不可选的任务

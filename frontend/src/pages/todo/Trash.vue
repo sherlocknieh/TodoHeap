@@ -1,5 +1,6 @@
 <template>
-  <div class="h-full flex flex-col min-h-0" ref="trashContainerRef" @click.capture="handleRowClickCapture">
+  <div class="h-full flex flex-col min-h-0" ref="trashContainerRef" @click.capture="handleRowClickCapture"
+    @mousedown.capture="handleRowMouseDownCapture">
     <!-- 页面操作：已删除数量与恢复、清空入口放进主区域顶栏 -->
     <Teleport defer to="#main-topbar-actions">
       <p class="min-w-0 truncate whitespace-nowrap text-xs text-neutral-500 dark:text-neutral-400">
@@ -467,6 +468,15 @@ function handleRowClickCapture(event) {
   // 普通点击清空选择，但记住这一行作为锚点，下一次 Shift 可直接从它连选
   selection.value = new Set()
   selectionAnchor.value = key
+}
+
+// 多选组合键下阻止浏览器从行内开始选文字；click 阶段再 preventDefault 已经太晚
+function handleRowMouseDownCapture(event) {
+  if (!(event.shiftKey || event.metaKey || event.ctrlKey)) return
+  const row = event.target.closest?.('[data-task-item]')
+  if (!row) return
+  if (event.target.closest('button, input, select, textarea, a, label')) return
+  event.preventDefault()
 }
 
 // 回收站条目变化后清掉已恢复或已删除的选择键

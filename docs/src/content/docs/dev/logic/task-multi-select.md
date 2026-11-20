@@ -23,6 +23,7 @@ title: "任务多选"
 - 行上用 `data-task-item` 标记、`data-task-id` 取任务 ID；`data-task-selectable="false"` 的回边行不可选。
 - 分区用 `data-task-section` 区分待办与已完成；Shift 连选只在本分区内，按 DOM 可见顺序取两端之间的行。
 - 点中行内按钮、输入框等交互元素时直接放行，避免抢占勾选、删除、截止时间等操作。
+- 按住 Ctrl/⌘/Shift 时在 **mousedown** 阶段阻止默认行为，避免浏览器顺带选中行内文字；等到 click 阶段再阻止已经太晚。
 - Ctrl/⌘ 切换单个任务；Shift 连选替换现有选择；没有修饰键的点击清空选择、记住锚点并照常打开详情，下一次 Shift 即可从该行连选。
 
 ## 批量删除
