@@ -645,14 +645,14 @@ const runToastAction = async () => {
 									:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="openThemeMenu">
 									<AppIcon :name="currentThemeOption.icon" :size="15" />
 								</button>
-								<!-- 下拉菜单：外层 pt-1 当间距，鼠标从按钮移到面板不会离开悬停区；面板与按钮水平居中对齐 -->
+								<!-- 下拉菜单：外层 pt-1 当间距，鼠标从按钮移到面板不会离开悬停区；宽度由菜单项内容撑开，面板与按钮水平居中对齐 -->
 								<div v-if="showThemeMenu"
-									class="absolute left-1/2 top-full -translate-x-1/2 pt-1 w-30 z-40">
+									class="absolute left-1/2 top-full -translate-x-1/2 pt-1 z-40">
 									<div ref="themeMenuRef" role="radiogroup" aria-label="主题"
-										class="panel shadow-lg py-1 overflow-hidden">
+										class="panel shadow-lg py-1 overflow-hidden w-fit">
 										<button v-for="option in THEME_OPTIONS" :key="option.value" type="button"
 											role="radio" :aria-checked="themeMode === option.value"
-											class="w-full px-2.5 py-1.5 flex items-center justify-center gap-2 text-sm transition-colors"
+											class="w-full px-3 py-1.5 flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors"
 											:class="themeMode === option.value
 												? 'bg-accent-50 text-accent-800 dark:bg-accent-500/10 dark:text-accent-200'
 												: 'text-neutral-700 hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10'"
