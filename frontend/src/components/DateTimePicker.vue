@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="mt-1.5 flex items-center gap-1.5">
             <div
-              class="flex flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex min-w-0 flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
                 class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一小时" aria-label="减一小时" @click="stepHour(-1)">
@@ -365,7 +365,7 @@ onBeforeUnmount(() => {
             </div>
             <span class="text-xs text-neutral-400">:</span>
             <div
-              class="flex flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
+              class="flex min-w-0 flex-1 items-center divide-x divide-hairline rounded-md border border-hairline dark:divide-hairline-dark dark:border-hairline-dark">
               <button type="button"
                 class="grid h-7 w-5 place-items-center text-neutral-400 transition-colors hover:text-accent-800 dark:text-neutral-500 dark:hover:text-accent-200"
                 title="减一分钟" aria-label="减一分钟" @click="stepMinute(-1)">
