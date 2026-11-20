@@ -308,6 +308,11 @@
         :title="`布局方向：${currentDirection.label}（点击切换）`" @click.stop="cycleDirection">
         <AppIcon :name="currentDirection.icon" :size="14" />
       </button>
+      <button
+        class="bg-white dark:bg-neutral-900 border border-hairline dark:border-hairline-dark rounded p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        :title="`布局模式：${currentLayoutMode.label}（点击切换）`" @click.stop="cycleLayoutMode">
+        <AppIcon :name="currentLayoutMode.icon" :size="14" />
+      </button>
       <button type="button"
         class="flex rounded border p-1.5 transition-colors"
         :class="viewMode === 'root'
@@ -371,6 +376,7 @@ import { revealView } from '@/utils/mindmapView'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
+import { NODE_WIDTH, computeGraphPositions } from '@/utils/mindmapLayout'
 import {
   collapsedTaskSet,
   isTaskCollapsed,
@@ -390,14 +396,12 @@ const props = defineProps({
 
 const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'delete-tasks', 'toggle-done', 'set-deadline', 'drop-task', 'unlink-task', 'notify', 'background-click'])
 
-const nodeWidth = 216
+const nodeWidth = NODE_WIDTH
 const fontSize = 13
 const lineHeight = 16
 const paddingTop = 10
 const paddingX = 10
 const maxLines = 3
-const crossGap = 24
-const mainGap = 84
 // 出边按钮：有子任务时是折叠开关（折叠显计数、展开显减号），叶子节点悬停时变为加号；
 // 与出边一侧的节点边框外切：圆心外移半径，再让开两个半描边，使外边框贴合、互不压线
 const toggleRadius = 8
@@ -541,6 +545,15 @@ const direction = persistedRef('mindmap-direction', 'right', {
   validate: (value) => directionOptions.some((option) => option.value === value)
 })
 
+// 布局模式同样属于阅读偏好：紧凑布局按树居中后回收空白，标准布局保留原算法
+const layoutModeOptions = [
+  { value: 'compact', icon: 'layers', label: '紧凑布局' },
+  { value: 'standard', icon: 'tree', label: '标准布局' }
+]
+const layoutMode = persistedRef('mindmap-layout-mode', 'compact', {
+  validate: (value) => layoutModeOptions.some((option) => option.value === value)
+})
+
 // 点阵底纹同属阅读偏好：开关状态本地保存，默认开启
 const dotGrid = persistedRef('mindmap-dot-grid', true, {
   validate: (value) => typeof value === 'boolean'
@@ -607,6 +620,9 @@ const gridLayer = computed(() => buildCoordinateGrid({
 const currentDirection = computed(() =>
   directionOptions.find((option) => option.value === direction.value) ?? directionOptions[0])
 
+const currentLayoutMode = computed(() =>
+  layoutModeOptions.find((option) => option.value === layoutMode.value) ?? layoutModeOptions[0])
+
 // 视图控件跟随浮层右栏左移：面板多宽就右偏多少，面板收起时回到常规右下角
 const controlsStyle = computed(() => ({
   right: `calc(0.75rem + ${detailPanelInset.value}px)`
@@ -661,6 +677,12 @@ const toggleAllCollapse = () => {
 const cycleDirection = () => {
   const index = directionOptions.findIndex((option) => option.value === direction.value)
   direction.value = directionOptions[(index + 1) % directionOptions.length].value
+}
+
+// 布局模式在 紧凑 → 标准 之间轮换
+const cycleLayoutMode = () => {
+  const index = layoutModeOptions.findIndex((option) => option.value === layoutMode.value)
+  layoutMode.value = layoutModeOptions[(index + 1) % layoutModeOptions.length].value
 }
 
 // 主方向是层级展开方向（横向），交叉方向是同层节点的排列方向（纵向）
@@ -1062,378 +1084,30 @@ const computeGraphLayout = (forest) => {
   }
 
   const nodes = rawNodes.map(measureNode)
-  const byId = new Map(nodes.map((node) => [node.id, node]))
-  const adjacency = new Map(nodes.map((node) => [node.id, []]))
-
-  rawEdges.forEach((edge) => {
-    if (byId.has(edge.from) && byId.has(edge.to)) adjacency.get(edge.from).push(edge.to)
+  const { positions, layers, contentWidth, contentHeight, minX, minY, crossMax } = computeGraphPositions({
+    nodes,
+    edges: rawEdges,
+    direction: direction.value,
+    mode: layoutMode.value
   })
-
-  // Tarjan 求强连通分量
-  let counter = 0
-  const indices = new Map()
-  const lowlinks = new Map()
-  const stack = []
-  const onStack = new Set()
-  const components = []
-  const componentOf = new Map()
-
-  const connect = (id) => {
-    indices.set(id, counter)
-    lowlinks.set(id, counter)
-    counter += 1
-    stack.push(id)
-    onStack.add(id)
-
-    for (const next of adjacency.get(id)) {
-      if (!indices.has(next)) {
-        connect(next)
-        lowlinks.set(id, Math.min(lowlinks.get(id), lowlinks.get(next)))
-      } else if (onStack.has(next)) {
-        lowlinks.set(id, Math.min(lowlinks.get(id), indices.get(next)))
-      }
-    }
-
-    if (lowlinks.get(id) === indices.get(id)) {
-      const component = []
-      let member
-      do {
-        member = stack.pop()
-        onStack.delete(member)
-        component.push(member)
-        componentOf.set(member, components.length)
-      } while (member !== id)
-      components.push(component)
-    }
-  }
 
   nodes.forEach((node) => {
-    if (!indices.has(node.id)) connect(node.id)
+    const point = positions.get(String(node.id))
+    if (!point) return
+    node.x = point.x
+    node.y = point.y
   })
 
-  // 分量缩点后做最长路径分层
-  const componentEdges = Array.from({ length: components.length }, () => new Set())
-  rawEdges.forEach((edge) => {
-    const from = componentOf.get(edge.from)
-    const to = componentOf.get(edge.to)
-    if (from === undefined || to === undefined || from === to) return
-    componentEdges[from].add(to)
-  })
-
-  const indegree = new Array(components.length).fill(0)
-  componentEdges.forEach((targets) => targets.forEach((to) => { indegree[to] += 1 }))
-
-  const queue = []
-  indegree.forEach((count, index) => { if (count === 0) queue.push(index) })
-
-  const componentLayer = new Array(components.length).fill(0)
-  while (queue.length > 0) {
-    const current = queue.shift()
-    componentEdges[current].forEach((next) => {
-      componentLayer[next] = Math.max(componentLayer[next], componentLayer[current] + 1)
-      indegree[next] -= 1
-      if (indegree[next] === 0) queue.push(next)
-    })
-  }
-
-  // 环内节点按顺序占一层，让环方向仍然沿主方向可读
-  const nodeLayer = new Map()
-  components.forEach((component, index) => {
-    const ordered = [...component].sort((a, b) => {
-      const diff = Number(a) - Number(b)
-      return Number.isFinite(diff) && diff !== 0 ? diff : String(a).localeCompare(String(b))
-    })
-    ordered.forEach((id, offset) => nodeLayer.set(id, componentLayer[index] + offset))
-  })
-
-  // 每层沿交叉方向排开，层与层沿主方向堆叠；节点等宽，层厚就是节点宽度
-  const layerKeys = [...new Set(nodes.map((node) => nodeLayer.get(node.id) ?? 0))]
-    .sort((a, b) => a - b)
-  const layerMain = new Map()
-  layerKeys.forEach((layer) => {
-    layerMain.set(layer, nodeWidth)
-  })
-
-  let cursorMain = 0
-  const layerStart = new Map()
-  layerKeys.forEach((layer) => {
-    layerStart.set(layer, cursorMain)
-    cursorMain += layerMain.get(layer) + mainGap
-  })
-  const contentMain = Math.max(cursorMain - mainGap, 0)
-
-  // 交叉方向：分层图布局。层内顺序按父节点位置（重心）排序，坐标由「贴近父节点 + 同层最小间距」求得
-  const crossCenter = new Map()
-  const crossSizeOf = (id) => byId.get(id).height
-
-  // 只统计沿主方向向前的边；回边绕行展示，不参与交叉方向定位
-  const parentsOf = new Map(nodes.map((node) => [node.id, []]))
-  const childrenOf = new Map(nodes.map((node) => [node.id, []]))
-  rawEdges.forEach((edge) => {
-    if (edge.from === edge.to) return
-    if (!parentsOf.has(edge.to) || !childrenOf.has(edge.from)) return
-    const fromLayer = nodeLayer.get(edge.from) ?? 0
-    const toLayer = nodeLayer.get(edge.to) ?? 0
-    if (fromLayer >= toLayer) return
-    parentsOf.get(edge.to).push(edge.from)
-    childrenOf.get(edge.from).push(edge.to)
-  })
-
-  // 层内顺序：沿可见边（未折叠父节点的出边）做森林的深度优先序，兄弟仍按 child_ids 相邻，作为初始顺序。
-  // 折叠父节点的出边已被剔除，共享子节点因此跟着仍然可见的父级排序，不会被折叠支的旧位置钉在层首。
-  const order = new Map(layerKeys.map((layer) => [layer, []]))
-  const dfsIndex = new Map()
-  const visibleChildren = new Map(nodes.map((node) => [node.id, []]))
-  rawEdges.forEach((edge) => {
-    if (visibleChildren.has(edge.from)) visibleChildren.get(edge.from).push(edge.to)
-  })
-  let dfsCursor = 0
-  const walkVisible = (id) => {
-    if (dfsIndex.has(id)) return
-    dfsIndex.set(id, dfsCursor)
-    dfsCursor += 1
-    ;(visibleChildren.get(id) || []).forEach(walkVisible)
-  }
-  ;(props.nodes || []).forEach((root) => {
-    const id = String(root.id)
-    if (byId.has(id)) walkVisible(id)
-  })
-  nodes.forEach((node) => {
-    const layer = nodeLayer.get(node.id) ?? 0
-    order.get(layer).push(node)
-  })
-  order.forEach((list) => list.sort((a, b) => (dfsIndex.get(a.id) ?? 0) - (dfsIndex.get(b.id) ?? 0)))
-
-  // 子树块跨度：节点与相邻一列的子节点一起在交叉方向占用的空间。
-  // 子节点只归第一个紧邻的父级，多父各占一份会把同列分支顶开；
-  // 跨层链接的目标排在别的列，整棵子树不参与本列的留位
-  const laneChildren = new Map(nodes.map((node) => [node.id, []]))
-  const laneOwner = new Set()
-  rawEdges.forEach((edge) => {
-    const fromLayer = nodeLayer.get(edge.from)
-    const toLayer = nodeLayer.get(edge.to)
-    if (fromLayer === undefined || toLayer === undefined) return
-    if (toLayer !== fromLayer + 1) return
-    if (laneOwner.has(edge.to)) return
-    laneOwner.add(edge.to)
-    laneChildren.get(edge.from).push(edge.to)
-  })
-
-  const blockSize = new Map()
-  const blockSizeOf = (id) => {
-    const cached = blockSize.get(id)
-    if (cached !== undefined) return cached
-    let span = 0
-    ;(laneChildren.get(id) || []).forEach((child, index) => {
-      span += blockSizeOf(child) + (index > 0 ? crossGap : 0)
-    })
-    const value = Math.max(crossSizeOf(id), span)
-    blockSize.set(id, value)
-    return value
-  }
-
-  // 初始坐标：按层内顺序依次排开
-  layerKeys.forEach((layer) => {
-    let cursor = 0
-    order.get(layer).forEach((node) => {
-      const half = blockSizeOf(node.id) / 2
-      crossCenter.set(node.id, cursor + half)
-      cursor += blockSizeOf(node.id) + crossGap
-    })
-  })
-
-  // 保序回归（PAVA）：把期望位置投影到「同层最小间距」约束上，得到该层的最优解
-  const projectLayer = (layer) => {
-    const list = order.get(layer)
-    if (list.length === 0) return
-
-    const offsets = [0]
-    for (let i = 1; i < list.length; i += 1) {
-      const gap = (blockSizeOf(list[i - 1].id) + blockSizeOf(list[i].id)) / 2 + crossGap
-      offsets.push(offsets[i - 1] + gap)
-    }
-
-    // 相邻违例合并成块，块内取均值，保证结果单调不减
-    const blocks = []
-    list.forEach((node, index) => {
-      blocks.push({ sum: crossCenter.get(node.id) - offsets[index], count: 1 })
-      while (blocks.length > 1) {
-        const last = blocks[blocks.length - 1]
-        const prev = blocks[blocks.length - 2]
-        if (prev.sum / prev.count <= last.sum / last.count) break
-        prev.sum += last.sum
-        prev.count += last.count
-        blocks.pop()
-      }
-    })
-
-    const desired = list.map((node) => crossCenter.get(node.id))
-    let cursor = 0
-    blocks.forEach((block) => {
-      const value = block.sum / block.count
-      for (let i = 0; i < block.count; i += 1) {
-        crossCenter.set(list[cursor].id, value + offsets[cursor])
-        cursor += 1
-      }
-    })
-
-    // 投影会整体推移整层，按期望均值平移回来，避免逐层累积漂移
-    const mean = (values) => values.reduce((a, b) => a + b, 0) / values.length
-    const drift = mean(desired) - mean(list.map((node) => crossCenter.get(node.id)))
-    list.forEach((node) => crossCenter.set(node.id, crossCenter.get(node.id) + drift))
-  }
-
-  const averageOf = (ids) => {
-    const values = ids.map((id) => crossCenter.get(id)).filter((value) => value !== undefined)
-    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null
-  }
-
-  // 每个节点连同其紧邻列后代组成一个块，间距回收时整块平移，子树内部相对位置不变
-  const blockNodes = new Map()
-  const collectBlock = (id, seen) => {
-    if (seen.has(id)) return []
-    seen.add(id)
-    const ids = [id]
-    ;(laneChildren.get(id) || []).forEach((child) => {
-      ids.push(...collectBlock(child, seen))
-    })
-    return ids
-  }
-  nodes.forEach((node) => blockNodes.set(node.id, collectBlock(node.id, new Set())))
-
-  // 块在交叉方向的实际可见范围，用于按边缘而不是块中心计算空白
-  const blockBoundsCache = new Map()
-  const blockBoundsOf = (id) => {
-    const cached = blockBoundsCache.get(id)
-    if (cached) return cached
-    let top = crossCenter.get(id) - crossSizeOf(id) / 2
-    let bottom = crossCenter.get(id) + crossSizeOf(id) / 2
-    ;(laneChildren.get(id) || []).forEach((child) => {
-      const bounds = blockBoundsOf(child)
-      if (bounds.top < top) top = bounds.top
-      if (bounds.bottom > bottom) bottom = bounds.bottom
-    })
-    const value = { top, bottom }
-    blockBoundsCache.set(id, value)
-    return value
-  }
-
-  // 只压缩同一父级下兄弟分支之间的异常空白，正常展开空间保持不变
-  const shareParent = (a, b) => {
-    const parents = new Set(parentsOf.get(b) || [])
-    return (parentsOf.get(a) || []).some((id) => parents.has(id))
-  }
-
-  const shiftBlock = (id, shift) => {
-    ;(blockNodes.get(id) || [id]).forEach((member) => {
-      crossCenter.set(member, crossCenter.get(member) + shift)
-    })
-  }
-
-  // 逐层自下而上扫描同父兄弟：直接按当前可见边缘把空白压回 maxGap。
-  // 每层独立处理，浅层的一次整体下移不会阻止深层继续回收（大空白常在被移动过的块内部）。
-  const limitGaps = (layer) => {
-    const list = order.get(layer)
-    // 兄弟分支之间保留两个间隔，既有展开后的呼吸空间，又不会留下异常大的空白
-    const maxGap = crossGap * 2
-    for (let i = list.length - 1; i > 0; i -= 1) {
-      const prev = list[i - 1]
-      const cur = list[i]
-      if (!shareParent(prev.id, cur.id)) continue
-      blockBoundsCache.clear()
-      const gap = blockBoundsOf(cur.id).top - blockBoundsOf(prev.id).bottom
-      if (gap <= maxGap) continue
-      const shift = gap - maxGap
-      // 只下移当前对之前的块，保持顺序与块内相对位置；cur 及其下方不动
-      for (let j = 0; j < i; j += 1) shiftBlock(list[j].id, shift)
-      blockBoundsCache.clear()
-    }
-  }
-
-  // 兜底：回收空白时整块下移可能压到别的父级分支（limitGaps 只看同父兄弟）。
-  // 同层按节点真实上下边缘保证最小间距，重叠时把 cur 及之后的块整体下移。
-  const separateLayer = (layer) => {
-    const list = order.get(layer)
-    for (let i = 1; i < list.length; i += 1) {
-      const prev = list[i - 1]
-      const cur = list[i]
-      const gap = (crossCenter.get(cur.id) - crossSizeOf(cur.id) / 2)
-        - (crossCenter.get(prev.id) + crossSizeOf(prev.id) / 2)
-      if (gap >= crossGap) continue
-      // 只下移 cur 及之后的块，保持层内顺序与块内相对位置
-      const shift = crossGap - gap
-      for (let j = i; j < list.length; j += 1) shiftBlock(list[j].id, shift)
-      blockBoundsCache.clear()
-    }
-  }
-
-  // 逐层定位：down 让子节点贴近父节点（多父节点取各父节点位置的平均值），
-  // up 让父节点居中于子节点带。每层定位后投影回间距约束，避免重叠。
-  const relaxLayer = (layer, mode) => {
-    order.get(layer).forEach((node) => {
-      const parents = averageOf(parentsOf.get(node.id))
-      const children = averageOf(childrenOf.get(node.id))
-      // up 时叶子没有子节点，保持当前位置，由父节点向它靠拢
-      const target = mode === 'down' ? (parents ?? children) : children
-      if (target !== null) crossCenter.set(node.id, target)
-    })
-    // 层内顺序固定为初始顺序，只让坐标收敛；每轮重排会让折叠/展开后顺序漂移
-    projectLayer(layer)
-  }
-
-  // 交替收敛：父节点先居中于子节点带，子节点再贴近父节点，最后以子节点贴近父节点收尾
-  for (let round = 0; round < 3; round += 1) {
-    ;[...layerKeys].reverse().forEach((layer) => relaxLayer(layer, 'up'))
-    layerKeys.forEach((layer) => relaxLayer(layer, 'down'))
-    // 层间互不阻塞：每层都按当前坐标重新测量，浅层的下移不跳过深层内部的大空白
-    layerKeys.forEach((layer) => {
-      limitGaps(layer)
-      separateLayer(layer)
-    })
-  }
-
-  let minCross = Infinity
-  let maxCross = -Infinity
-  crossCenter.forEach((center, id) => {
-    const half = crossSizeOf(id) / 2
-    minCross = Math.min(minCross, center - half)
-    maxCross = Math.max(maxCross, center + half)
-  })
-
-  // 坐标原点钉在根节点的左上角：展开/折叠只改变其它节点的相对位置，根节点在图上不动
-  const anchorNode = nodes.find((node) => node.isRoot) ?? nodes[0]
-  const crossOrigin = crossCenter.get(anchorNode.id) - crossSizeOf(anchorNode.id) / 2
-  const anchorLayer = nodeLayer.get(anchorNode.id) ?? 0
-  const anchorMain = layerStart.get(anchorLayer)
-    + (layerMain.get(anchorLayer) - nodeWidth) / 2
-  const mainOrigin = isForward.value
-    ? anchorMain
-    : contentMain - anchorMain - nodeWidth
-
-  nodes.forEach((node) => {
-    const cross = crossCenter.get(node.id) - node.height / 2 - crossOrigin
-    const layer = nodeLayer.get(node.id) ?? 0
-    const mainOffset = layerStart.get(layer) + (layerMain.get(layer) - nodeWidth) / 2
-    const main = (isForward.value ? mainOffset : contentMain - mainOffset - nodeWidth)
-      - mainOrigin
-    node.x = main
-    node.y = cross
-  })
-
-  // 内容包围盒同样是相对根节点的偏移，可能为负值
-  const crossMin = minCross - crossOrigin
-  const crossMax = maxCross - crossOrigin
-  const contentCross = crossMax - crossMin
-  const mainMin = -mainOrigin
+  const byId = new Map(nodes.map((node) => [String(node.id), node]))
 
   // 占位槽只参与布局，不画连线
   const routedEdges = rawEdges
     .filter((edge) => edge.from !== DROP_PLACEHOLDER_ID && edge.to !== DROP_PLACEHOLDER_ID)
     .map((edge, index) => {
-      const from = byId.get(edge.from)
-      const to = byId.get(edge.to)
+      const from = byId.get(String(edge.from))
+      const to = byId.get(String(edge.to))
       if (!from || !to) return null
-      const backward = (nodeLayer.get(to.id) ?? 0) <= (nodeLayer.get(from.id) ?? 0)
+      const backward = (layers.get(String(to.id)) ?? 0) <= (layers.get(String(from.id)) ?? 0)
       // 回边绕到内容外侧，通道按边序号错开避免重叠
       const laneCross = backward
         ? crossMax + 24 + (index % 4) * 14
@@ -1445,11 +1119,11 @@ const computeGraphLayout = (forest) => {
   return {
     nodes,
     edges: routedEdges,
-    contentWidth: contentMain,
-    contentHeight: contentCross,
+    contentWidth,
+    contentHeight,
     // 内容左上角在图坐标里的位置，供适应视图对齐
-    minX: mainMin,
-    minY: crossMin
+    minX,
+    minY
   }
 }
 
