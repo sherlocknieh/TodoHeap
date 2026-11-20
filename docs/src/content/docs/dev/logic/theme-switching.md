@@ -15,7 +15,7 @@ title: "主题切换逻辑"
 | 应用 | `theme.js` 的 `applyTheme` | 写 `data-theme`、`color-scheme` 与 `meta[name="theme-color"]` |
 | 修改 | 顶栏主题菜单 `selectTheme`（`persistedRef('theme')`）或 Agent `update_app_setting` | 写入 `todoheap:ui:theme`，广播 `todoheap:ui-change` |
 | 同步 | `theme.js` 的 `handlePreferenceChange` | 收到同一键的广播后重新应用，已打开界面即时换色 |
-| 跟随系统 | `theme.js` 的 `handleSystemChange` | 仅在 `auto` 下响应 `prefers-color-scheme` 变化 |
+| 自动（跟随系统） | `theme.js` 的 `handleSystemChange` | 仅在 `auto` 下响应 `prefers-color-scheme` 变化 |
 
 ## 二、偏好与存储
 

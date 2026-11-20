@@ -39,7 +39,7 @@ const { hasUnsyncedChanges } = storeToRefs(syncQueueStore)
 
 const userMenuRef = ref(null)
 
-// 顶栏主题按钮：与 Agent 共用同一个界面偏好，悬停展开下拉菜单选 跟随系统/浅色/深色
+// 顶栏主题按钮：与 Agent 共用同一个界面偏好，悬停展开下拉菜单选 自动/浅色/深色
 const themeMode = persistedRef(THEME_KEY, 'auto', {
 	validate: (value) => THEME_MODES.includes(value)
 })
@@ -645,8 +645,9 @@ const runToastAction = async () => {
 									:title="themeToggleLabel" :aria-label="themeToggleLabel" @click="openThemeMenu">
 									<AppIcon :name="currentThemeOption.icon" :size="15" />
 								</button>
-								<!-- 下拉菜单：外层 pt-1 当间距，鼠标从按钮移到面板不会离开悬停区 -->
-								<div v-if="showThemeMenu" class="absolute right-0 top-full pt-1 w-36 z-40">
+								<!-- 下拉菜单：外层 pt-1 当间距，鼠标从按钮移到面板不会离开悬停区；面板与按钮水平居中对齐 -->
+								<div v-if="showThemeMenu"
+									class="absolute left-1/2 top-full -translate-x-1/2 pt-1 w-30 z-40">
 									<div ref="themeMenuRef" role="radiogroup" aria-label="主题"
 										class="panel shadow-lg py-1 overflow-hidden">
 										<button v-for="option in THEME_OPTIONS" :key="option.value" type="button"
