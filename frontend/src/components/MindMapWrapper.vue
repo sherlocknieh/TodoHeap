@@ -2,10 +2,11 @@
   <!-- 自研思维导图：SVG 渲染，支持滚轮缩放、拖拽平移与键盘增删改 -->
   <div ref="container" tabindex="0"
     class="mindmap-canvas relative w-full h-full overflow-hidden outline-none select-none"
-    :class="[panning || dragState.active ? 'cursor-grabbing' : 'cursor-grab', dotGrid && 'mindmap-dots']"
+    :class="[panning || dragState.active ? 'cursor-grabbing' : marquee.active ? 'cursor-crosshair' : 'cursor-grab', dotGrid && 'mindmap-dots']"
     :style="dotGrid ? dotGridStyle : undefined"
-    @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointermove="onPointerMove"
-    @pointerup="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
+    @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointerdown.capture="onMarqueePointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="endPan" @pointercancel="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
     @keydown="onKeydown">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
@@ -236,6 +237,11 @@
       </g>
     </svg>
 
+    <!-- Ctrl/⌘ 框选：矩形只做视觉提示，命中在松手时计算 -->
+    <div v-if="marquee.active" aria-hidden="true"
+      class="pointer-events-none absolute z-[5] rounded-sm border border-accent-500/80 bg-accent-500/10 dark:border-accent-400/80 dark:bg-accent-400/10"
+      :style="marqueeStyle"></div>
+
     <!-- 节点更多操作菜单：点三点按钮时贴在按钮下方，右键时从指针处展开，都按屏幕位置定位并随缩放平移跟随；
          菜单内点击不再冒泡到画布，避免刚打开就被当成点空白取消 -->
     <div v-if="menuNode" data-mm-more-menu
@@ -448,6 +454,27 @@ const beginMultiSelection = () => {
   if (current && current !== rootNodeId.value) return new Set([current])
   return new Set()
 }
+
+// Ctrl/⌘ + 拖拽框选：矩形只做视觉提示，松手时把碰到的节点追加进选择
+const marquee = reactive({
+  active: false,
+  startX: 0,
+  startY: 0,
+  currentX: 0,
+  currentY: 0,
+  startNodeKey: null
+})
+
+const marqueeStyle = computed(() => {
+  const left = Math.min(marquee.startX, marquee.currentX)
+  const top = Math.min(marquee.startY, marquee.currentY)
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${Math.abs(marquee.currentX - marquee.startX)}px`,
+    height: `${Math.abs(marquee.currentY - marquee.startY)}px`
+  }
+})
 
 // 正在原地编辑的节点与其输入内容：布局测量要用它撑高节点，因此声明在布局之前
 const editingId = ref(null)
@@ -972,6 +999,8 @@ const dragState = reactive({
 })
 let dragStart = { x: 0, y: 0 }
 let lastDragEndAt = 0
+// 框选松手后的 click 抑制窗口，与平移互不影响
+let lastMarqueeEndAt = 0
 
 // 拖拽排序的占位槽：在目标兄弟序列里临时插入一个假节点，让布局真正腾出空位。
 // 只用于显示；拖拽命中检测仍用不含占位槽的布局，避免目标节点被顶走后反复抖动
@@ -1594,7 +1623,7 @@ const toggleNodeMenu = (node) => {
 // 锚点取指针在图内的坐标，菜单像系统右键菜单一样从这里展开
 const openNodeMenuAt = (node, event) => {
   // 原地编辑保留浏览器右键菜单，选词与粘贴要用；根节点没有可操作的菜单，同样放行
-  if (editingId.value != null || node.isRoot || !container.value) return
+  if (editingId.value != null || node.isRoot || !container.value || marquee.active) return
   event.preventDefault()
 
   // 右键的是已多选节点且不止一个：菜单切到批量操作；否则退出多选，保持菜单与高亮一致
@@ -1689,8 +1718,8 @@ const URGENCY_CHECK_CLASS = {
 
 // 根节点「全部任务」不是真实任务，选中状态只在图内维护
 const selectNode = (node, event) => {
-  // 拖拽建链接后紧跟的 click 不应改变选中
-  if (Date.now() - lastDragEndAt < 250) return
+  // 拖拽建链接或框选松手后紧跟的 click 不应改变选中
+  if (Date.now() - lastDragEndAt < 250 || Date.now() - lastMarqueeEndAt < 250) return
 
   // 多选：根节点不参与；Shift 从锚点按图的可见顺序连选，Ctrl/⌘ 切换单个节点
   if (!node.isRoot && event && (event.metaKey || event.ctrlKey || event.shiftKey)) {
@@ -2771,6 +2800,15 @@ const onPointerDown = (event, fromRoot = false) => {
 
 const onPointerMove = (event) => {
   updateLeafControlHover(event)
+  // 框选期间只更新矩形，不触发画布平移
+  if (marquee.active) {
+    const rect = container.value?.getBoundingClientRect()
+    if (rect) {
+      marquee.currentX = event.clientX - rect.left
+      marquee.currentY = event.clientY - rect.top
+    }
+    return
+  }
   if (!panning.value) return
   if (!panMoved) {
     const distance = Math.hypot(event.clientX - panStart.x, event.clientY - panStart.y)
@@ -2781,7 +2819,75 @@ const onPointerMove = (event) => {
   view.y = panStart.originY + (event.clientY - panStart.y)
 }
 
+// Ctrl/⌘ + 按下开始框选；原地短按仍按 Ctrl 点击切换节点
+const onMarqueePointerDown = (event) => {
+  if (event.button !== 0 || !(event.ctrlKey || event.metaKey)) return
+  if (editingId.value != null || !container.value) return
+  // 只在画布上开始框选，菜单与视图控件保持原交互
+  if (!event.target.closest?.('svg')) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  closeNodeMenu()
+  selectedEdgeKey.value = null
+  confirmUnlink.value = false
+  hasInteracted = true
+
+  const rect = container.value.getBoundingClientRect()
+  marquee.active = true
+  marquee.startX = event.clientX - rect.left
+  marquee.startY = event.clientY - rect.top
+  marquee.currentX = marquee.startX
+  marquee.currentY = marquee.startY
+  marquee.startNodeKey = event.target.closest('[data-mm-node]')?.dataset.mmNode ?? null
+  container.value.setPointerCapture(event.pointerId)
+}
+
+// 框选结束：拖动过就把矩形碰到的节点并入现有选择；未拖动则按 Ctrl 点击处理
+const finishMarquee = () => {
+  const moved = Math.hypot(marquee.currentX - marquee.startX, marquee.currentY - marquee.startY) >= 4
+  const { startX, startY, currentX, currentY, startNodeKey: nodeKey } = marquee
+  marquee.active = false
+  marquee.startNodeKey = null
+  // 松手后浏览器补发的 click 不再参与选择
+  lastPanEndAt = Date.now()
+  lastMarqueeEndAt = Date.now()
+  if (!container.value) return
+
+  if (!moved) {
+    if (!nodeKey || nodeKey === rootNodeId.value) return
+    multiSelectedKeys.value = toggleSelection(beginMultiSelection(), nodeKey)
+    multiAnchor.value = nodeKey
+    container.value.focus({ preventScroll: true })
+    return
+  }
+
+  // 屏幕坐标换回图内坐标，节点框与矩形有交集就算命中
+  const toWorld = (x, y) => ({ x: (x - view.x) / view.scale, y: (y - view.y) / view.scale })
+  const a = toWorld(startX, startY)
+  const b = toWorld(currentX, currentY)
+  const left = Math.min(a.x, b.x)
+  const right = Math.max(a.x, b.x)
+  const top = Math.min(a.y, b.y)
+  const bottom = Math.max(a.y, b.y)
+
+  const next = new Set(beginMultiSelection())
+  layout.value.nodes.forEach((node) => {
+    if (node.isPlaceholder || node.isRoot) return
+    const overlaps = node.x < right && node.x + nodeWidth > left && node.y < bottom && node.y + node.height > top
+    if (overlaps) next.add(String(node.id))
+  })
+  multiSelectedKeys.value = next
+  const lastKey = [...next].pop()
+  if (lastKey) multiAnchor.value = lastKey
+  container.value.focus({ preventScroll: true })
+}
+
 const endPan = () => {
+  if (marquee.active) {
+    finishMarquee()
+    return
+  }
   if (!panning.value) return
   panning.value = false
   if (panMoved) {
