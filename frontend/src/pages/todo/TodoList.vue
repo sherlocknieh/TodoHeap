@@ -169,6 +169,12 @@
               </button>
               <MiddleEllipsis :text="t.title || '未命名任务'"
                 class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
+              <!-- 「已完成行删除」：单条删除走软删除，提示里可撤销，与整区「清除已完成」互不影响 -->
+              <button type="button"
+                class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                title="删除任务" aria-label="删除任务" @click.stop="deleteTodo(t.id)">
+                <AppIcon name="trash" :size="13" />
+              </button>
             </li>
           </ul>
         </section>
