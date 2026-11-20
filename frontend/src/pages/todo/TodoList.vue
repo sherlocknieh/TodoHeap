@@ -132,6 +132,7 @@
           @add-subtask="addSubtask"
           @edit-subtask="editSubtask"
           @task-selected="handleTaskSelected"
+          @jump-to-graph="handleJumpToGraph"
           @set-deadline="setDeadline"
           @move-todo="moveTodo"
           @unlink-task="unlinkTask"
@@ -248,7 +249,7 @@ const props = defineProps({
 
 const todoStore = useTodoStore()
 const authStore = useAuthStore()
-const emit = defineEmits(['task-selected', 'notify'])
+const emit = defineEmits(['task-selected', 'jump-to-graph', 'notify'])
 
 const newTaskTitle = ref('')
 // 添加栏可以先选截止时间，创建任务时一并写入
@@ -554,5 +555,10 @@ const unlinkTask = async ({ parentId, childId }) => {
 
 const handleTaskSelected = (taskId) => {
   emit('task-selected', taskId)
+}
+
+// 任务行菜单「跳转到节点视图」：列表只转发目标，切视图与定位由外层工作区负责
+const handleJumpToGraph = (taskId) => {
+  emit('jump-to-graph', taskId)
 }
 </script>

@@ -400,6 +400,15 @@ const handleTaskSelected = (taskId) => {
 	console.log('选中任务ID:', taskId)
 }
 
+// 任务行菜单「跳转到节点视图」：选中该任务并切到任务图。
+// 带 focus 查询是为了让图在挂载后定位节点：图挂载时已存在的选中态不会触发可见性修正
+const jumpToGraph = (taskId) => {
+	const id = Number(taskId)
+	if (!Number.isFinite(id)) return
+	handleTaskSelected(id)
+	router.push({ name: 'GraphView', query: { focus: String(id) } })
+}
+
 // 画布空白点击等同于点击浮层外部：收起浮在画布上的导航与详情右栏
 const handleCanvasBackgroundClick = () => {
 	if (showLeftSidebar.value && isSidebarFloating.value) showLeftSidebar.value = false
@@ -713,7 +722,8 @@ const runToastAction = async () => {
 										: 'mx-auto max-w-3xl w-full px-8 pb-6'">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
-									@task-selected="handleTaskSelected" @event-selected="handleEventSelected"
+									@task-selected="handleTaskSelected" @jump-to-graph="jumpToGraph"
+									@event-selected="handleEventSelected"
 									@notify="handleNotify" @open-sidebar="showLeftSidebar = true"
 									@background-click="handleCanvasBackgroundClick" />
 							</router-view>

@@ -391,7 +391,9 @@ const props = defineProps({
   // 新建任务后由父级指定要立即重命名的节点
   editTaskId: { type: Number, default: null },
   // 新建立的链接，形如 { parentId, childId }；引用变化即按点击连线选中它
-  newEdge: { type: Object, default: null }
+  newEdge: { type: Object, default: null },
+  // 「跳转到节点视图」的目标：挂载后一次性把它带回可见区
+  focusTaskId: { type: String, default: null }
 })
 
 const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'delete-tasks', 'toggle-done', 'set-deadline', 'drop-task', 'unlink-task', 'notify', 'background-click'])
@@ -1717,6 +1719,33 @@ watch(selectedId, (id) => {
     return
   }
   // 展开后布局会重算，等节点落位再修正可见性
+  nextTick(() => ensureNodeVisible(id))
+})
+
+// 「跳转到节点视图」的一次性定位：图挂载时已存在的选中态不会触发上面的修正，用 focus 目标补一次。
+// 被折叠隐藏时先展开祖先链；定位后清掉目标，避免后续重排再次把视口拉回去
+const pendingFocusId = ref(props.focusTaskId == null ? null : String(props.focusTaskId))
+watch([layout, () => size.width, () => size.height], () => {
+  const id = pendingFocusId.value
+  if (id == null) return
+  if (!layout.value.nodes.some((node) => node.id === id)) {
+    // 目标在整棵树里也不存在（已被删除或数据未到）时不再等待
+    const { parentOf, parentsOf } = nodeIndex.value
+    if (!parentOf.has(id) && !parentsOf.has(id)) {
+      pendingFocusId.value = null
+      return
+    }
+    const toExpand = []
+    let current = parentOf.get(id)
+    while (current != null) {
+      if (isTaskCollapsed(current)) toExpand.push(String(current))
+      current = parentOf.get(String(current))
+    }
+    if (toExpand.length > 0) setTasksCollapsed(toExpand, false)
+    return
+  }
+  if (!size.width || !size.height) return
+  pendingFocusId.value = null
   nextTick(() => ensureNodeVisible(id))
 })
 

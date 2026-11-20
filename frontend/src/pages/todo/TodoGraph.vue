@@ -2,7 +2,7 @@
 	<!-- 任务图：思维导图占满活动栏以外的区域，支持键盘增删改 -->
 	<div class="w-full h-full overflow-hidden">
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
-			:new-edge="newEdge"
+			:new-edge="newEdge" :focus-task-id="focusTaskId"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
 			@delete-task="deleteTask" @delete-tasks="deleteTasks" @toggle-done="toggleDone" @set-deadline="setDeadline"
 			@drop-task="dropTask" @unlink-task="unlinkTask"
@@ -12,6 +12,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useTodoStore } from '@/stores/todos'
 import MindMapWrapper from '@/components/MindMapWrapper.vue'
 import { collectDescendantIds, findDeleteFocusId, findParentIds } from '@/utils/taskGraph'
@@ -26,6 +27,14 @@ const props = defineProps({
 const emit = defineEmits(['task-selected', 'notify', 'background-click'])
 
 const todoStore = useTodoStore()
+
+const route = useRoute()
+
+// 「跳转到节点视图」把目标任务带在 focus 查询里：图挂载后据此把该节点带回可见区
+const focusTaskId = computed(() => {
+	const raw = Array.isArray(route.query.focus) ? route.query.focus[0] : route.query.focus
+	return raw == null || raw === '' ? null : String(raw)
+})
 
 // 新建后立即进入重命名，避免留下「新任务」占位
 const editTaskId = ref(null)
