@@ -1,0 +1,35 @@
+---
+// [页头社交图标]: 覆盖 Starlight 默认 SocialIcons，让社交外链在新标签打开。
+// 上游：Starlight 的 Header/SiteTitle 组件渲染；数据来自 astro.config.mjs 的 social 配置
+// （通过 Starlight 的虚拟模块读取，避免链接地址在两处维护）。
+import { Icon } from '@astrojs/starlight/components'
+import config from 'virtual:starlight/user-config'
+
+const links = config.social ?? []
+---
+
+{
+  links.length > 0 && (
+    <>
+      {links.map(({ label, href, icon }) => (
+        <a {href} target="_blank" rel="me noopener noreferrer" class="sl-flex">
+          <span class="sr-only">{label}</span>
+          <Icon name={icon} />
+        </a>
+      ))}
+    </>
+  )
+}
+
+<style>
+  @layer starlight.core {
+    a {
+      color: var(--sl-color-text-accent);
+      padding: 0.5em;
+      margin: -0.5em;
+    }
+    a:hover {
+      color: var(--sl-color-white);
+    }
+  }
+</style>

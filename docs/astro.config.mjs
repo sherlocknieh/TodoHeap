@@ -27,6 +27,10 @@ export default defineConfig({
       title: 'TodoHeap 任务堆',
       description: 'TodoHeap 文档：AI 驱动的任务与日程管理',
       logo: { src: './src/assets/logo.svg', alt: 'TodoHeap' },
+      // 覆盖社交图标组件：Starlight 的 social 不支持 target，由该组件补上“新标签打开”
+      components: {
+        SocialIcons: './src/components/SocialIcons.astro',
+      },
       head: [
         { tag: 'link', attrs: { rel: 'icon', href: '/TodoHeap/logo.svg' } },
       ],
