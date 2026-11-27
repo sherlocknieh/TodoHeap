@@ -52,7 +52,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | 文件 | 职责 |
 | --- | --- |
 | `main.ts`、`App.vue` | 入口，仅 `<RouterView />` |
-| `router/index.ts` | hash 路由；`/app` 需登录，默认落到任务图，子路由 `graph` / `list` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
+| `router/index.ts` | hash 路由，地址形如 `/TodoHeap/app/#/graph`；根路由 `/` 是工作区外壳（需登录），默认落到任务图，子路由 `graph` / `list` / `heap` / `ai` / `schedule` / `trash`；`/settings` 是顶层路由 |
 | `style.css` | Tailwind v4 入口 + 设计令牌（`accent-*` 色阶）+ 基元类 |
 
 ### 页面

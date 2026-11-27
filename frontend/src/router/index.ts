@@ -6,13 +6,6 @@ import { settingsPanelOpen } from '@/utils/settingsPanel'
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    // 根路径直接进任务图；落地页由文档站（/TodoHeap/）承担
-    {
-      path: '/',
-      name: 'home',
-      redirect: { name: 'GraphView' },
-      meta: { requiresAuth: false, title: 'TodoHeap · 任务堆' }
-    },
     // 登录页
     {
       path: '/login',
@@ -33,18 +26,16 @@ const router = createRouter({
       component: () => import('@/pages/todo/Settings.vue'),
       meta: { requiresAuth: true, title: 'TodoHeap - 设置' }
     },
-    // 应用页
+    // 应用页：静态基路径已由 vite base 提供 /TodoHeap/app/，hash 只承载视图名（#/graph）
     {
       component: () => import('@/pages/Todo.vue'),
-      meta: { requiresAuth: true, title: 'TodoHeap - 我的清单' },
-      path: '/app',
+      meta: { requiresAuth: true, title: 'TodoHeap - 我的清单', workspace: true },
+      path: '/',
       name: 'app',
-      redirect: '/app/graph', // 默认子路由：任务图
+      redirect: { name: 'GraphView' }, // 默认子路由：任务图
       children: [
         { path: 'graph', name: 'GraphView', component: () => import('@/pages/todo/TodoGraph.vue'), meta: { title: 'TodoHeap - 任务图' } },
         { path: 'list', name: 'ListView', component: () => import('@/pages/todo/TodoList.vue'), meta: { title: 'TodoHeap - 任务表' } },
-        // 旧书签与外部链接仍指向 tree，统一转到任务图
-        { path: 'tree', redirect: '/app/graph' },
         { path: 'heap', name: 'HeapView', component: () => import('@/pages/todo/TodoHeap.vue'), meta: { title: 'TodoHeap - 堆视图' } },
         { path: 'ai', name: 'AIView', component: () => import('@/pages/todo/AIView.vue'), meta: { title: 'TodoHeap - AI' } },
         { path: 'schedule', name: 'ScheduleView', component: () => import('@/pages/todo/ScheduleView.vue'), meta: { title: 'TodoHeap - 日程' } },
@@ -79,8 +70,9 @@ router.beforeEach(async (to, _from) => {
 router.afterEach((to) => {
   const title = (to.meta && (to.meta as any).title) || 'TodoHeap'
   document.title = title
-  // 设置浮窗只在应用页出现，导航到其它页面时收起
-  if (!String(to.path).startsWith('/app')) {
+  // 设置浮窗只在工作区视图出现，导航到其它页面时收起
+  const inWorkspace = to.matched.some((record) => Boolean((record.meta as any).workspace))
+  if (!inWorkspace) {
     settingsPanelOpen.value = false
   }
 })

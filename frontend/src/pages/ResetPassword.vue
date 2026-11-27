@@ -52,7 +52,7 @@ const handleUpdatePassword = async () => {
     await auth.updatePassword(password.value)
     successMsg.value = '密码已更新，正在跳转...'
     setTimeout(() => {
-      router.push('/app')
+      router.push('/graph')
     }, 1200)
   } catch (error) {
     errorMsg.value = error?.message || '更新密码失败，请重试'

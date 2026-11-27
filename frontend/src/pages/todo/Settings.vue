@@ -514,10 +514,13 @@ const handleClose = () => {
 const handleFloat = () => {
   settingsPanelOpen.value = true
   const previous = window.history.state?.back
-  if (typeof previous === 'string' && previous.includes('/app')) {
+  // 上一页属于工作区时才后退沿用原视图，否则回到默认任务图
+  const previousIsWorkspace = typeof previous === 'string'
+    && router.resolve(previous).matched.some((record) => Boolean(record.meta.workspace))
+  if (previousIsWorkspace) {
     router.back()
   } else {
-    router.push({ name: 'app', query: route.query })
+    router.push({ name: 'GraphView', query: route.query })
   }
 }
 

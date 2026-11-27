@@ -33,11 +33,11 @@ const callbackNotice = computed(() => {
  * 获取重定向路径
  * 
  * 如果路由查询参数中有 redirect，则返回该路径
- * 否则返回默认路径 '/app'
+ * 否则返回默认路径 '/graph'
  */
 const getRedirectPath = () => {
   const redirect = router.currentRoute.value.query.redirect
-  return (typeof redirect === 'string' && redirect.trim()) ? redirect : '/app'
+  return (typeof redirect === 'string' && redirect.trim()) ? redirect : '/graph'
 }
 
 

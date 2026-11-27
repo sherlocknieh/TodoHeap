@@ -27,3 +27,4 @@ title: "逻辑文档"
 | [日期时间选择器](./date-time-picker.md) | 自建月历面板、值格式、定位与键盘、截止时间入口的预设与清除 |
 | [Markdown 编辑器的空引用块](./milkdown-empty-blockquote.md) | 空引用块删不掉的根因、自定义 keymap 的接管范围 |
 | [日程新建与临时 ID](./schedule-optimistic-create.md) | 新建即开右栏、临时 ID 换算、写入排队与失败回滚 |
+| [应用地址与路由前缀](./app-url.md) | 静态基路径 `/TodoHeap/app/` 与 hash 视图名两段前缀、工作区父路由与认证回跳约束 |

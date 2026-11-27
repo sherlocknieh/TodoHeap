@@ -19,11 +19,11 @@ describe('handleAuthCallback', () => {
   })
 
   it('普通深链不触碰路由', async () => {
-    loadWithHash('#/login?redirect=/app/list')
+    loadWithHash('#/login?redirect=/list')
 
     await handleAuthCallback()
 
-    expect(window.location.hash).toBe('#/login?redirect=/app/list')
+    expect(window.location.hash).toBe('#/login?redirect=/list')
     expect(setSession).not.toHaveBeenCalled()
   })
 
