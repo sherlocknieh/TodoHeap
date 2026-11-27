@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-9600 -9600 19200 19200" role="img" aria-label="TodoHeap">
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="-9600 -9600 19200 19200" role="img" aria-label="TodoHeap">
   <title>TodoHeap</title>
   <defs>
     <!-- 六边形定义(中心在原点, 坐标基准 200 单位 = 原 1 单位) -->
