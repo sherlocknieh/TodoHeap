@@ -1,27 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="TodoHeap">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-48 -48 96 96" role="img" aria-label="TodoHeap">
   <title>TodoHeap</title>
   <defs>
-    <linearGradient id="leaf" x1="10" y1="8" x2="88" y2="88" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8ac63e"/>
-      <stop offset="0.55" stop-color="#3ba758"/>
-      <stop offset="1" stop-color="#169d78"/>
-    </linearGradient>
+    <!-- 六边形定义(中心在原点) -->
+    <path id="cell" d="M 9.92 -0.745 A 1.50 1.50 0 0 1 9.92 0.755 L 5.61 8.215 A 1.50 1.50 0 0 1 4.31 8.965 L -4.31 8.965 A 1.50 1.50 0 0 1 -5.61 8.215 L -9.92 0.755 A 1.50 1.50 0 0 1 -9.92 -0.745 L -5.61 -8.215 A 1.50 1.50 0 0 1 -4.31 -8.965 L 4.31 -8.965 A 1.50 1.50 0 0 1 5.61 -8.215 L 9.92 -0.745 Z"/>
+    <!-- 对钩形状定义 -->
+    <g id="check"><path transform="rotate(-0)" d="M -3.915 1.035 L -1.215 3.735 L 3.915 -3.735"/></g>
   </defs>
-  <circle cx="48" cy="48" r="46" fill="#ffffff" stroke="#e6eee9" stroke-width="1.6"/>
-  <g fill="url(#leaf)">
-    <path d="M 46.04 27.04 A 1.50 1.50 0 0 1 46.04 28.54 L 41.73 36.00 A 1.50 1.50 0 0 1 40.43 36.75 L 31.81 36.75 A 1.50 1.50 0 0 1 30.51 36.00 L 26.20 28.54 A 1.50 1.50 0 0 1 26.20 27.04 L 30.51 19.57 A 1.50 1.50 0 0 1 31.81 18.82 L 40.43 18.82 A 1.50 1.50 0 0 1 41.73 19.57 L 46.04 27.04 Z"/>
-    <path d="M 46.04 47.25 A 1.50 1.50 0 0 1 46.04 48.75 L 41.73 56.21 A 1.50 1.50 0 0 1 40.43 56.96 L 31.81 56.96 A 1.50 1.50 0 0 1 30.51 56.21 L 26.20 48.75 A 1.50 1.50 0 0 1 26.20 47.25 L 30.51 39.79 A 1.50 1.50 0 0 1 31.81 39.04 L 40.43 39.04 A 1.50 1.50 0 0 1 41.73 39.79 L 46.04 47.25 Z"/>
-    <path d="M 46.04 67.46 A 1.50 1.50 0 0 1 46.04 68.96 L 41.73 76.43 A 1.50 1.50 0 0 1 40.43 77.18 L 31.81 77.18 A 1.50 1.50 0 0 1 30.51 76.43 L 26.20 68.96 A 1.50 1.50 0 0 1 26.20 67.46 L 30.51 60.00 A 1.50 1.50 0 0 1 31.81 59.25 L 40.43 59.25 A 1.50 1.50 0 0 1 41.73 60.00 L 46.04 67.46 Z"/>
-    <path d="M 63.85 37.14 A 1.50 1.50 0 0 1 63.85 38.64 L 59.54 46.11 A 1.50 1.50 0 0 1 58.24 46.86 L 49.62 46.86 A 1.50 1.50 0 0 1 48.32 46.11 L 44.01 38.64 A 1.50 1.50 0 0 1 44.01 37.14 L 48.32 29.68 A 1.50 1.50 0 0 1 49.62 28.93 L 58.24 28.93 A 1.50 1.50 0 0 1 59.54 29.68 L 63.85 37.14 Z"/>
-    <path d="M 63.85 57.36 A 1.50 1.50 0 0 1 63.85 58.86 L 59.54 66.32 A 1.50 1.50 0 0 1 58.24 67.07 L 49.62 67.07 A 1.50 1.50 0 0 1 48.32 66.32 L 44.01 58.86 A 1.50 1.50 0 0 1 44.01 57.36 L 48.32 49.89 A 1.50 1.50 0 0 1 49.62 49.14 L 58.24 49.14 A 1.50 1.50 0 0 1 59.54 49.89 L 63.85 57.36 Z"/>
-    <path d="M 81.66 47.25 A 1.50 1.50 0 0 1 81.66 48.75 L 77.35 56.21 A 1.50 1.50 0 0 1 76.05 56.96 L 67.43 56.96 A 1.50 1.50 0 0 1 66.13 56.21 L 61.83 48.75 A 1.50 1.50 0 0 1 61.83 47.25 L 66.13 39.79 A 1.50 1.50 0 0 1 67.43 39.04 L 76.05 39.04 A 1.50 1.50 0 0 1 77.35 39.79 L 81.66 47.25 Z"/>
-  </g>
-  <g fill="none" stroke="#ffffff" stroke-width="2.43" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 32.02 28.41 L 34.72 31.11 L 39.85 23.64"/>
-    <path d="M 32.02 48.62 L 34.72 51.32 L 39.85 43.85"/>
-    <path d="M 32.02 68.83 L 34.72 71.53 L 39.85 64.06"/>
-    <path d="M 49.84 38.51 L 52.54 41.21 L 57.67 33.74"/>
-    <path d="M 49.84 58.73 L 52.54 61.43 L 57.67 53.96"/>
-    <path d="M 67.65 48.62 L 70.35 51.32 L 75.48 43.85"/>
+  <!-- 白色圆形衬底 -->
+  <circle cx="0" cy="0" r="46" fill="#ffffff" stroke="#e6eee9" stroke-width="2.0"/>
+  <!-- 整体旋转(旋转度数: 0, 旋转中心: 0, 0) -->
+  <g transform="rotate(0 0 0)">
+    <!-- 六个六边形 -->
+    <g fill="#8ac63e">
+      <use href="#cell" transform="translate(-11.88 -20.215)"/> <!-- 顶部格子 -->
+    </g>
+    <g fill="#3ba758">
+      <use href="#cell" transform="translate(-11.88 -0.005)"/>
+      <use href="#cell" transform="translate(5.93 -10.115)"/>
+      <use href="#cell" transform="translate(-11.88 20.205)"/> <!-- 底部格子 -->
+      <use href="#cell" transform="translate(5.93 10.105)"/>
+      <use href="#cell" transform="translate(23.74 -0.005)"/> <!-- 最右格子 -->
+    </g>
+    <g fill="#169d78">
+    </g>
+    <!-- 六个对钩 -->
+    <g fill="none" stroke="#ffffff" stroke-width="2.43" stroke-linecap="round" stroke-linejoin="round">
+      <use href="#check" transform="translate(-12.065 -20.625)"/>
+      <use href="#check" transform="translate(-12.065 -0.415)"/>
+      <use href="#check" transform="translate(-12.065 19.795)"/>
+      <use href="#check" transform="translate(5.755 -10.525)"/>
+      <use href="#check" transform="translate(5.755 9.695)"/>
+      <use href="#check" transform="translate(23.565 -0.415)"/>
+    </g>
   </g>
 </svg>
