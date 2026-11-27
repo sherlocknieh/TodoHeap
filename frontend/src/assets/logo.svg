@@ -10,16 +10,16 @@
   <circle cx="0" cy="0" r="184" fill="#ffffff" stroke="#e6eee9" stroke-width="8"/>
   <!-- 整体旋转(旋转度数: 0, 旋转中心: 0, 0) -->
   <g transform="rotate(0 0 0)">
-    <!-- 六个六边形: 列间距 72, 行间距 80, 相邻列纵向错开 40 -->
+    <!-- 六个六边形: 行间距 80, 列间距 40√3≈69.282, 相邻列纵向错开 40, 任意相邻三格中心为正三角形 -->
     <g fill="#8ac63e">
       <use href="#cell" transform="translate(-48 -80)"/> <!-- 顶部格子 -->
     </g>
     <g fill="#3ba758">
       <use href="#cell" transform="translate(-48 0)"/>
-      <use href="#cell" transform="translate(24 -40)"/>
+      <use href="#cell" transform="translate(21.282 -40)"/>
       <use href="#cell" transform="translate(-48 80)"/> <!-- 底部格子 -->
-      <use href="#cell" transform="translate(24 40)"/>
-      <use href="#cell" transform="translate(96 0)"/> <!-- 最右格子 -->
+      <use href="#cell" transform="translate(21.282 40)"/>
+      <use href="#cell" transform="translate(90.564 0)"/> <!-- 最右格子 -->
     </g>
     <g fill="#169d78">
     </g>
@@ -28,9 +28,9 @@
       <use href="#check" transform="translate(-49 -82)"/>
       <use href="#check" transform="translate(-49 -2)"/>
       <use href="#check" transform="translate(-49 78)"/>
-      <use href="#check" transform="translate(23 -42)"/>
-      <use href="#check" transform="translate(23 38)"/>
-      <use href="#check" transform="translate(95 -2)"/>
+      <use href="#check" transform="translate(20.282 -42)"/>
+      <use href="#check" transform="translate(20.282 38)"/>
+      <use href="#check" transform="translate(89.564 -2)"/>
     </g>
   </g>
 </svg>
