@@ -21,6 +21,12 @@ title: "外观与主题"
 - `theme` 同时注册在界面偏好注册表中，因此 Agent 能通过 `list_app_settings` 读到当前值与可选值，并通过 `update_app_setting` 写入 `auto`、`light` 或 `dark`。
 - 顶栏按钮与 Agent 写的是同一个键，改动会同步到已打开的其他界面组件，不需要刷新。
 
+## 品牌图标
+
+- 全站只维护一份最新版 logo：`frontend/src/assets/logo.svg`；应用顶栏 `Todo.vue` 直接引用它，页面图标与 PWA 清单使用同内容的 `frontend/public/logo.svg`。
+- 文档站复用同一份内容：`docs/src/assets/logo.svg` 供页头，`docs/public/logo.svg`（以及 `favicon.svg`）供站点图标，不再保留旧的渐变版。
+- 浏览器图标只声明 `rel="icon" type="image/svg+xml"`，不再提供 ico/png 位图；`site.webmanifest` 的 `icons` 也只登记该 SVG（`sizes: any`）。
+
 ## 边界
 
 - 任务图画布的底色与页面画布同色，深浅完全跟随全局主题（深色下点阵与网格线条转白），没有独立的画布背景开关。
@@ -36,4 +42,6 @@ title: "外观与主题"
 | `frontend/src/pages/Todo.vue` | 「顶栏主题按钮」与下拉菜单开关、选中逻辑 |
 | `frontend/src/lib/appSettings.js` | `theme` 界面偏好注册，供顶栏与 Agent 共用 |
 | `frontend/src/style.css` | `dark:` 变体改为跟随 `data-theme` |
-| `frontend/index.html` | 首屏前读取偏好，避免强制深色时闪一帧浅色 |
+| `frontend/index.html` | 首屏前读取偏好，避免强制深色时闪一帧浅色；`rel="icon"` 只指向 `logo.svg` |
+| `frontend/public/site.webmanifest` | PWA 清单，图标只登记 `logo.svg` |
+| `docs/astro.config.mjs` | 文档站页头 logo 与站点图标地址 |
