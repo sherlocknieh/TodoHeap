@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="-192 -192 384 384" role="img" aria-label="TodoHeap">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-192 -192 384 384" role="img" aria-label="TodoHeap">
   <title>TodoHeap</title>
   <defs>
     <!-- 六边形定义(中心在原点, 坐标基准 4 单位 = 原 1 单位) -->
@@ -12,14 +12,14 @@
   <g transform="rotate(0 0 0)">
     <!-- 六个六边形: 行间距 80, 列间距 40√3≈69.282, 相邻列纵向错开 40, 任意相邻三格中心为正三角形 -->
     <g fill="#8ac63e">
-      <use href="#cell" transform="translate(-48 -80)"/> <!-- 顶部格子 -->
+      <use href="#cell" transform="translate(90.564 0)"/> <!-- 最右格子 -->
     </g>
     <g fill="#3ba758">
       <use href="#cell" transform="translate(-48 0)"/>
-      <use href="#cell" transform="translate(21.282 -40)"/>
+      <use href="#cell" transform="translate(-48 -80)"/> <!-- 顶部格子 -->
       <use href="#cell" transform="translate(-48 80)"/> <!-- 底部格子 -->
+      <use href="#cell" transform="translate(21.282 -40)"/>
       <use href="#cell" transform="translate(21.282 40)"/>
-      <use href="#cell" transform="translate(90.564 0)"/> <!-- 最右格子 -->
     </g>
     <g fill="#169d78">
     </g>
