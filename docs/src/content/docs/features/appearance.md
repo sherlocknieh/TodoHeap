@@ -23,9 +23,10 @@ title: "外观与主题"
 
 ## 品牌图标
 
-- 全站只维护一份最新版 logo：`frontend/src/assets/logo.svg`；应用顶栏 `Todo.vue` 直接引用它，页面图标与 PWA 清单使用同内容的 `frontend/public/logo.svg`。
-- 文档站复用同一份内容：`docs/src/assets/logo.svg` 供页头，`docs/public/logo.svg`（以及 `favicon.svg`）供站点图标，不再保留旧的渐变版。
+- 真实文件只有一份 `frontend/src/assets/logo.svg`；其余需要固定 URL 的位置都是指向它的符号链接：`frontend/public/logo.svg`、`docs/src/assets/logo.svg`、`docs/public/logo.svg`。
+- 之所以要链接而不是统一导入：应用顶栏与文档页头走打包引用（URL 带哈希），而标签页图标、`site.webmanifest` 与文档站 `head` 里的站点图标必须是构建前就确定的静态路径。
 - 浏览器图标只声明 `rel="icon" type="image/svg+xml"`，不再提供 ico/png 位图；`site.webmanifest` 的 `icons` 也只登记该 SVG（`sizes: any`）。
+- 符号链接依赖 Git 的 `core.symlinks`：Windows 未开启符号链接时克隆会得到几个只含路径的文本文件，图标会失效，需要在本地重建链接。
 
 ## 边界
 
@@ -44,4 +45,5 @@ title: "外观与主题"
 | `frontend/src/style.css` | `dark:` 变体改为跟随 `data-theme` |
 | `frontend/index.html` | 首屏前读取偏好，避免强制深色时闪一帧浅色；`rel="icon"` 只指向 `logo.svg` |
 | `frontend/public/site.webmanifest` | PWA 清单，图标只登记 `logo.svg` |
+| `frontend/public/logo.svg`、`docs/src/assets/logo.svg`、`docs/public/logo.svg` | 指向唯一源文件的符号链接，提供固定 URL 的图标 |
 | `docs/astro.config.mjs` | 文档站页头 logo 与站点图标地址 |
