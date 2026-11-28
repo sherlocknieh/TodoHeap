@@ -235,7 +235,7 @@ export const createTodoOptimisticActions = ({
     })
   }
 
-  // 完成任务及全部子任务: 只给未完成的写完成时间, 已完成的保留原值;
+  // 完成任务树: 只给未完成的写完成时间, 已完成的保留原值;
   // 返回真正被改写的 ID, 供提示里的撤销整批恢复; 机制见 docs/src/content/docs/dev/logic/task-complete-tree.md
   const completeTodoTree = async (id) => {
     const targetIds = collectIncompleteTreeIds(todosRef.value, getSyncQueue().getRealId(id))
@@ -245,8 +245,13 @@ export const createTodoOptimisticActions = ({
     const completedAt = new Date().toISOString()
     const changedIds = []
     for (const targetId of targetIds) {
+      // child_ids 的残留 ID 或刚好被删掉的任务不报错，静默跳过
+      if (!findTodoById(targetId)) continue
       const result = await updateTodo(targetId, { completed_at: completedAt })
-      if (!result.success) return { success: false, error: result.error, data: { ids: changedIds } }
+      if (!result.success) {
+        if (result.error === '任务不存在') continue
+        return { success: false, error: result.error, data: { ids: changedIds } }
+      }
       changedIds.push(targetId)
     }
     return { success: true, data: { ids: changedIds } }

@@ -182,6 +182,16 @@ describe('collectIncompleteTreeIds', () => {
     expect(ids).toEqual([1, 4, 3])
   })
 
+  it('静默跳过 child_ids 里已删除的残留 ID', () => {
+    const ids = collectIncompleteTreeIds([
+      { id: 1, child_ids: [2, 99, 3] },
+      { id: 2, child_ids: [98] },
+      { id: 3, child_ids: [] }
+    ], 1)
+
+    expect(ids).toEqual([1, 2, 3])
+  })
+
   it('多父任务只出现一次，环内终止', () => {
     const ids = collectIncompleteTreeIds([
       { id: 1, child_ids: [2] },

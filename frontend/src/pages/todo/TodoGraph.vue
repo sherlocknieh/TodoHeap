@@ -203,7 +203,7 @@ const toggleDone = async (id) => {
 	})
 }
 
-// 完成任务及全部子任务：整棵子树一起完成，提示里可整批撤销
+// 完成任务树：整棵子树一起完成，提示里可整批撤销
 const completeTaskTree = async (id) => {
 	const title = todoStore.findTodoById(id)?.title || '任务'
 	const result = await todoStore.completeTodoTree(id)

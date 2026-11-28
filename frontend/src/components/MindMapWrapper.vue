@@ -434,7 +434,7 @@ const moreSize = 16
 const moreGap = 4
 const moreReserve = moreSize + moreGap * 2
 // 更多操作菜单的宽度与估算高度：贴住画布右/下边缘时据此翻到左侧或向上夹紧
-const menuWidth = 184
+const menuWidth = 168
 const menuHeight = 172
 
 const container = ref(null)
@@ -1328,7 +1328,7 @@ const menuBatch = ref(false)
 
 // 菜单项全部复用已有能力，右侧标注对应快捷键，方便用户之后直接用键盘
 const MENU_ITEMS = [
-  { key: 'complete-tree', label: '完成任务及全部子任务', hint: '', icon: 'tree' },
+  { key: 'complete-tree', label: '完成任务树', hint: '', icon: 'tree' },
   { key: 'date', label: '设置日期', hint: '', icon: 'calendar' },
   { key: 'child', label: '新建子任务', hint: 'Tab', icon: 'plus' },
   { key: 'copy', label: '复制节点树', hint: 'Ctrl+C', icon: 'copy' },
