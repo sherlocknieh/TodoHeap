@@ -40,10 +40,11 @@ title: "视图与交互"
 ### 选中、编辑与右栏
 
 - 选中只保证可见：图内单击不移动视口；从列表/侧栏选中或键盘导航时，节点完整可见就不动，出界才最小平移带回，节点比可见区还大时才缩小并居中（`ensureNodeVisible`、`utils/mindmapView.js` 的 `revealView`），机制见[任务图选中项的可见性修正](../dev/logic/mindmap-selection-visibility.md)。
-- 任务行菜单「节点视图」先选中该任务，再带 `?focus=<id>` 切到任务图；图挂载后按 `focus` 把节点居中并固定 100% 缩放（被折叠时先展开祖先链），定位完即清掉目标（`Todo.vue` `jumpToGraph`、`TodoGraph.vue` `focusTaskId`、`MindMapWrapper.vue` `pendingFocusId`、`centerNodeAtFullScale`）。
+- 任务行菜单「在任务图中查看」先选中该任务，再带 `?focus=<id>` 切到任务图；图挂载后按 `focus` 把节点居中并固定 100% 缩放（被折叠时先展开祖先链），定位完即清掉目标（`Todo.vue` `jumpToGraph`、`TodoGraph.vue` `focusTaskId`、`MindMapWrapper.vue` `pendingFocusId`、`centerNodeAtFullScale`）。
 - 图内删除单个节点后焦点落到最近的兄弟：下一个优先、其次上一个、一个都没有就回到父任务（父级是根任务时取消选中）；批量删除仍清空选中（`TodoGraph.vue` 的 `deleteTask`、`utils/taskGraph.js` 的 `findDeleteFocusId`），机制见[任务图删除后的焦点落点](../dev/logic/graph-delete-focus.md)。
 - 双击 / F2 进入编辑时会补到可读档位（`readableScale`，宽视口最多放大到 100%），以节点中心为锚点只放大不移动，见[任务图编辑时的缩放档位](../dev/logic/mindmap-edit-scale.md)。
 - 详情右栏是浮层，不挤压画布；适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避让，右下角视图控件与右上角缩放器随面板左移（`utils/detailPanelContext.js`）。
+- 右栏内容按「详情 / 描述 / 子任务」三段折叠栈排列：详情按内容定高，描述占满剩余高度，子任务固定 192px；标题行带 chevron，点击折叠，状态存本地 `detail-sections`（`utils/sectionStack.js`、`components/SidebarSectionHeader.vue`）。
 
 ## 拖拽与连线
 
@@ -75,7 +76,7 @@ title: "视图与交互"
 - 子任务按层级画树状连线：每层一条竖线，祖先层仍有后续兄弟时竖线贯穿整行，末位兄弟在行中心收成 └ 角并横接到卡片左缘；折叠或完成后连线随可见行重算（`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle`，机制见[任务表树状连线](../dev/logic/task-list-tree-lines.md)）。
 - 折叠开关收在卡片内、占据勾选圈的位置，圆心距卡片左缘 18px，正好与下一层竖线对齐，不再露在卡片外面；顶层行没有连线，圆钮仍按同一列对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
 - 单选待办任务后可用键盘新建：Tab 建子级（追加到同级末尾）、Enter 建兄弟（落在当前行之后）；焦点在输入框、按钮或菜单里时不抢键，多选与已完成行不触发。新建前会展开目标父级（折叠时新行本来就不可见），新任务自动选中并进入行内编辑（`TodoList.vue` `handleListKeydown`、`addSubtask`、`createSibling`、`pendingEdit`；`TodoListItem.vue` `editRequest`）。
-- 行内竖三点「更多」菜单依次是「标记完成 / 完成任务树 / 节点视图 / 添加子任务 / 取消链接 / 删除任务」；「完成任务树」沿 `child_ids` 把任务与全部后代中未完成的项一起完成，已完成的保留原完成时间，见[完成任务树](../dev/logic/task-complete-tree.md)；「节点视图」先选中该任务，再带 `focus` 查询切到任务图并居中到 100%（`TodoListItem.vue` `emitJumpToGraph`、`emitCompleteTree`、`TodoList.vue` `handleJumpToGraph`、`completeTaskTree`、`Todo.vue` `jumpToGraph`）。
+- 行内竖三点「更多」菜单依次是「添加子任务 / 标记完成 / 完成任务树 / 在任务图中查看 / 脱离父任务 / 删除任务」；「完成任务树」沿 `child_ids` 把任务与全部后代中未完成的项一起完成，已完成的保留原完成时间，图标为叠加双勾（`AppIcon` 的 `checks`），见[完成任务树](../dev/logic/task-complete-tree.md)；「在任务图中查看」先选中该任务，再带 `focus` 查询切到任务图并居中到 100%（`TodoListItem.vue` `emitJumpToGraph`、`emitCompleteTree`、`TodoList.vue` `handleJumpToGraph`、`completeTaskTree`、`Todo.vue` `jumpToGraph`）。
 - 「待办」标题栏右侧放整表操作：日期筛选按钮（只看带截止时间的任务，开启后整表变成按截止时间升/降序的无层级平铺列表）、升/降序箭头（筛选关闭时禁用），以及全部展开/折叠圆圈按钮（与任务行开关同尺寸；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`dateOnly`、`dateOrder`、`flattenTasksByDeadline`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
 - 平铺筛选期间关闭层级写入：菜单「添加子任务」置灰，Tab/Enter 新建与拖拽都不响应（`TodoListItem.vue` 的 `disableAddSubtask`、`disableDrag`，`TodoList.vue` `handleListKeydown`），避免在看不到层级时改动父子关系与手动顺序。
 

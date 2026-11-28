@@ -86,6 +86,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `ProviderSettings.vue` | 第三方模型接入表单：预设、地址、密钥、连接测试 |
 | `MiddleEllipsis.vue` | 按容器宽度截断成「头…尾」，宽度变化时重算；传入 `highlight` 时把命中片段标色 |
 | `SyncStatusIndicator.vue` | 同步状态徽章（圆点 + 文案）：底栏与日程右栏共用，状态由调用方传入 |
+| `SidebarSectionHeader.vue` | 右栏分区标题：chevron + eyebrow + 计数，点击折叠；任务、日程、AI 三个右栏共用 |
 
 ### 库 `lib/`
 
@@ -123,6 +124,7 @@ AI 辅助的任务管理应用：Vue 3 前端 + Supabase（Postgres / Auth / Rea
 | `mindmapEdit.js` | 图里「新建后立即编辑」的判定：临时 ID 换成真实 ID 与连续新建都会让 `editTaskId` 变化，靠 `replaced` / `editingPrev` 区分 |
 | `contextStats.js` | 上下文四类字符构成汇总，token 按经验比例估算 |
 | `resizablePanel.js` | 面板边缘拖拽调宽与拖到收起，宽度本地保留 |
+| `sectionStack.js` | 右栏分区折叠栈：auto/fill/fixed 高度分配、尺寸测量与折叠状态本地保存 |
 | `uiState.js` | 界面状态本地持久化与同页广播：刷新后回到离开时的布局与位置 |
 | `detailPanelContext.js` | provide/inject key，供深层组件打开详情面板 |
 | `settingsPanel.js` | 设置浮窗的共享状态 |

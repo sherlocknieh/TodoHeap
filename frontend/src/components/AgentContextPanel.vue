@@ -1,18 +1,20 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useAgentStore } from '@/stores/agent'
 import { useLlmStore } from '@/stores/llm'
 import { AGENT_TOOL_LABELS } from '@/lib/agentTools'
 import { isMcpToolName, mcpToolLabel } from '@/lib/mcpServers'
 import { useResizablePanel } from '@/utils/resizablePanel'
+import { useSectionStack } from '@/utils/sectionStack'
 import { persistedRef } from '@/utils/uiState'
 import { summarizeRequest } from '@/utils/contextStats'
 import AppIcon from '@/components/AppIcon.vue'
+import SidebarSectionHeader from '@/components/SidebarSectionHeader.vue'
 
 // 外部工具名带服务前缀，展示时还原成「服务 / 工具」
 const toolLabel = (name) => (isMcpToolName(name) ? mcpToolLabel(name) : AGENT_TOOL_LABELS[name] || name)
 
-defineProps({
+const props = defineProps({
   show: { type: Boolean, default: false }
 })
 
@@ -32,6 +34,26 @@ const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapse
 // [自动换行开关]: JSON 源码块的长行是否折行，偏好本地保存，刷新后沿用
 const codeWrap = persistedRef('ai-context-wrap', false, {
   validate: (value) => typeof value === 'boolean'
+})
+
+// 右栏分区栈：参数/上下文/请求体按内容定高，工具固定 192px，原始消息占满剩余高度
+const {
+  stackRef,
+  isCollapsed,
+  toggleSection,
+  sectionClass,
+  sectionStyle,
+  refresh: refreshSections
+} = useSectionStack({
+  storageKey: 'ai-context-sections',
+  sections: [
+    { key: 'params', mode: 'auto' },
+    { key: 'context', mode: 'auto' },
+    { key: 'tools', mode: 'fixed' },
+    { key: 'messages', mode: 'fill' },
+    { key: 'body', mode: 'auto' }
+  ],
+  visible: () => props.show
 })
 
 // 取最近一条带请求快照的用户消息，面板展示的始终是真实发出去的内容
@@ -248,6 +270,19 @@ const sections = computed(() => [
   }
 ])
 
+const toolsSection = computed(() => sections.value[0])
+const messagesSection = computed(() => sections.value[1])
+
+// 参数与上下文可能没有快照，标题行据此判断谁排在第一，避免顶部出现分隔线
+const firstSectionKey = computed(() => {
+  if (requestParams.value.length) return 'params'
+  if (contextStats.value) return 'context'
+  return 'tools'
+})
+
+// 快照到达后才出现的分区需要重新量高；流式内容由内容观察器自行更新
+watch(latestRequest, () => nextTick(refreshSections), { flush: 'post' })
+
 const formatTokens = (value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value))
 
 const formatNumber = (value) => Number(value || 0).toLocaleString()
@@ -320,105 +355,150 @@ const exportSession = () => {
       </div>
     </div>
 
-    <div class="flex-1 min-h-0 overflow-auto px-4 py-3 space-y-3">
-      <!-- 请求参数：两列键值一眼可见，源码结构由标题右侧的图标展开 -->
-      <section v-if="requestParams.length" class="space-y-1.5">
-        <div class="flex items-center justify-between gap-2">
-          <p class="eyebrow">请求参数</p>
-          <button type="button" :aria-expanded="paramsOpen"
-            class="shrink-0 rounded p-0.5 text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-            :title="paramsOpen ? '收起源码结构' : '展开源码结构'" @click="paramsOpen = !paramsOpen">
-            <AppIcon name="chevronDown" :size="12" :class="paramsOpen ? 'rotate-180' : ''" class="transition-transform" />
-          </button>
-        </div>
-        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-          <div v-for="row in requestParams" :key="row.key" class="flex min-w-0 items-baseline gap-1.5">
-            <dt class="shrink-0 font-mono text-[10px] text-neutral-500 dark:text-neutral-400">{{ row.key }}</dt>
-            <dd class="truncate text-neutral-800 dark:text-neutral-200" :title="row.text">{{ row.text }}</dd>
-          </div>
-        </dl>
-        <pre v-if="paramsOpen" class="code-block" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ requestParamsJson }}</pre>
-      </section>
-
-      <!-- 上下文构成：占比条 + 明细，顶部先给最关心的用量 -->
-      <section v-if="contextStats" class="space-y-1.5">
-        <div class="flex items-baseline justify-between">
-          <p class="eyebrow">上下文构成</p>
-          <span class="text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
-            ≈ {{ formatTokens(contextStats.tokens) }}
-            <span class="text-[11px] font-normal text-neutral-500 dark:text-neutral-400">tokens</span>
-          </span>
-        </div>
-        <div class="flex h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-          <div v-for="row in breakdown" :key="row.key" :class="row.dot" :style="{ width: row.width + '%' }"></div>
-        </div>
-        <ul class="space-y-1">
-          <li v-for="row in breakdown" :key="row.key" class="flex items-center gap-2 text-[11px]">
-            <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="row.dot"></span>
-            <span class="text-neutral-600 dark:text-neutral-400">{{ row.label }}</span>
-            <span class="ml-auto tabular-nums text-neutral-700 dark:text-neutral-300">
-              <template v-if="row.count">{{ row.count }} {{ row.unit }} · </template>{{ formatNumber(row.value) }} 字符 · {{ row.percent }}%
-            </span>
-          </li>
-        </ul>
-      </section>
-
-      <!-- 工具定义单独成块，其余消息按会话里的真实顺序排列 -->
-      <section v-for="section in sections" :key="section.key" class="space-y-1.5">
-        <div class="flex items-baseline justify-between gap-2">
-          <p class="eyebrow">{{ section.label }}</p>
-          <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-            {{ section.items.length }} 项 · {{ formatNumber(section.chars) }} 字符
-          </span>
-        </div>
-        <!-- 工具定义：每条都可展开看完整 schema -->
-        <div v-if="section.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-          <details v-for="(item, index) in section.items" :key="`${section.key}-${index}`"
-            class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
-            <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-              <span v-if="section.kind === 'message'" class="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500">{{ index + 1 }}</span>
-              <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">
-                {{ section.kind === 'tool' ? item.label : requestMessageLabel(item) }}
-              </span>
-              <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400"
-                :class="section.kind === 'tool' ? 'font-mono text-[10px]' : ''">
-                {{ section.kind === 'tool' ? item.name : requestMessageSummary(item) }}
-              </span>
-              <AppIcon name="chevronDown" :size="12"
-                class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
-            </summary>
-            <pre class="code-block-flush" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ section.kind === 'tool' ? item.json : requestMessageJson(item) }}</pre>
-          </details>
-        </div>
-        <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
-          {{ section.empty }}
-        </p>
-      </section>
-
-      <!-- 完整请求体：值原样展示，键按参数、工具、消息排列，便于逐字段核对 -->
-      <section v-if="requestBodyJson" class="space-y-1.5 border-t border-hairline pt-3 dark:border-hairline-dark">
-        <div class="flex items-baseline justify-between gap-2">
-          <p class="eyebrow">完整请求体</p>
-          <div class="flex items-baseline gap-2">
-            <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{{ formatNumber(requestBodyChars) }} 字符</span>
-            <button type="button" :disabled="!agent.messages.length"
-              class="inline-flex shrink-0 items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
-              @click="exportSession">
-              <AppIcon name="download" :size="12" /> 导出会话
+    <div ref="stackRef" class="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden">
+      <!-- [请求参数分区]：两列键值一眼可见，源码结构由标题右侧的图标展开 -->
+      <section v-if="requestParams.length" data-section="params" :class="sectionClass('params')" :style="sectionStyle('params')">
+        <SidebarSectionHeader title="请求参数" :count="requestParams.length"
+          :collapsed="isCollapsed('params')" :first="firstSectionKey === 'params'" @toggle="toggleSection('params')">
+          <template #actions>
+            <button type="button" :aria-expanded="paramsOpen"
+              class="shrink-0 rounded p-0.5 text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+              :title="paramsOpen ? '收起源码结构' : '展开源码结构'" @click="paramsOpen = !paramsOpen">
+              <AppIcon name="chevronDown" :size="12" :class="paramsOpen ? 'rotate-180' : ''" class="transition-transform" />
             </button>
+          </template>
+        </SidebarSectionHeader>
+        <div data-section-body :inert="isCollapsed('params') || undefined" class="flex-1 min-h-0 overflow-auto">
+          <div data-section-content class="space-y-1.5 px-4 pt-2 pb-3">
+            <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+              <div v-for="row in requestParams" :key="row.key" class="flex min-w-0 items-baseline gap-1.5">
+                <dt class="shrink-0 font-mono text-[10px] text-neutral-500 dark:text-neutral-400">{{ row.key }}</dt>
+                <dd class="truncate text-neutral-800 dark:text-neutral-200" :title="row.text">{{ row.text }}</dd>
+              </div>
+            </dl>
+            <pre v-if="paramsOpen" class="code-block" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ requestParamsJson }}</pre>
           </div>
         </div>
-        <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
-          <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
-            <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">body</span>
-            <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">参数 · tools · messages</span>
-            <AppIcon name="chevronDown" :size="12"
-              class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
-          </summary>
-          <pre class="code-block-flush" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ requestBodyJson }}</pre>
-        </details>
       </section>
 
+      <!-- [上下文构成分区]：占比条 + 明细，顶部先给最关心的用量 -->
+      <section v-if="contextStats" data-section="context" :class="sectionClass('context')" :style="sectionStyle('context')">
+        <SidebarSectionHeader title="上下文构成" :collapsed="isCollapsed('context')"
+          :first="firstSectionKey === 'context'" @toggle="toggleSection('context')" />
+        <div data-section-body :inert="isCollapsed('context') || undefined" class="flex-1 min-h-0 overflow-auto">
+          <div data-section-content class="space-y-1.5 px-4 pt-2 pb-3">
+            <div class="flex items-baseline justify-end">
+              <span class="text-sm tabular-nums text-neutral-900 dark:text-neutral-100">
+                ≈ {{ formatTokens(contextStats.tokens) }}
+                <span class="text-[11px] font-normal text-neutral-500 dark:text-neutral-400">tokens</span>
+              </span>
+            </div>
+            <div class="flex h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+              <div v-for="row in breakdown" :key="row.key" :class="row.dot" :style="{ width: row.width + '%' }"></div>
+            </div>
+            <ul class="space-y-1">
+              <li v-for="row in breakdown" :key="row.key" class="flex items-center gap-2 text-[11px]">
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="row.dot"></span>
+                <span class="text-neutral-600 dark:text-neutral-400">{{ row.label }}</span>
+                <span class="ml-auto tabular-nums text-neutral-700 dark:text-neutral-300">
+                  <template v-if="row.count">{{ row.count }} {{ row.unit }} · </template>{{ formatNumber(row.value) }} 字符 · {{ row.percent }}%
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- [可用工具分区]：固定 192px，每条都可展开看完整 schema -->
+      <section data-section="tools" :class="sectionClass('tools')" :style="sectionStyle('tools')">
+        <SidebarSectionHeader title="可用工具" :count="toolsSection.items.length"
+          :collapsed="isCollapsed('tools')" :first="firstSectionKey === 'tools'" @toggle="toggleSection('tools')" />
+        <div data-section-body :inert="isCollapsed('tools') || undefined" class="flex-1 min-h-0 overflow-auto">
+          <div data-section-content class="space-y-1.5 px-4 pt-2 pb-3">
+            <div class="flex items-baseline justify-end">
+              <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                {{ formatNumber(toolsSection.chars) }} 字符
+              </span>
+            </div>
+            <div v-if="toolsSection.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+              <details v-for="(item, index) in toolsSection.items" :key="`tools-${index}`"
+                class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
+                <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+                  <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ item.label }}</span>
+                  <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
+                    {{ item.name }}
+                  </span>
+                  <AppIcon name="chevronDown" :size="12"
+                    class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <pre class="code-block-flush" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ item.json }}</pre>
+              </details>
+            </div>
+            <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
+              {{ toolsSection.empty }}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- [原始消息分区]：占满剩余高度，按会话里的真实顺序排列 -->
+      <section data-section="messages" :class="sectionClass('messages')" :style="sectionStyle('messages')">
+        <SidebarSectionHeader title="原始消息" :count="messagesSection.items.length"
+          :collapsed="isCollapsed('messages')" @toggle="toggleSection('messages')" />
+        <div data-section-body :inert="isCollapsed('messages') || undefined" class="flex-1 min-h-0 overflow-auto">
+          <div data-section-content class="space-y-1.5 px-4 pt-2 pb-3">
+            <div class="flex items-baseline justify-end">
+              <span class="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                {{ formatNumber(messagesSection.chars) }} 字符
+              </span>
+            </div>
+            <div v-if="messagesSection.items.length" class="overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+              <details v-for="(item, index) in messagesSection.items" :key="`messages-${index}`"
+                class="group border-b border-hairline last:border-b-0 dark:border-hairline-dark">
+                <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+                  <span class="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500">{{ index + 1 }}</span>
+                  <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">{{ requestMessageLabel(item) }}</span>
+                  <span class="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
+                    {{ requestMessageSummary(item) }}
+                  </span>
+                  <AppIcon name="chevronDown" :size="12"
+                    class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <pre class="code-block-flush" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ requestMessageJson(item) }}</pre>
+              </details>
+            </div>
+            <p v-else class="rounded-lg border border-dashed border-hairline px-3 py-2 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
+              {{ messagesSection.empty }}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- [完整请求体分区]：值原样展示，键按参数、工具、消息排列，便于逐字段核对 -->
+      <section v-if="requestBodyJson" data-section="body" :class="sectionClass('body')" :style="sectionStyle('body')">
+        <SidebarSectionHeader title="完整请求体" :count="`${formatNumber(requestBodyChars)} 字符`"
+          :collapsed="isCollapsed('body')" @toggle="toggleSection('body')" />
+        <div data-section-body :inert="isCollapsed('body') || undefined" class="flex-1 min-h-0 overflow-auto">
+          <div data-section-content class="space-y-1.5 px-4 pt-2 pb-3">
+            <div class="flex items-baseline justify-end">
+              <button type="button" :disabled="!agent.messages.length"
+                class="inline-flex shrink-0 items-center gap-1 rounded text-[11px] text-neutral-500 transition-colors hover:text-accent-700 disabled:opacity-40 dark:text-neutral-400 dark:hover:text-accent-300"
+                @click="exportSession">
+                <AppIcon name="download" :size="12" /> 导出会话
+              </button>
+            </div>
+            <details class="group overflow-hidden rounded-lg border border-hairline dark:border-hairline-dark">
+              <summary class="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[11px]">
+                <span class="shrink-0 font-medium text-neutral-800 dark:text-neutral-200">body</span>
+                <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-400 dark:text-neutral-500">参数 · tools · messages</span>
+                <AppIcon name="chevronDown" :size="12"
+                  class="shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <pre class="code-block-flush" :class="{ 'whitespace-pre-wrap break-words': codeWrap }">{{ requestBodyJson }}</pre>
+            </details>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </template>

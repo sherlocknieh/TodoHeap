@@ -32,109 +32,118 @@
       </div>
 
       <template v-else>
-        <!-- 区块1: 可编辑任务标题 -->
-        <div class="shrink-0 px-4 pt-3 pb-3">
-          <input v-model.trim="draftTitle" type="text" :disabled="isDeleted" :class="[
-            'w-full px-0 py-1 text-lg font-semibold placeholder:text-neutral-300 dark:placeholder:text-neutral-700 bg-transparent border-none focus:outline-none focus:ring-0',
-            isDeleted ? 'cursor-not-allowed text-neutral-400 dark:text-neutral-600' : 'text-neutral-800 dark:text-white'
-          ]" placeholder="任务标题" @input="markDirty('title')" @blur="saveIfNeeded('title')" />
-          <div class="mt-3 grid grid-cols-1 gap-2.5">
-            <label class="text-[11px] text-neutral-500">
-              截止时间
-              <DateTimePicker v-model="draftDeadline" :disabled="isDeleted" placeholder="选择截止时间"
-                class="mt-1" @confirm="saveDateField('deadline', draftDeadline)" />
-            </label>
-            <label class="text-[11px] text-neutral-500">
-              耗时(小时)
-              <input
-                v-model="draftDuration"
-                type="number"
-                step="0.25"
-                min="0"
-                :disabled="isDeleted"
-                class="field mt-1"
-                @blur="saveDurationField"
-              />
-            </label>
-          </div>
-        </div>
-
-        <!-- 分割线 -->
-        <div class="shrink-0 border-t border-hairline dark:border-hairline-dark"></div>
-
-        <!-- 区块3: 任务描述 - Milkdown 编辑器（占满剩余空间） -->
-        <!--
-          说明: 这里使用 `flex-1 min-h-0 flex flex-col` 来确保外层提供一个真实的高度边界。
-          在 flex 布局下，若子元素没有 `min-height: 0`，其默认的最小高度可能由内容撑开，
-          导致 overflow 无法生效（看起来像“不能滚动”）。我们把滚动责任交给编辑器内部，
-          编辑器（`.milkdown-editor`）通过 `height:100%` 与 `min-height:0` 在该边界内收缩并显示滚动条。
-        -->
-        <div class="flex-1 min-h-0 flex flex-col">
-          <div :class="[
-            'flex-1 min-h-0',
-            isDeleted ? 'pointer-events-none deleted-content' : ''
-          ]">
-            <MilkdownEditor :key="editorKey" v-model="draftDetails" :readonly="isDeleted"
-              placeholder="输入内容，支持 Markdown 语法..." class="h-full" @blur="handleDetailsBlur"
-              @update:modelValue="onDetailsChange" />
-          </div>
-        </div>
-
-        <!-- 区块4: 子任务，可新建或链接已有任务 -->
-        <div class="shrink-0 border-t border-hairline dark:border-hairline-dark">
-          <div class="px-4 pt-2 pb-1 flex items-center justify-between">
-            <span class="eyebrow">子任务</span>
-            <span class="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{{ directChildren.length }}</span>
-          </div>
-
-          <div class="max-h-40 overflow-auto px-2 pb-1">
-            <div v-for="child in directChildren" :key="child.id"
-              class="group flex items-center gap-1 rounded-lg hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] transition-colors">
-              <button type="button"
-                class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm text-neutral-700 dark:text-neutral-300"
-                @click="emit('task-selected', child.id)">
-                <span class="h-1.5 w-1.5 rounded-full shrink-0"
-                  :class="child.completed_at ? 'bg-accent-500 dark:bg-accent-400' : 'bg-neutral-300 dark:bg-neutral-600'"></span>
-                <span class="flex-1 truncate"
-                  :class="child.completed_at ? 'line-through text-neutral-400 dark:text-neutral-600' : ''">
-                  {{ child.title || '未命名任务' }}
-                </span>
-              </button>
-              <button v-if="!isDeleted" type="button"
-                class="mr-1 grid h-6 w-6 shrink-0 place-items-center rounded text-neutral-400 opacity-0 transition-opacity hover:bg-accent-100 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-                title="取消链接" aria-label="取消链接" @click.stop="unlinkChild(child)">
-                <AppIcon name="unlink" :size="13" />
-              </button>
+        <!-- 分区折叠栈：与左侧栏同一套 chevron / 高度过渡 / 本地折叠状态 -->
+        <div ref="stackRef" class="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden">
+          <!-- [详情分区]：标题、截止时间、耗时；按内容定高 -->
+          <section data-section="details" :class="sectionClass('details')" :style="sectionStyle('details')">
+            <SidebarSectionHeader title="详情" :collapsed="isCollapsed('details')" first
+              @toggle="toggleSection('details')" />
+            <div data-section-body :inert="isCollapsed('details') || undefined" class="flex-1 min-h-0 overflow-hidden">
+              <div data-section-content class="px-4 pt-2 pb-1">
+                <input v-model.trim="draftTitle" type="text" :disabled="isDeleted" :class="[
+                  'w-full px-0 py-1 text-lg font-semibold placeholder:text-neutral-300 dark:placeholder:text-neutral-700 bg-transparent border-none focus:outline-none focus:ring-0',
+                  isDeleted ? 'cursor-not-allowed text-neutral-400 dark:text-neutral-600' : 'text-neutral-800 dark:text-white'
+                ]" placeholder="任务标题" @input="markDirty('title')" @blur="saveIfNeeded('title')" />
+                <div class="mt-3 grid grid-cols-1 gap-2.5">
+                  <label class="text-[11px] text-neutral-500">
+                    截止时间
+                    <DateTimePicker v-model="draftDeadline" :disabled="isDeleted" placeholder="选择截止时间"
+                      class="mt-1" @confirm="saveDateField('deadline', draftDeadline)" />
+                  </label>
+                  <label class="text-[11px] text-neutral-500">
+                    耗时(小时)
+                    <input
+                      v-model="draftDuration"
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      :disabled="isDeleted"
+                      class="field mt-1"
+                      @blur="saveDurationField"
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
-            <p v-if="directChildren.length === 0" class="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-600">
-              还没有子任务
-            </p>
-          </div>
+          </section>
 
-          <div v-if="!isDeleted" class="px-3 pb-3 pt-1 space-y-1.5">
-            <div class="flex items-center gap-1.5">
-              <input v-model.trim="newChildTitle" type="text" class="field flex-1 text-xs" placeholder="新建子任务"
-                @keyup.enter="addChild" />
-              <button type="button" :disabled="!newChildTitle.trim()"
-                class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                title="添加子任务" @click="addChild">
-                <AppIcon name="plus" :size="14" />
-              </button>
+          <!-- [描述分区]：Milkdown 编辑器，占满剩余高度 -->
+          <!--
+            说明: 这里保留真实的高度边界。若子元素没有 `min-height: 0`，其默认最小高度可能由内容撑开，
+            导致 overflow 无法生效（看起来像“不能滚动”）。滚动责任交给编辑器内部，
+            编辑器（`.milkdown-editor`）通过 `height:100%` 与 `min-height:0` 在该边界内收缩并显示滚动条。
+          -->
+          <section data-section="description" :class="sectionClass('description')" :style="sectionStyle('description')">
+            <SidebarSectionHeader title="描述" :collapsed="isCollapsed('description')"
+              @toggle="toggleSection('description')" />
+            <div data-section-body :inert="isCollapsed('description') || undefined" class="flex-1 min-h-0 overflow-hidden">
+              <div data-section-content class="h-full">
+                <div :class="['h-full', isDeleted ? 'pointer-events-none deleted-content' : '']">
+                  <MilkdownEditor :key="editorKey" v-model="draftDetails" :readonly="isDeleted"
+                    placeholder="输入内容，支持 Markdown 语法..." class="h-full" @blur="handleDetailsBlur"
+                    @update:modelValue="onDetailsChange" />
+                </div>
+              </div>
             </div>
-            <div class="flex items-center gap-1.5">
-              <select v-model="linkTargetId" class="field flex-1 text-xs">
-                <option value="">链接已有任务…</option>
-                <option v-for="candidate in linkCandidates" :key="candidate.id" :value="candidate.id">
-                  {{ candidate.title || '未命名任务' }}
-                </option>
-              </select>
-              <button type="button" :disabled="!linkTargetId"
-                class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                title="链接为子任务" @click="linkChild">
-                <AppIcon name="link" :size="14" />
-              </button>
+          </section>
+
+          <!-- [子任务分区]：固定高度，列表滚动，新建/链接固定在底部 -->
+          <section data-section="children" :class="sectionClass('children')" :style="sectionStyle('children')">
+            <SidebarSectionHeader title="子任务" :count="directChildren.length"
+              :collapsed="isCollapsed('children')" @toggle="toggleSection('children')" />
+            <div data-section-body :inert="isCollapsed('children') || undefined" class="flex-1 min-h-0 overflow-hidden">
+              <div data-section-content class="h-full flex flex-col">
+                <div class="flex-1 min-h-0 overflow-auto px-2">
+                  <div v-for="child in directChildren" :key="child.id"
+                    class="group flex items-center gap-1 rounded-lg hover:bg-accent-50/70 dark:hover:bg-accent-500/[0.06] transition-colors">
+                    <button type="button"
+                      class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm text-neutral-700 dark:text-neutral-300"
+                      @click="emit('task-selected', child.id)">
+                      <span class="h-1.5 w-1.5 rounded-full shrink-0"
+                        :class="child.completed_at ? 'bg-accent-500 dark:bg-accent-400' : 'bg-neutral-300 dark:bg-neutral-600'"></span>
+                      <span class="flex-1 truncate"
+                        :class="child.completed_at ? 'line-through text-neutral-400 dark:text-neutral-600' : ''">
+                        {{ child.title || '未命名任务' }}
+                      </span>
+                    </button>
+                    <button v-if="!isDeleted" type="button"
+                      class="mr-1 grid h-6 w-6 shrink-0 place-items-center rounded text-neutral-400 opacity-0 transition-opacity hover:bg-accent-100 hover:text-accent-800 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+                      title="脱离父任务" aria-label="脱离父任务" @click.stop="unlinkChild(child)">
+                      <AppIcon name="unlink" :size="13" />
+                    </button>
+                  </div>
+                  <p v-if="directChildren.length === 0" class="px-2 py-2 text-xs text-neutral-400 dark:text-neutral-600">
+                    还没有子任务
+                  </p>
+                </div>
+
+                <div v-if="!isDeleted" class="shrink-0 px-3 pb-2 pt-1 space-y-1.5">
+                  <div class="flex items-center gap-1.5">
+                    <input v-model.trim="newChildTitle" type="text" class="field flex-1 text-xs" placeholder="新建子任务"
+                      @keyup.enter="addChild" />
+                    <button type="button" :disabled="!newChildTitle.trim()"
+                      class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="添加子任务" @click="addChild">
+                      <AppIcon name="plus" :size="14" />
+                    </button>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <select v-model="linkTargetId" class="field flex-1 text-xs">
+                      <option value="">链接已有任务…</option>
+                      <option v-for="candidate in linkCandidates" :key="candidate.id" :value="candidate.id">
+                        {{ candidate.title || '未命名任务' }}
+                      </option>
+                    </select>
+                    <button type="button" :disabled="!linkTargetId"
+                      class="p-1.5 rounded text-neutral-500 hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="链接为子任务" @click="linkChild">
+                      <AppIcon name="link" :size="14" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       </template>
     </section>
@@ -145,11 +154,13 @@
 <script setup>
 import AppIcon from '@/components/AppIcon.vue'
 import DateTimePicker from '@/components/DateTimePicker.vue'
+import SidebarSectionHeader from '@/components/SidebarSectionHeader.vue'
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useSyncQueueStore } from '@/stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
 import { useResizablePanel } from '@/utils/resizablePanel'
+import { useSectionStack } from '@/utils/sectionStack'
 import {
   detailPanelWidth,
   DETAIL_PANEL_MIN_WIDTH
@@ -185,6 +196,24 @@ const syncQueueStore = useSyncQueueStore()
 
 // 为模板提供 `show` 绑定（确保模板中的 v-if="show" 可访问）
 const show = computed(() => props.show)
+
+// 右栏分区栈：详情按内容定高、描述占满剩余高度、子任务固定 192px；
+// 折叠状态单独保存，交互与左侧栏一致（见 docs/src/content/docs/dev/logic/layout-sidebar.md）
+const {
+  stackRef,
+  isCollapsed,
+  toggleSection,
+  sectionClass,
+  sectionStyle
+} = useSectionStack({
+  storageKey: 'detail-sections',
+  sections: [
+    { key: 'details', mode: 'auto' },
+    { key: 'description', mode: 'fill' },
+    { key: 'children', mode: 'fixed' }
+  ],
+  visible: () => show.value
+})
 
 // 面板左缘可拖拽调宽，拖过最小宽度后再拖一段即收起
 const { width: panelWidth, resizing: panelResizing, collapseArmed: panelCollapseArmed, start: startResize } = useResizablePanel({
@@ -246,7 +275,7 @@ const linkChild = async () => {
   linkTargetId.value = ''
 }
 
-// 取消链接：只摘掉这条父链接；最后一个父级被摘掉时子任务回到顶层
+// 脱离父任务：只摘掉这条父链接；最后一个父级被摘掉时子任务回到顶层
 const unlinkChild = async (child) => {
   if (!todo.value || isDeleted.value) return
   await todoStore.unlinkTodo(todo.value.id, child.id)

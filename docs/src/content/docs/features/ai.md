@@ -25,3 +25,4 @@ AI 视图右栏的上下文面板按真实请求快照展示参数、上下文�
 - 面板头部的换行图标切换所有 JSON 源码块的自动换行，默认关闭：`codeWrap` 为真时给 `pre` 追加 `whitespace-pre-wrap break-words`，长行按面板宽度折行。
 - 该偏好用 `persistedRef('ai-context-wrap', false)` 保存在本地，与面板宽度一样刷新后沿用。
 - 源码块排版统一走 `style.css` 的 `.code-block` / `.code-block-flush`，开关只改空白处理，不改字号与最大高度。
+- 面板内容按「请求参数 / 上下文构成 / 可用工具 / 原始消息 / 完整请求体」折叠栈排列：参数、上下文与请求体按内容定高，可用工具固定 192px，原始消息占满剩余高度；标题行可折叠，状态存本地 `ai-context-sections`。
