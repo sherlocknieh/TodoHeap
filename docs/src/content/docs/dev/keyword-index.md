@@ -19,7 +19,7 @@ title: 关键词索引
 | 用户可能说 | 位置 | 说明 |
 | --- | --- | --- |
 | 活动栏 / 左侧图标条 / 最左边一竖条 | `pages/Todo.vue`「左侧活动栏」注释；`activeSection`、`activeView` | 清单、日程、AI、回收站的入口；收起后由底栏按钮开回 |
-| 侧栏 / 左栏 / 导航栏 / 抽屉 | `components/LeftSidebar.vue`；`pages/Todo.vue`「宽屏侧栏是常驻栏」「窄屏侧栏是覆盖内容的抽屉」 | 宽屏常驻并可拖宽，窄屏与任务图是浮层抽屉，两套状态互不覆盖；浮层时点外部（含画布空白）收起 |
+| 侧栏 / 左栏 / 导航栏 / 抽屉 / 左侧面板透明 / 左栏半透明 / 毛玻璃 | `components/LeftSidebar.vue`「小屏浮层 / 大屏常驻左栏」「浮起的左栏」；`pages/Todo.vue`「宽屏侧栏是常驻栏」「窄屏侧栏是覆盖内容的抽屉」 | 宽屏常驻并可拖宽，窄屏与任务图是浮层抽屉，两套状态互不覆盖；浮层时点外部（含画布空白）收起；浮层态底色半透明并轻微模糊背后内容（`bg-surface/80` + `backdrop-blur-sm`），`md:` 以上常驻时恢复实底 |
 | 侧栏拉宽 / 拖宽度 / 拖到收起 | `components/LeftSidebar.vue`「右缘拖拽条」、`useResizablePanel`；`utils/resizablePanel.js` | 拖过最小宽度（200px）继续拖一段即收起 |
 | 技能区高度 / 上下拖动分隔条 / 技能栏太矮 | `components/LeftSidebar.vue`「技能：非首位展开时可拖拽调高」 | 分隔条在技能分组上缘；技能区排首位展开时占满高度，不显示分隔条 |
 | 地址栏 / 网址 / URL / 路由地址 / # 后面的路径 | `router/index.ts`「应用页：静态基路径已由 vite base 提供」；`frontend/vite.config.ts`「应用挂在文档站点的 /app/ 子路径」；[应用地址与路由前缀](./logic/app-url.md)「两段前缀各管一层」 | 静态前缀 `/TodoHeap/app/` + hash 视图名，如 `#/graph` |

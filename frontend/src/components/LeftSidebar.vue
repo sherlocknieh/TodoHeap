@@ -547,7 +547,11 @@ const switchView = (view) => {
     v-if="show"
     data-left-sidebar
     :class="[
-      'absolute top-0 bottom-0 max-w-[85vw] bg-surface dark:bg-surface-dark flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
+      'absolute top-0 bottom-0 max-w-[85vw] flex flex-col z-30 border-r border-hairline dark:border-hairline-dark',
+      // 「浮起的左栏」：任务图与该断点以下是浮层抽屉，底色半透明并轻微模糊背后内容；宽屏常驻恢复实底
+      overlay
+        ? 'bg-surface/80 backdrop-blur-sm dark:bg-surface-dark/80'
+        : 'bg-surface/80 backdrop-blur-sm dark:bg-surface-dark/80 md:bg-surface md:backdrop-blur-none md:dark:bg-surface-dark',
       // 常驻左栏由布局排布，浮层时才按活动栏留出左边距
       railHidden ? 'left-0' : overlay ? 'left-12' : 'left-12 md:left-0',
       overlay ? 'shadow-lg' : 'md:relative md:z-10 md:shadow-none'
