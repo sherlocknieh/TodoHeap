@@ -761,7 +761,7 @@ const moveTodo = async ({ id, targetId, position, sourceParentId, targetParentId
   }
 }
 
-// 取消链接：只摘掉这条父链接；最后一个父级被摘掉时任务回到顶层
+// 脱离父任务：只摘掉这条父链接；最后一个父级被摘掉时任务回到顶层
 const unlinkTask = async ({ parentId, childId }) => {
   if (childId == null) return
   const result = await todoStore.unlinkTodo(parentId, childId)
@@ -771,7 +771,7 @@ const unlinkTask = async ({ parentId, childId }) => {
   emit('task-selected', childId)
 
   emit('notify', {
-    message: '已取消链接',
+    message: '已脱离父任务',
     undo: () => {
       const actions = [todoStore.updateTodo(parentId, { child_ids: result.data.previousChildIds })]
       if (result.data.rootChildIds != null) {
@@ -786,7 +786,7 @@ const handleTaskSelected = (taskId) => {
   emit('task-selected', taskId)
 }
 
-// 任务行菜单「节点视图」：列表只转发目标，切视图与定位由外层工作区负责
+// 任务行菜单「在任务图中查看」：列表只转发目标，切视图与定位由外层工作区负责
 const handleJumpToGraph = (taskId) => {
   emit('jump-to-graph', taskId)
 }

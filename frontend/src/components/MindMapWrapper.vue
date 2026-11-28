@@ -407,7 +407,7 @@ const props = defineProps({
   editTaskId: { type: Number, default: null },
   // 新建立的链接，形如 { parentId, childId }；引用变化即按点击连线选中它
   newEdge: { type: Object, default: null },
-  // 「节点视图」的目标：挂载后一次性把它居中并固定 100% 缩放
+  // 「在任务图中查看」的目标：挂载后一次性把它居中并固定 100% 缩放
   focusTaskId: { type: String, default: null }
 })
 
@@ -1331,7 +1331,7 @@ const menuBatch = ref(false)
 
 // 菜单项全部复用已有能力，右侧标注对应快捷键，方便用户之后直接用键盘
 const MENU_ITEMS = [
-  { key: 'complete-tree', label: '完成任务树', hint: '', icon: 'tree' },
+  { key: 'complete-tree', label: '完成任务树', hint: '', icon: 'checks' },
   { key: 'date', label: '设置日期', hint: '', icon: 'calendar' },
   { key: 'child', label: '新建子任务', hint: 'Tab', icon: 'plus' },
   { key: 'copy', label: '复制节点树', hint: 'Ctrl+C', icon: 'copy' },
@@ -1754,7 +1754,7 @@ const ensureNodeVisible = (id) => {
   animateView(target)
 }
 
-// 「节点视图」跳转定位：与选中项的可见性修正不同，这是一次显式导航，
+// 「在任务图中查看」跳转定位：与选中项的可见性修正不同，这是一次显式导航，
 // 目标节点居中、缩放固定 100%（不因可见区变窄而缩小），可见区扣掉右侧浮层
 const centerNodeAtFullScale = (id) => {
   const node = layout.value.nodes.find((item) => item.id === String(id))
@@ -1795,7 +1795,7 @@ watch(selectedId, (id) => {
   nextTick(() => ensureNodeVisible(id))
 })
 
-// 「节点视图」的一次性定位：图挂载时已存在的选中态不会触发上面的修正，用 focus 目标补一次。
+// 「在任务图中查看」的一次性定位：图挂载时已存在的选中态不会触发上面的修正，用 focus 目标补一次。
 // 被折叠隐藏时先展开祖先链；居中到 100% 后清掉目标，避免后续重排再次把视口拉回去
 const pendingFocusId = ref(props.focusTaskId == null ? null : String(props.focusTaskId))
 watch([layout, () => size.width, () => size.height], () => {

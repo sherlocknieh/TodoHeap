@@ -31,7 +31,7 @@ const todoStore = useTodoStore()
 
 const route = useRoute()
 
-// 「节点视图」把目标任务带在 focus 查询里：图挂载后据此把该节点居中并固定 100% 缩放
+// 「在任务图中查看」把目标任务带在 focus 查询里：图挂载后据此把该节点居中并固定 100% 缩放
 const focusTaskId = computed(() => {
 	const raw = Array.isArray(route.query.focus) ? route.query.focus[0] : route.query.focus
 	return raw == null || raw === '' ? null : String(raw)

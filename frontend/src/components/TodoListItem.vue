@@ -99,6 +99,15 @@
               </button>
               <div v-if="showMoreMenuId === item.id"
                 class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1 overflow-hidden" ref="moreMenuRef">
+                <!-- 「添加子任务」：菜单首项，最常用的新建入口 -->
+                <button
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 transition-colors hover:bg-accent-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-neutral-300 dark:hover:bg-accent-500/10 dark:disabled:hover:bg-transparent"
+                  :disabled="disableAddSubtask"
+                  :title="disableAddSubtask ? '筛选结果中不能添加子任务' : null"
+                  @click.stop="emitAddSubtask(item); closeMoreMenu()">
+                  <AppIcon name="plus" :size="13" />
+                  <span>添加子任务</span>
+                </button>
                 <!-- 「标记完成」：勾选任务，行随完成状态移出待办区 -->
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
@@ -110,30 +119,22 @@
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                   @click.stop="emitCompleteTree(item); closeMoreMenu()">
-                  <AppIcon name="tree" :size="13" />
+                  <AppIcon name="checks" :size="13" />
                   <span>完成任务树</span>
                 </button>
-                <!-- 「节点视图」：切到任务图，节点居中并 100% 缩放 -->
+                <!-- 「在任务图中查看」：切到任务图，节点居中并 100% 缩放 -->
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                   @click.stop="emitJumpToGraph(selectableIdOf(item)); closeMoreMenu()">
                   <AppIcon name="graph" :size="13" />
-                  <span>节点视图</span>
+                  <span>在任务图中查看</span>
                 </button>
-                <button
-                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 transition-colors hover:bg-accent-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-neutral-300 dark:hover:bg-accent-500/10 dark:disabled:hover:bg-transparent"
-                  :disabled="disableAddSubtask"
-                  :title="disableAddSubtask ? '筛选结果中不能添加子任务' : null"
-                  @click.stop="emitAddSubtask(item); closeMoreMenu()">
-                  <AppIcon name="plus" :size="13" />
-                  <span>添加子任务</span>
-                </button>
-                <!-- 「取消链接」：断开本行所在的父链接；最后一个父级被断开时任务回到顶层 -->
+                <!-- 「脱离父任务」：断开本行所在的父链接；最后一个父级被断开时任务回到顶层 -->
                 <button v-if="item._level > 0"
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                   @click.stop="emitUnlink(item); closeMoreMenu()">
                   <AppIcon name="unlink" :size="13" />
-                  <span>取消链接</span>
+                  <span>脱离父任务</span>
                 </button>
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
@@ -206,7 +207,7 @@ const emitAddSubtask = (item) => {
   emit('add-subtask', selectableIdOf(item))
 }
 const emitEditSubtask = (id, title) => emit('edit-subtask', id, title)
-// 行内菜单「节点视图」交给外层切视图，行组件不直接操作路由
+// 行内菜单「在任务图中查看」交给外层切视图，行组件不直接操作路由
 const emitJumpToGraph = (id) => emit('jump-to-graph', id)
 const emitTaskSelected = (id) => emit('task-selected', id)
 
