@@ -197,25 +197,6 @@
           </g>
         </g>
 
-        <!-- 占位槽 / 虚节点：排序时在兄弟序列里插入一条空位；空隙命中父节点时插入与被拖节点等高的虚节点，
-             兄弟节点真实让开，虚节点里显示被拖节点的文字，作为插入后的效果预览 -->
-        <g v-if="dropPlaceholderNode"
-          :transform="`translate(${dropPlaceholderNode.x} ${dropPlaceholderNode.y})`"
-          class="pointer-events-none">
-          <rect :width="nodeWidth" :height="dropPlaceholderNode.height" rx="6"
-            stroke-width="1.4" stroke-dasharray="6 4"
-            :fill-opacity="dragState.childBand ? 0.35 : 1"
-            class="fill-accent-100/80 stroke-accent-500 dark:fill-accent-500/20 dark:stroke-accent-400" />
-          <!-- 排序槽用左缘细条标出插入位置；空隙虚节点本身就是插入效果预览，不再加条 -->
-          <rect v-if="!dragState.childBand" :width="8" :height="dropPlaceholderNode.height" rx="4"
-            class="fill-accent-500/60 dark:fill-accent-400/60" />
-          <!-- 虚节点里的文字沿用被拖节点的排版，尺寸一致才看得出插入后的效果 -->
-          <text v-for="(line, index) in (dragState.childBand && dragState.shadow ? dragState.shadow.node.lines : [])"
-            :key="index" :x="dragState.shadow.node.textX"
-            :y="paddingTop + fontSize + index * lineHeight"
-            :style="textStyle" class="fill-neutral-500 font-medium dark:fill-neutral-400">{{ line }}</text>
-        </g>
-
         <!-- 选中连线：在连线中点显示删除按钮，置于节点之上以免被遮挡；根任务的边不可删，只高亮 -->
         <g v-if="selectedEdge?.deletable && selectedEdge.midpoint"
           :transform="`translate(${selectedEdge.midpoint.x} ${selectedEdge.midpoint.y})`"
@@ -231,17 +212,36 @@
             :class="confirmUnlink ? 'stroke-white' : 'stroke-accent-600 dark:stroke-accent-400'" />
         </g>
 
-        <!-- 拖拽影子：按住节点拖动时跟随指针的副本，抓取点与原件保持同一相对位置；
-             原件同时淡出；拖进目标时目标仍按 targetId 高亮，前后插序则显示占位槽；
-             空隙命中父节点时隐藏影子，视线交给槽位里的虚节点 -->
+        <!-- 落点空位底：排序槽 / 空隙虚节点的浅底与左缘条，画在影子下层，让兄弟让出的位置看得出来 -->
+        <g v-if="dropPlaceholderNode"
+          :transform="`translate(${dropPlaceholderNode.x} ${dropPlaceholderNode.y})`"
+          class="pointer-events-none">
+          <rect :width="nodeWidth" :height="dropPlaceholderNode.height" rx="6"
+            class="fill-accent-100/80 dark:fill-accent-500/20" />
+          <!-- 排序槽用左缘细条标出插入位置；空隙虚节点本身就是插入位置预览，不再加条 -->
+          <rect v-if="!dragState.childBand" :width="8" :height="dropPlaceholderNode.height" rx="4"
+            class="fill-accent-500/60 dark:fill-accent-400/60" />
+        </g>
+
+        <!-- 拖拽影子：实节点卡片跟着指针走，抓取点与原件保持同一相对位置，原位置的节点淡出；
+             空隙命中父节点时，槽位另画虚线虚节点与虚线链接作为插入位置预览 -->
         <g v-if="dragState.shadow" :transform="`translate(${dragState.shadow.x} ${dragState.shadow.y})`"
-          :opacity="dragState.childBand ? 0 : 1" class="pointer-events-none">
-          <rect :width="nodeWidth" :height="dragState.shadow.node.height" rx="8" fill-opacity="0.92"
-            stroke-width="1.4" stroke-dasharray="6 4"
-            class="fill-white stroke-accent-500 dark:fill-neutral-900 dark:stroke-accent-400" />
+          class="pointer-events-none">
+          <rect :width="nodeWidth" :height="dragState.shadow.node.height" rx="8" fill-opacity="0.97"
+            stroke-width="1.2"
+            class="fill-white stroke-accent-500/70 dark:fill-neutral-900 dark:stroke-accent-400/70" />
           <text v-for="(line, index) in dragState.shadow.node.lines" :key="index"
             :x="dragState.shadow.node.textX" :y="paddingTop + fontSize + index * lineHeight"
             :style="textStyle" class="fill-neutral-800 font-medium dark:fill-neutral-100">{{ line }}</text>
+        </g>
+
+        <!-- 落点虚线轮廓：画在实节点影子之上，重合时也能看清插入位置的边框 -->
+        <g v-if="dropPlaceholderNode"
+          :transform="`translate(${dropPlaceholderNode.x} ${dropPlaceholderNode.y})`"
+          class="pointer-events-none">
+          <rect :width="nodeWidth" :height="dropPlaceholderNode.height" rx="6" fill="none"
+            stroke-width="1.4" stroke-dasharray="6 4"
+            class="stroke-accent-500 dark:stroke-accent-400" />
         </g>
 
         <!-- [拖到子节点之间]：空隙命中父节点时，从父节点到虚节点的虚线，预览插入后的链接线 -->
