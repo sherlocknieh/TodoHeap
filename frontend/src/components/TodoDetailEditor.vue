@@ -42,49 +42,24 @@
               @toggle="toggleSection('details')" />
             <div data-section-body :inert="isCollapsed('details') || undefined" class="flex-1 min-h-0 overflow-hidden">
               <div data-section-content class="px-4 pt-2 pb-1">
-                <!-- [父链/面包屑]：标题上方一行小字显示 DAG 去重后的祖先层；多父时右侧角标展开全部精确路径 -->
+                <!-- [父链/面包屑]：标题上方多行折行显示 DAG 去重后的祖先层 -->
                 <div v-if="ancestorLayers.length" class="mb-0.5">
-                  <div class="flex items-center gap-1 text-[11px] leading-4">
-                    <!-- 主链：祖先层去重，距任务最远的层在前；同层是并列父级用 /，层间用 › -->
-                    <nav class="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-hidden text-neutral-400 dark:text-neutral-500"
-                      :title="ancestorText">
-                      <template v-for="(group, groupIndex) in ancestorLayers" :key="groupIndex">
-                        <span v-if="groupIndex > 0" class="shrink-0 text-neutral-300 dark:text-neutral-600">›</span>
-                        <template v-for="(ancestor, index) in group" :key="ancestor.id">
-                          <span v-if="index > 0" class="shrink-0 px-0.5 text-neutral-300 dark:text-neutral-600">/</span>
-                          <button type="button"
-                            class="shrink-0 whitespace-nowrap hover:text-accent-700 dark:hover:text-accent-300"
-                            :title="ancestor.title || '未命名任务'" @click="emit('task-selected', ancestor.id)">
-                            {{ ancestor.title || '未命名任务' }}
-                          </button>
-                        </template>
-                      </template>
-                      <span v-if="ancestorTruncated" class="shrink-0">…</span>
-                    </nav>
-                    <button v-if="extraChainCount > 0" type="button"
-                      class="shrink-0 rounded px-1 text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
-                      :title="`查看全部 ${chainCount} 条父链`" @click.stop="chainPopoverOpen = !chainPopoverOpen">
-                      +{{ extraChainCount }}
-                    </button>
-                  </div>
-                  <!-- 展开的全部父链：每条一行，祖先可点跳转，环用 ↻ 标记 -->
-                  <div v-if="chainPopoverOpen"
-                    class="mt-1 max-h-40 overflow-y-auto rounded-md border border-hairline px-2 py-1 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
-                    <div v-for="(chain, index) in orderedChains" :key="index">
-                      <span class="mr-1 text-neutral-300 dark:text-neutral-600">{{ index + 1 }}.</span>
-                      <template v-for="(ancestor, i) in chain.nodes" :key="`${ancestor.id}-${i}`">
-                        <span v-if="i > 0" class="px-0.5 text-neutral-300 dark:text-neutral-600">›</span>
-                        <button type="button" class="hover:text-accent-700 dark:hover:text-accent-300"
-                          @click="emit('task-selected', ancestor.id)">
+                  <!-- 祖先层：距任务最远的层在前；同层是并列父级用 /，层间用 ›，超出宽度自动折行 -->
+                  <nav class="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[11px] leading-4 text-neutral-400 dark:text-neutral-500"
+                    :title="ancestorText">
+                    <template v-for="(group, groupIndex) in ancestorLayers" :key="groupIndex">
+                      <span v-if="groupIndex > 0" class="shrink-0 text-neutral-300 dark:text-neutral-600">›</span>
+                      <template v-for="(ancestor, index) in group" :key="ancestor.id">
+                        <span v-if="index > 0" class="shrink-0 px-0.5 text-neutral-300 dark:text-neutral-600">/</span>
+                        <button type="button"
+                          class="whitespace-nowrap hover:text-accent-700 dark:hover:text-accent-300"
+                          :title="ancestor.title || '未命名任务'" @click="emit('task-selected', ancestor.id)">
                           {{ ancestor.title || '未命名任务' }}
                         </button>
                       </template>
-                      <span v-if="chain.cycle" class="ml-0.5" title="父链成环，已停止回溯">↻</span>
-                    </div>
-                    <p v-if="allChains.truncated" class="text-neutral-400 dark:text-neutral-600">
-                      仅显示前 {{ CHAIN_MAX_PATHS }} 条
-                    </p>
-                  </div>
+                    </template>
+                    <span v-if="ancestorTruncated" class="shrink-0">…</span>
+                  </nav>
                 </div>
                 <input v-model.trim="draftTitle" type="text" :disabled="isDeleted" :class="[
                   'w-full px-0 py-1 text-lg font-semibold placeholder:text-neutral-300 dark:placeholder:text-neutral-700 bg-transparent border-none focus:outline-none focus:ring-0',
@@ -207,7 +182,7 @@ import { useSyncQueueStore } from '@/stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { useSectionStack } from '@/utils/sectionStack'
-import { allChainsOf, ancestorLayersOf, displayChainOf } from '@/utils/taskChain'
+import { ancestorLayersOf } from '@/utils/taskChain'
 import {
   detailPanelWidth,
   DETAIL_PANEL_MIN_WIDTH
@@ -287,22 +262,13 @@ const isDeleted = computed(() => {
   return todo.value?.deleted_at != null
 })
 
-// 标题上方的父链：祖先层按跳数去重后拼成「大致路径」，多父角标再枚举精确路径；
-// 根任务不算链首，回收站任务不在树里时整行隐藏。
-// 机制见 docs/src/content/docs/dev/logic/task-chain.md
-const CHAIN_MAX_PATHS = 20
-const chainPopoverOpen = ref(false)
-
-// 全部父链按扁平任务枚举，根任务单独补回；tasks 已排除根任务
+// 标题上方的父链：祖先层按跳数去重后拼成「大致路径」，宽度不足自动折行；
+// 根任务不算链首，回收站任务不在树里时整行隐藏。机制见 docs/src/content/docs/dev/logic/task-chain.md
+// 扁平任务由 rootTodo + tasks 拼回：store 的 tasks 已排除根任务
 const chainItems = computed(() => [todoStore.rootTodo, ...todoStore.tasks].filter(Boolean))
 
-// 展示主链：只用来把精确路径里对应的那条排到最前，不在标题上方原样展示
-const displayChain = computed(() => (
-  props.show ? displayChainOf(todoStore.treeNodes, props.todoId) : []
-))
-
-// 祖先层：DAG 去重后按距当前任务的跳数分层，拼成一行「大致路径」；
-// 同层是并列父级，用 / 分隔，层间用 ›。深度与唯一祖先数都封顶。
+// 祖先层：DAG 去重后按距当前任务的跳数分层，同层是并列父级；
+// 用 / 分隔同层、› 分隔层间，深度与唯一祖先数都封顶。
 const ancestorPath = computed(() => (
   props.show ? ancestorLayersOf(chainItems.value, props.todoId) : { layers: [], truncated: false }
 ))
@@ -315,27 +281,6 @@ const ancestorText = computed(() => {
     .map((group) => group.map((node) => node.title || '未命名任务').join(' / '))
     .join(' › ')
   return ancestorTruncated.value ? `${text} …` : text
-})
-
-const allChains = computed(() => (
-  ancestorLayers.value.length
-    ? allChainsOf(chainItems.value, props.todoId, { maxPaths: CHAIN_MAX_PATHS })
-    : { chains: [], truncated: false }
-))
-
-const chainCount = computed(() => allChains.value.chains.length)
-
-// 角标只表示「另有几条」，与标题上方那条主链不重复计数
-const extraChainCount = computed(() => Math.max(0, chainCount.value - 1))
-
-// 展开列表把展示主链排在最前，第一行与标题上方一致
-const orderedChains = computed(() => {
-  const key = displayChain.value.map((node) => node.id).join('/')
-  const keyOf = (chain) => chain.nodes.map((node) => node.id).join('/')
-  return [
-    ...allChains.value.chains.filter((chain) => keyOf(chain) === key),
-    ...allChains.value.chains.filter((chain) => keyOf(chain) !== key)
-  ]
 })
 
 // 只取当前任务的直接子任务，不递归展开更深层级
@@ -535,7 +480,6 @@ const resetDraftFromTodo = () => {
 watch(
   () => props.todoId,
   () => {
-    chainPopoverOpen.value = false
     resetDraftFromTodo()
   },
   { immediate: true }
