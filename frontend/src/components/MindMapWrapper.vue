@@ -1114,8 +1114,8 @@ const dropPreviewForest = computed(() => insertDropPlaceholder(props.nodes))
 
 // 有向图：按强连通分量分层，环内节点顺序排列，回边绕行展示
 // 只用可见节点参与布局：折叠后兄弟节点收拢到折叠父节点周围，展开后子节点重新贴回父节点
-const computeGraphLayout = (forest) => {
-  const { nodes: rawNodes, edges: rawEdges } = buildGraphData(forest, collapsedSet.value)
+const computeGraphLayout = (forest, collapsed = collapsedSet.value) => {
+  const { nodes: rawNodes, edges: rawEdges } = buildGraphData(forest, collapsed)
   if (rawNodes.length === 0) {
     return { nodes: [], edges: [], contentWidth: 0, contentHeight: 0, minX: 0, minY: 0 }
   }
@@ -1164,9 +1164,17 @@ const computeGraphLayout = (forest) => {
   }
 }
 
-// 拖拽命中与键盘/选中判断都用不含占位槽的布局；渲染用带占位槽的布局
+// 拖拽命中与键盘/选中判断都用不含虚节点的布局；渲染用带虚节点的布局。
+// 虚节点的父级若是折叠状态，渲染层临时展开它，否则插入预览会被折叠藏住、看起来「有时不显示」
 const hitLayout = computed(() => computeGraphLayout(props.nodes))
-const layout = computed(() => computeGraphLayout(dropPreviewForest.value))
+const previewCollapsed = computed(() => {
+  const band = dragState.childBand
+  if (!band) return collapsedSet.value
+  const next = new Set(collapsedSet.value)
+  next.delete(String(band.parentId))
+  return next
+})
+const layout = computed(() => computeGraphLayout(dropPreviewForest.value, previewCollapsed.value))
 const renderNodes = computed(() => layout.value.nodes.filter((node) => !node.isPlaceholder))
 const dropPlaceholderNode = computed(() =>
   layout.value.nodes.find((node) => node.isPlaceholder) ?? null)
@@ -2568,7 +2576,9 @@ const updateDrag = (event) => {
         dragState.dropPosition = 'inside'
         return
       }
-      dragState.childBand = null
+      // 拖进该节点：虚节点作为它的最后一个子级，虚线链接一起显示插入后的效果，
+      // 与插序槽位、叶子出边区共用同一套预览
+      dragState.childBand = { parentId: String(target.id), index: null, beforeId: null, afterId: null }
       dragState.targetId = target.id
       dragState.dropPosition = 'inside'
       return
