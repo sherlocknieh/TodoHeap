@@ -153,11 +153,11 @@
                 <AppIcon :name="dateOrder === 'asc' ? 'chevronUp' : 'chevronDown'" :size="13" />
               </button>
               <button v-if="foldableTasks.length && !isSearching" type="button"
-                class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+                class="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-hairline text-neutral-600 transition-colors hover:border-accent-500/60 hover:text-accent-700 dark:border-hairline-dark dark:text-neutral-300 dark:hover:border-accent-400 dark:hover:text-accent-200"
                 :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
                 :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
                 :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
-                <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
+                <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="12" />
               </button>
             </template>
             <!-- 「任务添加按钮」：跳到下方添加栏；搜索态顺便切回新建。绿底白色加粗加号，比同排图标按钮更醒目 -->

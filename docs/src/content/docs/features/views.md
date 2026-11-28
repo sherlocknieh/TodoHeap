@@ -80,7 +80,7 @@ title: "视图与交互"
 - 折叠开关收在卡片内、占据勾选圈的位置，圆心距卡片左缘 18px，正好与下一层竖线对齐，不再露在卡片外面；顶层行没有连线，圆钮仍按同一列对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
 - 单选待办任务后可用键盘新建：Tab 建子级（追加到同级末尾）、Enter 建兄弟（落在当前行之后）；焦点在输入框、按钮或菜单里时不抢键，多选与已完成行不触发。新建前会展开目标父级（折叠时新行本来就不可见），新任务自动选中并进入行内编辑（`TodoList.vue` `handleListKeydown`、`addSubtask`、`createSibling`、`pendingEdit`；`TodoListItem.vue` `editRequest`）。
 - 行内竖三点「更多」菜单依次是「添加子任务 / 标记完成 / 完成任务树 / 在任务图中查看 / 脱离父任务 / 删除任务」；「完成任务树」沿 `child_ids` 把任务与全部后代中未完成的项一起完成，已完成的保留原完成时间，图标为叠加双勾（`AppIcon` 的 `checks`），见[完成任务树](../dev/logic/task-complete-tree.md)；「在任务图中查看」先选中该任务，再带 `focus` 查询切到任务图并居中到 100%（`TodoListItem.vue` `emitJumpToGraph`、`emitCompleteTree`、`TodoList.vue` `handleJumpToGraph`、`completeTaskTree`、`Todo.vue` `jumpToGraph`）。
-- 「待办」标题栏右侧放整表操作：筛选菜单（两个可叠加的开关——「只看有日期的任务」把带截止时间的任务拍平成按截止时间升/降序的列表；「只看叶子节点」按树序收集没有未完成子任务的任务并拍平，子任务全部完成的父任务按叶子处理）、升/降序箭头（日期筛选关闭时禁用），以及全部展开/折叠圆圈按钮（与任务行开关同尺寸；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`dateOnly`、`leafOnly`、`dateOrder`、`flattenTasksByDeadline`、`flattenLeafTasks`、`showFilterMenu`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
+- 「待办」标题栏右侧放整表操作：筛选菜单（两个可叠加的开关——「只看有日期的任务」把带截止时间的任务拍平成按截止时间升/降序的列表；「只看叶子节点」按树序收集没有未完成子任务的任务并拍平，子任务全部完成的父任务按叶子处理）、升/降序箭头（日期筛选关闭时禁用），以及全部展开/折叠圆圈按钮（与同排图标按钮同高 28px 的圆圈，边框与图标色跟筛选/排序一致；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`dateOnly`、`leafOnly`、`dateOrder`、`flattenTasksByDeadline`、`flattenLeafTasks`、`showFilterMenu`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
 - 平铺筛选期间关闭层级写入：菜单「添加子任务」置灰，Tab/Enter 新建与拖拽都不响应（`TodoListItem.vue` 的 `disableAddSubtask`、`disableDrag`，`TodoList.vue` `handleListKeydown`、`isFlatFilter`），避免在看不到层级时改动父子关系与手动顺序；两种筛选同时开启时先取叶子、再按截止时间排序，机制见[任务表筛选与平铺](../dev/logic/task-list-filter.md)。
 
 ## 侧栏分组
