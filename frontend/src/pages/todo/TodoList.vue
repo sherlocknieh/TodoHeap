@@ -204,7 +204,7 @@
         </p>
       </div>
 
-      <!-- 已完成标题：有「待办」标题时接在它下方 40px 处，两个标题同时固顶时上下叠放 -->
+      <!-- 「已完成：无内容时不占位」：有已完成任务才出现这一组；标题有「待办」时接在它下方 40px 处，两个标题同时固顶时上下叠放 -->
       <div v-if="completedCount" :class="allCount ? 'top-10' : 'top-0'"
         class="sticky z-10 mt-6 flex items-center gap-1 border-t border-hairline bg-canvas pt-2 pb-1 dark:border-hairline-dark dark:bg-canvas-dark">
         <button type="button"
