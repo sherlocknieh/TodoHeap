@@ -36,7 +36,7 @@
       <template v-else>
         <!-- 分区折叠栈：与左侧栏同一套 chevron / 高度过渡 / 本地折叠状态 -->
         <div ref="stackRef" class="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden">
-          <!-- [详情分区]：标题、截止时间、耗时；按内容定高 -->
+          <!-- [详情分区]：父链与标题；按内容定高 -->
           <section data-section="details" :class="sectionClass('details')" :style="sectionStyle('details')">
             <SidebarSectionHeader title="详情" :collapsed="isCollapsed('details')" first
               @toggle="toggleSection('details')" />
@@ -65,7 +65,17 @@
                   'w-full px-0 py-1 text-lg font-semibold placeholder:text-neutral-300 dark:placeholder:text-neutral-700 bg-transparent border-none focus:outline-none focus:ring-0',
                   isDeleted ? 'cursor-not-allowed text-neutral-400 dark:text-neutral-600' : 'text-neutral-800 dark:text-white'
                 ]" placeholder="任务标题" @input="markDirty('title')" @blur="saveIfNeeded('title')" />
-                <div class="mt-3 grid grid-cols-1 gap-2.5">
+              </div>
+            </div>
+          </section>
+
+          <!-- [时间分区]：截止时间与耗时单独成栏，按内容定高 -->
+          <section data-section="timing" :class="sectionClass('timing')" :style="sectionStyle('timing')">
+            <SidebarSectionHeader title="时间" :collapsed="isCollapsed('timing')"
+              @toggle="toggleSection('timing')" />
+            <div data-section-body :inert="isCollapsed('timing') || undefined" class="flex-1 min-h-0 overflow-hidden">
+              <div data-section-content class="px-4 pt-2 pb-1">
+                <div class="grid grid-cols-1 gap-2.5">
                   <label class="text-[11px] text-neutral-500">
                     截止时间
                     <DateTimePicker v-model="draftDeadline" :disabled="isDeleted" placeholder="选择截止时间"
@@ -233,6 +243,7 @@ const {
   storageKey: 'detail-sections',
   sections: [
     { key: 'details', mode: 'auto' },
+    { key: 'timing', mode: 'auto' },
     { key: 'description', mode: 'fill' },
     { key: 'children', mode: 'fixed' }
   ],
