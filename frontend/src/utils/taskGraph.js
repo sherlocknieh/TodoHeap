@@ -26,6 +26,15 @@ export const collectDescendantIds = (items, rootId) => {
   return descendants
 }
 
+// 新增一条父链接是否成环: 子任务不能是自己, 也不能把父任务挂到自己的后代下。
+// 历史数据里可能已有环, collectDescendantIds 的 visited 保证这里只遍历一次;
+// 写入路径统一用它拦截, 机制见 docs/src/content/docs/dev/logic/task-cycle-guard.md
+export const wouldCreateCycle = (items, parentId, childId) => {
+  if (parentId == null || childId == null) return false
+  if (String(parentId) === String(childId)) return true
+  return collectDescendantIds(items, childId).some((id) => String(id) === String(parentId))
+}
+
 // 完成任务树时要写入的任务: 任务本身 + 全部后代里仍未完成的;
 // 已完成的保留原完成时间, child_ids 里残留的已删除 ID 静默跳过
 export const collectIncompleteTreeIds = (items, rootId) => {

@@ -8,7 +8,7 @@ title: "任务顺序"
 ## 顺序的唯一来源
 
 - 父节点的 `child_ids BIGINT[] NOT NULL DEFAULT '{}'`（`supabase/migrations/20261117000000_schema_tables.sql`）就是同级显示顺序，数组下标即手动顺序；没有额外的 `sort_order` 字段。
-- 一个任务可以有多个父级、也可以成环；顺序按每条父链各自保存，同一个任务在不同父级下可以有不同位置。
+- 一个任务可以有多个父级，但不允许成环：写入路径统一拦截，机制见[环形依赖的写入拦截](./task-cycle-guard.md)；顺序按每条父链各自保存，同一个任务在不同父级下可以有不同位置。
 - `child_ids` 上有 GIN 索引（`supabase/migrations/20261117000100_schema_indexes.sql`），用于按「包含某子任务」反查父级，不参与排序。
 
 ## 新建时插到哪里

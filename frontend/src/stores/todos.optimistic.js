@@ -1,6 +1,6 @@
 // Todo 乐观更新与级联操作
 import { v4 as uuidv4 } from 'uuid'
-import { collectCascadeIds, collectDescendantIds, collectIncompleteTreeIds, findParentIds } from '@/utils/taskGraph'
+import { collectCascadeIds, collectDescendantIds, collectIncompleteTreeIds, findParentIds, wouldCreateCycle } from '@/utils/taskGraph'
 
 export const createTodoOptimisticActions = ({
   todosRef,
@@ -162,6 +162,16 @@ export const createTodoOptimisticActions = ({
     }
 
     const originalTodo = todosRef.value[index]
+
+    // 禁止新增环形父子链接: 只校验本次新增的子 ID, 历史环数据仍可读写
+    if (Array.isArray(updates.child_ids)) {
+      const previous = new Set((originalTodo.child_ids || []).map(String))
+      const addsCycle = updates.child_ids
+        .filter((childId) => !previous.has(String(childId)))
+        .some((childId) => wouldCreateCycle(todosRef.value, realId, childId))
+      if (addsCycle) return { success: false, error: '禁止形成环形依赖' }
+    }
+
     syncQueue.saveSnapshot(realId, { ...originalTodo })
 
     todosRef.value[index] = {

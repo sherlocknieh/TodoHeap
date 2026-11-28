@@ -356,6 +356,14 @@ describe('createAgentToolRunner', () => {
     expect(todoStore.todos.find((item) => item.id === 2)).toBeTruthy()
   })
 
+  it('拒绝把父任务链接到自己的后代下', async () => {
+    const result = await runner.run('link_todo', { parent_id: 3, child_id: 1 })
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('子任务')
+    expect(todoStore.updateTodo).not.toHaveBeenCalled()
+  })
+
   it('拒绝把任务链接到自己', async () => {
     const result = await runner.run('link_todo', { parent_id: 1, child_id: 1 })
 

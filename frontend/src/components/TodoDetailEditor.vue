@@ -193,6 +193,7 @@ import MilkdownEditor from './MilkdownEditor.vue'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { useSectionStack } from '@/utils/sectionStack'
 import { ancestorLayersOf } from '@/utils/taskChain'
+import { collectDescendantIds } from '@/utils/taskGraph'
 import {
   detailPanelWidth,
   DETAIL_PANEL_MIN_WIDTH
@@ -300,12 +301,16 @@ const directChildren = computed(() => {
   return ids.map((id) => todoStore.findTodoById(id)).filter(Boolean)
 })
 
-// 可链接为子任务的任务：排除自身与已存在的子任务
+// 可链接为子任务的任务：排除自身、已存在的子任务，以及自己的后代（链接过去会成环）
 const linkCandidates = computed(() => {
   if (!todo.value) return []
   const childIds = new Set((todo.value.child_ids || []).map(String))
+  const descendants = new Set(collectDescendantIds(todoStore.todos, todo.value.id).map(String))
   return todoStore.tasks
-    .filter((item) => String(item.id) !== String(todo.value.id) && !childIds.has(String(item.id)))
+    .filter((item) => {
+      const key = String(item.id)
+      return key !== String(todo.value.id) && !childIds.has(key) && !descendants.has(key)
+    })
     .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
 })
 

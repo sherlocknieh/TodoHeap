@@ -6,7 +6,7 @@
 -- 任务表
 -- ---------------------------------------------------------------------------
 
--- 树形任务, 软删除; child_ids 是唯一的父子关系来源, 多父与环都是合法数据
+-- 树形任务, 软删除; child_ids 是唯一的父子关系来源, 多父合法, 环形链接由触发器拒绝
 CREATE TABLE todos (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,

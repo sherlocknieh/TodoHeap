@@ -8,7 +8,7 @@ title: "完成任务树"
 ## 收集范围
 
 - 起点是任务的真实 ID；回边行（同一任务在另一父级下的引用）与实体行落到同一 ID，从任一处操作效果一致。
-- `child_ids` 决定父子关系，允许多父与环：`collectDescendantIds` 用 `visited` 防环，`collectIncompleteTreeIds` 因此不会重复返回多父任务。
+- `child_ids` 决定父子关系，允许多父、禁止新增环（见[环形依赖的写入拦截](./task-cycle-guard.md)）：`collectDescendantIds` 仍用 `visited` 兜住历史环数据，`collectIncompleteTreeIds` 因此不会重复返回多父任务。
 - 只收集 `completed_at` 为空且当前仍存在的任务；已完成的后代保留原完成时间，不会被刷新成这一次的时间。
 - `child_ids` 里残留的已删除子 ID 直接跳过，不报错，也不阻止其余子树完成。
 

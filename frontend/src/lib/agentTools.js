@@ -11,6 +11,7 @@ import { SKILL_ICONS } from './agentSkills'
 import { disableCalendarFeed, rotateCalendarFeedToken } from './calendarTransfer'
 import { buildMcpToolDefinitions, callMcpTool, findMcpServerForTool, isMcpToolName, mcpToolName } from './mcpServers'
 import { findRootTodo, isRootTodo, withoutRootTodos } from '@/utils/rootTask'
+import { wouldCreateCycle } from '@/utils/taskGraph'
 import { fetchUserSettings } from './userSettings'
 
 // 破坏性操作先由界面确认，避免模型直接清空数据或让订阅链接失效
@@ -678,13 +679,9 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
 
       if (newParentId != null) {
         findTodo(newParentId)
-        // 沿祖先链检查目标父任务，防止把父节点移到自己的后代下形成环
-        const visited = new Set()
-        let cursor = newParentId
-        while (cursor != null && !visited.has(cursor)) {
-          if (cursor === toNumber(todo.id)) throw new Error('不能把任务移动到它自己的子任务下')
-          visited.add(cursor)
-          cursor = parentOf.get(cursor) ?? null
+        // 目标父任务在待移动任务的子树内时移动会成环，写入路径统一拦截
+        if (wouldCreateCycle(todoStore.todos, newParentId, todo.id)) {
+          throw new Error('不能把任务移动到它自己的子任务下')
         }
       }
 
@@ -751,6 +748,9 @@ export const createAgentToolRunner = ({ todoStore, scheduleStore, authStore, llm
       const parent = findTodo(args.parent_id)
       const child = requireTask(args.child_id)
       if (toNumber(parent.id) === toNumber(child.id)) throw new Error('任务不能链接到自己')
+      if (wouldCreateCycle(todoStore.todos, parent.id, child.id)) {
+        throw new Error('不能把父任务链接到它自己的子任务下')
+      }
 
       const childIds = parent.child_ids || []
       if (childIds.map(toNumber).includes(toNumber(child.id))) {

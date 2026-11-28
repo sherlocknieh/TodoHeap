@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTaskForest, collectCascadeIds, collectDescendantIds, collectIncompleteTreeIds, filterTasksByTitle, findDeleteFocusId, withoutStaleTempChildIds } from './taskGraph'
+import { buildTaskForest, collectCascadeIds, collectDescendantIds, collectIncompleteTreeIds, filterTasksByTitle, findDeleteFocusId, withoutStaleTempChildIds, wouldCreateCycle } from './taskGraph'
 
 const sortFn = (a, b) => a.id - b.id
 const mapItem = (item) => ({ id: item.id, title: item.title })
@@ -167,6 +167,40 @@ describe('collectDescendantIds', () => {
     ], 1)
 
     expect(ids.sort()).toEqual([2, 3])
+  })
+})
+
+describe('wouldCreateCycle', () => {
+  const items = [
+    { id: 1, child_ids: [2] },
+    { id: 2, child_ids: [3] },
+    { id: 3, child_ids: [] },
+    { id: 9, child_ids: [] }
+  ]
+
+  it('父任务挂到自己的后代下会成环', () => {
+    expect(wouldCreateCycle(items, 3, 1)).toBe(true)
+  })
+
+  it('任务不能成为自己的子任务', () => {
+    expect(wouldCreateCycle(items, 2, 2)).toBe(true)
+  })
+
+  it('无关任务与反向挂载不算成环', () => {
+    expect(wouldCreateCycle(items, 3, 9)).toBe(false)
+    expect(wouldCreateCycle(items, 1, 3)).toBe(false)
+  })
+
+  it('历史环数据只遍历一次, 不会死循环', () => {
+    expect(wouldCreateCycle([
+      { id: 1, child_ids: [2] },
+      { id: 2, child_ids: [1] }
+    ], 1, 2)).toBe(true)
+  })
+
+  it('缺少 id 时不做判断', () => {
+    expect(wouldCreateCycle(items, null, 2)).toBe(false)
+    expect(wouldCreateCycle(items, 1, null)).toBe(false)
   })
 })
 

@@ -335,6 +335,33 @@ describe('createTodoOptimisticActions', () => {
     expect(syncQueue.enqueue).not.toHaveBeenCalled()
   })
 
+  it('updateTodo 拒绝新增环形父子链接, 不写入也不入队', async () => {
+    todosRef.value = [
+      { id: 1, title: '父', child_ids: [2] },
+      { id: 2, title: '子', child_ids: [3] },
+      { id: 3, title: '孙', child_ids: [] }
+    ]
+
+    const result = await actions.updateTodo(3, { child_ids: [1] })
+
+    expect(result).toEqual({ success: false, error: '禁止形成环形依赖' })
+    expect(todosRef.value.find((item) => item.id === 3).child_ids).toEqual([])
+    expect(syncQueue.enqueue).not.toHaveBeenCalled()
+    expect(syncQueue.saveSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('updateTodo 允许历史环数据做非新增子级的修改', async () => {
+    todosRef.value = [
+      { id: 1, title: '父', child_ids: [2] },
+      { id: 2, title: '子', child_ids: [1] }
+    ]
+
+    const result = await actions.updateTodo(2, { child_ids: [1], title: '改名' })
+
+    expect(result.success).toBe(true)
+    expect(todosRef.value.find((item) => item.id === 2).title).toBe('改名')
+  })
+
   it('deferSync 创建的临时任务应在首次编辑后才入队 ADD', async () => {
     const addResult = await actions.addTodo('新子任务', { parent_id: 1, deferSync: true })
 
