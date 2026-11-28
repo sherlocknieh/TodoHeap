@@ -215,6 +215,7 @@ if (error && clientKey && isMissingClientKeySupport(error)) {
 | `TodoList.vue` 快速添加 | `addTodo(title, { deadline })`，可在添加栏先选截止时间；默认挂根任务 |
 | `TodoList.vue` 新建子任务 | `addTodo(nextTaskTitle(...), { parent_id })`，默认标题与其它入口一致（`新任务 1`），随后进入行内编辑 |
 | `TodoGraph.vue` / `MindMapWrapper.vue` | Enter 建同级、Tab 建子级；同级创建后调 `moveTodo` 调整到落点之后，子级/顶层创建追加到同级末尾（不受列表的新建置顶影响）；标题按下面的编号规则生成 |
+| `TodoGraph.vue` 粘贴 | `Ctrl+V` 把剪贴板文本建成选中节点的子任务，标题由剪贴板给定、不参与自动编号；机制见[任务图粘贴为子任务](./graph-paste.md) |
 | `Todo.vue` 顶部新建 | `addTodo(nextTaskTitle(...), { details: '' })`，连续点击得到 `新任务 1`、`新任务 2` |
 | `TodoDetailEditor.vue` | 在详情面板里新建子任务，标题由用户输入，不参与自动编号 |
 | `agentTools.js` | Agent 工具复用 `addTodo`，顶层任务同样挂根；标题由工具参数给出 |

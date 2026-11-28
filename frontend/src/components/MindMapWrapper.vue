@@ -7,7 +7,7 @@
     @wheel.prevent="onWheel" @pointerdown="onPointerDown" @pointerdown.capture="onMarqueePointerDown"
     @pointermove="onPointerMove"
     @pointerup="endPan" @pointercancel="endPan" @pointerleave="onCanvasLeave" @click.stop="onCanvasClick"
-    @keydown="onKeydown">
+    @keydown="onKeydown" @paste="onPaste">
     <svg class="block w-full h-full touch-none" :viewBox="`0 0 ${size.width} ${size.height}`">
       <defs>
         <!-- 箭头继承连线颜色；userSpaceOnUse 让箭头尺寸不随线宽变化 -->
@@ -368,6 +368,8 @@
               <span>新建同级节点</span>
               <span class="font-medium text-neutral-800 dark:text-neutral-200">Tab</span>
               <span>新建子节点</span>
+              <span class="font-medium text-neutral-800 dark:text-neutral-200">Ctrl+V</span>
+              <span>粘贴为子节点</span>
             </div>
           </div>
         </Transition>
@@ -385,6 +387,7 @@ import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { revealView } from '@/utils/mindmapView'
 import { childEdgeBand, findChildGapTarget, findLeafEdgeTarget, findVerticalDropTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
+import { parsePastedTasks } from '@/utils/taskPaste'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
@@ -2170,9 +2173,50 @@ const deleteSelectedNodes = () => {
   emit('delete-tasks', ids)
 }
 
+// 粘贴目标：多选时取第一个选中节点，否则取当前单选节点；根节点等于顶层任务的父级
+const pasteTargetId = () => {
+  for (const id of multiSelectedKeys.value) return id
+  return selectedId.value
+}
+
+// 把剪贴板文本在选中节点下建子树：列表还原层级，其它纯文本建一个子节点
+// 机制见 docs/src/content/docs/dev/logic/graph-paste.md
+const pasteFromText = (text) => {
+  const target = pasteTargetId()
+  if (target == null) return false
+  const trees = parsePastedTasks(text)
+  if (!trees.length) return false
+  emit('create-task', { parentId: toTaskId(target), afterId: null, paste: trees })
+  return true
+}
+
+// 剪贴板事件读取无需权限；记下是否已处理，供 keydown 判断要不要走异步读取兜底
+let pasteHandled = false
+
+const onPaste = (event) => {
+  // 节点内编辑、日期面板输入框等可编辑元素自己处理粘贴
+  if (editingId.value != null) return
+  if (event.target?.closest?.('input, textarea, [contenteditable="true"]')) return
+  if (!pasteFromText(event.clipboardData?.getData('text/plain') ?? '')) return
+  event.preventDefault()
+  pasteHandled = true
+}
+
 // 画布快捷键：选中节点后按 Ctrl/Cmd+C 复制子树为 Markdown，其余组合键留给浏览器
 const onKeydown = (event) => {
   const id = selectedId.value
+  // 部分浏览器不在非编辑区派发 paste 事件，Ctrl+V 后补一次异步读取兜底
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'v') {
+    if (pasteTargetId() == null || !navigator.clipboard?.readText) return
+    pasteHandled = false
+    setTimeout(() => {
+      if (pasteHandled || editingId.value != null) return
+      navigator.clipboard.readText()
+        .then((text) => { pasteFromText(text) })
+        .catch(() => emit('notify', { message: '无法读取剪贴板，请允许读取权限后重试' }))
+    }, 0)
+    return
+  }
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'c') {
     // 多选时一次复制所有选中子树；单节点沿用原有复制
     if (multiSelectedKeys.value.size > 1) {

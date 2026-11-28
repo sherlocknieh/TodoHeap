@@ -99,8 +99,48 @@ const mindMapNodes = computed(() => {
 	}]
 })
 
+// 粘贴：把剪贴板还原出的任务树逐层建到目标父级下，整组接到同级末尾，顺序与剪贴板一致
+// 机制见 docs/src/content/docs/dev/logic/graph-paste.md
+const pasteTasks = async (parentId, trees) => {
+	let count = 0
+	// addTodo 把新任务头插进父级 child_ids，同级倒着建，建完就是剪贴板顺序
+	const buildTree = async (ownerId, nodes) => {
+		const ids = []
+		for (const node of [...nodes].reverse()) {
+			const result = await todoStore.addTodo(node.title, { parent_id: ownerId })
+			if (!result.success || !result.data) {
+				if (result.error) emit('notify', { message: result.error })
+				continue
+			}
+			count += 1
+			ids.push(result.data.id)
+			if (node.children?.length) await buildTree(result.data.id, node.children)
+		}
+		return ids.reverse()
+	}
+
+	const createdIds = await buildTree(parentId, trees)
+	if (!createdIds.length) return
+
+	// 顶层任务由 addTodo 兜底挂到根任务下，落点父级以实际结果为准
+	const ownerId = todoStore.findTodoById(createdIds[0])?.parent_id ?? parentId
+	const owner = ownerId == null ? null : todoStore.findTodoById(ownerId)
+	if (owner) {
+		const keptIds = (owner.child_ids || []).filter(id => !createdIds.includes(id))
+		await todoStore.updateTodo(ownerId, { child_ids: [...keptIds, ...createdIds] })
+	}
+
+	// 粘贴不进入编辑态：标题已经由剪贴板给定，只把第一个新任务选中
+	emit('task-selected', createdIds[0])
+	emit('notify', { message: `已粘贴 ${count} 个任务` })
+}
+
 // 新建任务：同级插到当前节点之后，子级追加到同级末尾；插入位置规则见 docs/src/content/docs/dev/logic/task-order.md
-const createTask = async ({ parentId = null, afterId = null } = {}) => {
+const createTask = async ({ parentId = null, afterId = null, paste = null } = {}) => {
+	if (paste?.length) {
+		await pasteTasks(parentId, paste)
+		return
+	}
 	// 连续新建自动编号：同级续当前节点标题末尾的数字，子级或顶层按默认标题从 1 开始
 	const referenceTitle = afterId == null ? null : todoStore.findTodoById(afterId)?.title
 	const title = nextTaskTitle(referenceTitle, childTitlesOf(todoStore.todos, parentId))
