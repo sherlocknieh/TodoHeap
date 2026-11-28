@@ -136,7 +136,8 @@ export const findLeafEdgeTarget = ({
 
 // 拖到节点上的命中：只看影子与节点在**竖直方向**的重叠度（重叠高度 / 节点高度），
 // 不看面积或交并比。两类落点的横向条件不同：
-// - 拖进节点（竖直重叠达到阈值）：影子与节点横向有交集即可，明显压在节点上就生效；
+// - 拖进节点（竖直重叠达到阈值）：影子中心必须落在节点的出边半侧——右展开时是右半边，
+//   左展开时是左半边。子级出现在出边方向，中心偏到那一侧才像「放进它下面」。
 // - 插到它前/后（竖直重叠不足）：要求影子中心进入节点横向范围，避免影子擦到列边缘就变成插序。
 // 两类各取竖直重叠最大者，重叠相同取纵向中心更近的；拖进优先于插序。
 export const VERTICAL_DROP_RATIO = 0.5
@@ -146,7 +147,8 @@ export const findVerticalDropTarget = ({
   rect,
   nodeWidth,
   sourceId = null,
-  threshold = VERTICAL_DROP_RATIO
+  threshold = VERTICAL_DROP_RATIO,
+  direction = 'right'
 }) => {
   const centerX = rect.x + rect.width / 2
   let inside = null
@@ -167,8 +169,11 @@ export const findVerticalDropTarget = ({
     const ratio = overlapY / Math.max(node.height, 1)
     const distance = Math.abs((rect.y + rect.height / 2) - (node.y + node.height / 2))
 
-    // 拖进节点：横向有交集即可
-    if (overlapX > 0 && ratio >= threshold) {
+    // 拖进节点：中心落在出边半侧（右展开看右半边，左展开看左半边）
+    const centerInOutwardHalf = direction === 'left'
+      ? centerX <= node.x + nodeWidth / 2
+      : centerX >= node.x + nodeWidth / 2
+    if (overlapX > 0 && ratio >= threshold && centerInOutwardHalf) {
       if (ratio > insideRatio || (ratio === insideRatio && distance < insideDistance)) {
         inside = node
         insideRatio = ratio

@@ -264,7 +264,37 @@ describe('findVerticalDropTarget', () => {
     expect(hit.node.id).toBe('B')
   })
 
-  it('拖进节点只要横向有交集：影子擦到节点边缘也算拖到它身上', () => {
+  it('中心偏在节点左半边时不算拖进，退化为插序', () => {
+    // 影子中心 x = -100 + 108 = 8，落在节点左半边；竖直完全重叠
+    const hit = findVerticalDropTarget({
+      nodes,
+      rect: { x: -100, y: 0, width: nodeWidth, height: 40 },
+      nodeWidth
+    })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(false)
+  })
+
+  it('left 布局要求中心落在左半边', () => {
+    const leftNodes = [{ id: 'L', x: 0, y: 0, height: 40 }]
+    const inLeftHalf = findVerticalDropTarget({
+      nodes: leftNodes,
+      rect: { x: -100, y: 0, width: nodeWidth, height: 40 },
+      nodeWidth,
+      direction: 'left'
+    })
+    expect(inLeftHalf.inside).toBe(true)
+
+    const inRightHalf = findVerticalDropTarget({
+      nodes: leftNodes,
+      rect: { x: 100, y: 0, width: nodeWidth, height: 40 },
+      nodeWidth,
+      direction: 'left'
+    })
+    expect(inRightHalf.inside).toBe(false)
+  })
+
+  it('拖进节点时影子仍要与节点横向有交集', () => {
     const hit = findVerticalDropTarget({
       nodes,
       rect: { x: nodeWidth - 8, y: 0, width: nodeWidth, height: 40 },

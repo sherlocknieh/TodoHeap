@@ -2565,7 +2565,8 @@ const updateDrag = (event) => {
     nodes: hitLayout.value.nodes,
     rect: { x: dragState.shadow.x, y: dragState.shadow.y, width: nodeWidth, height: source.height },
     nodeWidth,
-    sourceId: dragState.sourceId
+    sourceId: dragState.sourceId,
+    direction: direction.value
   })
   if (overlap) {
     const { node: target, inside } = overlap
