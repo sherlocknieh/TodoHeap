@@ -20,12 +20,13 @@ title: "任务表树状连线"
 ## 几何
 
 - 缩进、连线与卡片内圆钮共用一套尺寸：横线 `ELBOW_WIDTH = 10`，卡片左缘到圆钮圆心 `CHECKBOX_CENTER_INSET = 18`（边框 1 + 左内距 8 + 半径 9），所以每层 `LEVEL_INDENT = 28`。竖线 `guideLeft(level) = level * LEVEL_INDENT + GUIDE_OFFSET`（`GUIDE_OFFSET = 12`），卡片 `rowPaddingLeft(level) = guideLeft(level) + ELBOW_WIDTH`。这样第 `level` 层的竖线正好是第 `level - 1` 层圆钮（勾选圈或折叠开关）的圆心，连线看起来从父任务圆钮下方垂下来；横线正好从竖线顶到卡片左缘，不需要读卡片的实际宽度。改缩进或卡片左内距时必须同步这三个常量，否则竖线会重新偏离圆钮圆心。
+- 连线粗细 `GUIDE_LINE_WIDTH = 2`：竖线用 `guideX(level) = guideLeft(level) - 1` 左移半个线宽，线心才落在圆钮圆心；横线从线心起算、宽 `ELBOW_WIDTH`，右端正好顶到卡片左缘，纵向用 `calc(50% - 1px)` 抬半个线宽对齐行中心。
 - 卡片最左侧的圆钮按子任务状态切换：有未完成子任务时渲染折叠开关（`hasActiveChildren` / `isTaskDone`），子任务全部完成或本来就是叶子时渲染勾选圈；两者同尺寸、同位置，缩进与连线不受影响。
 - 折叠开关不再绝对定位：它与勾选圈共用卡片内的 18px 圆形槽位（`h-[18px] w-[18px]`，左内距 8 + 半径 9），圆心距卡片左缘 18px。开关渲染在卡片内，天然落在子级竖线的延长线上，不再需要 `bg-canvas` 遮盖穿过圆心的连线，也不会露到卡片外面。
 - 顶层（`_level === 0`）没有连线，但缩进位仍从 `GUIDE_OFFSET` 起算：卡片左缘 22px，卡片内圆钮圆心 22 + 18 = 40px，正好等于下一层竖线的 x。快速添加栏的 `ml-[22px]`、已完成列表的 `pl-[22px]` 都与之对齐：已完成行保留同一左内距，两类卡片左缘才落在同一条竖线上。
 - 行高由行内按钮决定，稳定在 42px；列表间距是 6px，竖线用 `-top-1.5` / `-bottom-1.5`（即上下各探出 6px）跨过间距接上相邻行，横线在行中心接入卡片左缘。
-- 末位的竖线用 `height: calc(50% + 6px)` 从间距顶端连到行中心；非末位用 `top/bottom: -6px` 贯穿整行。连线都是 `pointer-events-none` 的 1px 绝对定位块（`itemGuideStyle`、`elbowStyle`），不占布局，也不会挡住行点击、悬停与拖拽。
-- 颜色沿用 `hairline` 令牌（`bg-hairline/70 dark:bg-hairline-dark/70`），与卡片描边同族，深浅主题都不需要单独开关。
+- 末位的竖线用 `height: calc(50% + 6px)` 从间距顶端连到行中心；非末位用 `top/bottom: -6px` 贯穿整行。连线都是 `pointer-events-none` 的 2px 绝对定位块（`itemGuideStyle`、`elbowStyle`），不占布局，也不会挡住行点击、悬停与拖拽。
+- 颜色用中性线 `bg-neutral-300 dark:bg-neutral-600`，比卡片描边（`hairline`）更亮一档：1px 的 `hairline/70` 在深色主题下几乎看不见，加粗到 2px 后仍用描边色会与卡片边框混在一起。
 
 ## 约束与边界
 

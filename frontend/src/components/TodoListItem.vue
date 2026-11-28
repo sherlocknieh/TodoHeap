@@ -9,16 +9,16 @@
         <!-- 树状连线：祖先层还有后续兄弟时，竖线沿本行贯穿到下一行 -->
         <template v-for="(continues, index) in item._guides" :key="'guide-' + index">
           <span v-if="continues" aria-hidden="true"
-            class="pointer-events-none absolute -top-1.5 -bottom-1.5 w-px bg-hairline/70 dark:bg-hairline-dark/70"
-            :style="{ left: guideLeft(index + 1) + 'px' }"></span>
+            class="pointer-events-none absolute -top-1.5 -bottom-1.5 w-0.5 bg-neutral-300 dark:bg-neutral-600"
+            :style="{ left: guideX(index + 1) + 'px' }"></span>
         </template>
         <!-- 自身层：竖线自上一行接到行中心，末位兄弟收成 └ 角，其余继续向下 -->
         <span v-if="item._level > 0" aria-hidden="true"
-          class="pointer-events-none absolute w-px bg-hairline/70 dark:bg-hairline-dark/70"
+          class="pointer-events-none absolute w-0.5 bg-neutral-300 dark:bg-neutral-600"
           :style="itemGuideStyle(item)"></span>
         <!-- 分叉横线：从竖线指向卡片左缘 -->
         <span v-if="item._level > 0" aria-hidden="true"
-          class="pointer-events-none absolute h-px bg-hairline/70 dark:bg-hairline-dark/70"
+          class="pointer-events-none absolute h-0.5 bg-neutral-300 dark:bg-neutral-600"
           :style="elbowStyle(item)"></span>
         <!-- 缩进留在外层，行内容单独成卡片；边框、底色与内边距都由状态类统一给出，选中时不改变盒子尺寸 -->
         <div class="flex items-center gap-2.5 rounded-lg transition-[border-color,box-shadow]"
@@ -269,6 +269,10 @@ const GUIDE_OFFSET = 12
 const guideLeft = (level) => level * LEVEL_INDENT + GUIDE_OFFSET
 const rowPaddingLeft = (level) => guideLeft(level) + ELBOW_WIDTH
 
+// 连线粗细 2px：竖线左移半个线宽，线心仍落在上一级圆钮圆心上；横线起点取线心，末端正好顶到卡片左缘
+const GUIDE_LINE_WIDTH = 2
+const guideX = (level) => guideLeft(level) - GUIDE_LINE_WIDTH / 2
+
 // 渲染行：过滤隐藏项，并为每行算出连线（祖先层竖线 + 自身分叉、末位兄弟收角）
 const visibleRows = computed(() => {
   const rows = flatList.value.filter(isItemVisible)
@@ -302,17 +306,17 @@ const visibleRows = computed(() => {
 })
 
 const itemGuideStyle = (item) => {
-  const style = { left: guideLeft(item._level) + 'px', top: '-6px' }
+  const style = { left: guideX(item._level) + 'px', top: '-6px' }
   // 末位兄弟只连到行中心，后面的兄弟则贯穿整行并补上列表间距
   if (item._lastSibling) style.height = 'calc(50% + 6px)'
   else style.bottom = '-6px'
   return style
 }
 
-// 横线长度等于竖线到卡片左缘的距离，末端正好顶到卡片边框
+// 横线长度等于竖线到卡片左缘的距离，末端正好顶到卡片边框；纵向抬半个线宽，与行中心对齐
 const elbowStyle = (item) => ({
   left: guideLeft(item._level) + 'px',
-  top: '50%',
+  top: `calc(50% - ${GUIDE_LINE_WIDTH / 2}px)`,
   width: ELBOW_WIDTH + 'px'
 })
 
