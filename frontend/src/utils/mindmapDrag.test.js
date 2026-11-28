@@ -259,8 +259,14 @@ describe('findVerticalDropTarget', () => {
     expect(hit.inside).toBe(false)
   })
 
-  it('中心越过右缘但竖直重叠不足时不命中（既不能拖进也不能插序）', () => {
-    expect(findVerticalDropTarget({ nodes, rect: shadow(28, 40, nodeWidth - 20), nodeWidth })).toBeNull()
+  it('中心越过右缘时不受竖直重叠比例限制：只擦到一点也算拖进', () => {
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(28, 40, nodeWidth - 20), nodeWidth })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(true)
+  })
+
+  it('中心越过右缘但纵向完全不相交时不命中', () => {
+    expect(findVerticalDropTarget({ nodes, rect: shadow(200, 40, nodeWidth - 20), nodeWidth })).toBeNull()
   })
 
   it('影子落在两节点之间的空隙时重叠不足阈值', () => {
@@ -278,10 +284,6 @@ describe('findVerticalDropTarget', () => {
     const hit = findVerticalDropTarget({ nodes, rect: shadow(28), nodeWidth })
     expect(hit.node.id).toBe('A')
     expect(hit.inside).toBe(false)
-  })
-
-  it('插序要求中心进入节点横向范围：只擦到边缘、中心在外时不算', () => {
-    expect(findVerticalDropTarget({ nodes, rect: shadow(28, 40, nodeWidth - 8), nodeWidth })).toBeNull()
   })
 
   it('left 布局要求中心越过左缘', () => {
