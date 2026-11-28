@@ -64,3 +64,19 @@ export const findChildGapTarget = ({
     ? { parentId: best.parentId, index: best.index, beforeId: best.beforeId, afterId: best.afterId }
     : null
 }
+
+// 按锚点插入后的兄弟顺序与当前一致时说明是插回原位：从自己位置开始拖动不该出现预览，
+// 松手也不必提交。siblings 为父级当前的直接子级顺序。
+export const keepsOriginalOrder = (siblings, band, sourceId) => {
+  if (!Array.isArray(siblings) || siblings.length === 0) return false
+  const order = siblings.map(String)
+  const id = String(sourceId)
+  const anchorId = String(band.beforeId ?? band.afterId)
+  // 锚点就是自己：插到自己前或后都等于没动
+  if (anchorId === id) return true
+  const rest = order.filter((sibling) => sibling !== id)
+  const anchorIndex = rest.indexOf(anchorId)
+  const at = anchorIndex === -1 ? rest.length : anchorIndex + (band.beforeId != null ? 0 : 1)
+  rest.splice(at, 0, id)
+  return rest.length === order.length && rest.every((value, index) => value === order[index])
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findChildGapTarget } from './mindmapDrag'
+import { findChildGapTarget, keepsOriginalOrder } from './mindmapDrag'
 
 const nodeWidth = 216
 
@@ -98,5 +98,33 @@ describe('findChildGapTarget', () => {
     // 大范围接近阈值下两段子级列都进入候选，影子中心(140/280)分别靠近父级 1/2 的子级列中心(60/320)
     expect(findChildGapTarget({ nodes, rect: shadow(300, 120), nodeWidth, padding: 200 }).parentId).toBe('1')
     expect(findChildGapTarget({ nodes, rect: shadow(300, 260), nodeWidth, padding: 200 }).parentId).toBe('2')
+  })
+})
+
+describe('keepsOriginalOrder', () => {
+  const siblings = ['1', '2', '3', '4']
+
+  it('插到自己前面且前面就是自己原位置时视为未移动', () => {
+    expect(keepsOriginalOrder(siblings, { beforeId: '3', afterId: null }, '3')).toBe(true)
+  })
+
+  it('插到下一个兄弟之前时顺序未变', () => {
+    expect(keepsOriginalOrder(siblings, { beforeId: '4', afterId: null }, '3')).toBe(true)
+  })
+
+  it('拖到前面时顺序改变', () => {
+    expect(keepsOriginalOrder(siblings, { beforeId: '2', afterId: null }, '3')).toBe(false)
+  })
+
+  it('追加到末尾时顺序改变', () => {
+    expect(keepsOriginalOrder(siblings, { beforeId: null, afterId: '4' }, '1')).toBe(false)
+  })
+
+  it('插到末子级之后（最后一个的位置）时顺序改变', () => {
+    expect(keepsOriginalOrder(siblings, { beforeId: null, afterId: '4' }, '2')).toBe(false)
+  })
+
+  it('没有兄弟顺序信息时不拦截', () => {
+    expect(keepsOriginalOrder(null, { beforeId: '3', afterId: null }, '3')).toBe(false)
   })
 })

@@ -387,7 +387,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { revealView } from '@/utils/mindmapView'
-import { findChildGapTarget } from '@/utils/mindmapDrag'
+import { findChildGapTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
@@ -2419,6 +2419,28 @@ const nodeAtPoint = (point) => {
   return null
 }
 
+// 源节点在指定父级下的兄弟顺序（child_ids 顺序，引用节点不占位）；找不到父级返回 null
+const siblingIdsOf = (parentId) => {
+  const target = String(parentId)
+  let result = null
+  const walk = (nodes) => {
+    for (const node of nodes) {
+      if (result) return
+      if (node.isRef) continue
+      if (String(node.id) === target) {
+        result = (node.children || []).filter((child) => !child.isRef).map((child) => String(child.id))
+        return
+      }
+      walk(node.children || [])
+    }
+  }
+  walk(props.nodes || [])
+  return result
+}
+
+// 按锚点插入后顺序与现在一致时视为没有落点：从自己位置开始拖动不该立刻出现预览
+const insertKeepsOrder = (band, sourceId) => keepsOriginalOrder(siblingIdsOf(band.parentId), band, sourceId)
+
 // 指针靠近叶子节点的加号位置就显示：按到控制点的屏幕距离判定，不必先进入节点。
 // 指针仍在节点矩形内时沿用原来的悬停显示，避免停在节点中间反而把加号收掉。
 // 平移或拖拽期间不参与判定，避免画布移动时按钮闪烁。
@@ -2540,6 +2562,16 @@ const updateDrag = (event) => {
 
   // 拖节点：先看指针落在哪个节点上，仍按上/下四分之一与中间分派（现有逻辑保留）
   if (!dragState.fromToggle) {
+    // 指针还在源节点原位置：拖动尚未离开，不产生落点预览
+    const origin = hitLayout.value.nodes.find((node) => node.id === dragState.sourceId)
+    if (origin && point.x >= origin.x && point.x <= origin.x + nodeWidth
+      && point.y >= origin.y && point.y <= origin.y + origin.height) {
+      dragState.childBand = null
+      dragState.targetId = null
+      dragState.dropPosition = 'inside'
+      return
+    }
+
     const pointed = nodeAtPoint(point)
     if (pointed) {
       dragState.childBand = null
@@ -2557,9 +2589,12 @@ const updateDrag = (event) => {
       sourceId: dragState.sourceId,
       padding: linkHitPadding()
     })
+    // 指针明确落在某个父级的子级列里：落点只按空隙槽位判定，不再回退到影子接触，
+    // 否则影子压到相邻兄弟时会冒出前后插序槽，与空隙预览互相抖动
     if (band) {
-      dragState.childBand = band
-      dragState.targetId = band.parentId
+      const keeps = insertKeepsOrder(band, dragState.sourceId)
+      dragState.childBand = keeps ? null : band
+      dragState.targetId = keeps ? null : band.parentId
       dragState.dropPosition = 'inside'
       return
     }
@@ -2618,10 +2653,10 @@ const onDragEnd = (event) => {
   const source = layout.value.nodes.find((node) => node.id === sourceId)
   const target = layout.value.nodes.find((node) => node.id === targetId)
 
-  // 空隙命中父节点：按槽位插入到父级子级列表；锚点就是源节点时位置未变，不必提交
+  // 空隙命中父节点：按槽位插入到父级子级列表；插回原位置时顺序不变，不必提交
   if (childBand) {
     const anchorId = childBand.beforeId ?? childBand.afterId
-    if (anchorId == null || String(anchorId) === String(sourceId)) return
+    if (anchorId == null || insertKeepsOrder(childBand, sourceId)) return
     emit('drop-task', {
       parentId: Number(childBand.parentId),
       childId: Number(sourceId),
