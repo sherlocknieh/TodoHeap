@@ -158,9 +158,9 @@
                 <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
               </button>
             </template>
-            <!-- 「任务添加按钮」：跳到下方添加栏；搜索态顺便切回新建。浅绿底 + 描边，比同排图标按钮更醒目 -->
+            <!-- 「任务添加按钮」：跳到下方添加栏；搜索态顺便切回新建。绿底白色加粗加号，比同排图标按钮更醒目 -->
             <button type="button"
-              class="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-accent-500/40 bg-accent-50 text-accent-700 transition-colors hover:border-accent-500 hover:bg-accent-100 hover:text-accent-800 dark:border-accent-400/40 dark:bg-accent-500/10 dark:text-accent-200 dark:hover:border-accent-400 dark:hover:bg-accent-500/20 dark:hover:text-accent-100"
+              class="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent-600 text-white transition-colors hover:bg-accent-700 dark:bg-accent-400 dark:text-accent-950 dark:hover:bg-accent-300 [&_svg]:stroke-[2.75]"
               title="添加任务" aria-label="添加任务" @click="focusAddInput">
               <AppIcon name="plus" :size="14" />
             </button>
