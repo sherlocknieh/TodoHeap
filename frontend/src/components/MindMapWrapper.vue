@@ -59,11 +59,6 @@
           class="stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
           stroke-linecap="round" marker-end="url(#mm-arrow)" />
 
-        <!-- [拖到子节点之间]：空隙命中父节点时，从父节点连到虚节点的虚线，预览插入后的链接 -->
-        <path v-if="dropPreviewLink" :d="dropPreviewLink" fill="none"
-          class="stroke-accent-600 dark:stroke-accent-400" stroke-width="1.8" stroke-dasharray="6 4"
-          stroke-linecap="round" marker-end="url(#mm-arrow)" />
-
         <!-- 节点 -->
         <g v-for="node in renderNodes" :key="node.renderKey || node.id" :transform="`translate(${node.x} ${node.y})`"
           :opacity="nodeOpacity(node)" :data-mm-node="node.id"
@@ -202,15 +197,23 @@
           </g>
         </g>
 
-        <!-- 占位槽：排序时在兄弟序列里插入一条空位，空隙命中父节点时按被拖节点高度插入虚节点，兄弟节点真实让开 -->
+        <!-- 占位槽 / 虚节点：排序时在兄弟序列里插入一条空位；空隙命中父节点时插入与被拖节点等高的虚节点，
+             兄弟节点真实让开，虚节点里显示被拖节点的文字，作为插入后的效果预览 -->
         <g v-if="dropPlaceholderNode"
           :transform="`translate(${dropPlaceholderNode.x} ${dropPlaceholderNode.y})`"
           class="pointer-events-none">
           <rect :width="nodeWidth" :height="dropPlaceholderNode.height" rx="6"
             stroke-width="1.4" stroke-dasharray="6 4"
+            :fill-opacity="dragState.childBand ? 0.35 : 1"
             class="fill-accent-100/80 stroke-accent-500 dark:fill-accent-500/20 dark:stroke-accent-400" />
-          <rect :width="8" :height="dropPlaceholderNode.height" rx="4"
+          <!-- 排序槽用左缘细条标出插入位置；空隙虚节点本身就是插入效果预览，不再加条 -->
+          <rect v-if="!dragState.childBand" :width="8" :height="dropPlaceholderNode.height" rx="4"
             class="fill-accent-500/60 dark:fill-accent-400/60" />
+          <!-- 虚节点里的文字沿用被拖节点的排版，尺寸一致才看得出插入后的效果 -->
+          <text v-for="(line, index) in (dragState.childBand && dragState.shadow ? dragState.shadow.node.lines : [])"
+            :key="index" :x="dragState.shadow.node.textX"
+            :y="paddingTop + fontSize + index * lineHeight"
+            :style="textStyle" class="fill-neutral-500 font-medium dark:fill-neutral-400">{{ line }}</text>
         </g>
 
         <!-- 选中连线：在连线中点显示删除按钮，置于节点之上以免被遮挡；根任务的边不可删，只高亮 -->
@@ -229,9 +232,10 @@
         </g>
 
         <!-- 拖拽影子：按住节点拖动时跟随指针的副本，抓取点与原件保持同一相对位置；
-             原件同时淡出；拖进目标时目标仍按 targetId 高亮，前后插序则显示占位槽 -->
+             原件同时淡出；拖进目标时目标仍按 targetId 高亮，前后插序则显示占位槽；
+             空隙命中父节点时隐藏影子，视线交给槽位里的虚节点 -->
         <g v-if="dragState.shadow" :transform="`translate(${dragState.shadow.x} ${dragState.shadow.y})`"
-          class="pointer-events-none">
+          :opacity="dragState.childBand ? 0 : 1" class="pointer-events-none">
           <rect :width="nodeWidth" :height="dragState.shadow.node.height" rx="8" fill-opacity="0.92"
             stroke-width="1.4" stroke-dasharray="6 4"
             class="fill-white stroke-accent-500 dark:fill-neutral-900 dark:stroke-accent-400" />
@@ -239,6 +243,11 @@
             :x="dragState.shadow.node.textX" :y="paddingTop + fontSize + index * lineHeight"
             :style="textStyle" class="fill-neutral-800 font-medium dark:fill-neutral-100">{{ line }}</text>
         </g>
+
+        <!-- [拖到子节点之间]：空隙命中父节点时，从父节点到虚节点的虚线，预览插入后的链接线 -->
+        <path v-if="dropPreviewLink" :d="dropPreviewLink" fill="none"
+          class="stroke-accent-600 dark:stroke-accent-400" stroke-width="1.8" stroke-dasharray="6 4"
+          stroke-linecap="round" marker-end="url(#mm-arrow)" />
       </g>
     </svg>
 
@@ -2400,6 +2409,16 @@ const linkTargetAtRect = (rect) => {
   return nearest
 }
 
+// 指针落在哪个节点矩形里：拖拽时优先按指针判定落点，被拖节点与引用/占位节点不参与
+const nodeAtPoint = (point) => {
+  for (const node of hitLayout.value.nodes) {
+    if (node.id === dragState.sourceId || node.isRef || node.isPlaceholder) continue
+    if (point.x >= node.x && point.x <= node.x + nodeWidth
+      && point.y >= node.y && point.y <= node.y + node.height) return node
+  }
+  return null
+}
+
 // 指针靠近叶子节点的加号位置就显示：按到控制点的屏幕距离判定，不必先进入节点。
 // 指针仍在节点矩形内时沿用原来的悬停显示，避免停在节点中间反而把加号收掉。
 // 平移或拖拽期间不参与判定，避免画布移动时按钮闪烁。
@@ -2519,27 +2538,44 @@ const updateDrag = (event) => {
     hitRect = { x: dragState.shadow.x, y: dragState.shadow.y, width: nodeWidth, height: source.height }
   }
 
+  // 拖节点：先看指针落在哪个节点上，仍按上/下四分之一与中间分派（现有逻辑保留）
+  if (!dragState.fromToggle) {
+    const pointed = nodeAtPoint(point)
+    if (pointed) {
+      dragState.childBand = null
+      dragState.targetId = pointed.id
+      dragState.dropPosition = dropPositionAt(pointed, point)
+      return
+    }
+
+    // 指针在父级可见子级列的空隙里（含首/末子级外侧的接近范围）：命中父节点。
+    // 纵向以指针为准，横向仍用影子宽度：影子几乎总会压到相邻子节点，不能让它抢先命中
+    const band = findChildGapTarget({
+      nodes: hitLayout.value.nodes,
+      rect: { x: hitRect.x, y: point.y, width: nodeWidth, height: 1 },
+      nodeWidth,
+      sourceId: dragState.sourceId,
+      padding: linkHitPadding()
+    })
+    if (band) {
+      dragState.childBand = band
+      dragState.targetId = band.parentId
+      dragState.dropPosition = 'inside'
+      return
+    }
+  }
+
   const hit = linkTargetAtRect(hitRect)
   if (hit) {
-    // 影子碰到节点：保持现有优先级，直接命中该节点
+    // 指针不在节点里也不在子级列空隙：影子碰到节点即命中该节点
     dragState.childBand = null
     dragState.targetId = hit.id
     dragState.dropPosition = dropPositionAt(hit, point)
     return
   }
 
-  // 影子没碰到任何节点：父级子级列里的空白也算父级落点，接近首/末子级才触发
-  const band = dragState.fromToggle
-    ? null
-    : findChildGapTarget({
-      nodes: hitLayout.value.nodes,
-      rect: hitRect,
-      nodeWidth,
-      sourceId: dragState.sourceId,
-      padding: linkHitPadding()
-    })
-  dragState.childBand = band
-  dragState.targetId = band ? band.parentId : null
+  dragState.childBand = null
+  dragState.targetId = null
   dragState.dropPosition = 'inside'
 }
 

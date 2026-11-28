@@ -81,6 +81,14 @@ describe('findChildGapTarget', () => {
     })).toBeNull()
   })
 
+  it('拖拽时按指针纵坐标的细矩形判定，仍落在同一空隙', () => {
+    expect(findChildGapTarget({
+      nodes: layout,
+      rect: { x: 300, y: 48, width: nodeWidth, height: 1 },
+      nodeWidth
+    })).toEqual({ parentId: '1', index: 1, beforeId: '1.2', afterId: null })
+  })
+
   it('相邻父级的接近范围重叠时取子级列中心更近的一个', () => {
     const nodes = [
       ...layout,
