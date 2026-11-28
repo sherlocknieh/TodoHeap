@@ -94,7 +94,7 @@ export const childEdgeBand = (node, position) => {
 // 叶子节点的出边区：指针落在它出边方向（子节点会出现的一侧）的一小段距离内时，
 // 命中该节点本身，落点语义是「成为它的子级」。无子级的节点没有子级列，
 // 靠这块区域才能把任务挂到它下面。距离按屏幕像素折算后传入 padding。
-// 引用节点、占位节点、被拖节点自己与有子级的节点都不参与。
+// 引用节点、占位节点、根节点、被拖节点自己与有子级的节点都不参与。
 export const findLeafEdgeTarget = ({
   nodes,
   point,
@@ -108,7 +108,7 @@ export const findLeafEdgeTarget = ({
   let nearestDistance = Infinity
 
   for (const node of nodes || []) {
-    if (node.isRef || node.isPlaceholder) continue
+    if (node.isRef || node.isPlaceholder || node.isRoot) continue
     if (node.childCount > 0) continue
     if (sourceId != null && String(node.id) === String(sourceId)) continue
 

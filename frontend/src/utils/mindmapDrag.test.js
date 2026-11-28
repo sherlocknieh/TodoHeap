@@ -190,6 +190,15 @@ describe('findLeafEdgeTarget', () => {
     expect(hit?.id).toBe('9')
   })
 
+  it('根节点不参与出边区命中', () => {
+    expect(findLeafEdgeTarget({
+      nodes: [{ ...leaf, isRoot: true }],
+      point: at(600 + nodeWidth + 20, 120),
+      nodeWidth,
+      padding: 48
+    })).toBeNull()
+  })
+
   it('跳过被拖节点自己', () => {
     expect(findLeafEdgeTarget({
       nodes,

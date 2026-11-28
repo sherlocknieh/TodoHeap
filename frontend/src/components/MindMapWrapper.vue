@@ -2554,9 +2554,10 @@ const updateDrag = (event) => {
       return
     }
 
-    // 根节点与无父级的孤立节点没有兄弟序列：拖到它身上按回到顶层处理
+    // 根节点与无父级的孤立节点没有兄弟序列，也不接受拖进：拖到它们身上没有落点。
+    // 回到顶层请拖到顶层任务之间（根任务的子级列）
     dragState.childBand = null
-    dragState.targetId = pointed.id
+    dragState.targetId = null
     dragState.dropPosition = 'inside'
     return
   }
