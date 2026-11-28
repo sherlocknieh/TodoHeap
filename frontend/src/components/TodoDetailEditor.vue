@@ -45,8 +45,9 @@
                 <!-- [父链/面包屑]：标题上方小字显示完整父链；多父时右侧角标展开全部链路 -->
                 <div v-if="displayChain.length" class="mb-0.5">
                   <div class="flex items-center gap-1 text-[11px] leading-4">
-                    <!-- 主链：根 → 最近父级；溢出时裁掉根侧，保留最常点的最近父级 -->
-                    <nav class="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-hidden text-neutral-400 dark:text-neutral-500">
+                    <!-- 主链：根 → 最近父级，左对齐；宽度不足时裁掉尾部，悬停看完整路径 -->
+                    <nav class="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-hidden text-neutral-400 dark:text-neutral-500"
+                      :title="displayChain.map((node) => node.title || '未命名任务').join(' › ')">
                       <template v-for="(ancestor, index) in displayChain" :key="ancestor.id">
                         <span v-if="index > 0" class="shrink-0 text-neutral-300 dark:text-neutral-600">›</span>
                         <button type="button"
