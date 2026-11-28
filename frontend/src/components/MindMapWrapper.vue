@@ -986,7 +986,12 @@ const buildGraphData = (forest, collapsed) => {
     const id = String(node.id)
     const children = node.children || []
     if (!node.isRef && !allNodes.has(id)) {
-      allNodes.set(id, { ...node, childCount: children.length, collapsed: collapsed.has(id) })
+      // 插入预览的占位节点不算子级数量：折叠计数与叶子/折叠按钮样式不应因拖动本身变化
+      allNodes.set(id, {
+        ...node,
+        childCount: children.filter((child) => !child.isPlaceholder).length,
+        collapsed: collapsed.has(id)
+      })
     }
     if (parentId === null) {
       if (!node.isRef) roots.push(id)
@@ -1009,8 +1014,10 @@ const buildGraphData = (forest, collapsed) => {
   const queue = [...roots]
   while (queue.length) {
     const id = queue.shift()
-    if (allNodes.get(id)?.collapsed) continue
+    const collapsedParent = Boolean(allNodes.get(id)?.collapsed)
     ;(outgoing.get(id) || []).forEach((to) => {
+      // 折叠父级保持折叠：只额外放出插入预览的占位节点，原有子级仍不显示
+      if (collapsedParent && !allNodes.get(to)?.isPlaceholder) return
       if (visible.has(to)) return
       visible.add(to)
       queue.push(to)
@@ -1018,10 +1025,11 @@ const buildGraphData = (forest, collapsed) => {
   }
 
   // 折叠父节点不再展开子节点：布局只吃可见节点，子节点才能贴着父节点排布；
-  // 折叠节点的出边也一并去掉，避免共享子节点经由另一父级可见时仍被折叠支拉深、拉偏
+  // 折叠节点的出边也一并去掉，避免共享子节点经由另一父级可见时仍被折叠支拉深、拉偏；
+  // 但要保留折叠父级到占位节点的边，否则预览虚节点找不到父级、会被排到根层
   const nodeList = [...allNodes.values()].filter((node) => visible.has(node.id))
   const edgeList = edges.filter((edge) => visible.has(edge.from) && visible.has(edge.to)
-    && !collapsed.has(edge.from))
+    && (!collapsed.has(edge.from) || allNodes.get(String(edge.to))?.isPlaceholder))
 
   return { nodes: nodeList, edges: edgeList }
 }
@@ -1165,16 +1173,9 @@ const computeGraphLayout = (forest, collapsed = collapsedSet.value) => {
 }
 
 // 拖拽命中与键盘/选中判断都用不含虚节点的布局；渲染用带虚节点的布局。
-// 虚节点的父级若是折叠状态，渲染层临时展开它，否则插入预览会被折叠藏住、看起来「有时不显示」
+// 落点父级若是折叠状态，布局只放出占位节点、不展开原有子树，预览与叶子节点上的表现一致
 const hitLayout = computed(() => computeGraphLayout(props.nodes))
-const previewCollapsed = computed(() => {
-  const band = dragState.childBand
-  if (!band) return collapsedSet.value
-  const next = new Set(collapsedSet.value)
-  next.delete(String(band.parentId))
-  return next
-})
-const layout = computed(() => computeGraphLayout(dropPreviewForest.value, previewCollapsed.value))
+const layout = computed(() => computeGraphLayout(dropPreviewForest.value))
 const renderNodes = computed(() => layout.value.nodes.filter((node) => !node.isPlaceholder))
 const dropPlaceholderNode = computed(() =>
   layout.value.nodes.find((node) => node.isPlaceholder) ?? null)
