@@ -84,7 +84,8 @@
     <template v-else-if="!loading">
       <!-- 待办标题：与已完成同款分组标题，收起后只留标题 -->
       <section v-if="allCount" class="mt-5 border-t border-hairline dark:border-hairline-dark">
-        <div class="flex items-center gap-1 pt-2 pb-1">
+        <!-- 「分组标题固顶」：滚动到顶部后贴住滚动区顶端，背景与页面同色挡住下方任务行 -->
+        <div class="sticky top-0 z-10 flex items-center gap-1 bg-canvas pt-2 pb-1 dark:bg-canvas-dark">
           <button type="button"
             class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
             @click="showActivePanel = !showActivePanel">
@@ -206,7 +207,8 @@
 
     <!-- 已完成：无内容时不占位 -->
     <section v-if="completedCount" class="mt-6 border-t border-hairline dark:border-hairline-dark">
-      <div class="flex items-center gap-1 pt-2 pb-1">
+      <!-- 「分组标题固顶」：同上，已完成分组标题滚到顶部也贴住 -->
+      <div class="sticky top-0 z-10 flex items-center gap-1 bg-canvas pt-2 pb-1 dark:bg-canvas-dark">
         <button type="button"
           class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
           @click="showCompletedPanel = !showCompletedPanel">
