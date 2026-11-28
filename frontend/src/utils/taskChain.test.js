@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildTaskForest } from './taskGraph'
-import { allChainsOf, displayChainOf } from './taskChain'
+import { allChainsOf, ancestorLayersOf, displayChainOf } from './taskChain'
 
 const mapItem = (item) => ({ id: item.id, title: item.title, is_root: Boolean(item.is_root) })
 
@@ -36,6 +36,65 @@ describe('displayChainOf', () => {
 
   it('回收站任务不在树里时返回空链', () => {
     expect(displayChainOf(forestOf(multiParentItems()), 99)).toEqual([])
+  })
+})
+
+describe('ancestorLayersOf', () => {
+  it('多父任务按跳数分层, 同层去重且远层在前', () => {
+    const { layers, truncated } = ancestorLayersOf(multiParentItems(), 30)
+
+    expect(layers.map((group) => titles(group))).toEqual([
+      ['项目', '另一支'],
+      ['子项目', '分支子']
+    ])
+    expect(truncated).toBe(false)
+  })
+
+  it('菱形结构里共享祖先只保留一份', () => {
+    const items = [
+      { id: 1, title: '全部任务', is_root: true, child_ids: [10] },
+      { id: 10, title: '共享祖先', child_ids: [11, 12] },
+      { id: 11, title: '父一', child_ids: [30] },
+      { id: 12, title: '父二', child_ids: [30] },
+      { id: 30, title: '目标', child_ids: [] }
+    ]
+
+    const { layers } = ancestorLayersOf(items, 30)
+
+    expect(layers.map((group) => titles(group))).toEqual([
+      ['共享祖先'],
+      ['父一', '父二']
+    ])
+  })
+
+  it('环不会让分层无限展开', () => {
+    const items = [
+      { id: 1, title: '全部任务', is_root: true, child_ids: [10] },
+      { id: 10, title: 'A', child_ids: [11] },
+      { id: 11, title: 'B', child_ids: [10] }
+    ]
+
+    const { layers } = ancestorLayersOf(items, 11)
+
+    expect(layers.map((group) => titles(group))).toEqual([['A']])
+  })
+
+  it('深度超过上限时截断并标记', () => {
+    const items = [
+      { id: 1, title: '全部任务', is_root: true, child_ids: [10] },
+      { id: 10, title: 'A', child_ids: [11] },
+      { id: 11, title: 'B', child_ids: [30] },
+      { id: 30, title: '目标', child_ids: [] }
+    ]
+
+    const { layers, truncated } = ancestorLayersOf(items, 30, { maxDepth: 1 })
+
+    expect(layers.map((group) => titles(group))).toEqual([['B']])
+    expect(truncated).toBe(true)
+  })
+
+  it('顶层任务没有祖先层', () => {
+    expect(ancestorLayersOf(multiParentItems(), 10).layers).toEqual([])
   })
 })
 
