@@ -167,42 +167,43 @@
             </button>
           </div>
         </div>
-      </section>
 
-      <div v-if="showActivePanel" class="mt-1.5 space-y-1.5" data-task-section="active">
-        <TodoListItem
-          v-for="node in displayTree"
-          :key="node.client_key || node.id"
-          :node="node"
-          :parent-id="todoStore.rootTaskId"
-          :selected-task-id="props.selectedTaskId"
-          :edit-request="pendingEdit"
-          :selected-keys="selectionKeys"
-          :ignore-collapse="isSearching"
-          :highlight-query="isSearching ? searchQuery.trim() : ''"
-          :disable-add-subtask="isFlatFilter"
-          :disable-drag="isFlatFilter"
-          @toggle-done="toggleDone"
-          @complete-tree="completeTaskTree"
-          @delete-todo="deleteTodo"
-          @add-subtask="addSubtask"
-          @edit-subtask="editSubtask"
-          @task-selected="handleTaskSelected"
-          @jump-to-graph="handleJumpToGraph"
-          @set-deadline="setDeadline"
-          @move-todo="moveTodo"
-          @unlink-task="unlinkTask"
-        />
-        <p v-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          没有匹配的任务
-        </p>
-        <p v-else-if="isFlatFilter && visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          {{ emptyFilterText }}
-        </p>
-        <p v-else-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          没有进行中的任务，已完成的收在下方
-        </p>
-      </div>
+        <!-- 任务列表与标题同在一个 section 内，标题的 sticky 才有可粘住的区间 -->
+        <div v-if="showActivePanel" class="mt-1.5 space-y-1.5" data-task-section="active">
+          <TodoListItem
+            v-for="node in displayTree"
+            :key="node.client_key || node.id"
+            :node="node"
+            :parent-id="todoStore.rootTaskId"
+            :selected-task-id="props.selectedTaskId"
+            :edit-request="pendingEdit"
+            :selected-keys="selectionKeys"
+            :ignore-collapse="isSearching"
+            :highlight-query="isSearching ? searchQuery.trim() : ''"
+            :disable-add-subtask="isFlatFilter"
+            :disable-drag="isFlatFilter"
+            @toggle-done="toggleDone"
+            @complete-tree="completeTaskTree"
+            @delete-todo="deleteTodo"
+            @add-subtask="addSubtask"
+            @edit-subtask="editSubtask"
+            @task-selected="handleTaskSelected"
+            @jump-to-graph="handleJumpToGraph"
+            @set-deadline="setDeadline"
+            @move-todo="moveTodo"
+            @unlink-task="unlinkTask"
+          />
+          <p v-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+            没有匹配的任务
+          </p>
+          <p v-else-if="isFlatFilter && visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+            {{ emptyFilterText }}
+          </p>
+          <p v-else-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+            没有进行中的任务，已完成的收在下方
+          </p>
+        </div>
+      </section>
     </template>
 
     <!-- 已完成：无内容时不占位 -->
