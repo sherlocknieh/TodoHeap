@@ -245,12 +245,22 @@ describe('findVerticalDropTarget', () => {
     { id: 'A', x: 0, y: 0, height: 40 },
     { id: 'B', x: 0, y: 64, height: 40 }
   ]
-  const shadow = (y, height = 40) => ({ x: 0, y, width: nodeWidth, height })
+  const shadow = (y, height = 40, x = 0) => ({ x, y, width: nodeWidth, height })
 
-  it('影子与节点几乎重合时算拖到节点上', () => {
-    const hit = findVerticalDropTarget({ nodes, rect: shadow(0), nodeWidth })
+  it('中心越过节点右缘且竖直重叠充足时算拖到它身上', () => {
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(0, 40, nodeWidth - 20), nodeWidth })
     expect(hit.node.id).toBe('A')
     expect(hit.inside).toBe(true)
+  })
+
+  it('中心还在节点内时只算插序，不算拖进', () => {
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(0), nodeWidth })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(false)
+  })
+
+  it('中心越过右缘但竖直重叠不足时不命中（既不能拖进也不能插序）', () => {
+    expect(findVerticalDropTarget({ nodes, rect: shadow(28, 40, nodeWidth - 20), nodeWidth })).toBeNull()
   })
 
   it('影子落在两节点之间的空隙时重叠不足阈值', () => {
@@ -264,74 +274,33 @@ describe('findVerticalDropTarget', () => {
     expect(hit.node.id).toBe('B')
   })
 
-  it('中心偏在节点左半边时不算拖进，退化为插序', () => {
-    // 影子中心 x = -100 + 108 = 8，落在节点左半边；竖直完全重叠
-    const hit = findVerticalDropTarget({
-      nodes,
-      rect: { x: -100, y: 0, width: nodeWidth, height: 40 },
-      nodeWidth
-    })
-    expect(hit.node.id).toBe('A')
-    expect(hit.inside).toBe(false)
-  })
-
-  it('left 布局要求中心落在左半边', () => {
-    const leftNodes = [{ id: 'L', x: 0, y: 0, height: 40 }]
-    const inLeftHalf = findVerticalDropTarget({
-      nodes: leftNodes,
-      rect: { x: -100, y: 0, width: nodeWidth, height: 40 },
-      nodeWidth,
-      direction: 'left'
-    })
-    expect(inLeftHalf.inside).toBe(true)
-
-    const inRightHalf = findVerticalDropTarget({
-      nodes: leftNodes,
-      rect: { x: 100, y: 0, width: nodeWidth, height: 40 },
-      nodeWidth,
-      direction: 'left'
-    })
-    expect(inRightHalf.inside).toBe(false)
-  })
-
-  it('拖进节点时影子仍要与节点横向有交集', () => {
-    const hit = findVerticalDropTarget({
-      nodes,
-      rect: { x: nodeWidth - 8, y: 0, width: nodeWidth, height: 40 },
-      nodeWidth
-    })
-    expect(hit.node.id).toBe('A')
-    expect(hit.inside).toBe(true)
-  })
-
-  it('插到前后要求影子中心进入节点横向范围：只擦到边缘时不算', () => {
-    // 竖直重叠只有 12px（0.3），属于插序区；中心偏出节点右缘
-    const hit = findVerticalDropTarget({
-      nodes,
-      rect: { x: nodeWidth - 8, y: 28, width: nodeWidth, height: 40 },
-      nodeWidth
-    })
-    expect(hit).toBeNull()
-  })
-
   it('插到前后时中心在横向范围内即可参与', () => {
-    const hit = findVerticalDropTarget({
-      nodes,
-      rect: { x: 20, y: 28, width: nodeWidth, height: 40 },
-      nodeWidth
-    })
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(28), nodeWidth })
     expect(hit.node.id).toBe('A')
     expect(hit.inside).toBe(false)
   })
 
-  it('拖进优先于插序：两个节点分别命中两类时取拖进', () => {
-    const hit = findVerticalDropTarget({
-      nodes,
-      rect: { x: 0, y: 0, width: nodeWidth, height: 60 },
-      nodeWidth
+  it('插序要求中心进入节点横向范围：只擦到边缘、中心在外时不算', () => {
+    expect(findVerticalDropTarget({ nodes, rect: shadow(28, 40, nodeWidth - 8), nodeWidth })).toBeNull()
+  })
+
+  it('left 布局要求中心越过左缘', () => {
+    const leftNodes = [{ id: 'L', x: 0, y: 0, height: 40 }]
+    const outside = findVerticalDropTarget({
+      nodes: leftNodes,
+      rect: shadow(0, 40, -nodeWidth + 20),
+      nodeWidth,
+      direction: 'left'
     })
-    expect(hit.node.id).toBe('A')
-    expect(hit.inside).toBe(true)
+    expect(outside.inside).toBe(true)
+
+    const insideNode = findVerticalDropTarget({
+      nodes: leftNodes,
+      rect: shadow(0),
+      nodeWidth,
+      direction: 'left'
+    })
+    expect(insideNode.inside).toBe(false)
   })
 
   it('跳过被拖节点自己、引用节点与占位节点', () => {
@@ -339,13 +308,13 @@ describe('findVerticalDropTarget', () => {
       { ...nodes[0], isRef: true },
       { ...nodes[0], id: 'ph', isPlaceholder: true }
     ]
-    expect(findVerticalDropTarget({ nodes: extra, rect: shadow(0), nodeWidth })).toBeNull()
-    expect(findVerticalDropTarget({ nodes, rect: shadow(0), nodeWidth, sourceId: 'A' })).toBeNull()
+    expect(findVerticalDropTarget({ nodes: extra, rect: shadow(0, 40, nodeWidth - 20), nodeWidth })).toBeNull()
+    expect(findVerticalDropTarget({ nodes, rect: shadow(0, 40, nodeWidth - 20), nodeWidth, sourceId: 'A' })).toBeNull()
   })
 
   it('竖直重叠比例按节点高度计算', () => {
     const tall = [{ id: 'T', x: 0, y: 0, height: 100 }]
-    // 影子只覆盖上半 40px：比例 0.4 < 0.5
+    // 影子只覆盖上半 40px：比例 0.4 < 0.5，且中心在节点内 → 插序
     const hit = findVerticalDropTarget({ nodes: tall, rect: { x: 0, y: 0, width: nodeWidth, height: 40 }, nodeWidth })
     expect(hit.ratio).toBeCloseTo(0.4, 5)
     expect(hit.inside).toBe(false)
