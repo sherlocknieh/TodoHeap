@@ -2322,17 +2322,14 @@ let panMoved = false
 let panFromRoot = false
 let lastPanEndAt = 0
 
-// 只有 inside 才算「拖进节点」，前后插序时目标节点不高亮，改由占位槽提示落点
+// 只有 inside 才算「拖进节点」，槽位落点由虚节点提示，目标父节点高亮
 const isDropInside = (node) => dragState.targetId === node.id && dragState.dropPosition === 'inside'
 
-// 与列表拖拽一致：上四分之一插入到目标之前，下四分之一插入到之后，其余区域成为子任务。
-// 根节点没有兄弟序列，拖到它身上一律按拖进根层级处理
+// 指针在节点内的上半插到它之前，下半插到它之后；节点内不再有「拖进」区域。
+// 根节点没有兄弟序列，指针在它身上按回到顶层处理（由调用方转成拖进根任务）
 const dropPositionAt = (node, point) => {
-  if (node.isRoot || dragState.fromToggle) return 'inside'
   const ratio = (point.y - node.y) / Math.max(node.height, 1)
-  if (ratio < 0.25) return 'before'
-  if (ratio > 0.75) return 'after'
-  return 'inside'
+  return ratio < 0.5 ? 'before' : 'after'
 }
 
 // 拖拽中的源节点淡出，视线交给影子节点；拉线建链接时源节点保持原样。
@@ -2521,7 +2518,8 @@ const updateDrag = (event) => {
     const hit = linkTargetAtRect({ x: point.x, y: point.y, width: 0, height: 0 })
     dragState.childBand = null
     dragState.targetId = hit ? hit.id : null
-    dragState.dropPosition = hit ? dropPositionAt(hit, point) : 'inside'
+    // 按钮拉线只建链接，落点语义固定为「成为它子级」
+    dragState.dropPosition = 'inside'
     return
   }
 
@@ -2543,8 +2541,8 @@ const updateDrag = (event) => {
     return
   }
 
-  // 指针在节点内：中间区域拖进该节点；上/下四分之一归它所在父级的兄弟槽位，
-  // 与子级空隙共用虚节点预览，不再画旧的 20px 前后插序小槽
+  // 指针在节点内：上半/下半归它所在父级的兄弟槽位（插到它前/后），
+  // 与子级空隙共用虚节点预览；节点内不再有「拖进」区域
   const pointed = nodeAtPoint(point)
   if (pointed) {
     const edgeBand = childEdgeBand(pointed, dropPositionAt(pointed, point))
@@ -2556,6 +2554,7 @@ const updateDrag = (event) => {
       return
     }
 
+    // 根节点与无父级的孤立节点没有兄弟序列：拖到它身上按回到顶层处理
     dragState.childBand = null
     dragState.targetId = pointed.id
     dragState.dropPosition = 'inside'
