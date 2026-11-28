@@ -2380,16 +2380,15 @@ const toGraphPoint = (event) => {
   }
 }
 
-// 拖拽落点：以矩形到节点矩形的间距判定。拖节点时被测的是影子节点，
-// 影子与目标接触（间距为 0）即命中，不看指针在哪；
-// 从折叠/加号按钮拉线时被测矩形退化为指针点，并按屏幕像素外扩一圈，
+// 按钮拉线的落点：以指针点到节点矩形的间距判定，按屏幕像素外扩一圈，
 // 指针不必精确压在目标上。多个节点同时进入范围时取中心最近的，避免在两者之间抖动。
 // 余量按屏幕像素折算，缩小时仍保持手感，但设上限，防止缩小后跨到相邻节点。
+// 拖节点不走这里：拖节点的落点只由指针所在位置决定（节点内 / 子级列空隙）。
 const LINK_HIT_PADDING = 24
 const LINK_HIT_PADDING_MAX = 48
 const linkHitPadding = () => Math.min(LINK_HIT_PADDING / view.scale, LINK_HIT_PADDING_MAX)
 const linkTargetAtRect = (rect) => {
-  const padding = dragState.fromToggle ? linkHitPadding() : 0
+  const padding = linkHitPadding()
   let nearest = null
   let nearestDistance = Infinity
   for (const node of hitLayout.value.nodes) {
@@ -2398,7 +2397,7 @@ const linkTargetAtRect = (rect) => {
     const gapX = Math.max(node.x - (rect.x + rect.width), rect.x - (node.x + nodeWidth), 0)
     const gapY = Math.max(node.y - (rect.y + rect.height), rect.y - (node.y + node.height), 0)
     if (Math.hypot(gapX, gapY) > padding) continue
-    // 接触的节点可能不止一个（影子跨在两节点之间），取中心最近的
+    // 同时进入余量范围的节点可能不止一个，取中心最近的
     const dx = node.x + nodeWidth / 2 - (rect.x + rect.width / 2)
     const dy = node.y + node.height / 2 - (rect.y + rect.height / 2)
     const distance = Math.hypot(dx, dy)
@@ -2536,81 +2535,60 @@ const previewCurve = (start, end) => {
   return `M${start.x} ${start.y} C${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`
 }
 
-// 拖拽中的实时反馈：拉线只用于从折叠/加号按钮建链接，从按钮连向指针；
-// 拖节点改为影子副本跟随指针，不再画线
+// 拖拽中的实时反馈：按钮拉线从出边连向指针并画预览线；
+// 拖节点让实节点卡片跟随指针，落点只按指针位置判定（节点内 / 子级列空隙）
 const updateDrag = (event) => {
   const source = layout.value.nodes.find((node) => node.id === dragState.sourceId)
   if (!source) return
   const point = toGraphPoint(event)
-  // 被测矩形的宽高：拖节点用影子，按钮拉线退化为一个点
-  let hitRect
+
+  // 从折叠/加号按钮拉线：终点就是指针位置，按指针到节点的距离判定落点
   if (dragState.fromToggle) {
-    const tip = outAnchor(source)
-    // 终点就是指针位置，也是新节点将出现的位置，不再向前出头
-    dragState.preview = previewCurve(tip, point)
-    hitRect = { x: point.x, y: point.y, width: 0, height: 0 }
-  } else {
-    // 拖节点不画线：影子副本跟随指针，影子与目标接触就算命中
-    dragState.preview = null
-    dragState.shadow = {
-      node: source,
-      x: point.x - dragState.grab.x,
-      y: point.y - dragState.grab.y
-    }
-    hitRect = { x: dragState.shadow.x, y: dragState.shadow.y, width: nodeWidth, height: source.height }
-  }
-
-  // 拖节点：先看指针落在哪个节点上，仍按上/下四分之一与中间分派（现有逻辑保留）
-  if (!dragState.fromToggle) {
-    // 指针还在源节点原位置：拖动尚未离开，不产生落点预览
-    const origin = hitLayout.value.nodes.find((node) => node.id === dragState.sourceId)
-    if (origin && point.x >= origin.x && point.x <= origin.x + nodeWidth
-      && point.y >= origin.y && point.y <= origin.y + origin.height) {
-      dragState.childBand = null
-      dragState.targetId = null
-      dragState.dropPosition = 'inside'
-      return
-    }
-
-    const pointed = nodeAtPoint(point)
-    if (pointed) {
-      dragState.childBand = null
-      dragState.targetId = pointed.id
-      dragState.dropPosition = dropPositionAt(pointed, point)
-      return
-    }
-
-    // 指针在父级可见子级列的空隙里（含首/末子级外侧的接近范围）：命中父节点。
-    // 纵向以指针为准，横向仍用影子宽度：影子几乎总会压到相邻子节点，不能让它抢先命中
-    const band = findChildGapTarget({
-      nodes: hitLayout.value.nodes,
-      rect: { x: hitRect.x, y: point.y, width: nodeWidth, height: 1 },
-      nodeWidth,
-      sourceId: dragState.sourceId,
-      padding: linkHitPadding()
-    })
-    // 指针明确落在某个父级的子级列里：落点只按空隙槽位判定，不再回退到影子接触，
-    // 否则影子压到相邻兄弟时会冒出前后插序槽，与空隙预览互相抖动
-    if (band) {
-      const keeps = insertKeepsOrder(band, dragState.sourceId)
-      dragState.childBand = keeps ? null : band
-      dragState.targetId = keeps ? null : band.parentId
-      dragState.dropPosition = 'inside'
-      return
-    }
-  }
-
-  const hit = linkTargetAtRect(hitRect)
-  if (hit) {
-    // 指针不在节点里也不在子级列空隙：影子碰到节点即命中该节点
+    dragState.preview = previewCurve(outAnchor(source), point)
+    const hit = linkTargetAtRect({ x: point.x, y: point.y, width: 0, height: 0 })
     dragState.childBand = null
-    dragState.targetId = hit.id
-    dragState.dropPosition = dropPositionAt(hit, point)
+    dragState.targetId = hit ? hit.id : null
+    dragState.dropPosition = hit ? dropPositionAt(hit, point) : 'inside'
     return
   }
 
-  dragState.childBand = null
-  dragState.targetId = null
+  // 拖节点：实节点卡片跟着指针走，落点只由指针决定
+  dragState.preview = null
+  dragState.shadow = {
+    node: source,
+    x: point.x - dragState.grab.x,
+    y: point.y - dragState.grab.y
+  }
+
+  // 指针还在源节点原位置：拖动尚未离开，不产生落点预览
+  const origin = hitLayout.value.nodes.find((node) => node.id === dragState.sourceId)
+  if (origin && point.x >= origin.x && point.x <= origin.x + nodeWidth
+    && point.y >= origin.y && point.y <= origin.y + origin.height) {
+    dragState.childBand = null
+    dragState.targetId = null
+    dragState.dropPosition = 'inside'
+    return
+  }
+
+  // 指针在节点内：按上/下四分之一与中间分派
+  const pointed = nodeAtPoint(point)
+  if (pointed) {
+    dragState.childBand = null
+    dragState.targetId = pointed.id
+    dragState.dropPosition = dropPositionAt(pointed, point)
+    return
+  }
+
+  // 指针在父级可见子级列的空隙里：命中父节点（子级列两侧之外不算）
+  const band = findChildGapTarget({
+    nodes: hitLayout.value.nodes,
+    rect: { x: point.x, y: point.y, width: 0, height: 0 },
+    nodeWidth,
+    sourceId: dragState.sourceId
+  })
+  const keeps = band ? insertKeepsOrder(band, dragState.sourceId) : false
+  dragState.childBand = keeps ? null : band
+  dragState.targetId = keeps ? null : (band?.parentId ?? null)
   dragState.dropPosition = 'inside'
 }
 

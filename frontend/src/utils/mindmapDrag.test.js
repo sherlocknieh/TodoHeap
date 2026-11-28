@@ -18,11 +18,12 @@ const layout = [
   node('1.2', 300, 80, 40, 1)
 ]
 
-const shadow = (x, y, height = 40) => ({ x, y, width: nodeWidth, height })
+// 拖节点时判定输入的是一只指针点（宽度为 0）
+const at = (x, y) => ({ x, y, width: 0, height: 0 })
 
 describe('findChildGapTarget', () => {
-  it('影子落在子级之间的空隙时命中父级，并插到后一个子级之前', () => {
-    expect(findChildGapTarget({ nodes: layout, rect: shadow(300, 48), nodeWidth })).toEqual({
+  it('指针落在子级之间的空隙时命中父级，并插到后一个子级之前', () => {
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, 48), nodeWidth })).toEqual({
       parentId: '1',
       index: 1,
       beforeId: '1.2',
@@ -30,8 +31,8 @@ describe('findChildGapTarget', () => {
     })
   })
 
-  it('首子级上方接近范围内命中父级并插到首位', () => {
-    expect(findChildGapTarget({ nodes: layout, rect: shadow(300, -30), nodeWidth, padding: 48 })).toEqual({
+  it('指针正好在首子级上缘时插到首位', () => {
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, 0), nodeWidth })).toEqual({
       parentId: '1',
       index: 0,
       beforeId: '1.1',
@@ -39,8 +40,8 @@ describe('findChildGapTarget', () => {
     })
   })
 
-  it('末子级下方接近范围内命中父级并追加到末尾', () => {
-    expect(findChildGapTarget({ nodes: layout, rect: shadow(300, 130), nodeWidth, padding: 48 })).toEqual({
+  it('指针正好在末子级下缘时追加到末尾', () => {
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, 120), nodeWidth })).toEqual({
       parentId: '1',
       index: 2,
       beforeId: null,
@@ -48,17 +49,17 @@ describe('findChildGapTarget', () => {
     })
   })
 
-  it('首尾外侧超出接近范围时不命中', () => {
-    expect(findChildGapTarget({ nodes: layout, rect: shadow(300, -80), nodeWidth, padding: 16 })).toBeNull()
-    expect(findChildGapTarget({ nodes: layout, rect: shadow(300, 180), nodeWidth, padding: 16 })).toBeNull()
+  it('指针在子级列上下方之外时不命中', () => {
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, -30), nodeWidth })).toBeNull()
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, 200), nodeWidth })).toBeNull()
   })
 
-  it('影子与子级列横向不重叠时不命中', () => {
-    expect(findChildGapTarget({ nodes: layout, rect: shadow(0, 48), nodeWidth })).toBeNull()
+  it('指针与子级列横向不重叠时不命中', () => {
+    expect(findChildGapTarget({ nodes: layout, rect: at(0, 48), nodeWidth })).toBeNull()
   })
 
-  it('以影子纵向中心判断槽位，跨越多个子级时插到对应序号', () => {
-    const result = findChildGapTarget({ nodes: layout, rect: shadow(300, 20, 100), nodeWidth })
+  it('按指针纵向位置判断槽位', () => {
+    const result = findChildGapTarget({ nodes: layout, rect: at(300, 60), nodeWidth })
     expect(result.index).toBe(1)
     expect(result.beforeId).toBe('1.2')
   })
@@ -69,35 +70,27 @@ describe('findChildGapTarget', () => {
       { ...node('ref:1:2', 300, 48, 40, 1), isRef: true },
       { ...node('placeholder', 300, 52, 40, 1), isPlaceholder: true }
     ]
-    expect(findChildGapTarget({ nodes, rect: shadow(300, 48), nodeWidth }).beforeId).toBe('1.2')
+    expect(findChildGapTarget({ nodes, rect: at(300, 48), nodeWidth }).beforeId).toBe('1.2')
   })
 
   it('拖拽源作为父级时不命中自己的子级列', () => {
     expect(findChildGapTarget({
       nodes: layout,
-      rect: shadow(300, 48),
+      rect: at(300, 48),
       nodeWidth,
       sourceId: '1'
     })).toBeNull()
   })
 
-  it('拖拽时按指针纵坐标的细矩形判定，仍落在同一空隙', () => {
-    expect(findChildGapTarget({
-      nodes: layout,
-      rect: { x: 300, y: 48, width: nodeWidth, height: 1 },
-      nodeWidth
-    })).toEqual({ parentId: '1', index: 1, beforeId: '1.2', afterId: null })
-  })
-
-  it('相邻父级的接近范围重叠时取子级列中心更近的一个', () => {
+  it('多个父级的子级列纵向重叠时取子级列中心更近的一个', () => {
     const nodes = [
       ...layout,
       node(2, 0, 300, 60),
-      node('2.1', 300, 300, 40, 2)
+      node('2.1', 300, 0, 40, 2)
     ]
-    // 大范围接近阈值下两段子级列都进入候选，影子中心(140/280)分别靠近父级 1/2 的子级列中心(60/320)
-    expect(findChildGapTarget({ nodes, rect: shadow(300, 120), nodeWidth, padding: 200 }).parentId).toBe('1')
-    expect(findChildGapTarget({ nodes, rect: shadow(300, 260), nodeWidth, padding: 200 }).parentId).toBe('2')
+    // 父级 1 的子级列中心 60，父级 2 的中心 20；指针 10 更靠近父级 2
+    expect(findChildGapTarget({ nodes, rect: at(300, 10), nodeWidth }).parentId).toBe('2')
+    expect(findChildGapTarget({ nodes, rect: at(300, 90), nodeWidth }).parentId).toBe('1')
   })
 })
 
