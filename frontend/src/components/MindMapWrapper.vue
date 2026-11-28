@@ -2378,12 +2378,15 @@ const linkTargetAtRect = (rect) => {
   return nearest
 }
 
-// 指针落在哪个节点矩形里：拖拽时优先按指针判定落点，被拖节点与引用/占位节点不参与
+// 点是否落在节点矩形内
+const insideNode = (node, point) => point.x >= node.x && point.x <= node.x + nodeWidth
+  && point.y >= node.y && point.y <= node.y + node.height
+
+// 点落在哪个节点矩形里：被拖节点与引用/占位节点不参与
 const nodeAtPoint = (point) => {
   for (const node of hitLayout.value.nodes) {
     if (node.id === dragState.sourceId || node.isRef || node.isPlaceholder) continue
-    if (point.x >= node.x && point.x <= node.x + nodeWidth
-      && point.y >= node.y && point.y <= node.y + node.height) return node
+    if (insideNode(node, point)) return node
   }
   return null
 }
@@ -2523,27 +2526,30 @@ const updateDrag = (event) => {
     return
   }
 
-  // 拖节点：实节点卡片跟着指针走，落点只由指针决定
+  // 拖节点：实节点卡片跟着指针走；落点判定以被拖节点的中心为准，而不是鼠标位置
   dragState.preview = null
   dragState.shadow = {
     node: source,
     x: point.x - dragState.grab.x,
     y: point.y - dragState.grab.y
   }
+  const center = {
+    x: dragState.shadow.x + nodeWidth / 2,
+    y: dragState.shadow.y + source.height / 2
+  }
 
-  // 指针还在源节点原位置：拖动尚未离开，不产生落点预览
+  // 中心还在源节点原位置：拖动尚未离开，不产生落点预览
   const origin = hitLayout.value.nodes.find((node) => node.id === dragState.sourceId)
-  if (origin && point.x >= origin.x && point.x <= origin.x + nodeWidth
-    && point.y >= origin.y && point.y <= origin.y + origin.height) {
+  if (origin && insideNode(origin, center)) {
     dragState.childBand = null
     dragState.targetId = null
     dragState.dropPosition = 'inside'
     return
   }
 
-  // 指针在节点内：叶子节点（无子级、非根）整块命中它自己，落点语义是成为它的子级。
+  // 中心在节点内：叶子节点（无子级、非根）整块命中它自己，落点语义是成为它的子级。
   // 叶子没有子级列，如果只在边缘一小条命中，拖到节点上反而没反应，不符合直觉
-  const pointed = nodeAtPoint(point)
+  const pointed = nodeAtPoint(center)
   if (pointed) {
     if (!pointed.isRoot && pointed.childCount === 0) {
       dragState.childBand = { parentId: String(pointed.id), index: 0, beforeId: null, afterId: null }
@@ -2553,7 +2559,7 @@ const updateDrag = (event) => {
     }
 
     // 有子级的节点：上半/下半归它所在父级的兄弟槽位（插到它前/后），与子级空隙共用虚节点预览
-    const edgeBand = childEdgeBand(pointed, dropPositionAt(pointed, point))
+    const edgeBand = childEdgeBand(pointed, dropPositionAt(pointed, center))
     if (edgeBand) {
       const keeps = insertKeepsOrder(edgeBand, dragState.sourceId)
       dragState.childBand = keeps ? null : edgeBand
@@ -2570,11 +2576,11 @@ const updateDrag = (event) => {
     return
   }
 
-  // 指针在叶子节点出边区（右侧/左侧一小段）：命中该叶子，落点语义为成为它的子级。
+  // 中心在叶子节点出边区（右侧/左侧一小段）：命中该叶子，落点语义为成为它的子级。
   // 叶子没有子级列，没有这块区域就无法把任务挂到它下面
   const leaf = findLeafEdgeTarget({
     nodes: hitLayout.value.nodes,
-    point,
+    point: center,
     nodeWidth,
     direction: direction.value,
     padding: linkHitPadding(),
@@ -2587,10 +2593,10 @@ const updateDrag = (event) => {
     return
   }
 
-  // 指针在父级可见子级列的空隙里：命中父节点（子级列两侧之外不算）
+  // 中心在父级可见子级列的空隙里：命中父节点（子级列两侧之外不算）
   const band = findChildGapTarget({
     nodes: hitLayout.value.nodes,
-    rect: { x: point.x, y: point.y, width: 0, height: 0 },
+    rect: { x: center.x, y: center.y, width: 0, height: 0 },
     nodeWidth,
     sourceId: dragState.sourceId,
     padding: linkHitPadding()
