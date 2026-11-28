@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { childEdgeBand, findChildGapTarget, keepsOriginalOrder } from './mindmapDrag'
+import { childEdgeBand, findChildGapTarget, findLeafEdgeTarget, keepsOriginalOrder } from './mindmapDrag'
 
 const nodeWidth = 216
 
@@ -153,5 +153,63 @@ describe('childEdgeBand', () => {
 
   it('没有父级时不归父级', () => {
     expect(childEdgeBand({ id: '2', parent_id: null }, 'before')).toBeNull()
+  })
+})
+
+describe('findLeafEdgeTarget', () => {
+  const leaf = { id: '9', x: 600, y: 100, height: 40, childCount: 0 }
+  const parent = { id: '8', x: 600, y: 200, height: 40, childCount: 2 }
+  const nodes = [leaf, parent]
+  const at = (x, y) => ({ x, y })
+
+  it('指针在叶子右侧一小段距离内时命中该叶子', () => {
+    const hit = findLeafEdgeTarget({ nodes, point: at(600 + nodeWidth + 20, 120), nodeWidth, padding: 48 })
+    expect(hit?.id).toBe('9')
+  })
+
+  it('指针超出距离时不命中', () => {
+    expect(findLeafEdgeTarget({ nodes, point: at(600 + nodeWidth + 60, 120), nodeWidth, padding: 48 })).toBeNull()
+  })
+
+  it('指针纵向超出节点高度时不命中', () => {
+    expect(findLeafEdgeTarget({ nodes, point: at(600 + nodeWidth + 20, 160), nodeWidth, padding: 48 })).toBeNull()
+  })
+
+  it('有子级的节点不出现在出边区判定里', () => {
+    expect(findLeafEdgeTarget({ nodes, point: at(600 + nodeWidth + 20, 220), nodeWidth, padding: 48 })).toBeNull()
+  })
+
+  it('布局方向为左时看出边左侧', () => {
+    const hit = findLeafEdgeTarget({
+      nodes,
+      point: at(600 - 20, 120),
+      nodeWidth,
+      direction: 'left',
+      padding: 48
+    })
+    expect(hit?.id).toBe('9')
+  })
+
+  it('跳过被拖节点自己', () => {
+    expect(findLeafEdgeTarget({
+      nodes,
+      point: at(600 + nodeWidth + 20, 120),
+      nodeWidth,
+      padding: 48,
+      sourceId: '9'
+    })).toBeNull()
+  })
+
+  it('跳过引用节点与占位节点', () => {
+    const extra = [
+      { ...leaf, id: 'ref', isRef: true },
+      { ...leaf, id: 'ph', isPlaceholder: true }
+    ]
+    expect(findLeafEdgeTarget({
+      nodes: extra,
+      point: at(600 + nodeWidth + 20, 120),
+      nodeWidth,
+      padding: 48
+    })).toBeNull()
   })
 })

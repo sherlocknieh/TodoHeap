@@ -384,7 +384,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { revealView } from '@/utils/mindmapView'
-import { childEdgeBand, findChildGapTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
+import { childEdgeBand, findChildGapTarget, findLeafEdgeTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
@@ -2561,6 +2561,23 @@ const updateDrag = (event) => {
     return
   }
 
+  // 指针在叶子节点出边区（右侧/左侧一小段）：命中该叶子，落点语义为成为它的子级。
+  // 叶子没有子级列，没有这块区域就无法把任务挂到它下面
+  const leaf = findLeafEdgeTarget({
+    nodes: hitLayout.value.nodes,
+    point,
+    nodeWidth,
+    direction: direction.value,
+    padding: linkHitPadding(),
+    sourceId: dragState.sourceId
+  })
+  if (leaf) {
+    dragState.childBand = { parentId: String(leaf.id), index: 0, beforeId: null, afterId: null }
+    dragState.targetId = String(leaf.id)
+    dragState.dropPosition = 'inside'
+    return
+  }
+
   // 指针在父级可见子级列的空隙里：命中父节点（子级列两侧之外不算）
   const band = findChildGapTarget({
     nodes: hitLayout.value.nodes,
@@ -2613,10 +2630,20 @@ const onDragEnd = (event) => {
   const source = layout.value.nodes.find((node) => node.id === sourceId)
   const target = layout.value.nodes.find((node) => node.id === targetId)
 
-  // 空隙命中父节点：按槽位插入到父级子级列表；插回原位置时顺序不变，不必提交
+  // 槽位落点：按锚点插入到父级子级列表；插回原位置时顺序不变，不必提交。
+  // 无锚点说明父级当前没有可见子级（叶子出边区），直接成为它的子任务
   if (childBand) {
     const anchorId = childBand.beforeId ?? childBand.afterId
-    if (anchorId == null || insertKeepsOrder(childBand, sourceId)) return
+    if (anchorId == null) {
+      emit('drop-task', {
+        parentId: Number(childBand.parentId),
+        childId: Number(sourceId),
+        position: 'inside',
+        sourceParentId: source?.parent_id ?? null
+      })
+      return
+    }
+    if (insertKeepsOrder(childBand, sourceId)) return
     emit('drop-task', {
       parentId: Number(childBand.parentId),
       childId: Number(sourceId),
