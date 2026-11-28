@@ -77,3 +77,16 @@ export const keepsOriginalOrder = (siblings, band, sourceId) => {
   rest.splice(at, 0, id)
   return rest.length === order.length && rest.every((value, index) => value === order[index])
 }
+
+// 指针落在某个节点的上/下四分之一：落点归它所在父级的兄弟槽位（插到该节点前/后），
+// 与子级空隙共用同一套虚节点预览。中间区域仍由调用方按「拖进该节点」处理。
+export const childEdgeBand = (node, position) => {
+  if (!node || node.isRoot || node.parent_id == null) return null
+  if (position !== 'before' && position !== 'after') return null
+  return {
+    parentId: String(node.parent_id),
+    index: null,
+    beforeId: position === 'before' ? node.id : null,
+    afterId: position === 'after' ? node.id : null
+  }
+}

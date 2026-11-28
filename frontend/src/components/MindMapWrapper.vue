@@ -212,15 +212,12 @@
             :class="confirmUnlink ? 'stroke-white' : 'stroke-accent-600 dark:stroke-accent-400'" />
         </g>
 
-        <!-- 落点空位底：排序槽 / 空隙虚节点的浅底与左缘条，画在影子下层，让兄弟让出的位置看得出来 -->
+        <!-- 落点空位底：虚节点的浅底，画在影子下层，让兄弟让出的位置看得出来 -->
         <g v-if="dropPlaceholderNode"
           :transform="`translate(${dropPlaceholderNode.x} ${dropPlaceholderNode.y})`"
           class="pointer-events-none">
           <rect :width="nodeWidth" :height="dropPlaceholderNode.height" rx="6"
             class="fill-accent-100/80 dark:fill-accent-500/20" />
-          <!-- 排序槽用左缘细条标出插入位置；空隙虚节点本身就是插入位置预览，不再加条 -->
-          <rect v-if="!dragState.childBand" :width="8" :height="dropPlaceholderNode.height" rx="4"
-            class="fill-accent-500/60 dark:fill-accent-400/60" />
         </g>
 
         <!-- 拖拽影子：实节点卡片跟着指针走，抓取点与原件保持同一相对位置，原位置的节点淡出；
@@ -387,7 +384,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { revealView } from '@/utils/mindmapView'
-import { findChildGapTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
+import { childEdgeBand, findChildGapTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
@@ -808,7 +805,7 @@ const wrapLines = (text, maxWidth, limit = maxLines) => {
 // 编辑中的节点按输入内容实时撑高、不做行数截断：节点框与输入框同步长高，布局跟着重排，
 // 长标题不会挤成内部滚动条；编辑结束后再回到常规的截断显示
 const measureNode = (raw) => {
-  // 占位槽不显示文字与控件，按自身高度参与布局：排序槽用固定高度，空隙虚节点用被拖节点高度
+  // 落点虚节点不显示文字与控件，按自身高度参与布局：空隙与子节点边缘槽位都用被拖节点高度
   if (raw.isPlaceholder) {
     const height = raw.height ?? dropPlaceholderHeight
     return {
@@ -1103,36 +1100,12 @@ const insertChildGapPlaceholder = (forest, band) => {
   return walk(forest || [])
 }
 
+// 落点占位：只认父级兄弟槽位（空隙或子节点上/下四分之一），统一插入与被拖节点等高的虚节点，
+// 旧的 20px 前后插序小槽不再单独画
 const insertDropPlaceholder = (forest) => {
   if (!dragState.active || !dragState.moved || dragState.fromToggle) return forest
-  if (dragState.childBand) return insertChildGapPlaceholder(forest, dragState.childBand)
-  if (!dragState.targetId || dragState.dropPosition === 'inside') return forest
-
-  const placeholder = createDropPlaceholder(dropPlaceholderHeight)
-  let inserted = false
-
-  const walk = (nodes) => {
-    if (inserted) return nodes
-    const index = nodes.findIndex((node) => !node.isRef && String(node.id) === dragState.targetId)
-    if (index !== -1) {
-      inserted = true
-      const next = nodes.slice()
-      next.splice(dragState.dropPosition === 'before' ? index : index + 1, 0, placeholder)
-      return next
-    }
-
-    let changed = false
-    const next = nodes.map((node) => {
-      if (inserted || node.isRef || !(node.children || []).length) return node
-      const children = walk(node.children)
-      if (children === node.children) return node
-      changed = true
-      return { ...node, children }
-    })
-    return changed ? next : nodes
-  }
-
-  return walk(forest || [])
+  if (!dragState.childBand) return forest
+  return insertChildGapPlaceholder(forest, dragState.childBand)
 }
 
 const dropPreviewForest = computed(() => insertDropPlaceholder(props.nodes))
@@ -2570,12 +2543,22 @@ const updateDrag = (event) => {
     return
   }
 
-  // 指针在节点内：按上/下四分之一与中间分派
+  // 指针在节点内：中间区域拖进该节点；上/下四分之一归它所在父级的兄弟槽位，
+  // 与子级空隙共用虚节点预览，不再画旧的 20px 前后插序小槽
   const pointed = nodeAtPoint(point)
   if (pointed) {
+    const edgeBand = childEdgeBand(pointed, dropPositionAt(pointed, point))
+    if (edgeBand) {
+      const keeps = insertKeepsOrder(edgeBand, dragState.sourceId)
+      dragState.childBand = keeps ? null : edgeBand
+      dragState.targetId = keeps ? null : edgeBand.parentId
+      dragState.dropPosition = 'inside'
+      return
+    }
+
     dragState.childBand = null
     dragState.targetId = pointed.id
-    dragState.dropPosition = dropPositionAt(pointed, point)
+    dragState.dropPosition = 'inside'
     return
   }
 

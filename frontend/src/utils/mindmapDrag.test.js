@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findChildGapTarget, keepsOriginalOrder } from './mindmapDrag'
+import { childEdgeBand, findChildGapTarget, keepsOriginalOrder } from './mindmapDrag'
 
 const nodeWidth = 216
 
@@ -119,5 +119,39 @@ describe('keepsOriginalOrder', () => {
 
   it('没有兄弟顺序信息时不拦截', () => {
     expect(keepsOriginalOrder(null, { beforeId: '3', afterId: null }, '3')).toBe(false)
+  })
+})
+
+describe('childEdgeBand', () => {
+  const child = { id: '2', parent_id: '1' }
+
+  it('上四分之一归父级并插到该子级之前', () => {
+    expect(childEdgeBand(child, 'before')).toEqual({
+      parentId: '1',
+      index: null,
+      beforeId: '2',
+      afterId: null
+    })
+  })
+
+  it('下四分之一归父级并插到该子级之后', () => {
+    expect(childEdgeBand(child, 'after')).toEqual({
+      parentId: '1',
+      index: null,
+      beforeId: null,
+      afterId: '2'
+    })
+  })
+
+  it('中间区域不归父级，由调用方按拖进处理', () => {
+    expect(childEdgeBand(child, 'inside')).toBeNull()
+  })
+
+  it('根节点不归父级', () => {
+    expect(childEdgeBand({ id: '0', isRoot: true }, 'before')).toBeNull()
+  })
+
+  it('没有父级时不归父级', () => {
+    expect(childEdgeBand({ id: '2', parent_id: null }, 'before')).toBeNull()
   })
 })
