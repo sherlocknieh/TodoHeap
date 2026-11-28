@@ -376,7 +376,7 @@ const dropTask = async ({
 
 	// 父任务已在子任务的子树里时再挂过去会成环
 	if (collectDescendantIds(todoStore.todos, childId).includes(parentId)) {
-		emit('notify', { message: '不能移动到自己的子任务下' })
+		emit('notify', { message: '禁止形成环形依赖' })
 		return
 	}
 

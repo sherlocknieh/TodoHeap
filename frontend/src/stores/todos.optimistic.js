@@ -288,7 +288,7 @@ export const createTodoOptimisticActions = ({
     const realTargetId = targetId == null ? null : syncQueue.getRealId(targetId)
     if (realTargetId === realId) return { success: false, error: '不能移动到自身' }
     if (realTargetId != null && collectDescendantIds(todosRef.value, realId).includes(realTargetId)) {
-      return { success: false, error: '不能移动到自己的子任务下' }
+      return { success: false, error: '禁止形成环形依赖' }
     }
 
     const target = realTargetId == null ? null : todosRef.value.find(todo => todo.id === realTargetId)

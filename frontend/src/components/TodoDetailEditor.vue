@@ -42,6 +42,45 @@
               @toggle="toggleSection('details')" />
             <div data-section-body :inert="isCollapsed('details') || undefined" class="flex-1 min-h-0 overflow-hidden">
               <div data-section-content class="px-4 pt-2 pb-1">
+                <!-- [父链/面包屑]：标题上方小字显示完整父链；多父时右侧角标展开全部链路 -->
+                <div v-if="displayChain.length" class="mb-0.5">
+                  <div class="flex items-center gap-1 text-[11px] leading-4">
+                    <!-- 主链：根 → 最近父级；溢出时裁掉根侧，保留最常点的最近父级 -->
+                    <nav class="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-hidden text-neutral-400 dark:text-neutral-500">
+                      <template v-for="(ancestor, index) in displayChain" :key="ancestor.id">
+                        <span v-if="index > 0" class="shrink-0 text-neutral-300 dark:text-neutral-600">›</span>
+                        <button type="button"
+                          class="shrink-0 whitespace-nowrap hover:text-accent-700 dark:hover:text-accent-300"
+                          :title="ancestor.title || '未命名任务'" @click="emit('task-selected', ancestor.id)">
+                          {{ ancestor.title || '未命名任务' }}
+                        </button>
+                      </template>
+                    </nav>
+                    <button v-if="extraChainCount > 0" type="button"
+                      class="shrink-0 rounded px-1 text-neutral-400 transition-colors hover:bg-accent-50 hover:text-accent-800 dark:hover:bg-accent-500/10 dark:hover:text-accent-200"
+                      :title="`查看全部 ${chainCount} 条父链`" @click.stop="chainPopoverOpen = !chainPopoverOpen">
+                      +{{ extraChainCount }}
+                    </button>
+                  </div>
+                  <!-- 展开的全部父链：每条一行，祖先可点跳转，环用 ↻ 标记 -->
+                  <div v-if="chainPopoverOpen"
+                    class="mt-1 max-h-40 overflow-y-auto rounded-md border border-hairline px-2 py-1 text-[11px] leading-5 text-neutral-500 dark:border-hairline-dark dark:text-neutral-400">
+                    <div v-for="(chain, index) in orderedChains" :key="index">
+                      <span class="mr-1 text-neutral-300 dark:text-neutral-600">{{ index + 1 }}.</span>
+                      <template v-for="(ancestor, i) in chain.nodes" :key="`${ancestor.id}-${i}`">
+                        <span v-if="i > 0" class="px-0.5 text-neutral-300 dark:text-neutral-600">›</span>
+                        <button type="button" class="hover:text-accent-700 dark:hover:text-accent-300"
+                          @click="emit('task-selected', ancestor.id)">
+                          {{ ancestor.title || '未命名任务' }}
+                        </button>
+                      </template>
+                      <span v-if="chain.cycle" class="ml-0.5" title="父链成环，已停止回溯">↻</span>
+                    </div>
+                    <p v-if="allChains.truncated" class="text-neutral-400 dark:text-neutral-600">
+                      仅显示前 {{ CHAIN_MAX_PATHS }} 条
+                    </p>
+                  </div>
+                </div>
                 <input v-model.trim="draftTitle" type="text" :disabled="isDeleted" :class="[
                   'w-full px-0 py-1 text-lg font-semibold placeholder:text-neutral-300 dark:placeholder:text-neutral-700 bg-transparent border-none focus:outline-none focus:ring-0',
                   isDeleted ? 'cursor-not-allowed text-neutral-400 dark:text-neutral-600' : 'text-neutral-800 dark:text-white'
@@ -163,6 +202,7 @@ import { useSyncQueueStore } from '@/stores/syncQueue'
 import MilkdownEditor from './MilkdownEditor.vue'
 import { useResizablePanel } from '@/utils/resizablePanel'
 import { useSectionStack } from '@/utils/sectionStack'
+import { allChainsOf, displayChainOf } from '@/utils/taskChain'
 import {
   detailPanelWidth,
   DETAIL_PANEL_MIN_WIDTH
@@ -240,6 +280,40 @@ const todo = computed(() => {
 // 判断是否是已删除的任务
 const isDeleted = computed(() => {
   return todo.value?.deleted_at != null
+})
+
+// 标题上方的父链：主链取当前视图的展示父链（buildTaskForest 写回的首现 parent_id），
+// 多父时再枚举全部路径供角标展开；根任务不算链首，回收站任务不在树里时整行隐藏。
+// 机制见 docs/src/content/docs/dev/logic/task-chain.md
+const CHAIN_MAX_PATHS = 20
+const chainPopoverOpen = ref(false)
+
+const displayChain = computed(() => (
+  props.show ? displayChainOf(todoStore.treeNodes, props.todoId) : []
+))
+
+// 全部父链按扁平任务枚举，根任务单独补回；tasks 已排除根任务
+const chainItems = computed(() => [todoStore.rootTodo, ...todoStore.tasks].filter(Boolean))
+
+const allChains = computed(() => (
+  displayChain.value.length
+    ? allChainsOf(chainItems.value, props.todoId, { maxPaths: CHAIN_MAX_PATHS })
+    : { chains: [], truncated: false }
+))
+
+const chainCount = computed(() => allChains.value.chains.length)
+
+// 角标只表示「另有几条」，与标题上方那条主链不重复计数
+const extraChainCount = computed(() => Math.max(0, chainCount.value - 1))
+
+// 展开列表把展示主链排在最前，第一行与标题上方一致
+const orderedChains = computed(() => {
+  const key = displayChain.value.map((node) => node.id).join('/')
+  const keyOf = (chain) => chain.nodes.map((node) => node.id).join('/')
+  return [
+    ...allChains.value.chains.filter((chain) => keyOf(chain) === key),
+    ...allChains.value.chains.filter((chain) => keyOf(chain) !== key)
+  ]
 })
 
 // 只取当前任务的直接子任务，不递归展开更深层级
@@ -439,6 +513,7 @@ const resetDraftFromTodo = () => {
 watch(
   () => props.todoId,
   () => {
+    chainPopoverOpen.value = false
     resetDraftFromTodo()
   },
   { immediate: true }
