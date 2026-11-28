@@ -118,16 +118,37 @@
               </button>
             </template>
             <template v-else>
-              <!-- 「筛选」：只看带截止时间的任务；旁边的箭头切换按截止时间的升/降序 -->
-              <button type="button"
-                class="grid h-7 w-7 shrink-0 place-items-center rounded-md border transition-colors"
-                :class="dateOnly
-                  ? 'border-accent-500 bg-accent-50 text-accent-700 dark:border-accent-400/60 dark:bg-accent-500/10 dark:text-accent-200'
-                  : 'border-hairline text-neutral-600 hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300'"
-                :aria-pressed="dateOnly" :title="dateOnly ? '显示全部任务' : '只看有日期的任务'"
-                :aria-label="dateOnly ? '显示全部任务' : '只看有日期的任务'" @click="toggleDateOnly">
-                <AppIcon name="calendar" :size="13" />
-              </button>
+              <!-- 「筛选」：日期与叶子筛选收在同一个菜单里，可同时开启；旁边的箭头切换按截止时间的升/降序 -->
+              <div ref="filterMenuRef" class="relative">
+                <button type="button"
+                  class="grid h-7 w-7 shrink-0 place-items-center rounded-md border transition-colors"
+                  :class="isFlatFilter
+                    ? 'border-accent-500 bg-accent-50 text-accent-700 dark:border-accent-400/60 dark:bg-accent-500/10 dark:text-accent-200'
+                    : 'border-hairline text-neutral-600 hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300'"
+                  :aria-pressed="isFlatFilter" aria-haspopup="menu" :aria-expanded="showFilterMenu"
+                  title="筛选任务" aria-label="筛选任务" @click="toggleFilterMenu">
+                  <AppIcon name="sliders" :size="13" />
+                </button>
+                <div v-if="showFilterMenu" role="menu"
+                  class="absolute right-0 top-full z-30 mt-1 w-44 panel py-1 overflow-hidden shadow-lg">
+                  <!-- 「只看有日期的任务」：拍平成按截止时间排序的列表，箭头控制方向 -->
+                  <button type="button" role="menuitemcheckbox" :aria-checked="dateOnly"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+                    @click="toggleDateOnly">
+                    <AppIcon name="calendar" :size="13" />
+                    <span class="flex-1">只看有日期的任务</span>
+                    <AppIcon v-if="dateOnly" name="check" :size="12" class="text-accent-600 dark:text-accent-300" />
+                  </button>
+                  <!-- 「只看叶子节点」：没有未完成子任务的任务，子任务全完成的父任务也算叶子 -->
+                  <button type="button" role="menuitemcheckbox" :aria-checked="leafOnly"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+                    @click="toggleLeafOnly">
+                    <AppIcon name="leaf" :size="13" />
+                    <span class="flex-1">只看叶子节点</span>
+                    <AppIcon v-if="leafOnly" name="check" :size="12" class="text-accent-600 dark:text-accent-300" />
+                  </button>
+                </div>
+              </div>
               <button type="button"
                 class="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-hairline text-neutral-600 transition-colors hover:border-accent-500/60 disabled:opacity-40 disabled:hover:border-hairline dark:border-hairline-dark dark:text-neutral-300 dark:disabled:hover:border-hairline-dark"
                 :disabled="!dateOnly"
@@ -165,8 +186,8 @@
           :selected-keys="selectionKeys"
           :ignore-collapse="isSearching"
           :highlight-query="isSearching ? searchQuery.trim() : ''"
-          :disable-add-subtask="dateOnly"
-          :disable-drag="dateOnly"
+          :disable-add-subtask="isFlatFilter"
+          :disable-drag="isFlatFilter"
           @toggle-done="toggleDone"
           @complete-tree="completeTaskTree"
           @delete-todo="deleteTodo"
@@ -181,8 +202,8 @@
         <p v-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
           没有匹配的任务
         </p>
-        <p v-else-if="dateOnly && visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          没有带日期的任务
+        <p v-else-if="isFlatFilter && visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+          {{ emptyFilterText }}
         </p>
         <p v-else-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
           没有进行中的任务，已完成的收在下方
@@ -275,7 +296,7 @@ import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import { useTodoStore } from '@/stores/todos'
 import { useAuthStore } from '@/stores/auth'
 import { toDateTimeLocalValue, deadlineChipClass, formatDeadlineLabel } from '@/utils/deadline'
-import { flattenTasksByDeadline } from '@/utils/todoSort'
+import { flattenLeafTasks, flattenTasksByDeadline } from '@/utils/todoSort'
 import { filterTasksByTitle } from '@/utils/taskGraph'
 import { formatCompletionTime, groupCompletedByDay } from '@/utils/completedGroups'
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
@@ -335,19 +356,45 @@ onMounted(async () => {
 // 筛选只影响显示，偏好存在本地，不写数据库
 const DATE_FILTER_STORAGE_KEY = 'todoheap:list-date-only'
 const DATE_ORDER_STORAGE_KEY = 'todoheap:list-date-order'
+const LEAF_FILTER_STORAGE_KEY = 'todoheap:list-leaf-only'
 const dateOnly = ref(localStorage.getItem(DATE_FILTER_STORAGE_KEY) === '1')
+const leafOnly = ref(localStorage.getItem(LEAF_FILTER_STORAGE_KEY) === '1')
 const dateOrder = ref(localStorage.getItem(DATE_ORDER_STORAGE_KEY) === 'desc' ? 'desc' : 'asc')
 watch(dateOnly, (value) => localStorage.setItem(DATE_FILTER_STORAGE_KEY, value ? '1' : '0'))
+watch(leafOnly, (value) => localStorage.setItem(LEAF_FILTER_STORAGE_KEY, value ? '1' : '0'))
 watch(dateOrder, (value) => localStorage.setItem(DATE_ORDER_STORAGE_KEY, value))
 const toggleDateOnly = () => { dateOnly.value = !dateOnly.value }
+const toggleLeafOnly = () => { leafOnly.value = !leafOnly.value }
 const toggleDateOrder = () => { dateOrder.value = dateOrder.value === 'asc' ? 'desc' : 'asc' }
+
+// 任一筛选开启都会拍平列表：看不到层级时不再允许改父子关系与手动顺序
+const isFlatFilter = computed(() => dateOnly.value || leafOnly.value)
+
+// 筛选菜单：两个开关都留在菜单里，方便连续切换；点外部或 Esc 关闭
+const showFilterMenu = ref(false)
+const filterMenuRef = ref(null)
+const toggleFilterMenu = () => { showFilterMenu.value = !showFilterMenu.value }
+const closeFilterMenu = () => { showFilterMenu.value = false }
+const handleFilterClickOutside = (event) => {
+  if (!showFilterMenu.value) return
+  if (filterMenuRef.value?.contains(event.target)) return
+  closeFilterMenu()
+}
 
 // 根任务是挂载点，不渲染成列表行：列表展示它的子级
 const baseTree = computed(() => listTreeOf(todoStore.treeNodes))
-// 筛选把带截止时间的任务收成平铺列表，按截止时间整体升/降序，不按层级展示
+// 叶子筛选先收成平铺列表，日期筛选再按截止时间整体升/降序；两者叠加时取交集
 const sortedTree = computed(() => {
-  if (!dateOnly.value) return baseTree.value
-  return flattenTasksByDeadline(baseTree.value, { descending: dateOrder.value === 'desc' })
+  const filtered = leafOnly.value ? flattenLeafTasks(baseTree.value) : baseTree.value
+  if (!dateOnly.value) return filtered
+  return flattenTasksByDeadline(filtered, { descending: dateOrder.value === 'desc' })
+})
+
+// 平铺筛选的空态提示：两个条件都开时说「同时满足」，否则说明是哪个条件没命中
+const emptyFilterText = computed(() => {
+  if (dateOnly.value && leafOnly.value) return '没有同时满足日期与叶子条件的任务'
+  if (dateOnly.value) return '没有带日期的任务'
+  return '没有叶子任务'
 })
 
 // 搜索：命中任务连同祖先链一起显示，父级只作上下文；不改变源顺序
@@ -677,12 +724,14 @@ const createSibling = async (node) => {
 // 任务表键盘新建：单选任务且焦点不在输入/按钮上时，Tab 建子级、Enter 建兄弟
 const handleListKeydown = (event) => {
   if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
+  // Esc 先关筛选菜单，避免菜单挡住列表
+  if (event.key === 'Escape' && showFilterMenu.value) { closeFilterMenu(); return }
   if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
   if (event.key !== 'Tab' && event.key !== 'Enter') return
   // 行内编辑、快速添加、详情面板与各种菜单里的键盘操作优先
   if (event.target?.closest?.('input, textarea, select, button, a, label, [contenteditable="true"]')) return
   // 筛选结果是平铺列表：没有层级上下文，Tab/Enter 新建会立刻被筛掉，不在这里创建
-  if (dateOnly.value) return
+  if (isFlatFilter.value) return
   if (!showActivePanel.value || props.selectedTaskId == null || selection.value.size > 0) return
   const node = findListNode(sortedTree.value, props.selectedTaskId)
   // 已完成区里的行也能选中，但它不在待办树里，不用它派生新任务
@@ -692,9 +741,15 @@ const handleListKeydown = (event) => {
   else createSibling(node)
 }
 
-// 键盘新建只在任务表挂载期间监听：其它视图有各自的键盘规则
-onMounted(() => document.addEventListener('keydown', handleListKeydown))
-onBeforeUnmount(() => document.removeEventListener('keydown', handleListKeydown))
+// 键盘新建只在任务表挂载期间监听：其它视图有各自的键盘规则；顺手挂筛选菜单的点外关闭
+onMounted(() => {
+  document.addEventListener('keydown', handleListKeydown)
+  document.addEventListener('mousedown', handleFilterClickOutside)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleListKeydown)
+  document.removeEventListener('mousedown', handleFilterClickOutside)
+})
 
 const editSubtask = async (id, newTitle) => {
   await todoStore.updateTodo(id, { title: newTitle })

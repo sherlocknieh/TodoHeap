@@ -60,6 +60,20 @@ export const flattenTasksByDeadline = (nodes, { descending = false } = {}) => {
     .map((node) => ({ ...node, children: [] }))
 }
 
+// 叶子筛选的展示：按树序收集「没有未完成子任务」的任务，拍平成无层级列表，保留手动顺序。
+// 判定与行内折叠开关一致：子任务全部完成时按叶子处理；引用行不参与。
+export const flattenLeafTasks = (nodes) => {
+  const acc = []
+  const walk = (list) => list.forEach((node) => {
+    if (node._isRef) return
+    const hasActiveChild = (node.children || []).some((child) => !child.completed_at)
+    if (!hasActiveChild) acc.push({ ...node, children: [] })
+    else walk(node.children || [])
+  })
+  walk(nodes)
+  return acc
+}
+
 export const sortTodoTree = (nodes, mode) => {
   const compare = COMPARATORS[mode]
   if (!compare) return nodes

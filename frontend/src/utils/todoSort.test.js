@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { flattenTasksByDeadline, sortTodoTree } from './todoSort'
+import { flattenLeafTasks, flattenTasksByDeadline, sortTodoTree } from './todoSort'
 
 const makeTree = () => ([
   { id: 1, title: '无截止', deadline: null, created_at: '2026-01-01T00:00:00.000Z', duration: 3, children: [] },
@@ -87,5 +87,38 @@ describe('flattenTasksByDeadline', () => {
 
   it('降序时整体反转，引用行与无截止任务不参与', () => {
     expect(flattenTasksByDeadline(tree(), { descending: true }).map(node => node.id)).toEqual([4, 2, 3])
+  })
+})
+
+describe('flattenLeafTasks', () => {
+  const tree = () => ([
+    {
+      id: 1, title: '父任务', completed_at: null, children: [
+        { id: 2, title: '未完成子任务', completed_at: null, children: [] },
+        { id: 3, title: '已完成子任务', completed_at: '2026-03-02T00:00:00.000Z', children: [] }
+      ]
+    },
+    {
+      id: 4, title: '子任务全部完成', completed_at: null, children: [
+        { id: 5, title: '已完成子任务', completed_at: '2026-03-02T00:00:00.000Z', children: [] }
+      ]
+    },
+    { id: 6, title: '单独任务', completed_at: null, children: [] },
+    { id: 'ref:1:2', _isRef: true, title: '引用', completed_at: null, children: [] }
+  ])
+
+  it('收集没有未完成子任务的行，拍平后保持树序且不带层级', () => {
+    const flat = flattenLeafTasks(tree())
+
+    expect(flat.map(node => node.id)).toEqual([2, 3, 4, 6])
+    expect(flat.every(node => node.children.length === 0)).toBe(true)
+  })
+
+  it('不修改原树', () => {
+    const source = tree()
+
+    flattenLeafTasks(source)
+
+    expect(source[0].children).toHaveLength(2)
   })
 })
