@@ -28,6 +28,9 @@ AGENTS.md 是必须遵守的全局规则文档。
 
 - `nub run dev` | 启动前端+文档开发服务器
 - `nub run check:keywords` | 校验关键词索引里的锚点在代码/文档中是否仍存在
+- `nub run db:push` | 推送数据库迁移到远程（读 `.env.local` 的 `SUPABASE_DB_URL`，自带 `--yes --remote`，可加 `-- --dry-run`）
+- `npx supabase db push` | 推送到本地栈（需先 `supabase start`，Docker 未启动会报 `127.0.0.1:54322` 连接失败）
+- `npx supabase migration list --remote` | 查远程迁移状态
 - `npx supabase login` | 登录 Supabase
 
 其余详细命令见: [待定]
