@@ -134,16 +134,18 @@ export const findLeafEdgeTarget = ({
   return nearest
 }
 
-// 拖到节点上的命中：按影子中心落在节点水平范围的位置分成两类，左右对称、与布局方向无关：
-// - 拖进节点：中心在节点左右各 1/3 带内（含两侧外侧）。拖到边缘就是「放进它下面」，
-//   不设竖直重叠阈值，纵向只要有交集就算（完全不相交的不会进入候选）。
-// - 插到它前/后：中心在节点中间 1/3，插到这个节点的兄弟序列。
+// 拖到节点上的命中：按影子中心落在节点水平范围的位置分成两类：
+// - 拖进节点：中心在节点**出边侧** 1/3 带内（含该侧外侧）。子级出现在出边方向，
+//   拖到那一侧就是「放进它下面」；不设竖直重叠阈值，纵向只要有交集就算。
+// - 插到它前/后：中心在其余位置（中间 1/3 与入边侧 1/3），插到这个节点的兄弟序列。
+//   入边侧留给兄弟命中，否则会和父级方向的落点互相抢。
 // 两类各取竖直重叠最大者，重叠相同取纵向中心更近的；拖进优先于插序。
 export const findVerticalDropTarget = ({
   nodes,
   rect,
   nodeWidth,
-  sourceId = null
+  sourceId = null,
+  direction = 'right'
 }) => {
   const centerX = rect.x + rect.width / 2
   let inside = null
@@ -164,9 +166,11 @@ export const findVerticalDropTarget = ({
     const ratio = overlapY / Math.max(node.height, 1)
     const distance = Math.abs((rect.y + rect.height / 2) - (node.y + node.height / 2))
 
-    // 拖进节点：中心落在左右各 1/3 带内（含两侧外侧），不设竖直重叠阈值
+    // 拖进节点：中心落在出边侧 1/3 带内（含该侧外侧），不设竖直重叠阈值
     const third = nodeWidth / 3
-    const inSideThird = centerX <= node.x + third || centerX >= node.x + 2 * third
+    const inSideThird = direction === 'left'
+      ? centerX <= node.x + third
+      : centerX >= node.x + 2 * third
     if (overlapX > 0 && inSideThird) {
       if (ratio > insideRatio || (ratio === insideRatio && distance < insideDistance)) {
         inside = node
@@ -176,7 +180,7 @@ export const findVerticalDropTarget = ({
       continue
     }
 
-    // 插到它前/后：中心在节点中间 1/3（两侧已在上面按拖进处理）
+    // 插到它前/后：中心在节点入边侧或中间 1/3.
     const centerInRange = centerX >= node.x && centerX <= node.x + nodeWidth
     if (!centerInRange) continue
     if (ratio > edgeRatio || (ratio === edgeRatio && distance < edgeDistance)) {

@@ -280,18 +280,37 @@ describe('findVerticalDropTarget', () => {
     expect(hit.inside).toBe(false)
   })
 
-  it('中心落在节点左 1/3 带内也算拖进（左右皆可）', () => {
-    // 中心 x = 30，节点宽 216，左 1/3 边界 72
+  it('中心落在入边侧 1/3 时不算拖进，走兄弟命中', () => {
+    // 中心 x = 30，节点宽 216，左 1/3 边界 72；right 布局下左侧是入边方向
     const hit = findVerticalDropTarget({ nodes, rect: shadow(0, 40, -78), nodeWidth })
     expect(hit.node.id).toBe('A')
-    expect(hit.inside).toBe(true)
+    expect(hit.inside).toBe(false)
   })
 
-  it('中心落在节点右 1/3 带内（仍在节点内）也算拖进', () => {
+  it('中心落在出边侧 1/3 带内（仍在节点内）算拖进', () => {
     // 中心 x = 180，右 1/3 起点 144
     const hit = findVerticalDropTarget({ nodes, rect: shadow(0, 40, 72), nodeWidth })
     expect(hit.node.id).toBe('A')
     expect(hit.inside).toBe(true)
+  })
+
+  it('left 布局时出边侧 1/3 在左边', () => {
+    const leftNodes = [{ id: 'L', x: 0, y: 0, height: 40 }]
+    const onLeft = findVerticalDropTarget({
+      nodes: leftNodes,
+      rect: shadow(0, 40, -78),
+      nodeWidth,
+      direction: 'left'
+    })
+    expect(onLeft.inside).toBe(true)
+
+    const onRight = findVerticalDropTarget({
+      nodes: leftNodes,
+      rect: shadow(0, 40, 72),
+      nodeWidth,
+      direction: 'left'
+    })
+    expect(onRight.inside).toBe(false)
   })
 
   it('中心落在中间 1/3 时算兄弟命中', () => {
