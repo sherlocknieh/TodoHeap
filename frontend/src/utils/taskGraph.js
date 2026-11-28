@@ -26,6 +26,16 @@ export const collectDescendantIds = (items, rootId) => {
   return descendants
 }
 
+// 完成任务树时要写入的任务: 任务本身 + 全部后代里仍未完成的;
+// 已完成的保留原完成时间, 借 visited 防环, 多父任务只出现一次
+export const collectIncompleteTreeIds = (items, rootId) => {
+  const byId = new Map(items.map((item) => [item.id, item]))
+  if (!byId.has(rootId)) return []
+
+  return [rootId, ...collectDescendantIds(items, rootId)]
+    .filter((id) => !byId.get(id)?.completed_at)
+}
+
 // 反向查找直接父节点; 一个任务可以有多个父节点
 export const findParentIds = (items, childId) => items
   .filter((item) => childIdsOf(item).includes(childId))

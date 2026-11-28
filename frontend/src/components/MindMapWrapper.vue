@@ -402,7 +402,7 @@ const props = defineProps({
   focusTaskId: { type: String, default: null }
 })
 
-const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'delete-tasks', 'toggle-done', 'set-deadline', 'drop-task', 'unlink-task', 'notify', 'background-click'])
+const emit = defineEmits(['task-selected', 'create-task', 'rename-task', 'delete-task', 'delete-tasks', 'toggle-done', 'complete-tree', 'set-deadline', 'drop-task', 'unlink-task', 'notify', 'background-click'])
 
 const nodeWidth = NODE_WIDTH
 const fontSize = 13
@@ -428,8 +428,8 @@ const moreSize = 16
 const moreGap = 4
 const moreReserve = moreSize + moreGap * 2
 // 更多操作菜单的宽度与估算高度：贴住画布右/下边缘时据此翻到左侧或向上夹紧
-const menuWidth = 168
-const menuHeight = 140
+const menuWidth = 184
+const menuHeight = 172
 
 const container = ref(null)
 const size = reactive({ width: 0, height: 0 })
@@ -1335,6 +1335,7 @@ const menuBatch = ref(false)
 
 // 菜单项全部复用已有能力，右侧标注对应快捷键，方便用户之后直接用键盘
 const MENU_ITEMS = [
+  { key: 'complete-tree', label: '完成任务及全部子任务', hint: '', icon: 'tree' },
   { key: 'date', label: '设置日期', hint: '', icon: 'calendar' },
   { key: 'child', label: '新建子任务', hint: 'Tab', icon: 'plus' },
   { key: 'copy', label: '复制节点树', hint: 'Ctrl+C', icon: 'copy' },
@@ -1418,7 +1419,8 @@ const runMenuAction = (key) => {
     return
   }
   if (id == null) return
-  if (key === 'date' && node) openMenuDatePicker(node, pos)
+  if (key === 'complete-tree') emit('complete-tree', Number(id))
+  else if (key === 'date' && node) openMenuDatePicker(node, pos)
   else if (key === 'child') createChild(id)
   else if (key === 'copy') copySubtreeAsMarkdown(id)
   else if (key === 'delete') emitDelete(id)

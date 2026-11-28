@@ -4,7 +4,8 @@
 		<MindMapWrapper :nodes="mindMapNodes" :selected-task-id="props.selectedTaskId" :edit-task-id="editTaskId"
 			:new-edge="newEdge" :focus-task-id="focusTaskId"
 			@task-selected="id => emit('task-selected', id)" @create-task="createTask" @rename-task="renameTask"
-			@delete-task="deleteTask" @delete-tasks="deleteTasks" @toggle-done="toggleDone" @set-deadline="setDeadline"
+			@delete-task="deleteTask" @delete-tasks="deleteTasks" @toggle-done="toggleDone"
+			@complete-tree="completeTaskTree" @set-deadline="setDeadline"
 			@drop-task="dropTask" @unlink-task="unlinkTask"
 			@notify="payload => emit('notify', payload)" @background-click="emit('background-click')" />
 	</div>
@@ -199,6 +200,24 @@ const toggleDone = async (id) => {
 	emit('notify', {
 		message: previousCompletedAt ? `已恢复「${title}」` : `已完成「${title}」`,
 		undo: () => todoStore.updateTodo(id, { completed_at: previousCompletedAt })
+	})
+}
+
+// 完成任务及全部子任务：整棵子树一起完成，提示里可整批撤销
+const completeTaskTree = async (id) => {
+	const title = todoStore.findTodoById(id)?.title || '任务'
+	const result = await todoStore.completeTodoTree(id)
+	if (!result.success) {
+		if (result.error) emit('notify', { message: result.error })
+		return
+	}
+
+	const ids = result.data?.ids || []
+	if (!ids.length) return
+
+	emit('notify', {
+		message: ids.length === 1 && ids[0] === id ? `已完成「${title}」` : `已完成「${title}」及其子任务`,
+		undo: () => Promise.all(ids.map(taskId => todoStore.updateTodo(taskId, { completed_at: null })))
 	})
 }
 

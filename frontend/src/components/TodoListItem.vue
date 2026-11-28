@@ -98,13 +98,20 @@
                 <AppIcon name="moreVertical" :size="14" />
               </button>
               <div v-if="showMoreMenuId === item.id"
-                class="absolute right-0 top-full mt-1 w-40 panel shadow-lg z-30 py-1 overflow-hidden" ref="moreMenuRef">
+                class="absolute right-0 top-full mt-1 w-48 panel shadow-lg z-30 py-1 overflow-hidden" ref="moreMenuRef">
                 <!-- 「标记完成」：勾选任务，行随完成状态移出待办区 -->
                 <button
                   class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
                   @click.stop="cycleStatus(item); closeMoreMenu()">
                   <AppIcon name="check" :size="13" />
                   <span>标记完成</span>
+                </button>
+                <!-- 「完成任务及全部子任务」：整棵子树一起完成，已完成的保留原完成时间 -->
+                <button
+                  class="w-full px-2.5 py-1.5 flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-accent-50 dark:hover:bg-accent-500/10 transition-colors"
+                  @click.stop="emitCompleteTree(item); closeMoreMenu()">
+                  <AppIcon name="tree" :size="13" />
+                  <span class="whitespace-nowrap">完成任务及全部子任务</span>
                 </button>
                 <!-- 「节点视图」：切到任务图，节点居中并 100% 缩放 -->
                 <button
@@ -172,6 +179,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'toggle-done',
+  'complete-tree',
   'delete-todo',
   'add-subtask',
   'edit-subtask',
@@ -183,6 +191,8 @@ const emit = defineEmits([
 ])
 
 const emitToggleDone = (item) => emit('toggle-done', { ...item, id: selectableIdOf(item) })
+// 完成整棵子树的入口: 与勾选圈一样落到真实任务 ID, 父级由 store 沿 child_ids 展开
+const emitCompleteTree = (item) => emit('complete-tree', selectableIdOf(item))
 const emitDeleteTodo = (id) => emit('delete-todo', id)
 // 选中与写操作共用真实任务 ID：回边行指向被引用的任务
 const selectableIdOf = (item) => (item._isRef ? item._refTargetId : item.id)

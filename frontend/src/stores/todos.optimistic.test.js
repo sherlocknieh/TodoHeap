@@ -629,4 +629,35 @@ describe('createTodoOptimisticActions', () => {
     expect(result.success).toBe(false)
     expect(todosRef.value[0].child_ids).toEqual([5])
   })
+
+  it('completeTodoTree 只完成未完成的整棵子树并返回可撤销 ID', async () => {
+    todosRef.value = [
+      { id: 1, title: '父', child_ids: [2, 3], completed_at: null },
+      { id: 2, title: '已完成子任务', child_ids: [4], completed_at: '2026-11-01T00:00:00.000Z' },
+      { id: 3, title: '子', child_ids: [], completed_at: null },
+      { id: 4, title: '孙', child_ids: [], completed_at: null }
+    ]
+
+    const result = await actions.completeTodoTree(1)
+
+    expect(result.success).toBe(true)
+    expect(result.data.ids).toEqual([1, 4, 3])
+    expect(todosRef.value.find(todo => todo.id === 2).completed_at).toBe('2026-11-01T00:00:00.000Z')
+    expect(todosRef.value.find(todo => todo.id === 1).completed_at).toBeTruthy()
+    expect(todosRef.value.find(todo => todo.id === 4).completed_at).toBe(todosRef.value.find(todo => todo.id === 1).completed_at)
+    expect(syncQueue.enqueue).toHaveBeenCalledTimes(3)
+  })
+
+  it('completeTodoTree 整棵树都已完成时不写入', async () => {
+    todosRef.value = [
+      { id: 1, child_ids: [2], completed_at: '2026-11-01T00:00:00.000Z' },
+      { id: 2, child_ids: [], completed_at: '2026-11-02T00:00:00.000Z' }
+    ]
+
+    const result = await actions.completeTodoTree(1)
+
+    expect(result.success).toBe(true)
+    expect(result.data.ids).toEqual([])
+    expect(syncQueue.enqueue).not.toHaveBeenCalled()
+  })
 })

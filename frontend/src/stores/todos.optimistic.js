@@ -1,6 +1,6 @@
 // Todo 乐观更新与级联操作
 import { v4 as uuidv4 } from 'uuid'
-import { collectCascadeIds, collectDescendantIds, findParentIds } from '@/utils/taskGraph'
+import { collectCascadeIds, collectDescendantIds, collectIncompleteTreeIds, findParentIds } from '@/utils/taskGraph'
 
 export const createTodoOptimisticActions = ({
   todosRef,
@@ -233,6 +233,23 @@ export const createTodoOptimisticActions = ({
     return updateTodo(id, {
       completed_at: todo.completed_at ? null : new Date().toISOString()
     })
+  }
+
+  // 完成任务及全部子任务: 只给未完成的写完成时间, 已完成的保留原值;
+  // 返回真正被改写的 ID, 供提示里的撤销整批恢复; 机制见 docs/src/content/docs/dev/logic/task-complete-tree.md
+  const completeTodoTree = async (id) => {
+    const targetIds = collectIncompleteTreeIds(todosRef.value, getSyncQueue().getRealId(id))
+    if (!targetIds.length) return { success: true, data: { ids: [] } }
+
+    // 同一时刻完成整棵树, 已完成区按天分组时落在同一天
+    const completedAt = new Date().toISOString()
+    const changedIds = []
+    for (const targetId of targetIds) {
+      const result = await updateTodo(targetId, { completed_at: completedAt })
+      if (!result.success) return { success: false, error: result.error, data: { ids: changedIds } }
+      changedIds.push(targetId)
+    }
+    return { success: true, data: { ids: changedIds } }
   }
 
   // 移动任务：调整父关系或同级顺序；手动序号以 child_ids 为准
@@ -626,6 +643,7 @@ export const createTodoOptimisticActions = ({
     addTodo,
     updateTodo,
     toggleDone,
+    completeTodoTree,
     moveTodo,
     unlinkTodo,
     deleteTodo,

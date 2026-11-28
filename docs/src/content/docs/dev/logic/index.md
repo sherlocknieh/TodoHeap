@@ -11,6 +11,7 @@ title: "逻辑文档"
 | --- | --- |
 | [任务创建逻辑](./task-create.md) | 从界面到落库的创建链路、临时 ID 与 `client_key` 幂等、旧库退化 |
 | [任务顺序](./task-order.md) | `child_ids` 顺序来源、各界面新建插入位置、重排链路与整数组重写的成本 |
+| [完成任务树](./task-complete-tree.md) | 沿 `child_ids` 收集整棵子树、只写未完成的项、统一完成时刻与整批撤销 |
 | [侧栏开合与窗口宽度](./layout-sidebar.md) | 宽屏偏好与窄屏抽屉两套状态、resize 只关抽屉 |
 | [详情右栏与任务图布局](./layout-detail-panel.md) | 任务图下右栏浮层、宽度共享、视图控件与导图视野如何避让、为什么不用 Teleport |
 | [节点文字折行与节点高度](./mindmap-text-wrap.md) | 任务图节点文字的折行规则、像素量宽、编辑态撑高 |

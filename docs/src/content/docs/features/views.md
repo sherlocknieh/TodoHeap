@@ -29,7 +29,7 @@ title: "视图与交互"
 ### 节点
 
 - 悬停是半透明绿色描边，选中是同色实线加淡绿底，两者同为 2px，只差透明度。
-- 节点右侧常驻竖三点按钮（根节点没有），悬停只把图标加深、打开菜单时转绿；右键节点直接唤出菜单。菜单含设置日期、新建子任务、复制节点树、删除任务，靠近边缘自动翻转；「设置日期」把日期面板挂到菜单原位置展开，有截止时带出当前值（`MENU_ITEMS`、`openNodeMenuAt`、`openMenuDatePicker`）。
+- 节点右侧常驻竖三点按钮（根节点没有），悬停只把图标加深、打开菜单时转绿；右键节点直接唤出菜单。菜单含完成任务及全部子任务、设置日期、新建子任务、复制节点树、删除任务，靠近边缘自动翻转；「设置日期」把日期面板挂到菜单原位置展开，有截止时带出当前值（`MENU_ITEMS`、`openNodeMenuAt`、`openMenuDatePicker`）。
 - 节点支持多选：Ctrl/⌘ 切换、Shift 以上一个选中节点为锚点连选同父兄弟（累加选择，跨父级只追加点击节点）、Ctrl/⌘ + 拖拽画矩形框选（边画边选，碰到即追加）；多选后在任一选中节点上右键，菜单换成「复制选中节点 / 删除选中任务」，Delete 与 Ctrl+C 也作用于整批（批量复制只复制选中节点本身，不含子节点）。多选与详情面板的单选相互独立，机制见[任务图节点多选](../dev/logic/graph-multi-select.md)。
 - 未完成任务的勾选框描边按紧急度着色：一天内（含逾期）红、三天内橙、一周内黄，一周以外与无截止日期沿用中性灰；已完成仍是绿色实心勾。节点右区（三点按钮左侧）显示与任务行同款的截止胶囊：有截止就显示，文案沿用「今天 / 明天 / 3天后 / M月D日」，配色按剩余天数分级（逾期红、3 天内橙、7 天内黄、更远用蓝色）；点胶囊展开日期面板；悬停时左侧的时钟图标原地换成 ×，点击直接清除，面板里不再有「清除」。胶囊比列表里的略小（10px 字号、20px 高），宽度按文案量出，节点正文据此让位。节点更多菜单不再显示截止信息；根节点没有勾选框，也不显示胶囊（`deadlineChipClass`、`chipChrome`、`chipTextWidth`、`applyNodeDeadline`；节点数据由 `TodoGraph.vue` 的 `mapNode` 透传 `deadline`，写回走 `set-deadline`）。
 - 出边一侧有圆形控件：有子任务时是折叠开关，叶子节点在指针接近时显示加号；按钮中心就是连线起点（`controlPointFor`、`updateLeafControlHover`、`LEAF_CONTROL_REVEAL`）。
@@ -73,7 +73,7 @@ title: "视图与交互"
 - 子任务按层级画树状连线：每层一条竖线，祖先层仍有后续兄弟时竖线贯穿整行，末位兄弟在行中心收成 └ 角并横接到卡片左缘；折叠或完成后连线随可见行重算（`visibleRows`、`guideLeft`、`itemGuideStyle`、`elbowStyle`，机制见[任务表树状连线](../dev/logic/task-list-tree-lines.md)）。
 - 折叠开关收在卡片内、占据勾选圈的位置，圆心距卡片左缘 18px，正好与下一层竖线对齐，不再露在卡片外面；顶层行没有连线，圆钮仍按同一列对齐。已完成区使用同款卡片与圆形勾选（`TodoListItem.vue`、`TodoList.vue`、`Trash.vue`、`TodoHeap.vue`）。
 - 单选待办任务后可用键盘新建：Tab 建子级（追加到同级末尾）、Enter 建兄弟（落在当前行之后）；焦点在输入框、按钮或菜单里时不抢键，多选与已完成行不触发。新建前会展开目标父级（折叠时新行本来就不可见），新任务自动选中并进入行内编辑（`TodoList.vue` `handleListKeydown`、`addSubtask`、`createSibling`、`pendingEdit`；`TodoListItem.vue` `editRequest`）。
-- 行内竖三点「更多」菜单依次是「节点视图 / 添加子任务 / 删除任务」；「节点视图」先选中该任务，再带 `focus` 查询切到任务图并居中到 100%（`TodoListItem.vue` `emitJumpToGraph`、`TodoList.vue` `handleJumpToGraph`、`Todo.vue` `jumpToGraph`）。
+- 行内竖三点「更多」菜单依次是「标记完成 / 完成任务及全部子任务 / 节点视图 / 添加子任务 / 取消链接 / 删除任务」；「完成任务及全部子任务」沿 `child_ids` 把任务与全部后代中未完成的项一起完成，已完成的保留原完成时间，见[完成任务树](../dev/logic/task-complete-tree.md)；「节点视图」先选中该任务，再带 `focus` 查询切到任务图并居中到 100%（`TodoListItem.vue` `emitJumpToGraph`、`emitCompleteTree`、`TodoList.vue` `handleJumpToGraph`、`completeTaskTree`、`Todo.vue` `jumpToGraph`）。
 - 「待办」标题栏右侧放整表操作：日期筛选按钮（只看带截止时间的任务，开启后整表变成按截止时间升/降序的无层级平铺列表）、升/降序箭头（筛选关闭时禁用），以及全部展开/折叠圆圈按钮（与任务行开关同尺寸；显示 + 表示当前全部收起、− 表示全部展开），一次作用于整张列表（`dateOnly`、`dateOrder`、`flattenTasksByDeadline`、`foldableTasks`、`allCollapsed`、`toggleAllCollapsed`）。
 - 平铺筛选期间关闭层级写入：菜单「添加子任务」置灰，Tab/Enter 新建与拖拽都不响应（`TodoListItem.vue` 的 `disableAddSubtask`、`disableDrag`，`TodoList.vue` `handleListKeydown`），避免在看不到层级时改动父子关系与手动顺序。
 

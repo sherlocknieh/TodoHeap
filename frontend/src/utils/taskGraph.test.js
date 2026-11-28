@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTaskForest, collectCascadeIds, collectDescendantIds, filterTasksByTitle, findDeleteFocusId, withoutStaleTempChildIds } from './taskGraph'
+import { buildTaskForest, collectCascadeIds, collectDescendantIds, collectIncompleteTreeIds, filterTasksByTitle, findDeleteFocusId, withoutStaleTempChildIds } from './taskGraph'
 
 const sortFn = (a, b) => a.id - b.id
 const mapItem = (item) => ({ id: item.id, title: item.title })
@@ -167,6 +167,33 @@ describe('collectDescendantIds', () => {
     ], 1)
 
     expect(ids.sort()).toEqual([2, 3])
+  })
+})
+
+describe('collectIncompleteTreeIds', () => {
+  it('返回任务本身与未完成的后代，已完成的保留原时间', () => {
+    const ids = collectIncompleteTreeIds([
+      { id: 1, child_ids: [2, 3] },
+      { id: 2, child_ids: [4], completed_at: '2026-11-01T00:00:00.000Z' },
+      { id: 3, child_ids: [] },
+      { id: 4, child_ids: [] }
+    ], 1)
+
+    expect(ids).toEqual([1, 4, 3])
+  })
+
+  it('多父任务只出现一次，环内终止', () => {
+    const ids = collectIncompleteTreeIds([
+      { id: 1, child_ids: [2] },
+      { id: 2, child_ids: [3] },
+      { id: 3, child_ids: [1] }
+    ], 1)
+
+    expect(ids).toEqual([1, 2, 3])
+  })
+
+  it('任务不存在时返回空数组', () => {
+    expect(collectIncompleteTreeIds([{ id: 1, child_ids: [] }], 9)).toEqual([])
   })
 })
 

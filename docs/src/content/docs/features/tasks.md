@@ -5,6 +5,15 @@ title: "任务与层级"
 
 本页说明任务本体相关的当前实现：创建、编辑、完成、层级与回收站。使用方法见[任务管理](../user/task-management.md)。
 
+## 完成任务及全部子任务（2026-11-28）
+
+- 需求：任务列表行菜单与任务图节点菜单都提供「完成任务及全部子任务」，一次收掉整棵子树，避免逐条勾选。
+- 范围：任务本身与沿 `child_ids` 可达的全部后代；多父任务只处理一次，环内终止。
+- 完成时间：只给未完成的任务写同一个 `completed_at`，已完成的保留原时间；任务本身已完成时不再改动它。
+- 撤销：提示里可整批撤销，把这次改过的任务恢复为未完成。
+- 实现：`utils/taskGraph.js` `collectIncompleteTreeIds`；`stores/todos.optimistic.js` `completeTodoTree`；`components/TodoListItem.vue` 与 `components/MindMapWrapper.vue` 提供菜单入口；页面处理在 `pages/todo/TodoList.vue`、`pages/todo/TodoGraph.vue` 的 `completeTaskTree`。机制见[完成任务树](../dev/logic/task-complete-tree.md)。
+- 验证：`utils/taskGraph.test.js` 覆盖跳过已完成、环与多父、任务不存在。
+
 ## 添加栏兼任搜索（2026-11-21）
 
 - 需求：任务添加框复用为搜索框，由左侧圆钮切换模式，避免再造一个搜索框。
