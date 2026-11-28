@@ -237,6 +237,65 @@ const revealNewLink = (parentId, childId) => {
 	newEdge.value = { parentId, childId }
 }
 
+// 空隙落点：把任务插到父级子级列表的锚点前/后。
+// 已在父级下时只重排；单父任务移动过去；多父任务沿用「拖进节点只建链接」的规则。
+const insertIntoParent = async ({ parentId, childId, insertBeforeId, insertAfterId, sourceParentId }) => {
+	const parent = todoStore.findTodoById(parentId)
+	const child = todoStore.findTodoById(childId)
+	const anchorId = insertBeforeId ?? insertAfterId
+	if (!parent || !child || anchorId == null) return
+	const position = insertBeforeId != null ? 'before' : 'after'
+	const parentIds = findParentIds(todoStore.todos, childId)
+
+	// 已挂在该父级下：按锚点重排即可
+	if (parentIds.includes(parentId)) {
+		const result = await todoStore.moveTodo(childId, {
+			targetId: anchorId,
+			position,
+			sourceParentId: parent.id,
+			targetParentId: parent.id
+		})
+		if (!result.success && result.error) emit('notify', { message: result.error })
+		return
+	}
+
+	// 多父任务：只追加一条链接，链接插到锚点位置
+	if (parentIds.length > 1) {
+		const childTitle = child.title || '任务'
+		const parentTitle = parent.title || '任务'
+		const targetChildIds = [...(parent.child_ids || [])]
+		const anchorIndex = targetChildIds.indexOf(anchorId)
+		const nextChildIds = [...targetChildIds]
+		const at = anchorIndex === -1 ? nextChildIds.length : anchorIndex + (position === 'after' ? 1 : 0)
+		nextChildIds.splice(at, 0, childId)
+		const result = await todoStore.updateTodo(parentId, { child_ids: nextChildIds })
+		if (!result.success) {
+			if (result.error) emit('notify', { message: result.error })
+			return
+		}
+
+		revealNewLink(parentId, childId)
+		emit('notify', {
+			message: `已将「${childTitle}」链接到「${parentTitle}」`,
+			action: {
+				label: '改为移动（断开旧连接）',
+				run: () => unlinkOtherParents({ childId, parentId })
+			},
+			undo: () => todoStore.updateTodo(parentId, { child_ids: targetChildIds })
+		})
+		return
+	}
+
+	// 单父任务：移动到目标父级的锚点位置
+	const result = await todoStore.moveTodo(childId, {
+		targetId: anchorId,
+		position,
+		sourceParentId,
+		targetParentId: parentId
+	})
+	if (!result.success && result.error) emit('notify', { message: result.error })
+}
+
 // 拖拽落点：拖节点本体时，上/下四分之一插到目标兄弟前后，中间成为子任务；
 // 插序使用树展开时记录的父级，多父任务落在首个父链下。从折叠/加号按钮拉出的拖拽只建立链接。
 // 拖节点成子任务时，子任务只有一个父级就移动、多个父级就新增链接。
@@ -247,7 +306,9 @@ const dropTask = async ({
 	position = 'inside',
 	sourceParentId = null,
 	targetParentId = null,
-	linkOnly = false
+	linkOnly = false,
+	insertBeforeId = null,
+	insertAfterId = null
 }) => {
 	if (parentId === childId) return
 	const parent = todoStore.findTodoById(parentId)
@@ -257,6 +318,12 @@ const dropTask = async ({
 	// 父任务已在子任务的子树里时再挂过去会成环
 	if (collectDescendantIds(todoStore.todos, childId).includes(parentId)) {
 		emit('notify', { message: '不能移动到自己的子任务下' })
+		return
+	}
+
+	// 拖到子级列空隙命中父节点：按锚点插入到父级子级列表
+	if (!linkOnly && (insertBeforeId != null || insertAfterId != null)) {
+		await insertIntoParent({ parentId, childId, insertBeforeId, insertAfterId, sourceParentId })
 		return
 	}
 

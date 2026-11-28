@@ -59,6 +59,11 @@
           class="stroke-accent-600 dark:stroke-accent-400" stroke-width="2.4"
           stroke-linecap="round" marker-end="url(#mm-arrow)" />
 
+        <!-- [拖到子节点之间]：空隙命中父节点时，从父节点连到虚节点的虚线，预览插入后的链接 -->
+        <path v-if="dropPreviewLink" :d="dropPreviewLink" fill="none"
+          class="stroke-accent-600 dark:stroke-accent-400" stroke-width="1.8" stroke-dasharray="6 4"
+          stroke-linecap="round" marker-end="url(#mm-arrow)" />
+
         <!-- 节点 -->
         <g v-for="node in renderNodes" :key="node.renderKey || node.id" :transform="`translate(${node.x} ${node.y})`"
           :opacity="nodeOpacity(node)" :data-mm-node="node.id"
@@ -197,7 +202,7 @@
           </g>
         </g>
 
-        <!-- 排序占位槽：拖到目标节点上下四分之一时，在兄弟序列里插入一条空位，兄弟节点真实让开 -->
+        <!-- 占位槽：排序时在兄弟序列里插入一条空位，空隙命中父节点时按被拖节点高度插入虚节点，兄弟节点真实让开 -->
         <g v-if="dropPlaceholderNode"
           :transform="`translate(${dropPlaceholderNode.x} ${dropPlaceholderNode.y})`"
           class="pointer-events-none">
@@ -373,6 +378,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { revealView } from '@/utils/mindmapView'
+import { findChildGapTarget } from '@/utils/mindmapDrag'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
@@ -793,8 +799,9 @@ const wrapLines = (text, maxWidth, limit = maxLines) => {
 // 编辑中的节点按输入内容实时撑高、不做行数截断：节点框与输入框同步长高，布局跟着重排，
 // 长标题不会挤成内部滚动条；编辑结束后再回到常规的截断显示
 const measureNode = (raw) => {
-  // 占位槽不显示文字与控件，只按固定高度参与布局，给被拖节点腾出等宽空位
+  // 占位槽不显示文字与控件，按自身高度参与布局：排序槽用固定高度，空隙虚节点用被拖节点高度
   if (raw.isPlaceholder) {
+    const height = raw.height ?? dropPlaceholderHeight
     return {
       ...raw,
       lines: [],
@@ -804,8 +811,8 @@ const measureNode = (raw) => {
       textX: paddingX,
       textWidth: 0,
       controlX: nodeWidth,
-      controlY: dropPlaceholderHeight / 2,
-      height: dropPlaceholderHeight,
+      controlY: height / 2,
+      height,
       selected: false
     }
   }
@@ -1027,6 +1034,10 @@ const dragState = reactive({
   preview: null,
   shadow: null,
   grab: { x: 0, y: 0 },
+  // 空隙命中父节点时的插入槽位：beforeId/afterId 是父级下的直接子级锚点
+  childBand: null,
+  // 虚节点占位高度与被拖节点一致，预览插入后的真实占地
+  sourceHeight: 0,
   moved: false,
   fromToggle: false
 })
@@ -1040,16 +1051,55 @@ let lastMarqueeEndAt = 0
 const DROP_PLACEHOLDER_ID = '__drop-placeholder__'
 const dropPlaceholderHeight = 20
 
+const createDropPlaceholder = (height) => ({
+  id: DROP_PLACEHOLDER_ID,
+  title: '',
+  isPlaceholder: true,
+  height,
+  children: []
+})
+
+// 空隙命中父节点：虚节点按被拖节点高度插到父级子级列表的槽位，兄弟节点真实让位
+const insertChildGapPlaceholder = (forest, band) => {
+  const parentId = String(band.parentId)
+  const placeholder = createDropPlaceholder(dragState.sourceHeight)
+  let inserted = false
+
+  const walk = (nodes) => {
+    let changed = false
+    const next = nodes.map((node) => {
+      if (inserted || node.isRef) return node
+      if (String(node.id) === parentId) {
+        inserted = true
+        changed = true
+        const children = [...(node.children || [])]
+        const anchorId = band.beforeId ?? band.afterId
+        const anchorIndex = children.findIndex((child) => !child.isRef && String(child.id) === String(anchorId))
+        const at = anchorIndex === -1
+          ? children.length
+          : anchorIndex + (band.beforeId != null ? 0 : 1)
+        children.splice(at, 0, placeholder)
+        return { ...node, children }
+      }
+      const children = node.children || []
+      if (!children.length) return node
+      const nextChildren = walk(children)
+      if (nextChildren === children) return node
+      changed = true
+      return { ...node, children: nextChildren }
+    })
+    return changed ? next : nodes
+  }
+
+  return walk(forest || [])
+}
+
 const insertDropPlaceholder = (forest) => {
   if (!dragState.active || !dragState.moved || dragState.fromToggle) return forest
+  if (dragState.childBand) return insertChildGapPlaceholder(forest, dragState.childBand)
   if (!dragState.targetId || dragState.dropPosition === 'inside') return forest
 
-  const placeholder = {
-    id: DROP_PLACEHOLDER_ID,
-    title: '',
-    isPlaceholder: true,
-    children: []
-  }
+  const placeholder = createDropPlaceholder(dropPlaceholderHeight)
   let inserted = false
 
   const walk = (nodes) => {
@@ -1136,6 +1186,16 @@ const layout = computed(() => computeGraphLayout(dropPreviewForest.value))
 const renderNodes = computed(() => layout.value.nodes.filter((node) => !node.isPlaceholder))
 const dropPlaceholderNode = computed(() =>
   layout.value.nodes.find((node) => node.isPlaceholder) ?? null)
+
+// 空隙命中父节点时画虚线预览：从父节点到虚节点，曲线规则与正式连线一致
+const dropPreviewLink = computed(() => {
+  const band = dragState.childBand
+  if (!band) return null
+  const placeholder = dropPlaceholderNode.value
+  if (!placeholder) return null
+  const parent = layout.value.nodes.find((node) => String(node.id) === String(band.parentId))
+  return parent ? createEdge(parent, placeholder, 'drop-preview').d : null
+})
 
 let hasInteracted = false
 
@@ -2412,6 +2472,8 @@ const startDrag = (event, sourceId, fromToggle) => {
   dragState.dropPosition = 'inside'
   dragState.preview = null
   dragState.shadow = null
+  dragState.childBand = null
+  dragState.sourceHeight = source?.height ?? 0
   dragState.moved = false
   dragState.fromToggle = fromToggle
   // 不用 pointer capture：它会把 click 改派到画布，节点自身的选中与双击会失效
@@ -2456,8 +2518,27 @@ const updateDrag = (event) => {
   }
 
   const hit = linkTargetAtRect(hitRect)
-  dragState.targetId = hit ? hit.id : null
-  dragState.dropPosition = hit ? dropPositionAt(hit, point) : 'inside'
+  if (hit) {
+    // 影子碰到节点：保持现有优先级，直接命中该节点
+    dragState.childBand = null
+    dragState.targetId = hit.id
+    dragState.dropPosition = dropPositionAt(hit, point)
+    return
+  }
+
+  // 影子没碰到任何节点：父级子级列里的空白也算父级落点，接近首/末子级才触发
+  const band = dragState.fromToggle
+    ? null
+    : findChildGapTarget({
+      nodes: hitLayout.value.nodes,
+      rect: hitRect,
+      nodeWidth,
+      sourceId: dragState.sourceId,
+      padding: linkHitPadding()
+    })
+  dragState.childBand = band
+  dragState.targetId = band ? band.parentId : null
+  dragState.dropPosition = 'inside'
 }
 
 const onDragMove = (event) => {
@@ -2475,7 +2556,7 @@ const onDragEnd = (event) => {
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
 
-  const { active, sourceId, targetId, dropPosition, moved, fromToggle } = dragState
+  const { active, sourceId, targetId, dropPosition, moved, fromToggle, childBand } = dragState
   const dragged = active && moved
   dragState.active = false
   dragState.sourceId = null
@@ -2483,6 +2564,7 @@ const onDragEnd = (event) => {
   dragState.dropPosition = 'inside'
   dragState.preview = null
   dragState.shadow = null
+  dragState.childBand = null
   dragState.moved = false
   dragState.fromToggle = false
   draggingLeafId.value = null
@@ -2497,6 +2579,22 @@ const onDragEnd = (event) => {
   // 带出两侧父级，前后插序才能落在用户看到的那条兄弟序列里
   const source = layout.value.nodes.find((node) => node.id === sourceId)
   const target = layout.value.nodes.find((node) => node.id === targetId)
+
+  // 空隙命中父节点：按槽位插入到父级子级列表；锚点就是源节点时位置未变，不必提交
+  if (childBand) {
+    const anchorId = childBand.beforeId ?? childBand.afterId
+    if (anchorId == null || String(anchorId) === String(sourceId)) return
+    emit('drop-task', {
+      parentId: Number(childBand.parentId),
+      childId: Number(sourceId),
+      position: 'inside',
+      insertBeforeId: childBand.beforeId != null ? Number(childBand.beforeId) : null,
+      insertAfterId: childBand.afterId != null ? Number(childBand.afterId) : null,
+      sourceParentId: source?.parent_id ?? null
+    })
+    return
+  }
+
   emit('drop-task', fromToggle
     ? { parentId: Number(sourceId), childId: Number(targetId), linkOnly: true }
     : {
