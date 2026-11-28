@@ -702,7 +702,7 @@ const runToastAction = async () => {
 				</header>
 
 				<!-- 清单内容 -->
-				<div ref="mainScrollRef" class="flex-1 min-h-0" :class="['graph', 'ai'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
+				<div ref="mainScrollRef" class="flex-1 min-h-0" :class="['graph', 'ai', 'list'].includes(activeView) ? 'overflow-hidden' : 'overflow-auto'"
 					@scroll.passive="saveMainScroll" @click="onMainAreaClick">
 					<div v-if="showViewLoading" class="flex items-center justify-center h-96 meta-text">
 						<span class="inline-flex items-center gap-2">
@@ -719,7 +719,9 @@ const runToastAction = async () => {
 									? 'mx-auto flex h-full max-w-3xl w-full flex-col px-8 pt-4 pb-6'
 									: activeView === 'schedule'
 										? 'mx-auto max-w-3xl w-full px-8 pt-4 pb-6'
-										: 'mx-auto max-w-3xl w-full px-8 pb-6'">
+										: activeView === 'list'
+											? 'mx-auto flex h-full max-w-3xl w-full flex-col px-8 pb-6'
+											: 'mx-auto max-w-3xl w-full px-8 pb-6'">
 							<router-view v-slot="{ Component }">
 								<component :is="Component" v-bind="viewProps" :selected-task-id="selectedTaskId"
 									@task-selected="handleTaskSelected" @jump-to-graph="jumpToGraph"

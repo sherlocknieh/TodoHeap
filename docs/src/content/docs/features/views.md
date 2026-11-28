@@ -69,7 +69,9 @@ title: "视图与交互"
 
 ## 任务表
 
-- 「待办」「已完成」分组标题按侧栏多栏折叠的思路常驻顶部：两个标题直接挂在列表的同一个父容器下（sticky 的父级要覆盖全部列表内容），「待办」用 `sticky top-0`、「已完成」用 `sticky top-10`。滚进待办时只有待办标题贴顶；进入已完成时两个标题上下叠放（待办在上，已完成接在它下方 40px），没有待办标题时已完成退回 `top-0`。标题底色为页面同款 `bg-canvas`，挡住从下方滚过的任务行（`TodoList.vue`「分组标题固顶」）。
+- 「待办」「已完成」按侧栏的多栏折叠设计做成两个上下叠放的折叠栏：每个栏是 `flex flex-col overflow-hidden`，标题行 `shrink-0` 常驻栏顶，列表区 `flex-1 min-h-0 overflow-auto` 只在本栏内滚动，页面本身不再整体滚动（`TodoList.vue`「待办折叠栏」「已完成折叠栏」）。
+- 高度分配沿用侧栏规则：待办展开时 `flex-1` 吃掉剩余高度；两栏都展开时已完成固定 192px（`h-48`，与侧栏副分区一致）；待办收起或没有待办时已完成改为 `flex-1`（`completedPaneClass`）。列表页容器在 `Todo.vue` 里切成 `h-full flex flex-col` 并把主滚动区改为 `overflow-hidden`。
+- 两个栏的滚动位置分别记忆（`scroll:list-active` / `scroll:list-completed`），切走再回到列表时各自还原。
 - 行卡片使用 `rounded-lg` 与较轻阴影；选中行沿用侧栏激活样式：绿色浅底、绿色文字、左缘 2px 实线，选中态与普通行共用同一组阴影值，切换时不跳动。
 - 完成状态为圆形勾选圈；未设截止时只显示日历按钮，已设时按剩余天数分级着色：逾期红、3 天内橙、7 天内黄、更远蓝色，与任务图紧急度同一色系（`deadlineChipClass`）。
 - 截止时间入口直接展开自建月历面板：预设今天、明天、一周后与清除都在面板内，支持键盘与快捷时间点，替换了原生 `datetime-local`（`DateTimePicker.vue`，机制见[日期时间选择器](../dev/logic/date-time-picker.md)）。

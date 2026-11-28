@@ -1,6 +1,6 @@
 <template>
-  <div class="text-neutral-900 dark:text-neutral-100" @click.capture="handleRowClickCapture"
-    @mousedown.capture="handleRowMouseDownCapture">
+  <div class="flex h-full min-h-0 flex-col text-neutral-900 dark:text-neutral-100"
+    @click.capture="handleRowClickCapture" @mousedown.capture="handleRowMouseDownCapture">
     <!-- 快速添加 / 搜索：同一个输入框复用，固定在列表底部（Teleport 到 Todo.vue 的「待办底栏」），左侧圆钮切换新建与搜索；min-h 保持两种模式同高 -->
     <Teleport defer to="#main-bottom-bar">
       <!-- 外层内距与列表内容一致，卡片再用 ml-[22px] 与任务行左缘对齐 -->
@@ -80,205 +80,215 @@
       <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">在下方写下第一件事，回车即可添加</p>
     </section>
 
-    <!-- 任务列表：两组共用一个父容器，两个分组标题才能先后固顶并上下叠放 -->
-    <div v-else-if="!loading">
-      <!-- 待办标题：与已完成同款分组标题，收起后只留标题 -->
-      <!-- 「分组标题固顶」：直接挂在共用容器下，sticky 才能跨过本组内容继续贴顶；层级高于已完成标题 -->
-      <div v-if="allCount"
-        class="sticky top-0 z-20 mt-5 flex items-center gap-1 border-t border-hairline bg-canvas pt-2 pb-1 dark:border-hairline-dark dark:bg-canvas-dark">
-        <button type="button"
-          class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          @click="showActivePanel = !showActivePanel">
-          <AppIcon :name="showActivePanel ? 'chevronDown' : 'chevronRight'" :size="13" />
-          <span>待办</span>
-          <span
-            class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ visibleCount }}</span>
-        </button>
-        <!-- 「待办/已完成标题栏的多选操作」：有选中时换成该区的选中操作，否则显示排序方式 + 全部展开/折叠 -->
-        <div class="ml-auto flex items-center gap-1.5">
-          <template v-if="activeSelectionCount">
+    <!-- 任务列表：两个折叠栏，像侧栏分区一样标题常驻、只有各栏内容滚动 -->
+    <div v-else-if="!loading" class="flex min-h-0 flex-1 flex-col">
+      <!-- 待办折叠栏：展开时吃掉剩余高度，收起只留标题行 -->
+      <div v-if="allCount" class="mt-5 flex min-h-0 flex-col overflow-hidden"
+        :class="showActivePanel ? 'flex-1' : 'shrink-0'">
+        <!-- 「分组标题固顶」：标题常驻栏顶，下面列表在本栏内滚动 -->
+        <div class="flex shrink-0 items-center gap-1 border-t border-hairline bg-canvas pt-2 pb-1 dark:border-hairline-dark dark:bg-canvas-dark">
+          <button type="button"
+            class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            @click="showActivePanel = !showActivePanel">
+            <AppIcon :name="showActivePanel ? 'chevronDown' : 'chevronRight'" :size="13" />
+            <span>待办</span>
+            <span
+              class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ visibleCount }}</span>
+          </button>
+          <!-- 「待办/已完成标题栏的多选操作」：有选中时换成该区的选中操作，否则显示排序方式 + 全部展开/折叠 -->
+          <div class="ml-auto flex items-center gap-1.5">
+            <template v-if="activeSelectionCount">
+              <span class="text-[11px] text-neutral-500 dark:text-neutral-400"
+                title="Ctrl/⌘ 继续选择，Shift 连选">已选
+                <span class="font-mono font-medium text-accent-700 dark:text-accent-300">{{ activeSelectionCount }}</span> 项</span>
+              <button type="button"
+                class="grid h-7 w-7 place-items-center rounded-md text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos(activeSelectionKeys)">
+                <AppIcon name="trash" :size="13" />
+              </button>
+              <button type="button"
+                class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                title="取消选择" aria-label="取消选择" @click="removeSelection(activeSelectionKeys)">
+                <AppIcon name="close" :size="13" />
+              </button>
+            </template>
+            <template v-else>
+              <!-- 「筛选」：日期与叶子筛选收在同一个菜单里，可同时开启；旁边的箭头切换按截止时间的升/降序 -->
+              <div ref="filterMenuRef" class="relative">
+                <button type="button"
+                  class="grid h-7 w-7 shrink-0 place-items-center rounded-md border transition-colors"
+                  :class="isFlatFilter
+                    ? 'border-accent-500 bg-accent-50 text-accent-700 dark:border-accent-400/60 dark:bg-accent-500/10 dark:text-accent-200'
+                    : 'border-hairline text-neutral-600 hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300'"
+                  :aria-pressed="isFlatFilter" aria-haspopup="menu" :aria-expanded="showFilterMenu"
+                  title="筛选任务" aria-label="筛选任务" @click="toggleFilterMenu">
+                  <AppIcon name="sliders" :size="13" />
+                </button>
+                <div v-if="showFilterMenu" role="menu"
+                  class="absolute right-0 top-full z-30 mt-1 w-44 panel py-1 overflow-hidden shadow-lg">
+                  <!-- 「只看有日期的任务」：拍平成按截止时间排序的列表，箭头控制方向 -->
+                  <button type="button" role="menuitemcheckbox" :aria-checked="dateOnly"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+                    @click="toggleDateOnly">
+                    <AppIcon name="calendar" :size="13" />
+                    <span class="flex-1">只看有日期的任务</span>
+                    <AppIcon v-if="dateOnly" name="check" :size="12" class="text-accent-600 dark:text-accent-300" />
+                  </button>
+                  <!-- 「只看叶子节点」：没有未完成子任务的任务，子任务全完成的父任务也算叶子 -->
+                  <button type="button" role="menuitemcheckbox" :aria-checked="leafOnly"
+                    class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
+                    @click="toggleLeafOnly">
+                    <AppIcon name="leaf" :size="13" />
+                    <span class="flex-1">只看叶子节点</span>
+                    <AppIcon v-if="leafOnly" name="check" :size="12" class="text-accent-600 dark:text-accent-300" />
+                  </button>
+                </div>
+              </div>
+              <button type="button"
+                class="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-hairline text-neutral-600 transition-colors hover:border-accent-500/60 disabled:opacity-40 disabled:hover:border-hairline dark:border-hairline-dark dark:text-neutral-300 dark:disabled:hover:border-hairline-dark"
+                :disabled="!dateOnly"
+                :title="dateOrder === 'asc' ? '截止时间升序，点击改为降序' : '截止时间降序，点击改为升序'"
+                :aria-label="dateOrder === 'asc' ? '切换为截止时间降序' : '切换为截止时间升序'"
+                @click="toggleDateOrder">
+                <AppIcon :name="dateOrder === 'asc' ? 'chevronUp' : 'chevronDown'" :size="13" />
+              </button>
+              <button v-if="foldableTasks.length && !isSearching" type="button"
+                class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
+                :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+                :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
+                :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
+                <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
+              </button>
+            </template>
+            <!-- 「任务添加按钮」：跳到下方添加栏；搜索态顺便切回新建。绿底白色加粗加号，比同排图标按钮更醒目 -->
+            <button type="button"
+              class="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent-600 text-white transition-colors hover:bg-accent-700 dark:bg-accent-400 dark:text-accent-950 dark:hover:bg-accent-300 [&_svg]:stroke-[2.75]"
+              title="添加任务" aria-label="添加任务" @click="focusAddInput">
+              <AppIcon name="plus" :size="14" />
+            </button>
+          </div>
+        </div>
+
+        <!-- 待办任务列表：本栏内部滚动 -->
+        <div v-if="allCount && showActivePanel" ref="activeScrollRef" class="min-h-0 flex-1 overflow-auto"
+          @scroll.passive="saveActiveScroll">
+          <div class="mt-1.5 space-y-1.5" data-task-section="active">
+            <TodoListItem
+              v-for="node in displayTree"
+              :key="node.client_key || node.id"
+              :node="node"
+              :parent-id="todoStore.rootTaskId"
+              :selected-task-id="props.selectedTaskId"
+              :edit-request="pendingEdit"
+              :selected-keys="selectionKeys"
+              :ignore-collapse="isSearching"
+              :highlight-query="isSearching ? searchQuery.trim() : ''"
+              :disable-add-subtask="isFlatFilter"
+              :disable-drag="isFlatFilter"
+              @toggle-done="toggleDone"
+              @complete-tree="completeTaskTree"
+              @delete-todo="deleteTodo"
+              @add-subtask="addSubtask"
+              @edit-subtask="editSubtask"
+              @task-selected="handleTaskSelected"
+              @jump-to-graph="handleJumpToGraph"
+              @set-deadline="setDeadline"
+              @move-todo="moveTodo"
+              @unlink-task="unlinkTask"
+            />
+            <p v-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+              没有匹配的任务
+            </p>
+            <p v-else-if="isFlatFilter && visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+              {{ emptyFilterText }}
+            </p>
+            <p v-else-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
+              没有进行中的任务，已完成的收在下方
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 「已完成折叠栏」：有已完成任务才出现这一栏（「已完成：无内容时不占位」）；待办展开时它只用固定高度，待办收起时吃掉剩余高度 -->
+      <div v-if="completedCount" class="mt-6 flex min-h-0 flex-col overflow-hidden" :class="completedPaneClass">
+        <div class="flex shrink-0 items-center gap-1 border-t border-hairline bg-canvas pt-2 pb-1 dark:border-hairline-dark dark:bg-canvas-dark">
+          <button type="button"
+            class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            @click="showCompletedPanel = !showCompletedPanel">
+            <AppIcon :name="showCompletedPanel ? 'chevronDown' : 'chevronRight'" :size="13" />
+            <span>已完成</span>
+            <span
+              class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ completedCount }}</span>
+          </button>
+          <!-- 已完成的多选操作就放在本区标题栏：有选择时显示删除/取消，否则保留整区清除 -->
+          <div v-if="completedSelectionCount" class="ml-auto flex items-center gap-1.5">
             <span class="text-[11px] text-neutral-500 dark:text-neutral-400"
               title="Ctrl/⌘ 继续选择，Shift 连选">已选
-              <span class="font-mono font-medium text-accent-700 dark:text-accent-300">{{ activeSelectionCount }}</span> 项</span>
+              <span class="font-mono font-medium text-accent-700 dark:text-accent-300">{{ completedSelectionCount }}</span> 项</span>
             <button type="button"
               class="grid h-7 w-7 place-items-center rounded-md text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
-              title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos(activeSelectionKeys)">
+              title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos(completedSelectionKeys)">
               <AppIcon name="trash" :size="13" />
             </button>
             <button type="button"
               class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-              title="取消选择" aria-label="取消选择" @click="removeSelection(activeSelectionKeys)">
+              title="取消选择" aria-label="取消选择" @click="removeSelection(completedSelectionKeys)">
               <AppIcon name="close" :size="13" />
             </button>
-          </template>
-          <template v-else>
-            <!-- 「筛选」：日期与叶子筛选收在同一个菜单里，可同时开启；旁边的箭头切换按截止时间的升/降序 -->
-            <div ref="filterMenuRef" class="relative">
-              <button type="button"
-                class="grid h-7 w-7 shrink-0 place-items-center rounded-md border transition-colors"
-                :class="isFlatFilter
-                  ? 'border-accent-500 bg-accent-50 text-accent-700 dark:border-accent-400/60 dark:bg-accent-500/10 dark:text-accent-200'
-                  : 'border-hairline text-neutral-600 hover:border-accent-500/60 dark:border-hairline-dark dark:text-neutral-300'"
-                :aria-pressed="isFlatFilter" aria-haspopup="menu" :aria-expanded="showFilterMenu"
-                title="筛选任务" aria-label="筛选任务" @click="toggleFilterMenu">
-                <AppIcon name="sliders" :size="13" />
-              </button>
-              <div v-if="showFilterMenu" role="menu"
-                class="absolute right-0 top-full z-30 mt-1 w-44 panel py-1 overflow-hidden shadow-lg">
-                <!-- 「只看有日期的任务」：拍平成按截止时间排序的列表，箭头控制方向 -->
-                <button type="button" role="menuitemcheckbox" :aria-checked="dateOnly"
-                  class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
-                  @click="toggleDateOnly">
-                  <AppIcon name="calendar" :size="13" />
-                  <span class="flex-1">只看有日期的任务</span>
-                  <AppIcon v-if="dateOnly" name="check" :size="12" class="text-accent-600 dark:text-accent-300" />
-                </button>
-                <!-- 「只看叶子节点」：没有未完成子任务的任务，子任务全完成的父任务也算叶子 -->
-                <button type="button" role="menuitemcheckbox" :aria-checked="leafOnly"
-                  class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm text-neutral-700 transition-colors hover:bg-accent-50 dark:text-neutral-300 dark:hover:bg-accent-500/10"
-                  @click="toggleLeafOnly">
-                  <AppIcon name="leaf" :size="13" />
-                  <span class="flex-1">只看叶子节点</span>
-                  <AppIcon v-if="leafOnly" name="check" :size="12" class="text-accent-600 dark:text-accent-300" />
-                </button>
-              </div>
-            </div>
-            <button type="button"
-              class="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-hairline text-neutral-600 transition-colors hover:border-accent-500/60 disabled:opacity-40 disabled:hover:border-hairline dark:border-hairline-dark dark:text-neutral-300 dark:disabled:hover:border-hairline-dark"
-              :disabled="!dateOnly"
-              :title="dateOrder === 'asc' ? '截止时间升序，点击改为降序' : '截止时间降序，点击改为升序'"
-              :aria-label="dateOrder === 'asc' ? '切换为截止时间降序' : '切换为截止时间升序'"
-              @click="toggleDateOrder">
-              <AppIcon :name="dateOrder === 'asc' ? 'chevronUp' : 'chevronDown'" :size="13" />
-            </button>
-            <button v-if="foldableTasks.length && !isSearching" type="button"
-              class="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-neutral-300 text-neutral-500 transition-colors hover:border-accent-500 hover:text-accent-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-accent-400 dark:hover:text-accent-200"
-              :title="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-              :aria-label="allCollapsed ? '展开全部子任务' : '折叠全部子任务'"
-              :aria-expanded="!allCollapsed" @click="toggleAllCollapsed">
-              <AppIcon :name="allCollapsed ? 'plus' : 'minus'" :size="8" />
-            </button>
-          </template>
-          <!-- 「任务添加按钮」：跳到下方添加栏；搜索态顺便切回新建。绿底白色加粗加号，比同排图标按钮更醒目 -->
-          <button type="button"
-            class="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent-600 text-white transition-colors hover:bg-accent-700 dark:bg-accent-400 dark:text-accent-950 dark:hover:bg-accent-300 [&_svg]:stroke-[2.75]"
-            title="添加任务" aria-label="添加任务" @click="focusAddInput">
-            <AppIcon name="plus" :size="14" />
-          </button>
-        </div>
-      </div>
-
-      <!-- 待办任务列表 -->
-      <div v-if="allCount && showActivePanel" class="mt-1.5 space-y-1.5" data-task-section="active">
-        <TodoListItem
-          v-for="node in displayTree"
-          :key="node.client_key || node.id"
-          :node="node"
-          :parent-id="todoStore.rootTaskId"
-          :selected-task-id="props.selectedTaskId"
-          :edit-request="pendingEdit"
-          :selected-keys="selectionKeys"
-          :ignore-collapse="isSearching"
-          :highlight-query="isSearching ? searchQuery.trim() : ''"
-          :disable-add-subtask="isFlatFilter"
-          :disable-drag="isFlatFilter"
-          @toggle-done="toggleDone"
-          @complete-tree="completeTaskTree"
-          @delete-todo="deleteTodo"
-          @add-subtask="addSubtask"
-          @edit-subtask="editSubtask"
-          @task-selected="handleTaskSelected"
-          @jump-to-graph="handleJumpToGraph"
-          @set-deadline="setDeadline"
-          @move-todo="moveTodo"
-          @unlink-task="unlinkTask"
-        />
-        <p v-if="isSearching && searchMatchCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          没有匹配的任务
-        </p>
-        <p v-else-if="isFlatFilter && visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          {{ emptyFilterText }}
-        </p>
-        <p v-else-if="visibleCount === 0" class="py-10 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          没有进行中的任务，已完成的收在下方
-        </p>
-      </div>
-
-      <!-- 「已完成：无内容时不占位」：有已完成任务才出现这一组；标题有「待办」时接在它下方 40px 处，两个标题同时固顶时上下叠放 -->
-      <div v-if="completedCount" :class="allCount ? 'top-10' : 'top-0'"
-        class="sticky z-10 mt-6 flex items-center gap-1 border-t border-hairline bg-canvas pt-2 pb-1 dark:border-hairline-dark dark:bg-canvas-dark">
-        <button type="button"
-          class="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          @click="showCompletedPanel = !showCompletedPanel">
-          <AppIcon :name="showCompletedPanel ? 'chevronDown' : 'chevronRight'" :size="13" />
-          <span>已完成</span>
-          <span
-            class="rounded-full bg-neutral-100 px-1.5 font-mono text-[10px] leading-4 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">{{ completedCount }}</span>
-        </button>
-        <!-- 已完成的多选操作就放在本区标题栏：有选择时显示删除/取消，否则保留整区清除 -->
-        <div v-if="completedSelectionCount" class="ml-auto flex items-center gap-1.5">
-          <span class="text-[11px] text-neutral-500 dark:text-neutral-400"
-            title="Ctrl/⌘ 继续选择，Shift 连选">已选
-            <span class="font-mono font-medium text-accent-700 dark:text-accent-300">{{ completedSelectionCount }}</span> 项</span>
-          <button type="button"
-            class="grid h-7 w-7 place-items-center rounded-md text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
-            title="删除选中任务" aria-label="删除选中任务" @click="deleteSelectedTodos(completedSelectionKeys)">
+          </div>
+          <button v-else type="button"
+            class="ml-auto grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+            title="清除已完成任务" @click="clearCompletedTodos">
             <AppIcon name="trash" :size="13" />
           </button>
-          <button type="button"
-            class="grid h-7 w-7 place-items-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            title="取消选择" aria-label="取消选择" @click="removeSelection(completedSelectionKeys)">
-            <AppIcon name="close" :size="13" />
-          </button>
         </div>
-        <button v-else type="button"
-          class="ml-auto grid h-7 w-7 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-          title="清除已完成任务" @click="clearCompletedTodos">
-          <AppIcon name="trash" :size="13" />
-        </button>
-      </div>
-      <!-- 卡片左缘与待办行对齐：待办行用 22px 左内距给折叠开关留位，已完成行没有开关但保留同一缩进 -->
-      <div v-if="showCompletedPanel" class="mt-1 pb-2 pl-[22px]" data-task-section="completed">
-        <!-- [已完成按天分隔]：「日期 + 该天数量 + 分隔线」，最新完成的一天在最上面 -->
-        <section v-for="(group, index) in completedGroups" :key="group.key" :class="index ? 'mt-3' : ''">
-          <!-- 「日期分隔可点」：整行日期与分隔线都是折叠开关，只收起当天任务，标题与数量保留 -->
-          <button type="button"
-            class="mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-md pr-0.5 text-left transition-colors hover:text-neutral-700 dark:hover:text-neutral-200"
-            :title="isCompletedDayCollapsed(group.key) ? `展开「${group.label}」的已完成任务` : `收起「${group.label}」的已完成任务`"
-            :aria-expanded="!isCompletedDayCollapsed(group.key)" @click="toggleCompletedDay(group.key)">
-            <AppIcon :name="isCompletedDayCollapsed(group.key) ? 'chevronRight' : 'chevronDown'" :size="11"
-              class="shrink-0 text-neutral-400 dark:text-neutral-500" />
-            <span class="text-[11px] font-medium text-neutral-400 dark:text-neutral-500">{{ group.label }}</span>
-            <span class="font-mono text-[10px] text-neutral-300 dark:text-neutral-600">{{ group.count }}</span>
-            <span aria-hidden="true" class="h-px flex-1 bg-neutral-200/80 dark:bg-neutral-800"></span>
-          </button>
-          <ul v-if="!isCompletedDayCollapsed(group.key)" class="space-y-1.5">
-            <li v-for="t in group.todos" :key="t.id" data-task-item :data-task-id="t.id" @click="handleTaskSelected(t.id)" :class="[
-              'group flex cursor-pointer items-center gap-2.5 rounded-lg text-sm transition-[border-color,box-shadow]',
-              isCompletedRowSelected(t.id)
-                ? 'border border-accent-500 bg-surface px-2.5 py-2 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
-                : 'border border-hairline bg-surface px-2.5 py-2 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
-            ]">
+
+        <!-- 已完成任务列表：本栏内部滚动；行内距与待办行左缘对齐 -->
+        <div v-if="showCompletedPanel" ref="completedScrollRef" class="min-h-0 flex-1 overflow-auto"
+          @scroll.passive="saveCompletedScroll">
+          <div class="mt-1 pb-2 pl-[22px]" data-task-section="completed">
+            <!-- [已完成按天分隔]：「日期 + 该天数量 + 分隔线」，最新完成的一天在最上面 -->
+            <section v-for="(group, index) in completedGroups" :key="group.key" :class="index ? 'mt-3' : ''">
+              <!-- 「日期分隔可点」：整行日期与分隔线都是折叠开关，只收起当天任务，标题与数量保留 -->
               <button type="button"
-                class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-accent-600 bg-accent-600 text-white transition-colors hover:bg-accent-700 hover:border-accent-700 dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950"
-                title="标记为未完成" aria-label="标记为未完成" @click.stop="toggleCompletedTodo(t)">
-                <AppIcon name="check" :size="11" />
+                class="mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-md pr-0.5 text-left transition-colors hover:text-neutral-700 dark:hover:text-neutral-200"
+                :title="isCompletedDayCollapsed(group.key) ? `展开「${group.label}」的已完成任务` : `收起「${group.label}」的已完成任务`"
+                :aria-expanded="!isCompletedDayCollapsed(group.key)" @click="toggleCompletedDay(group.key)">
+                <AppIcon :name="isCompletedDayCollapsed(group.key) ? 'chevronRight' : 'chevronDown'" :size="11"
+                  class="shrink-0 text-neutral-400 dark:text-neutral-500" />
+                <span class="text-[11px] font-medium text-neutral-400 dark:text-neutral-500">{{ group.label }}</span>
+                <span class="font-mono text-[10px] text-neutral-300 dark:text-neutral-600">{{ group.count }}</span>
+                <span aria-hidden="true" class="h-px flex-1 bg-neutral-200/80 dark:bg-neutral-800"></span>
               </button>
-              <MiddleEllipsis :text="t.title || '未命名任务'"
-                class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
-              <!-- 「完成时间」：日期由所在分组标题给出，行内只显示时分 -->
-              <span class="shrink-0 font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
-                {{ formatCompletionTime(t.completed_at) }}
-              </span>
-              <!-- 「已完成行删除」：单条删除走软删除，提示里可撤销，与整区「清除已完成」互不影响 -->
-              <button type="button"
-                class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-                title="删除任务" aria-label="删除任务" @click.stop="deleteTodo(t.id)">
-                <AppIcon name="trash" :size="13" />
-              </button>
-            </li>
-          </ul>
-        </section>
+              <ul v-if="!isCompletedDayCollapsed(group.key)" class="space-y-1.5">
+                <li v-for="t in group.todos" :key="t.id" data-task-item :data-task-id="t.id" @click="handleTaskSelected(t.id)" :class="[
+                  'group flex cursor-pointer items-center gap-2.5 rounded-lg text-sm transition-[border-color,box-shadow]',
+                  isCompletedRowSelected(t.id)
+                    ? 'border border-accent-500 bg-surface px-2.5 py-2 shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-accent-500/60 dark:bg-surface-dark dark:shadow-none'
+                    : 'border border-hairline bg-surface px-2.5 py-2 shadow-[0_1px_2px_rgb(6_80_48/0.05)] hover:border-accent-500/40 hover:shadow-[0_3px_10px_rgb(6_80_48/0.09)] dark:border-hairline-dark dark:bg-surface-dark dark:shadow-none dark:hover:border-accent-500/40'
+                ]">
+                  <button type="button"
+                    class="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-accent-600 bg-accent-600 text-white transition-colors hover:bg-accent-700 hover:border-accent-700 dark:border-accent-400 dark:bg-accent-400 dark:text-accent-950"
+                    title="标记为未完成" aria-label="标记为未完成" @click.stop="toggleCompletedTodo(t)">
+                    <AppIcon name="check" :size="11" />
+                  </button>
+                  <MiddleEllipsis :text="t.title || '未命名任务'"
+                    class="min-w-0 flex-1 text-neutral-400 line-through dark:text-neutral-500" />
+                  <!-- 「完成时间」：日期由所在分组标题给出，行内只显示时分 -->
+                  <span class="shrink-0 font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
+                    {{ formatCompletionTime(t.completed_at) }}
+                  </span>
+                  <!-- 「已完成行删除」：单条删除走软删除，提示里可撤销，与整区「清除已完成」互不影响 -->
+                  <button type="button"
+                    class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                    title="删除任务" aria-label="删除任务" @click.stop="deleteTodo(t.id)">
+                    <AppIcon name="trash" :size="13" />
+                  </button>
+                </li>
+              </ul>
+            </section>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -294,7 +304,7 @@ import { filterTasksByTitle } from '@/utils/taskGraph'
 import { formatCompletionTime, groupCompletedByDay } from '@/utils/completedGroups'
 import { pruneSelection, selectRange, toggleSelection } from '@/utils/taskSelection'
 import { listTreeOf } from '@/utils/rootTask'
-import { persistedRef } from '@/utils/uiState'
+import { persistedRef, useScrollMemory } from '@/utils/uiState'
 import { pruneTaskCollapseTree, isTaskCollapsed, setTaskCollapsed, setTasksCollapsed } from '@/utils/taskCollapse'
 import { childTitlesOf, nextTaskTitle } from '@/utils/taskTitle'
 import TodoListItem from '@/components/TodoListItem.vue'
@@ -344,6 +354,11 @@ onMounted(async () => {
   if (authStore.isAuthenticated && !todoStore.isFetched) {
     await todoStore.fetchTodos()
   }
+  // 两栏的滚动位置等数据渲染完再落位，内容高度不足时由 useScrollMemory 自行重试
+  nextTick(() => {
+    restoreActiveScroll()
+    restoreCompletedScroll()
+  })
 })
 
 // 筛选只影响显示，偏好存在本地，不写数据库
@@ -560,6 +575,20 @@ const deleteSelectedTodos = async (keys) => {
 const showCompletedPanel = persistedRef('list-show-completed', true)
 // 待办区域的收起状态同样本地保留
 const showActivePanel = persistedRef('list-show-active', true)
+
+// 两个折叠栏抢同一块高度：待办展开就吃掉剩余高度，已完成为非首位展栏、固定 192px（与侧栏副分区一致）；
+// 待办收起（或本来没有待办）时已完成再吃掉剩余高度
+const activePaneOpen = computed(() => allCount.value > 0 && showActivePanel.value)
+const completedPaneClass = computed(() => {
+  if (!showCompletedPanel.value) return 'shrink-0'
+  return activePaneOpen.value ? 'h-48 shrink-0' : 'flex-1'
+})
+
+// 两栏各自滚动：滚动位置按栏分别记住，切回列表时还原
+const activeScrollRef = ref(null)
+const completedScrollRef = ref(null)
+const { save: saveActiveScroll, restore: restoreActiveScroll } = useScrollMemory(activeScrollRef, () => 'list-active')
+const { save: saveCompletedScroll, restore: restoreCompletedScroll } = useScrollMemory(completedScrollRef, () => 'list-completed')
 
 // 分区收起后操作条不可见，清掉该区选择，避免看不见的选中被误删
 watch(showActivePanel, (open) => {
