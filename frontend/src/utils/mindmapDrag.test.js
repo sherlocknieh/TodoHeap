@@ -253,12 +253,6 @@ describe('findVerticalDropTarget', () => {
     expect(hit.inside).toBe(true)
   })
 
-  it('中心还在节点内时只算插序，不算拖进', () => {
-    const hit = findVerticalDropTarget({ nodes, rect: shadow(0), nodeWidth })
-    expect(hit.node.id).toBe('A')
-    expect(hit.inside).toBe(false)
-  })
-
   it('中心越过右缘时不受竖直重叠比例限制：只擦到一点也算拖进', () => {
     const hit = findVerticalDropTarget({ nodes, rect: shadow(28, 40, nodeWidth - 20), nodeWidth })
     expect(hit.node.id).toBe('A')
@@ -286,23 +280,25 @@ describe('findVerticalDropTarget', () => {
     expect(hit.inside).toBe(false)
   })
 
-  it('left 布局要求中心越过左缘', () => {
-    const leftNodes = [{ id: 'L', x: 0, y: 0, height: 40 }]
-    const outside = findVerticalDropTarget({
-      nodes: leftNodes,
-      rect: shadow(0, 40, -nodeWidth + 20),
-      nodeWidth,
-      direction: 'left'
-    })
-    expect(outside.inside).toBe(true)
+  it('中心落在节点左 1/3 带内也算拖进（左右皆可）', () => {
+    // 中心 x = 30，节点宽 216，左 1/3 边界 72
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(0, 40, -78), nodeWidth })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(true)
+  })
 
-    const insideNode = findVerticalDropTarget({
-      nodes: leftNodes,
-      rect: shadow(0),
-      nodeWidth,
-      direction: 'left'
-    })
-    expect(insideNode.inside).toBe(false)
+  it('中心落在节点右 1/3 带内（仍在节点内）也算拖进', () => {
+    // 中心 x = 180，右 1/3 起点 144
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(0, 40, 72), nodeWidth })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(true)
+  })
+
+  it('中心落在中间 1/3 时算兄弟命中', () => {
+    // 中心 x = 108，正好中间
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(0), nodeWidth })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(false)
   })
 
   it('跳过被拖节点自己、引用节点与占位节点', () => {
