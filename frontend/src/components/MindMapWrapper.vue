@@ -1093,7 +1093,7 @@ const insertChildGapPlaceholder = (forest, band) => {
         changed = true
         const children = [...(node.children || [])]
         const anchorId = band.beforeId ?? band.afterId
-        const anchorIndex = children.findIndex((child) => !child.isRef && String(child.id) === String(anchorId))
+        const anchorIndex = children.findIndex((child) => String(child.isRef ? child.targetId : child.id) === String(anchorId))
         const at = anchorIndex === -1
           ? children.length
           : anchorIndex + (band.beforeId != null ? 0 : 1)
@@ -2439,7 +2439,8 @@ const siblingIdsOf = (parentId) => {
       if (result) return
       if (node.isRef) continue
       if (String(node.id) === target) {
-        result = (node.children || []).filter((child) => !child.isRef).map((child) => String(child.id))
+        // 多父任务在其它父链上以引用节点出现，按被引用任务 id 计入顺序
+        result = (node.children || []).map((child) => String(child.isRef ? child.targetId : child.id))
         return
       }
       walk(node.children || [])
@@ -2525,6 +2526,27 @@ const collectParentIds = (forest, sourceId) => {
   }
   walk(forest || [])
   return [...ids]
+}
+
+// 多父任务的兄弟命中：在它所有父级里选视图位置离影子中心最近的，插到那条父链的兄弟序列。
+// 父级不在视图里（折叠或不在可见集）就不参与，找不到时退回显示父级。
+const nearestVisibleParentId = (target, center) => {
+  const ids = collectParentIds(props.nodes, target.id)
+  if (ids.length <= 1) return ids[0] ?? target.parent_id ?? null
+  let best = null
+  let bestDistance = Infinity
+  for (const id of ids) {
+    const node = hitLayout.value.nodes.find((item) => String(item.id) === id)
+    if (!node) continue
+    const distance = Math.hypot(
+      center.x - (node.x + nodeWidth / 2),
+      center.y - (node.y + node.height / 2)
+    )
+    if (distance >= bestDistance) continue
+    best = id
+    bestDistance = distance
+  }
+  return best ?? ids[0] ?? target.parent_id ?? null
 }
 
 const startDrag = (event, sourceId, fromToggle) => {
@@ -2630,9 +2652,10 @@ const updateDrag = (event) => {
       return
     }
 
-    // 竖直重叠不足阈值：算插到它前/后，按影子中心在它上半还是下半决定方向
+    // 竖直重叠不足阈值：算插到它前/后，按影子中心在它上半还是下半决定方向。
+    // 多父任务选视图里最近的父级，插到那条父链的兄弟序列
     const position = center.y < target.y + target.height / 2 ? 'before' : 'after'
-    const edgeBand = childEdgeBand(target, position)
+    const edgeBand = childEdgeBand(target, position, nearestVisibleParentId(target, center))
     const keeps = edgeBand ? insertKeepsOrder(edgeBand, dragState.sourceId) : false
     dragState.childBand = keeps ? null : edgeBand
     dragState.targetId = keeps ? null : (edgeBand?.parentId ?? null)

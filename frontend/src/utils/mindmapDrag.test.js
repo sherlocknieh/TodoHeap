@@ -169,6 +169,15 @@ describe('childEdgeBand', () => {
   it('没有父级时不归父级', () => {
     expect(childEdgeBand({ id: '2', parent_id: null }, 'before')).toBeNull()
   })
+
+  it('可指定另一条父链作为落点父级（多父任务就近选择）', () => {
+    expect(childEdgeBand(child, 'after', '9')).toEqual({
+      parentId: '9',
+      index: null,
+      beforeId: null,
+      afterId: '2'
+    })
+  })
 })
 
 describe('findLeafEdgeTarget', () => {

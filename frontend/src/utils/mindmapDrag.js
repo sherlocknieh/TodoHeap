@@ -84,11 +84,12 @@ export const keepsOriginalOrder = (siblings, band, sourceId) => {
 
 // 节点上/下半：落点归它所在父级的兄弟槽位（插到该节点前/后），
 // 与子级空隙共用虚节点预览。
-export const childEdgeBand = (node, position) => {
-  if (!node || node.isRoot || node.parent_id == null) return null
+export const childEdgeBand = (node, position, parentId = null) => {
+  const parent = parentId ?? node?.parent_id
+  if (!node || node.isRoot || parent == null) return null
   if (position !== 'before' && position !== 'after') return null
   return {
-    parentId: String(node.parent_id),
+    parentId: String(parent),
     index: null,
     beforeId: position === 'before' ? node.id : null,
     afterId: position === 'after' ? node.id : null
