@@ -730,6 +730,8 @@ const runToastAction = async () => {
 						</div>
 					</template>
 				</div>
+				<!-- 「待办底栏」：列表页的快速添加/搜索固定在内容区底部（不随列表滚动），由 TodoList 通过 Teleport 注入 -->
+				<div id="main-bottom-bar" class="shrink-0"></div>
 			</div>
 
 			<!-- 任务图：画布保持整宽；右栏浮在右侧，空白区由 flex 自然让出 -->

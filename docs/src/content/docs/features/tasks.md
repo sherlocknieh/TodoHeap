@@ -45,6 +45,13 @@ title: "任务与层级"
 - 实现：`utils/taskGraph.js` `collectIncompleteTreeIds`；`stores/todos.optimistic.js` `completeTodoTree`；`components/TodoListItem.vue` 与 `components/MindMapWrapper.vue` 提供菜单入口；页面处理在 `pages/todo/TodoList.vue`、`pages/todo/TodoGraph.vue` 的 `completeTaskTree`。机制见[完成任务树](../dev/logic/task-complete-tree.md)。
 - 验证：`utils/taskGraph.test.js` 覆盖跳过已完成、环与多父、任务不存在。
 
+## 添加栏固定在列表底部（2026-11-29）
+
+- 需求：快速添加/搜索从列表顶部移到内容区底部，长列表下随时能输入，不必先滚回顶部。
+- 位置：`pages/Todo.vue` 的「待办底栏」`#main-bottom-bar` 放在中栏滚动容器之后（`shrink-0`），`pages/todo/TodoList.vue` 用 `Teleport defer` 注入添加框，输入框因此不随列表滚动；外层内距与列表内容一致（`mx-auto max-w-3xl px-8`），卡片再用 `ml-[22px]` 与任务行左缘对齐。
+- 连带调整：顶栏不再显示「N 项待办 / N 项已完成」统计，数量只在各分组标题的徽标里；命中数提示从输入框下方移到上方，仍贴着添加框。
+- 新建后：任务照旧头插到根任务首位，`pendingEdit` 触发行内编辑，输入框获得焦点时浏览器会把新行滚回可视区。
+
 ## 添加栏兼任搜索（2026-11-21）
 
 - 需求：任务添加框复用为搜索框，由左侧圆钮切换模式，避免再造一个搜索框。
@@ -52,9 +59,9 @@ title: "任务与层级"
 - 高度：容器用 `min-h-[42px]` 与任务行对齐，搜索态即便只剩圆钮和输入框也不会变矮。
 - 输入：同一个 `input` 通过 `addInputModel` 双向绑定，占位文案随模式变化；新建模式右侧保留截止时间与提交按钮，搜索模式有词时给清空按钮。
 - 过滤：`utils/taskGraph.js` 的 `filterTasksByTitle` 保留命中节点与祖先链，回边行不重复计入；搜索期间给 `TodoListItem` 传 `ignore-collapse`，命中行不受折叠影响。
-- 交互：回车在新建模式保存任务、在搜索模式选中第一条命中；Esc 先清空搜索词，再按一次回到新建模式；上方「N 项待办」仍表示全量待办，命中数单独提示。
+- 交互：回车在新建模式保存任务、在搜索模式选中第一条命中；Esc 先清空搜索词，再按一次回到新建模式。
 - 新建后：`addTodo` 成功后把新任务写进 `pendingEdit` 并选中，行内编辑随即可用，和列表 Tab/Enter 新建的处理一致。
-- 快捷入口：「待办」标题栏右侧常驻 + 按钮，`focusAddInput` 回到顶部添加栏并聚焦；搜索态先切回新建，保证输入就是新建任务。
+- 快捷入口：「待办」标题栏右侧常驻 + 按钮，`focusAddInput` 把焦点放到底部添加栏；搜索态先切回新建，保证输入就是新建任务。
 - 高亮：`MiddleEllipsis` 新增 `highlight`，把标题按命中词切成片段并给命中片段加强调底色；只标可见片段，截断掉的部分不参与匹配显示。
 
 ## 多父任务的列表行样式统一（2026-11-21）
