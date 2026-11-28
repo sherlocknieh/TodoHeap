@@ -11,6 +11,7 @@ title: "详情右栏与任务图布局"
 
 - 左侧空白区只负责占位，本身不接收点击；
 - 右侧放 `TodoDetailEditor`，`pointer-events-auto`，浮在画布上；
+- 浮层态的三个右栏（任务详情、日程详情、AI 上下文）传 `floating`，根节点用 `bg-surface/80 backdrop-blur-sm`（暗色 `dark:bg-surface-dark/80`）：底色留两成透明让下面的画布隐约透上来，背后内容只做轻微模糊，保证面板文字仍好读；宽屏停靠时保持实底 `bg-surface`；
 - 画布保持整宽，铺在浮层下面。
 
 空白区不参与画布的尺寸计算，所以右栏开合、拖宽都不会改变画布宽度。

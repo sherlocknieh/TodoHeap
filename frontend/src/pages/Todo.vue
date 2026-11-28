@@ -737,7 +737,7 @@ const runToastAction = async () => {
 				<!-- 空白区只负责占位，画布仍在下面铺满整宽 -->
 				<div class="min-w-0 flex-1"></div>
 				<div v-if="showDetailPanel" class="pointer-events-auto flex max-w-[85vw] shadow-lg">
-					<TodoDetailEditor :todo-id="selectedTaskId" :show="true" @close="closeDetailPanel"
+					<TodoDetailEditor :todo-id="selectedTaskId" :show="true" floating @close="closeDetailPanel"
 						@task-selected="handleTaskSelected" />
 				</div>
 			</div>
@@ -746,12 +746,13 @@ const runToastAction = async () => {
 			<div v-else :class="isDetailPanelFloating && showDetailPanel
 				? 'absolute inset-y-0 right-0 z-30 flex max-w-[85vw] shadow-lg'
 				: 'flex'">
-				<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel"
+				<AgentContextPanel v-if="activeView === 'ai'" :show="showDetailPanel" :floating="isDetailPanelFloating"
 					:selected-task-id="selectedTaskId" @close="closeDetailPanel" />
 				<ScheduleDetailPanel v-else-if="activeView === 'schedule'" :show="showDetailPanel"
-					:event-id="selectedEventId" @close="closeDetailPanel" @saved="handleScheduleSaved"
-					@event-deleted="selectedEventId = null" />
-				<TodoDetailEditor v-else :todo-id="selectedTaskId" :show="showDetailPanel" @close="closeDetailPanel"
+					:floating="isDetailPanelFloating" :event-id="selectedEventId" @close="closeDetailPanel"
+					@saved="handleScheduleSaved" @event-deleted="selectedEventId = null" />
+				<TodoDetailEditor v-else :todo-id="selectedTaskId" :show="showDetailPanel"
+					:floating="isDetailPanelFloating" @close="closeDetailPanel"
 					@task-selected="handleTaskSelected" />
 			</div>
 		</div>

@@ -27,7 +27,7 @@ title: 关键词索引
 | 顶栏标题 / 主区域标题 / 当前视图名 | `pages/Todo.vue` `activeViewTitle` | 各视图统一在顶栏显示名称 |
 | 顶栏右侧操作 / 页面操作按钮 | `pages/Todo.vue` `#main-topbar-actions`；各视图里的 `Teleport defer to="#main-topbar-actions"` | 视图把自己的操作注入统一顶栏；主题与详情面板开关常驻在这一行，不随视图操作让位 |
 | 右栏分区 / 右栏折叠 / 详情分区 / 描述分区 / 子任务分区 / 请求参数折叠 / 更多选项折叠 | `components/SidebarSectionHeader.vue`「右侧栏分区标题」；`utils/sectionStack.js`「右侧栏分区折叠栈」、`computeSectionHeights`；各右栏的 `data-section` | 任务、日程、AI 三个右栏共用：标题行点击折叠，详情/参数等按内容、描述/消息占满、子任务/工具固定 192px，状态本地保存 |
-| 详情面板 / 右栏 / 任务详情 | `pages/Todo.vue`「任务图：画布保持整宽」；`components/TodoDetailEditor.vue`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图让适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避开面板；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
+| 详情面板 / 右栏 / 任务详情 / 右侧面板透明 / 面板半透明 / 毛玻璃 | `pages/Todo.vue`「任务图：画布保持整宽」「其他视图右栏」；`components/TodoDetailEditor.vue`、`ScheduleDetailPanel.vue`、`AgentContextPanel.vue` 的 `floating`；`utils/detailPanelContext.js` | 任务图始终浮层、不挤压画布，导图让适应视图、选中项可见性修正与节点菜单按 `detailPanelInset` 避开面板；浮层态背景半透明并轻微模糊背后内容（`bg-surface/80` + `backdrop-blur-sm`），宽屏停靠时保持实底；其他视图宽屏挤压中栏、窄屏浮层；AI 与日程视图复用同一位置 |
 | 空引用块 / 引用块删不掉 / 引用删不掉 / 删不掉的引用 / blockquote | `components/MilkdownEditor.vue` `liftEmptyBlockquote` | Backspace/Delete 把空引用块里的空段落抬出，引用块随之消失；机制见[Markdown 编辑器的空引用块](./logic/milkdown-empty-blockquote.md) |
 | 底栏 / 状态栏 / 底部统计 / 进度条 | `pages/Todo.vue`「底栏统计」「底栏：导航开关、统计与同步状态」 | 根任务不计入统计 |
 | 同步状态 / 断线 / 待同步 / 已同步 | `pages/Todo.vue` `syncState`；`components/SyncStatusIndicator.vue`；`stores/schedules.js` `syncStatus` | 底栏常驻；日程右栏只在写入失败时显示，写入期间只置灰「保存」；优先级：断线 > 日程写入失败 > 待同步 > 同步中 > 已同步 |

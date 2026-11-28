@@ -15,7 +15,9 @@ import SidebarSectionHeader from '@/components/SidebarSectionHeader.vue'
 const toolLabel = (name) => (isMcpToolName(name) ? mcpToolLabel(name) : AGENT_TOOL_LABELS[name] || name)
 
 const props = defineProps({
-  show: { type: Boolean, default: false }
+  show: { type: Boolean, default: false },
+  // 浮在内容之上时（窄屏）传 true，背景转半透明
+  floating: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close'])
@@ -323,7 +325,9 @@ const exportSession = () => {
 
 <template>
   <div v-if="show" data-detail-panel :class="[
-    'relative max-w-full h-full min-h-0 bg-surface dark:bg-surface-dark flex flex-col z-20 border-l border-hairline dark:border-hairline-dark'
+    'relative max-w-full h-full min-h-0 flex flex-col z-20 border-l border-hairline dark:border-hairline-dark',
+    // 「浮起的右栏」：半透明底让下面的内容隐约透上来；宽屏停靠时保持实底
+    floating ? 'bg-surface/80 backdrop-blur-sm dark:bg-surface-dark/80' : 'bg-surface dark:bg-surface-dark'
   ]" :style="{ width: panelWidth + 'px' }">
     <!-- 左缘拖拽条与任务详情面板一致，宽度独立保存 -->
     <div
