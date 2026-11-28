@@ -2541,10 +2541,18 @@ const updateDrag = (event) => {
     return
   }
 
-  // 指针在节点内：上半/下半归它所在父级的兄弟槽位（插到它前/后），
-  // 与子级空隙共用虚节点预览；节点内不再有「拖进」区域
+  // 指针在节点内：叶子节点（无子级、非根）整块命中它自己，落点语义是成为它的子级。
+  // 叶子没有子级列，如果只在边缘一小条命中，拖到节点上反而没反应，不符合直觉
   const pointed = nodeAtPoint(point)
   if (pointed) {
+    if (!pointed.isRoot && pointed.childCount === 0) {
+      dragState.childBand = { parentId: String(pointed.id), index: 0, beforeId: null, afterId: null }
+      dragState.targetId = String(pointed.id)
+      dragState.dropPosition = 'inside'
+      return
+    }
+
+    // 有子级的节点：上半/下半归它所在父级的兄弟槽位（插到它前/后），与子级空隙共用虚节点预览
     const edgeBand = childEdgeBand(pointed, dropPositionAt(pointed, point))
     if (edgeBand) {
       const keeps = insertKeepsOrder(edgeBand, dragState.sourceId)
