@@ -133,9 +133,11 @@ export const findLeafEdgeTarget = ({
   return nearest
 }
 
-// 拖到节点上的命中：只看影子矩形与节点在**竖直方向**的重叠度（重叠高度 / 节点高度），
+// 拖到节点上的命中：只看影子与节点在**竖直方向**的重叠度（重叠高度 / 节点高度），
 // 不看面积或交并比。竖直重叠达到阈值即算「拖到该节点上」（成为它的子级）；
-// 不足阈值时由调用方按插到它前/后处理。横向仍要求有交集，避免跨列的节点被误命中。
+// 不足阈值时由调用方按插到它前/后处理。
+// 横向要求影子中心落在节点横向范围内：影子与节点宽度相同，若只要求有交集，
+// 影子擦到列边缘就会命中，横向触发范围会明显偏大。
 // 多个候选取竖直重叠最大者，重叠相同取纵向中心更近的。
 export const VERTICAL_DROP_RATIO = 0.5
 
@@ -154,8 +156,9 @@ export const findVerticalDropTarget = ({
     if (node.isRef || node.isPlaceholder) continue
     if (sourceId != null && String(node.id) === String(sourceId)) continue
 
-    const overlapX = Math.min(rect.x + rect.width, node.x + nodeWidth) - Math.max(rect.x, node.x)
-    if (overlapX <= 0) continue
+    // 横向按影子中心判定，避免影子边缘擦到列就命中
+    const centerX = rect.x + rect.width / 2
+    if (centerX < node.x || centerX > node.x + nodeWidth) continue
     const overlapY = Math.min(rect.y + rect.height, node.y + node.height) - Math.max(rect.y, node.y)
     if (overlapY <= 0) continue
 

@@ -264,12 +264,27 @@ describe('findVerticalDropTarget', () => {
     expect(hit.node.id).toBe('B')
   })
 
-  it('横向不相交时不命中', () => {
+  it('影子中心在节点横向范围外时不命中（即使边缘擦到）', () => {
+    // 影子左缘压在节点右缘上，中心已偏出 100px
+    expect(findVerticalDropTarget({
+      nodes,
+      rect: { x: nodeWidth - 8, y: 0, width: nodeWidth, height: 40 },
+      nodeWidth
+    })).toBeNull()
     expect(findVerticalDropTarget({
       nodes,
       rect: { x: 400, y: 0, width: nodeWidth, height: 40 },
       nodeWidth
     })).toBeNull()
+  })
+
+  it('影子中心落在节点横向范围内时参与判定', () => {
+    const hit = findVerticalDropTarget({
+      nodes,
+      rect: { x: 20, y: 0, width: nodeWidth, height: 40 },
+      nodeWidth
+    })
+    expect(hit.node.id).toBe('A')
   })
 
   it('跳过被拖节点自己、引用节点与占位节点', () => {
