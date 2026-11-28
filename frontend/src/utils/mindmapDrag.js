@@ -1,12 +1,13 @@
 // 任务图拖拽命中：把父级可见子级列里的空白也算作父节点的落点。
-// 供 MindMapWrapper 使用；输入是当前布局节点与指针点（宽度为 0 的矩形）。
-// 拖节点时落点只由指针决定：指针在节点内由调用方先判掉，这里只处理指针落在
-// 某个父级子级列范围内的空白，给出插入槽位（第 index 个可见子级之前）。
-// 纵向范围是首子级上缘到末子级下缘，首/末外侧再放宽 padding，方便插到首/末位。
+// 供 MindMapWrapper 使用；输入是当前布局节点与指针/影子矩形。
+// 拖节点时落点以被拖实节点的中心为参照，命中目标按竖直重叠度判定。
 // 命中规则说明见 docs/src/content/docs/dev/logic/graph-drag-hit.md
 
 const isRealNode = (node) => !node.isRef && !node.isPlaceholder
 
+// 子级列空隙：调用方先排除「中心落在节点内」等情况，这里只处理指针落在
+// 某个父级子级列范围内的空白，给出插入槽位（第 index 个可见子级之前）。
+// 纵向范围是首子级上缘到末子级下缘，首/末外侧再放宽 padding，方便插到首/末位。
 export const findChildGapTarget = ({
   nodes,
   rect,
@@ -81,8 +82,8 @@ export const keepsOriginalOrder = (siblings, band, sourceId) => {
   return rest.length === order.length && rest.every((value, index) => value === order[index])
 }
 
-// 指针落在某个节点的上/下四分之一：落点归它所在父级的兄弟槽位（插到该节点前/后），
-// 与子级空隙共用同一套虚节点预览。中间区域仍由调用方按「拖进该节点」处理。
+// 节点上/下半：落点归它所在父级的兄弟槽位（插到该节点前/后），
+// 与子级空隙共用虚节点预览。
 export const childEdgeBand = (node, position) => {
   if (!node || node.isRoot || node.parent_id == null) return null
   if (position !== 'before' && position !== 'after') return null
@@ -134,11 +135,10 @@ export const findLeafEdgeTarget = ({
 }
 
 // 拖到节点上的命中：只看影子与节点在**竖直方向**的重叠度（重叠高度 / 节点高度），
-// 不看面积或交并比。竖直重叠达到阈值即算「拖到该节点上」（成为它的子级）；
-// 不足阈值时由调用方按插到它前/后处理。
-// 横向要求影子中心落在节点横向范围内：影子与节点宽度相同，若只要求有交集，
-// 影子擦到列边缘就会命中，横向触发范围会明显偏大。
-// 多个候选取竖直重叠最大者，重叠相同取纵向中心更近的。
+// 不看面积或交并比。两类落点的横向条件不同：
+// - 拖进节点（竖直重叠达到阈值）：影子与节点横向有交集即可，明显压在节点上就生效；
+// - 插到它前/后（竖直重叠不足）：要求影子中心进入节点横向范围，避免影子擦到列边缘就变成插序。
+// 两类各取竖直重叠最大者，重叠相同取纵向中心更近的；拖进优先于插序。
 export const VERTICAL_DROP_RATIO = 0.5
 
 export const findVerticalDropTarget = ({
@@ -148,28 +148,46 @@ export const findVerticalDropTarget = ({
   sourceId = null,
   threshold = VERTICAL_DROP_RATIO
 }) => {
-  let best = null
-  let bestRatio = 0
-  let bestDistance = Infinity
+  const centerX = rect.x + rect.width / 2
+  let inside = null
+  let insideRatio = 0
+  let insideDistance = Infinity
+  let edge = null
+  let edgeRatio = 0
+  let edgeDistance = Infinity
 
   for (const node of nodes || []) {
     if (node.isRef || node.isPlaceholder) continue
     if (sourceId != null && String(node.id) === String(sourceId)) continue
 
-    // 横向按影子中心判定，避免影子边缘擦到列就命中
-    const centerX = rect.x + rect.width / 2
-    if (centerX < node.x || centerX > node.x + nodeWidth) continue
     const overlapY = Math.min(rect.y + rect.height, node.y + node.height) - Math.max(rect.y, node.y)
     if (overlapY <= 0) continue
 
+    const overlapX = Math.min(rect.x + rect.width, node.x + nodeWidth) - Math.max(rect.x, node.x)
     const ratio = overlapY / Math.max(node.height, 1)
     const distance = Math.abs((rect.y + rect.height / 2) - (node.y + node.height / 2))
-    if (ratio < bestRatio || (ratio === bestRatio && distance >= bestDistance)) continue
 
-    best = node
-    bestRatio = ratio
-    bestDistance = distance
+    // 拖进节点：横向有交集即可
+    if (overlapX > 0 && ratio >= threshold) {
+      if (ratio > insideRatio || (ratio === insideRatio && distance < insideDistance)) {
+        inside = node
+        insideRatio = ratio
+        insideDistance = distance
+      }
+      continue
+    }
+
+    // 插到它前/后：要求中心进入节点横向范围
+    const centerInRange = centerX >= node.x && centerX <= node.x + nodeWidth
+    if (!centerInRange) continue
+    if (ratio > edgeRatio || (ratio === edgeRatio && distance < edgeDistance)) {
+      edge = node
+      edgeRatio = ratio
+      edgeDistance = distance
+    }
   }
 
-  return best ? { node: best, ratio: bestRatio, inside: bestRatio >= threshold } : null
+  if (inside) return { node: inside, ratio: insideRatio, inside: true }
+  if (edge) return { node: edge, ratio: edgeRatio, inside: false }
+  return null
 }

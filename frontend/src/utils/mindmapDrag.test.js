@@ -264,27 +264,44 @@ describe('findVerticalDropTarget', () => {
     expect(hit.node.id).toBe('B')
   })
 
-  it('影子中心在节点横向范围外时不命中（即使边缘擦到）', () => {
-    // 影子左缘压在节点右缘上，中心已偏出 100px
-    expect(findVerticalDropTarget({
+  it('拖进节点只要横向有交集：影子擦到节点边缘也算拖到它身上', () => {
+    const hit = findVerticalDropTarget({
       nodes,
       rect: { x: nodeWidth - 8, y: 0, width: nodeWidth, height: 40 },
       nodeWidth
-    })).toBeNull()
-    expect(findVerticalDropTarget({
-      nodes,
-      rect: { x: 400, y: 0, width: nodeWidth, height: 40 },
-      nodeWidth
-    })).toBeNull()
+    })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(true)
   })
 
-  it('影子中心落在节点横向范围内时参与判定', () => {
+  it('插到前后要求影子中心进入节点横向范围：只擦到边缘时不算', () => {
+    // 竖直重叠只有 12px（0.3），属于插序区；中心偏出节点右缘
     const hit = findVerticalDropTarget({
       nodes,
-      rect: { x: 20, y: 0, width: nodeWidth, height: 40 },
+      rect: { x: nodeWidth - 8, y: 28, width: nodeWidth, height: 40 },
+      nodeWidth
+    })
+    expect(hit).toBeNull()
+  })
+
+  it('插到前后时中心在横向范围内即可参与', () => {
+    const hit = findVerticalDropTarget({
+      nodes,
+      rect: { x: 20, y: 28, width: nodeWidth, height: 40 },
       nodeWidth
     })
     expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(false)
+  })
+
+  it('拖进优先于插序：两个节点分别命中两类时取拖进', () => {
+    const hit = findVerticalDropTarget({
+      nodes,
+      rect: { x: 0, y: 0, width: nodeWidth, height: 60 },
+      nodeWidth
+    })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(true)
   })
 
   it('跳过被拖节点自己、引用节点与占位节点', () => {
