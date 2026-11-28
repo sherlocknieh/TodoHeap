@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { childEdgeBand, findChildGapTarget, findLeafEdgeTarget, keepsOriginalOrder } from './mindmapDrag'
+import { childEdgeBand, findChildGapTarget, findLeafEdgeTarget, findVerticalDropTarget, keepsOriginalOrder } from './mindmapDrag'
 
 const nodeWidth = 216
 
@@ -235,5 +235,57 @@ describe('findLeafEdgeTarget', () => {
       nodeWidth,
       padding: 48
     })).toBeNull()
+  })
+})
+
+describe('findVerticalDropTarget', () => {
+  const nodeWidth = 216
+  // 两个同列兄弟：A [0,40]、B [64,104]
+  const nodes = [
+    { id: 'A', x: 0, y: 0, height: 40 },
+    { id: 'B', x: 0, y: 64, height: 40 }
+  ]
+  const shadow = (y, height = 40) => ({ x: 0, y, width: nodeWidth, height })
+
+  it('影子与节点几乎重合时算拖到节点上', () => {
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(0), nodeWidth })
+    expect(hit.node.id).toBe('A')
+    expect(hit.inside).toBe(true)
+  })
+
+  it('影子落在两节点之间的空隙时重叠不足阈值', () => {
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(32), nodeWidth })
+    expect(hit.inside).toBe(false)
+    expect(['A', 'B']).toContain(hit.node.id)
+  })
+
+  it('竖直重叠相同取纵向中心更近的节点', () => {
+    const hit = findVerticalDropTarget({ nodes, rect: shadow(52), nodeWidth })
+    expect(hit.node.id).toBe('B')
+  })
+
+  it('横向不相交时不命中', () => {
+    expect(findVerticalDropTarget({
+      nodes,
+      rect: { x: 400, y: 0, width: nodeWidth, height: 40 },
+      nodeWidth
+    })).toBeNull()
+  })
+
+  it('跳过被拖节点自己、引用节点与占位节点', () => {
+    const extra = [
+      { ...nodes[0], isRef: true },
+      { ...nodes[0], id: 'ph', isPlaceholder: true }
+    ]
+    expect(findVerticalDropTarget({ nodes: extra, rect: shadow(0), nodeWidth })).toBeNull()
+    expect(findVerticalDropTarget({ nodes, rect: shadow(0), nodeWidth, sourceId: 'A' })).toBeNull()
+  })
+
+  it('竖直重叠比例按节点高度计算', () => {
+    const tall = [{ id: 'T', x: 0, y: 0, height: 100 }]
+    // 影子只覆盖上半 40px：比例 0.4 < 0.5
+    const hit = findVerticalDropTarget({ nodes: tall, rect: { x: 0, y: 0, width: nodeWidth, height: 40 }, nodeWidth })
+    expect(hit.ratio).toBeCloseTo(0.4, 5)
+    expect(hit.inside).toBe(false)
   })
 })

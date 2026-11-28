@@ -132,3 +132,41 @@ export const findLeafEdgeTarget = ({
 
   return nearest
 }
+
+// 拖到节点上的命中：只看影子矩形与节点在**竖直方向**的重叠度（重叠高度 / 节点高度），
+// 不看面积或交并比。竖直重叠达到阈值即算「拖到该节点上」（成为它的子级）；
+// 不足阈值时由调用方按插到它前/后处理。横向仍要求有交集，避免跨列的节点被误命中。
+// 多个候选取竖直重叠最大者，重叠相同取纵向中心更近的。
+export const VERTICAL_DROP_RATIO = 0.5
+
+export const findVerticalDropTarget = ({
+  nodes,
+  rect,
+  nodeWidth,
+  sourceId = null,
+  threshold = VERTICAL_DROP_RATIO
+}) => {
+  let best = null
+  let bestRatio = 0
+  let bestDistance = Infinity
+
+  for (const node of nodes || []) {
+    if (node.isRef || node.isPlaceholder) continue
+    if (sourceId != null && String(node.id) === String(sourceId)) continue
+
+    const overlapX = Math.min(rect.x + rect.width, node.x + nodeWidth) - Math.max(rect.x, node.x)
+    if (overlapX <= 0) continue
+    const overlapY = Math.min(rect.y + rect.height, node.y + node.height) - Math.max(rect.y, node.y)
+    if (overlapY <= 0) continue
+
+    const ratio = overlapY / Math.max(node.height, 1)
+    const distance = Math.abs((rect.y + rect.height / 2) - (node.y + node.height / 2))
+    if (ratio < bestRatio || (ratio === bestRatio && distance >= bestDistance)) continue
+
+    best = node
+    bestRatio = ratio
+    bestDistance = distance
+  }
+
+  return best ? { node: best, ratio: bestRatio, inside: bestRatio >= threshold } : null
+}

@@ -384,7 +384,7 @@ import { persistedRef, readUiState, writeUiState } from '@/utils/uiState'
 import { detailPanelInset } from '@/utils/detailPanelContext'
 import { resolveEditRequest } from '@/utils/mindmapEdit'
 import { revealView } from '@/utils/mindmapView'
-import { childEdgeBand, findChildGapTarget, findLeafEdgeTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
+import { childEdgeBand, findChildGapTarget, findLeafEdgeTarget, findVerticalDropTarget, keepsOriginalOrder } from '@/utils/mindmapDrag'
 import { buildCoordinateGrid } from '@/utils/canvasGrid'
 import { toggleSelection } from '@/utils/taskSelection'
 import { deadlineChipClass, deadlineUrgency, formatDeadlineLabel, toDateTimeLocalValue } from '@/utils/deadline'
@@ -1044,6 +1044,8 @@ const dragState = reactive({
   childBand: null,
   // 虚节点占位高度与被拖节点一致，预览插入后的真实占地
   sourceHeight: 0,
+  // 源任务的全部父级：拖到其中任一节点上视为原地不动
+  parentIds: [],
   moved: false,
   fromToggle: false
 })
@@ -2325,13 +2327,6 @@ let lastPanEndAt = 0
 // 只有 inside 才算「拖进节点」，槽位落点由虚节点提示，目标父节点高亮
 const isDropInside = (node) => dragState.targetId === node.id && dragState.dropPosition === 'inside'
 
-// 指针在节点内的上半插到它之前，下半插到它之后；节点内不再有「拖进」区域。
-// 根节点没有兄弟序列，指针在它身上按回到顶层处理（由调用方转成拖进根任务）
-const dropPositionAt = (node, point) => {
-  const ratio = (point.y - node.y) / Math.max(node.height, 1)
-  return ratio < 0.5 ? 'before' : 'after'
-}
-
 // 拖拽中的源节点淡出，视线交给影子节点；拉线建链接时源节点保持原样。
 // 编辑中的节点不套完成态的变暗，否则输入时读不清文字
 const nodeOpacity = (node) => {
@@ -2381,15 +2376,6 @@ const linkTargetAtRect = (rect) => {
 // 点是否落在节点矩形内
 const insideNode = (node, point) => point.x >= node.x && point.x <= node.x + nodeWidth
   && point.y >= node.y && point.y <= node.y + node.height
-
-// 点落在哪个节点矩形里：被拖节点与引用/占位节点不参与
-const nodeAtPoint = (point) => {
-  for (const node of hitLayout.value.nodes) {
-    if (node.id === dragState.sourceId || node.isRef || node.isPlaceholder) continue
-    if (insideNode(node, point)) return node
-  }
-  return null
-}
 
 // 源节点在指定父级下的兄弟顺序（child_ids 顺序，引用节点不占位）；找不到父级返回 null
 const siblingIdsOf = (parentId) => {
@@ -2472,6 +2458,22 @@ const onToggleClick = (node) => {
   emit('create-task', { parentId: Number(node.id), afterId: null })
 }
 
+// 源任务在森林里的全部父级：真实节点的 parent_id 与各路引用节点的 parent_id 都算，
+// 多父任务拖到任一条父链的父节点上都视为原地不动
+const collectParentIds = (forest, sourceId) => {
+  const id = String(sourceId)
+  const ids = new Set()
+  const walk = (nodes) => {
+    for (const node of nodes) {
+      const matches = node.isRef ? String(node.targetId) === id : String(node.id) === id
+      if (matches && node.parent_id != null) ids.add(String(node.parent_id))
+      walk(node.children || [])
+    }
+  }
+  walk(forest || [])
+  return [...ids]
+}
+
 const startDrag = (event, sourceId, fromToggle) => {
   closeNodeMenu()
   hasInteracted = true
@@ -2489,6 +2491,7 @@ const startDrag = (event, sourceId, fromToggle) => {
   dragState.shadow = null
   dragState.childBand = null
   dragState.sourceHeight = source?.height ?? 0
+  dragState.parentIds = collectParentIds(props.nodes, sourceId)
   dragState.moved = false
   dragState.fromToggle = fromToggle
   // 不用 pointer capture：它会把 click 改派到画布，节点自身的选中与双击会失效
@@ -2547,37 +2550,41 @@ const updateDrag = (event) => {
     return
   }
 
-  // 中心在节点内：叶子节点（无子级、非根）整块命中它自己，落点语义是成为它的子级。
-  // 叶子没有子级列，如果只在边缘一小条命中，拖到节点上反而没反应，不符合直觉
-  const pointed = nodeAtPoint(center)
-  if (pointed) {
-    if (!pointed.isRoot && pointed.childCount === 0) {
-      dragState.childBand = { parentId: String(pointed.id), index: 0, beforeId: null, afterId: null }
-      dragState.targetId = String(pointed.id)
+  // 拖到节点上：按影子与节点的竖直重叠度判定，达到阈值即命中该节点（成为它的子级），
+  // 与面积/交并比无关。拖到自己的父节点上直接无操作，不预览也不提醒
+  const overlap = findVerticalDropTarget({
+    nodes: hitLayout.value.nodes,
+    rect: { x: dragState.shadow.x, y: dragState.shadow.y, width: nodeWidth, height: source.height },
+    nodeWidth,
+    sourceId: dragState.sourceId
+  })
+  if (overlap) {
+    const { node: target, inside } = overlap
+    if (inside) {
+      // 根节点不接受落点；拖到自己的任一父节点上等同于原地不动，静默无操作
+      if (target.isRoot || dragState.parentIds.includes(String(target.id))) {
+        dragState.childBand = null
+        dragState.targetId = null
+        dragState.dropPosition = 'inside'
+        return
+      }
+      dragState.childBand = null
+      dragState.targetId = target.id
       dragState.dropPosition = 'inside'
       return
     }
 
-    // 有子级的节点：上半/下半归它所在父级的兄弟槽位（插到它前/后），与子级空隙共用虚节点预览
-    const edgeBand = childEdgeBand(pointed, dropPositionAt(pointed, center))
-    if (edgeBand) {
-      const keeps = insertKeepsOrder(edgeBand, dragState.sourceId)
-      dragState.childBand = keeps ? null : edgeBand
-      dragState.targetId = keeps ? null : edgeBand.parentId
-      dragState.dropPosition = 'inside'
-      return
-    }
-
-    // 根节点与无父级的孤立节点没有兄弟序列，也不接受拖进：拖到它们身上没有落点。
-    // 回到顶层请拖到顶层任务之间（根任务的子级列）
-    dragState.childBand = null
-    dragState.targetId = null
+    // 竖直重叠不足阈值：算插到它前/后，按影子中心在它上半还是下半决定方向
+    const position = center.y < target.y + target.height / 2 ? 'before' : 'after'
+    const edgeBand = childEdgeBand(target, position)
+    const keeps = edgeBand ? insertKeepsOrder(edgeBand, dragState.sourceId) : false
+    dragState.childBand = keeps ? null : edgeBand
+    dragState.targetId = keeps ? null : (edgeBand?.parentId ?? null)
     dragState.dropPosition = 'inside'
     return
   }
 
-  // 中心在叶子节点出边区（右侧/左侧一小段）：命中该叶子，落点语义为成为它的子级。
-  // 叶子没有子级列，没有这块区域就无法把任务挂到它下面
+  // 中心在叶子节点出边区（右侧/左侧一小段）：命中该叶子，落点语义为成为它的子级
   const leaf = findLeafEdgeTarget({
     nodes: hitLayout.value.nodes,
     point: center,
