@@ -1,7 +1,8 @@
 // 任务图拖拽命中：把父级可见子级列里的空白也算作父节点的落点。
 // 供 MindMapWrapper 使用；输入是当前布局节点与指针点（宽度为 0 的矩形）。
 // 拖节点时落点只由指针决定：指针在节点内由调用方先判掉，这里只处理指针落在
-// 某个父级子级列范围内的空白（首子级上缘到末子级下缘之间），给出插入槽位（第 index 个可见子级之前）。
+// 某个父级子级列范围内的空白，给出插入槽位（第 index 个可见子级之前）。
+// 纵向范围是首子级上缘到末子级下缘，首/末外侧再放宽 padding，方便插到首/末位。
 // 命中规则说明见 docs/src/content/docs/dev/logic/graph-drag-hit.md
 
 const isRealNode = (node) => !node.isRef && !node.isPlaceholder
@@ -10,7 +11,8 @@ export const findChildGapTarget = ({
   nodes,
   rect,
   nodeWidth,
-  sourceId = null
+  sourceId = null,
+  padding = 0
 }) => {
   const childrenByParent = new Map()
   for (const node of nodes || []) {
@@ -21,6 +23,7 @@ export const findChildGapTarget = ({
   }
 
   const centerY = rect.y + rect.height / 2
+  const pad = Math.max(0, padding)
   let best = null
 
   for (const [parentId, children] of childrenByParent) {
@@ -30,8 +33,8 @@ export const findChildGapTarget = ({
     const sorted = [...children].sort((a, b) => a.y - b.y)
     const top = sorted[0].y
     const bottom = sorted[sorted.length - 1].y + sorted[sorted.length - 1].height
-    // 只认首子级上缘到末子级下缘这一段，子级列外侧不算落点
-    if (centerY < top || centerY > bottom) continue
+    // 首子级上缘到末子级下缘，首/末外侧再放宽一小段，方便插到首/末位
+    if (centerY < top - pad || centerY > bottom + pad) continue
 
     const columnLeft = Math.min(...sorted.map((child) => child.x))
     const columnRight = Math.max(...sorted.map((child) => child.x + nodeWidth))

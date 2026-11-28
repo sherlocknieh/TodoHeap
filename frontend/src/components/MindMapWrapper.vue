@@ -2592,7 +2592,8 @@ const updateDrag = (event) => {
     nodes: hitLayout.value.nodes,
     rect: { x: point.x, y: point.y, width: 0, height: 0 },
     nodeWidth,
-    sourceId: dragState.sourceId
+    sourceId: dragState.sourceId,
+    padding: linkHitPadding()
   })
   const keeps = band ? insertKeepsOrder(band, dragState.sourceId) : false
   dragState.childBand = keeps ? null : band

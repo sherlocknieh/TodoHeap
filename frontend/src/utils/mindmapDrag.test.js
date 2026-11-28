@@ -49,9 +49,24 @@ describe('findChildGapTarget', () => {
     })
   })
 
-  it('指针在子级列上下方之外时不命中', () => {
-    expect(findChildGapTarget({ nodes: layout, rect: at(300, -30), nodeWidth })).toBeNull()
-    expect(findChildGapTarget({ nodes: layout, rect: at(300, 200), nodeWidth })).toBeNull()
+  it('首/末子级外侧一小段内命中首/末位', () => {
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, -20), nodeWidth, padding: 24 })).toEqual({
+      parentId: '1',
+      index: 0,
+      beforeId: '1.1',
+      afterId: null
+    })
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, 130), nodeWidth, padding: 24 })).toEqual({
+      parentId: '1',
+      index: 2,
+      beforeId: null,
+      afterId: '1.2'
+    })
+  })
+
+  it('超出首/末子级外侧的接近范围时不命中', () => {
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, -30), nodeWidth, padding: 24 })).toBeNull()
+    expect(findChildGapTarget({ nodes: layout, rect: at(300, 200), nodeWidth, padding: 24 })).toBeNull()
   })
 
   it('指针与子级列横向不重叠时不命中', () => {
